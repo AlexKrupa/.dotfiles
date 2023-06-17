@@ -1,0 +1,143 @@
+# file location: ~/.brewfile
+# brew bundle --file=".brewfile"
+
+
+# set arguments for all 'brew cask install' commands
+cask_args appdir: '/Applications', no_quarantine: true
+
+# java_present = system('/usr/libexec/java_home --failfast')
+is_arm = Hardware::CPU.arm?   # TODO: All lines that are based on this condition are currently not working for ARM architecture - and thus this check
+
+
+tap "homebrew/bundle"
+tap "homebrew/cask-fonts"
+
+tap "buo/cask-upgrade"  # better cask upgrading (see `cu`)
+
+# CLI tools
+brew "bash"
+brew "bat" # cat alternative with syntax highlighting
+brew "chezmoi" # dotfiles management
+brew "coreutils" # for gnu date
+brew "curl"
+brew "exiftool" # read/write metadata
+brew "fd" # find alternative
+brew "ffmpeg" # video converter / compressor
+brew "fzf" # fuzzy finder
+brew "gnupg" # "openssl"
+brew "grc" # command output colorizer
+brew "gum" # easy CLI tools
+brew "httpie" # HTTP client, curl alternative
+brew "htop" # system monitor
+brew "imagemagick" # image converter / compressor
+brew "neofetch" # system info
+brew "neovim"
+brew "node"
+brew "openssl"
+brew "renameutils"  # bulk renaming / copying
+brew "ripgrep" # grep alternative
+brew "terminal-notifier"
+brew "tldr" # docs, manpages alternative
+brew "yt-dlp" # YouTube downloader
+
+# development ## general
+brew "git"
+brew "git-delta" # git diff viewer
+brew "git-lfs" # git large file storage
+brew "gh"
+brew "github-keygen"
+tap "magus/git-stack"
+cask "git-stack"
+
+# Tmux
+brew "tmux" 
+# brew "tpm" # tmux plugin manager
+
+# development / android (zulu)
+tap "mdogan/zulu"
+cask "zulu-jdk11"
+cask "zulu-jdk17"
+brew "kotlin"
+brew "gradle"
+brew "scrcpy" # screen mirroring
+brew "adb-enhanced" # adb with more features
+cask "android-platform-tools" # adb, fastboot
+
+# development ## .rb
+# brew "asdf"
+# brew "ruby-build"
+brew "rbenv"
+# brew "ruby-install"
+
+# development ## .py
+brew "pyenv"
+# brew "pyenv-virtualenv"
+# brew "python-tabulate"
+brew "python@3.10"
+
+# Mac apps
+cask "1password"
+cask "1password-cli" # required for Raycast/Alfred integration
+cask "alt-tab" # alt-tab replacement
+cask "appcleaner" # app uninstaller
+cask "betterdisplay"   # display manager
+cask "bettertouchtool"
+cask "calibre" # ebook manager
+cask "handbrake" # video converter / compressor
+cask "hiddenbar" # hide menu bar icons
+cask "google-drive"
+# cask "google-chrome" # browser
+cask "grandperspective" # disk space visualizer
+# cask "firefox" # browser
+cask "iina" # video player
+cask "imageoptim" # image compressor
+cask "iterm2" # terminal
+cask "jetbrains-toolbox" # JetBrains IDEs
+cask "latest" # update all apps
+cask "linearmouse" # mouse acceleration fix
+cask "marta" # file manager
+cask "microsoft-edge" # browser
+cask "mitmproxy" # for debugging network requests
+cask "mullvadvpn"
+cask "notunes" # disable iTunes on media button press
+cask "obsidian" # note taking, Markdown
+cask "omnidisksweeper" # disk space visualizer and cleaner
+# cask "onyx" # system maintenance
+# cask "postman" # API client
+# cask "proxyman" # for debugging network requests
+# cask "qbittorrent" # torrent client
+# cask "c0re100-qbittorrent" # torrent client, fork with more features (IP blocking)
+cask "rapidapi" # API client (Postman alternative)
+cask "raycast" # productivity tool, Spotlight replacement
+cask "shottr" # screenshot tool
+cask "slack"
+cask "spotify"
+cask "sublime-text" # text editor
+cask "table-tool" # CSV editor
+cask "the-unarchiver" # unzip
+cask "via" # keyboard configurator (e.g. Keychron)
+cask "visual-studio-code"
+
+# fonts
+cask "font-hack"
+cask "font-hack-nerd-font"
+cask "font-jetbrains-mono"
+cask "font-jetbrains-mono-nerd-font"
+cask "font-sf-mono"
+
+# Karabiner / Goku
+cask "karabiner-elements"
+tap "candid82/brew"
+tap "yqrashawn/goku" 
+brew "yqrashawn/goku/goku" # Karabiner config manager
+
+##################
+# Helpful commands
+##################
+
+# https://gist.github.com/ChristopherA/a579274536aab36ea9966f301ff14f3f
+
+# track transitive dependencies
+# brew deps --tree --installed asdf
+
+# see ~/.brew.sh for more commands

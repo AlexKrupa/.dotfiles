@@ -1,0 +1,116 @@
+"source $VIMRUNTIME/defaults.vim
+
+set shell=/bin/zsh
+
+#Use fzf in Vim
+set rtp+=/opt/homebrew/opt/fzf
+
+syntax on
+filetype on
+filetype plugin on
+filetype indent on
+
+"Map leader to symbol (default is \ backslash)
+let mapleader=" "
+
+set nocp
+set clipboard=unnamed
+
+"Block cursor
+"set guicursor=""
+
+set relativenumber
+set number
+
+set incsearch
+set hlsearch
+"Clear highlight on ESC
+nnoremap <esc> :noh<CR><esc>
+
+set shiftwidth=2
+set tabstop=2
+set softtabstop=2
+set expandtab
+set smartindent
+set nowrap
+
+set signcolumn=no
+
+set nobackup
+
+set ignorecase
+set smartcase
+set showmode
+set showmatch
+
+set scrolloff=8
+set history=1000
+
+set termguicolors
+
+set updatetime=750
+
+" automatically leave insert mode after 'updatetime' milliseconds of inaction
+au CursorHoldI * stopinsert
+
+" set 'updatetime' to 10 seconds when in insert mode
+au InsertEnter * let updaterestore=&updatetime | set updatetime=10000
+au InsertLeave * let &updatetime=updaterestore
+
+"Unbind arrow keys to learn HJKL
+noremap <left> <nop>
+noremap <right> <nop>
+noremap <up> <nop>
+noremap <down> <nop>
+
+"Map CTRL-c to ESC
+map <C-c> <Esc>
+
+"Map Ctrl+Enter/Ctrl+Shift+Enter (down/up) to new line in normal mode
+nmap <A-o> o<Esc>k
+nmap <A-S-o> O<Esc>j
+"nmap oo o<Esc>k
+"nmap OO O<Esc>j
+
+"Allow moving lines with Alt+J/Alt+K
+"https://stackoverflow.com/questions/7501092/can-i-map-alt-key-in-vim
+"down: ∆
+"up: Ż
+nnoremap <A-S-j> :m .+1<CR>==
+nnoremap <A-S-k> :m .-2<CR>==
+
+inoremap <A-S-j> <Esc>:m .+1<CR>==gi
+inoremap <A-S-k> <Esc>:m .-2<CR>==gi
+
+vnoremap <A-S-j> :m '>+1<CR>gv=gv
+vnoremap <A-S-k> :m '<-2<CR>gv=gv
+
+"Keep cursor in place when joining lines with Shift-J
+"nnoremap <S-j> mzJ`z
+
+"Keep cursor in the middle when jumping with Ctrl+D/Ctrl+U
+nnoremap <C-d> <C-d>zz
+nnoremap <C-u> <C-u>zz
+
+"Keep search terms in the middle
+nnoremap n nzzzv
+nnoremap N Nzzzv
+
+"Preserve register when pasting with <leader>p
+xnoremap <leader>p [[\"_dP]]
+
+nnoremap Q <nop>
+
+"Replace word under cursor with <leader>s, doesn't work in IdeaVim
+"nnoremap <leader>s :%s/<c-r><c-w>/<c-r><c-w>/gI<Left><Left><Left>
+
+"edit .vimrc with \e, reload with \r
+nnoremap \e :e ~/.vimrc<CR>
+nnoremap \r :source ~/.vimrc<CR>
+
+if $TERM_PROGRAM =~ "iTerm"
+  set guicursor=i:ver25-iCursor
+  let &t_SI = "\<Esc>]50;CursorShape=1\x7"
+  let &t_SR = "\<Esc>]50;CursorShape=2\x7"
+  let &t_EI = "\<Esc>]50;CursorShape=0\x7"
+endif

@@ -1,0 +1,197 @@
+source ~/.vimrc
+
+"IdeaVim
+"https://github.com/JetBrains/ideavim/blob/master/doc/set-commands.md
+"https://towardsdatascience.com/the-essential-ideavim-remaps-291d4cd3971b
+
+"Syntax for binding IDE actions.
+"<Action>(CommandName)
+":action CommandName<CR>
+"Both are valid approaches, but <Action> is more readable.
+"However, it doesn't work for with `nore` commands, so use :action in those cases.
+"List of action ids: https://gist.github.com/zchee/9c78f91cc5ad771c1f5d
+
+"enable using the system clipboard from IdeaVim and vice-versa
+set clipboard+=unnamed
+set clipboard+=ideaput
+
+"edit .ideavimrc with \i, reload with \r
+nnoremap \i :e ~/.ideavimrc<CR>
+"nnoremap \r :source ~/.ideavimrc<CR>
+nnoremap \r :action IdeaVim.ReloadVimRc.reload<CR>
+
+"https://github.com/JetBrains/ideavim/blob/ae1ad9fd2e756063e3d768f5bd74e65de889b7e9/doc/ideajoin-examples.md
+"J (shift-j)
+set ideajoin
+set idearefactormode=keep
+set ideastatusicon=disabled
+
+set visualbell
+
+"Which-Key plugin setup (available keybindings in popup)
+"Plugin is broken before IdeaVim 2.8.0
+set which-key
+set notimeout
+"set timeoutlen=5000
+
+Plug 'tpope/vim-commentary'
+Plug 'tpope/vim-surround'
+
+Plug 'preservim/nerdtree'
+let g:NERDTreeMapPreview = 'O'
+
+set multicursor
+Plug 'terryma/vim-multiple-cursors'
+Plug 'tommcdo/vim-exchange'
+Plug 'machakann/vim-highlightedyank'
+Plug 'dbakker/vim-paragraph-motion'
+Plug 'vim-scripts/ReplaceWithRegister'
+Plug 'kana/vim-textobj-entire'
+
+set sneak
+let g:sneak#label = 1
+"nnoremap s <Plug>Sneak_s
+"nnoremap S <Plug>Sneak_S
+"Unfortunately these don't work in IdeaVim: https://github.com/Mishkun/ideavim-sneak/issues/28
+"map f <Plug>Sneak_f
+"map F <Plug>Sneak_F
+"map t <Plug>Sneak_t
+"map T <Plug>Sneak_T
+
+"Must be after vim-sneak
+"set quickscope
+"Highlight only on key press
+"let g:qs_highlight_on_keys = ['f', 'F', 't', 'T']
+
+Plug 'vim-scripts/argtextobj.vim'
+"select items in a list or generic class definition in Java/Kotlin
+let g:argtextobj_pairs="[:],(:),<:>"
+
+"Plug 'easymotion/vim-easymotion'
+"map <Leader> <Plug>(easymotion-prefix)
+
+"My mappings
+
+"Idea smart-select (expanding selection)
+nmap <A-j> <Action>(EditorUnSelectWord)
+nmap <A-k> <Action>(EditorSelectWord)
+vmap <A-j> <Action>(EditorUnSelectWord)
+vmap <A-k> <Action>(EditorSelectWord)
+
+map <leader>q <Action>(Stop)
+map <leader>z <Action>(ToggleDistractionFreeMode)
+
+map <leader>r <Action>(RenameElement)
+map <leader>m <Action>(MoveElement)
+map <leader>t <Action>(Refactorings.QuickListPopupAction)
+map <leader>v <Action>(Vcs.QuickListPopupAction)
+map <leader>b <Action>(ToggleLineBreakpoint)
+nmap <leader>c <Action>(CallHierarchy)
+" Highlight usages, use CMD+G/Shift+CMD+G to iterate
+nmap <leader>h <Action>(HighlightUsagesInFile)
+nmap <leader>q <Action>(ToggleRenderedDocPresentation)
+nmap <leader>s <Action>(ShowUsages)
+nmap <leader>t <Action>(TypeHierarchy)
+nmap <leader>u <Action>(FindUsages)
+nmap <leader>x <Action>(HideAllWindows)
+map <leader>f <Action>(FileStructurePopup)
+map <leader>a <Action>(Annotate)
+nnoremap <leader>= :action ReformatCode<CR>
+nnoremap <leader>o :action OptimizeImports<CR>
+
+"map <leader>j <Action>(EditorJoinLines)
+
+nnoremap <c-\> :action SplitVertically<CR>
+nnoremap <c--> :action SplitHorizontally<CR>
+nnoremap <c-=> :action Unsplit<CR>
+
+"Move between blocks
+map <C-j> }
+map <C-k> {
+
+"Don't yank x to default register
+nnoremap x \"_x
+vnoremap x \"_x
+
+"Don't yank d to register if prefixed by leader
+nnoremap <leader>d \"_d
+vnoremap <leader>d \"_d
+
+"Don't yank selected to register if pasting prefixed by leader
+vnoremap <leader>p \"_dP
+
+"Reformat the current line only
+"map <leader>l V<Action>(ReformatCode)
+
+"Remove prefix
+"Go to start of word, toggle case and start typing. E.g. `<leader>iget`: `property` -> `getProperty`
+map <leader>i wb~hi
+
+"Add prefix
+"Remove selection and toggle case. E.g. `v2l<leader>u`: `getProperty` -> `property`
+vmap <leader>u d~h
+
+"Redo with U
+map U <C-R>
+
+nmap [[ <Action>(MethodUp)
+nmap ]] <Action>(MethodDown)
+
+
+nmap ge <Action>(GotoNextError)
+nmap gy <Action>(ShowErrorDescription)
+nmap gi <Action>(ShowIntentionActions)
+nmap gb <Action>(Back)
+nmap gf <Action>(Forward)
+nmap gd <Action>(GotoDeclaration)
+nmap gD <Action>(GotoTypeDeclaration)
+nmap gl <Action>(QuickJavaDoc)
+nmap gL <Action>(QuickImplementations)
+
+" nnoremap zc <Action>(CollapseRegion)
+nnoremap zc :action CollapseRegion<CR>
+nnoremap zo :action ExpandRegion<CR>
+nnoremap <leader>zc :action CollapseAllRegions<CR>
+nnoremap <leader>zo :action ExpandAllRegions<CR>
+
+" Harpoon
+nmap <leader>hm :action HarpoonerQuickMenu<cr>
+nmap <leader>ha :action HarpoonerAddFile<cr>
+"nmap <M-b> :action HarpoonerOpenFile0<cr>
+"nmap <M-n> :action HarpoonerOpenFile1<cr>
+nmap <M-m> :action HarpoonerOpenFile0<cr>
+nmap <M-,> :action HarpoonerOpenFile1<cr>
+nmap <M-.> :action HarpoonerOpenFile2<cr>
+nmap <M-/> :action HarpoonerOpenFile3<cr>
+" nmap <M-6> :action HarpoonerOpenFile6<cr>
+" nmap <M-7> :action HarpoonerOpenFile7<cr>
+" nmap <M-8> :action HarpoonerOpenFile8<cr>
+" nmap <M-9> :action HarpoonerOpenFile9<cr>
+
+"Invert
+function! Invert(calledFromVisual)
+  let antonyms = ['true', 'false', 'after', 'before', 'start', 'end', 'left', 'right', 'bottom', 'top', 'first', 'last', 'enable', 'disable', 'enabled', 'disabled', 'valid', 'invalid', 'on', 'off', 'up', 'down',
+                 \'True', 'False', 'After', 'Before', 'Start', 'End', 'Left', 'Right', 'Bottom', 'Top', 'First', 'Last', 'Enable', 'Disable', 'Enabled', 'Disabled', 'Valid', 'Invalid', 'On', 'Off', 'Up', 'Down',
+                 \'==', '!=', '===', '!==']
+
+  if a:calledFromVisual
+    normal gv"wy
+  else
+    normal "wyiw
+  endif
+  let wordUnderCaret = @w
+
+  let eraseWord = a:calledFromVisual ? 'gvc' : 'ciw'
+  let count = 0
+  while (count < len(antonyms))
+    if (antonyms[count] ==# wordUnderCaret)
+      let antonym = (count % 2 ==? 0) ? antonyms[count + 1] : antonyms[count - 1]
+      execute 'normal ' .. eraseWord .. antonym
+      break
+    endif
+    let count += 1
+  endwhile
+endfunction
+
+nnoremap ! :call Invert(0)<CR>
+vnoremap ! :<C-u>call Invert(1)<CR>

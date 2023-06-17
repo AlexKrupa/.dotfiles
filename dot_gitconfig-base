@@ -1,0 +1,123 @@
+#https://jvns.ca/blog/2024/02/16/popular-git-config-options/
+
+[core]
+  autocrlf = input
+  fsmonitor = true
+  pager = delta
+[init]
+  defaultBranch = main
+[credential]
+  helper = osxkeychain
+[filter "lfs"]
+  clean = git-lfs clean -- %f
+  smudge = git-lfs smudge -- %f
+  process = git-lfs filter-process
+  required = true
+[advice]
+  # https://stackoverflow.com/a/55465744/3001432
+  # statusHints = false
+[format]
+    #pretty = format:%h %Cblue%ar%Creset %aN %Cgreen%s%Creset
+[log]
+  date = iso
+[branch]
+  # Sort by most recently used instead of alphabetical.
+  sort = committerdate
+[rebase]
+  # Makes it much easier to rebase multiple stacked branches at a time.
+  updateRfs = true
+  instructionFormat =    %ar    %aE    %s
+[rerere]
+  # This enables rerere (”reuse recovered resolution”), which remembers how you resolved merge conflicts during a git rebase and automatically resolves conflicts for you when it can.
+  enabled = true
+[merge]
+  conflictstyle = zdiff3
+[pull]
+  # This automatically runs git stash before a git rebase and git stash pop after. It basically passes --autostash to git rebase.
+  autostash = true
+  autosquash = true
+  rebase = true
+[push]
+  # Always push the local branch to a remote branch with the same name.
+  default = current
+  autoSetupRemote = true
+[commit]
+  # template = ~/.git-commit-template.txt
+  # This adds the whole commit diff in the text editor where you’re writing your commit message, to help you remember what you were doing.
+  verbose = true
+[tag]
+  sort = -committerdate
+[include]
+  #path = ~/.gitalias
+[interactive]
+  diffFilter = delta --color-only
+[delta]
+  navigate = true    # use n and N to move between diff sections
+  light = false      # set to true if you're in a terminal w/ a light background color (e.g. the default macOS terminal)
+  line-numbers = true
+  features = dracula
+[diff]
+  colorMoved = default
+  colormovedws = "allow-indentation-change"
+  tool = difftastic
+[difftool]
+  prompt = false
+[difftool "difftastic"]
+  cmd = difft "$LOCAL" "$REMOTE"
+[pager]
+  difftool = true
+[help]
+  autocorrect = prompt
+[absorb] # https://github.com/tummychow/git-absorb
+  maxStack=50
+[alias]
+  abs = !(git add . && git absorb --force)
+  c = commit -am
+  ca = !(git add . && git commit --amend)
+  canv = !(git add . && git commit --amend --no-verify)
+  cane = !(git add . && git commit --amend --no-edit)
+  canenv = !(git add . && git commit --amend --no-edit --no-verify)
+  cb = checkout -b
+  cbf = !(git for-each-ref --format='%(refname:short)' --sort=-committerdate refs/heads | fzf --preview \"git show {}\"| xargs git checkout)
+  cf = "!f() { !(git add . && git commit --fixup $1) }; f"
+  cleanup = !(git po && git dm)
+  co = checkout
+  cob="!f() { !(git refb @{-$1}) }; f"
+  code-changes = !(git log --format=format: --name-only | egrep -v '^$' | sort | uniq -c | sort -rg | head -50)
+  cp = cherry-pick
+  cpa = cherry-pick --abort
+  cpc = !(git add . && git cherry-pick --continue --no-edit)
+  ctf = !(git tag | fzf --preview \"git show {}\"| xargs git checkout)
+  dm = !git branch --merged | grep -v '*' | xargs -n 1 git branch -d
+  fpush = push --force
+  hist = log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all
+  hreset = reset --hard
+  hundo = reset --hard head^ 
+  skip = update-index --skip-worktree
+  unskip = update-index --no-skip-worktree
+  skipped = !(git ls-files -v | grep '^S')
+  lg = log --graph --no-merges --pretty=format:'%h %<(14)%Cblue%ar%Creset %<(14,trunc)%aN %Cgreen%s%Creset %C(auto)%d%Creset'
+  main = checkout main
+  master = checkout master
+  ma = merge --abort
+  mc = merge --continue --no-edit
+  po = remote prune origin
+  pom = pull origin main --no-edit
+  pomr = pull origin main --autostash --rebase
+  pras = pull --rebase --autostash
+  ra = rebase --abort
+  rbob = "!f() { git rebase --onto $1 $1@{1} $2; }; f"
+  rboc = "!f() { git rbob $(git rev-parse --abbrev-ref HEAD) $1; }; f"
+  rc = !(git add . && git rebase --continue)
+  rcob = "!f() { git rbob $1 $(git rev-parse --abbrev-ref HEAD); }; f"
+  refb="!f() { !(git reflog | egrep -io \"moving from ([^[:space:]]+)\" | awk '{ print NR \" - \" $3 }' | head -n 5) }; f"
+  ri = rebase -i
+  rias = rebase -i --autosquash
+  riasom = rebase -i --autosquash origin/main
+  rs = rebase --skip
+  sreset = reset --soft
+  sundo = reset --soft head^
+  unstage = restore --staged
+  wip   =  !"wip()  { git add .; git commit -a -m '--wip-- [ci skip]' --no-verify; }; wip"     # basically an immediate commit that u want in you reflog
+  wipr  =  !"wipr() { git reset --soft HEAD~; git reset ; }; wipr"   # undo last commit (works well with gwip) - watch out though
+  workon = "!f(){ git fetch && git checkout -b \"$1\" $(git symbolic-ref refs/remotes/origin/HEAD | sed \"s@^refs/remotes/@@\"); };f"
