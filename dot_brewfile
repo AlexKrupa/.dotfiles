@@ -30,6 +30,7 @@ brew "gum" # easy CLI tools
 brew "httpie" # HTTP client, curl alternative
 brew "htop" # system monitor
 brew "imagemagick" # image converter / compressor
+brew "lsd" # better ls
 brew "neofetch" # system info
 brew "neovim"
 brew "node"

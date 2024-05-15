@@ -25,7 +25,7 @@
   sort = committerdate
 [rebase]
   # Makes it much easier to rebase multiple stacked branches at a time.
-  updateRfs = true
+  updateRefs = true
   instructionFormat =    %ar    %aE    %s
 [rerere]
   # This enables rerere (”reuse recovered resolution”), which remembers how you resolved merge conflicts during a git rebase and automatically resolves conflicts for you when it can.
