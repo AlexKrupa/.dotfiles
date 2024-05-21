@@ -150,7 +150,7 @@ function andu
     adb shell pm list packages | grep $package | sed -e s/package:// | xargs -L1 adb uninstall
 end
 
-# Set connected ADB device DPI to passed value.
+# Set connected ADB device DPI to passed value (e.g. 420).
 function dpi
     set -fx ANDROID_SERIAL (select-adb-device)
     if test -z "$ANDROID_SERIAL"
@@ -160,6 +160,25 @@ function dpi
     echo Setting DPI to $argv on $ANDROID_SERIAL
 
     adb shell wm density $argv
+end
+
+# Set connected ADB device font scale to passed value (e.g. 1.2).
+function font-scale
+    set -fx ANDROID_SERIAL (select-adb-device)
+    if test -z "$ANDROID_SERIAL"
+        return
+    end
+
+    set scale $argv
+
+    if test -z $scale
+        adb shell settings get system font_scale
+        return
+    end
+      
+    echo Setting DPI to $argv on $ANDROID_SERIAL
+
+    adb shell settings put system font_scale $scale
 end
 
 # Set connected ADB device screen size to passed value (e.g. 1080x1920).

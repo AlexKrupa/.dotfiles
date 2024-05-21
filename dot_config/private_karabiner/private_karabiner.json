@@ -218,6 +218,7 @@
                         "manipulators": [
                             {
                                 "description": "Right Shift -> Backspace",
+                                "disable": true,
                                 "from": {
                                     "key_code": "right_shift",
                                     "modifiers": {
