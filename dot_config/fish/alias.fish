@@ -1,8 +1,10 @@
 # Configs
 alias fisha "$EDITOR ~/.config/fish/alias.fish"
 alias fishc "$EDITOR ~/.config/fish/config.fish"
-alias fishe "$EDITOR ~/.config/fish/env.fish"
 alias fishr "source ~/.config/fish/config.fish"
+alias fishl "$EDITOR ~/.config/fish/local.fish"
+alias fishrl "source ~/.config/fish/local.fish"
+alias fishe "$EDITOR ~/.config/fish/env.fish"
 alias gitc "$EDITOR ~/.gitconfig-base"
 alias gradlep "$EDITOR ~/.gradle/gradle.properties"
 alias gradlei "$EDITOR ~/.gradle/init.gradle"
@@ -15,6 +17,7 @@ alias tmuxr "tmux source-file ~/.tmux.conf"
 function lk
     set loc (walk $argv); and cd $loc
 end
+
 
 # Run a command in a new tmux pane.
 function tmux-split
@@ -122,7 +125,11 @@ function andi
         if test -n "$apk_path"
             # Force install the APK using adb
             echo "Force-installing APK with adb: $apk_path"
-            adb install -r -d $apk_path
+
+            # -d  allow downgrade
+            # -r  
+            # --no-streaming  workaround for Streamed install getting stuck
+            adb install -r -d --no-streaming $apk_path
             if test $status -eq 0
                 echo "App successfully installed."
                 adb shell am start -n $package/$activity

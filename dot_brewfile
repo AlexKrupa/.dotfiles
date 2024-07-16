@@ -84,6 +84,7 @@ cask "appcleaner" # app uninstaller
 cask "betterdisplay"   # display manager
 cask "bettertouchtool"
 cask "calibre" # ebook manager
+cask "free-ruler" # screen ruler for measuring pixel distances
 cask "handbrake" # video converter / compressor
 cask "hiddenbar" # hide menu bar icons
 cask "google-drive"
@@ -94,6 +95,7 @@ cask "iina" # video player
 cask "imageoptim" # image compressor
 cask "iterm2" # terminal
 cask "jetbrains-toolbox" # JetBrains IDEs
+cask "keyboardcleantool" # disable keyboard for cleaning
 cask "latest" # update all apps
 cask "linearmouse" # mouse acceleration fix
 cask "marta" # file manager
@@ -108,15 +110,15 @@ cask "omnidisksweeper" # disk space visualizer and cleaner
 # cask "proxyman" # for debugging network requests
 # cask "qbittorrent" # torrent client
 # cask "c0re100-qbittorrent" # torrent client, fork with more features (IP blocking)
-cask "rapidapi" # API client (Postman alternative)
+# cask "rapidapi" # API client (Postman alternative)
 cask "raycast" # productivity tool, Spotlight replacement
 cask "shottr" # screenshot tool
 cask "slack"
 cask "spotify"
 cask "sublime-text" # text editor
-cask "table-tool" # CSV editor
+# cask "table-tool" # CSV editor
 cask "the-unarchiver" # unzip
-cask "via" # keyboard configurator (e.g. Keychron)
+# cask "via" # keyboard configurator (e.g. Keychron)
 cask "visual-studio-code"
 
 # fonts
