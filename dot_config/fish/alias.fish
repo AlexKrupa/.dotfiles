@@ -48,6 +48,11 @@ alias tms tmux-split
 ## Android                                                                     
 ################################################################################
 
+alias adb-slow-enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
+alias adb-slow-disable "adb shell settings put global ingress_rate_limit_bytes_per_second -1"
+alias adb-settings "adb shell am start -n com.android.settings/.Settings"
+alias adb-settings-dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
+
 function as --description "Open Android Studio"
     # set dir $PWD
     # cd
