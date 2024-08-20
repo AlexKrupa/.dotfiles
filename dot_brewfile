@@ -20,6 +20,8 @@ brew "bat" # cat alternative with syntax highlighting
 brew "chezmoi" # dotfiles management
 brew "coreutils" # for gnu date
 brew "curl"
+brew "duf" # disk usage/free utility, df alternative
+brew "dust" # disk usage utility, du alternative
 brew "exiftool" # read/write metadata
 brew "fd" # find alternative
 brew "ffmpeg" # video converter / compressor
@@ -92,6 +94,7 @@ cask "google-drive"
 cask "grandperspective" # disk space visualizer
 # cask "firefox" # browser
 cask "iina" # video player
+# cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 cask "imageoptim" # image compressor
 cask "iterm2" # terminal
 cask "jetbrains-toolbox" # JetBrains IDEs
@@ -101,9 +104,9 @@ cask "linearmouse" # mouse acceleration fix
 cask "marta" # file manager
 cask "microsoft-edge" # browser
 cask "mitmproxy" # for debugging network requests
-cask "mullvadvpn"
+# cask "mullvadvpn"
 cask "notunes" # disable iTunes on media button press
-cask "obsidian" # note taking, Markdown
+# cask "obsidian" # note taking, Markdown
 cask "omnidisksweeper" # disk space visualizer and cleaner
 # cask "onyx" # system maintenance
 # cask "postman" # API client

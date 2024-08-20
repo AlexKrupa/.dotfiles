@@ -10,6 +10,5 @@ java17 # default Java version
 starship init fish | source
 fish_vi_key_bindings # Vim mode, fish_default_key_bindings for default
 fzf_configure_bindings
-# fzf --fish | source
 
 export PATH="$PATH:$HOME/.local/bin"

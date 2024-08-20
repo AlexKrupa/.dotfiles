@@ -12,6 +12,7 @@ alias nvimc "$EDITOR ~/.config/nvim/init.lua"
 alias tmuxc "$EDITOR ~/.tmux.conf"
 alias tmuxr "tmux source-file ~/.tmux.conf"
 
+alias ls "eza"
 
 # walk file manager
 function lk
