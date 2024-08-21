@@ -25,6 +25,7 @@ brew "dust" # disk usage utility, du alternative
 brew "exiftool" # read/write metadata
 brew "fd" # find alternative
 brew "ffmpeg" # video converter / compressor
+brew "fx" # JSON viewer / processor
 brew "fzf" # fuzzy finder
 brew "gnupg" # "openssl"
 brew "grc" # command output colorizer
@@ -32,6 +33,7 @@ brew "gum" # easy CLI tools
 brew "httpie" # HTTP client, curl alternative
 brew "htop" # system monitor
 brew "imagemagick" # image converter / compressor
+brew "jless" # JSON viewer
 brew "lsd" # better ls
 brew "neofetch" # system info
 brew "neovim"
@@ -123,6 +125,7 @@ cask "sublime-text" # text editor
 cask "the-unarchiver" # unzip
 # cask "via" # keyboard configurator (e.g. Keychron)
 cask "visual-studio-code"
+cask "wezterm" # terminal emulator
 
 # fonts
 cask "font-hack"
