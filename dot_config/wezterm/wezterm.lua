@@ -1,14 +1,9 @@
--- Pull in the wezterm API
 local wezterm = require("wezterm")
 
--- This will hold the configuration.
 local config = wezterm.config_builder()
 
--- This is where you actually apply your config choices
+config.default_prog = { "tmux", "new-session", "-A", "-s", "main" }
 
--- config.default_prog = { 'tmux', 'new-session', '-A', '-s', 'main' }
-
--- For example, changing the color scheme:
 config.color_scheme = "Dracula (Official)"
 
 config.font = wezterm.font("Hack Nerd Font")
@@ -38,5 +33,4 @@ config.window_padding = {
 config.send_composed_key_when_left_alt_is_pressed = false -- Left Option as Alt (for modifiers)
 config.send_composed_key_when_right_alt_is_pressed = true -- Right Option as Option (for diacritics)
 
--- and finally, return the configuration to wezterm
 return config
