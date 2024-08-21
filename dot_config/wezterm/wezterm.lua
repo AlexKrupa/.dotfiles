@@ -13,6 +13,7 @@ config.color_scheme = "Dracula (Official)"
 
 config.font = wezterm.font("Hack Nerd Font")
 config.font_size = 15
+config.line_height = 1.1
 
 config.inactive_pane_hsb = {
 	saturation = 0.9,
@@ -25,7 +26,7 @@ config.use_fancy_tab_bar = false
 
 config.window_decorations = "RESIZE"
 
-config.enable_scroll_bar = true
+config.enable_scroll_bar = false -- doesn't work with tmux
 config.window_padding = {
 	left = "1cell",
 	right = "1cell",

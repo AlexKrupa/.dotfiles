@@ -11,6 +11,7 @@ alias gradlei "$EDITOR ~/.gradle/init.gradle"
 alias nvimc "$EDITOR ~/.config/nvim/init.lua"
 alias tmuxc "$EDITOR ~/.tmux.conf"
 alias tmuxr "tmux source-file ~/.tmux.conf"
+alias weztermc "$EDITOR ~/.config/wezterm/wezterm.lua"
 
 alias ls "eza"
 
