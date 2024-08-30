@@ -2,7 +2,7 @@ local wezterm = require("wezterm")
 
 local config = wezterm.config_builder()
 
-config.default_prog = { "tmux", "new-session", "-A", "-s", "main" }
+-- config.default_prog = { "tmux", "new-session", "-A", "-s", "main" }
 
 config.color_scheme = "Dracula (Official)"
 
