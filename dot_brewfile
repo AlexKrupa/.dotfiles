@@ -45,6 +45,10 @@ brew "terminal-notifier"
 brew "tldr" # docs, manpages alternative
 brew "yt-dlp" # YouTube downloader
 
+brew "yazi" # file manager
+brew "ffmpegthumbnailer" # video file preview in yazi
+brew "poppler" # pdf preview in yazi
+
 # development ## general
 brew "git"
 brew "git-delta" # git diff viewer
