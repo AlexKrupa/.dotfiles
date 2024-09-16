@@ -44,3 +44,6 @@ set -x GEM_HOME $HOME/.gem
 status --is-interactive; and source (rbenv init -|psub) # rbenv
 
 set -x RUBY_CONFIGURE_OPTS "--with-openssl-dir='(brew --prefix openssl@1.1)'"
+
+# Rust
+fish_add_path ~/.cargo/bin
