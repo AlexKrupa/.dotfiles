@@ -41,10 +41,10 @@ brew "node"
 brew "openssl"
 brew "renameutils"  # bulk renaming / copying
 brew "ripgrep" # grep alternative
+brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
 brew "terminal-notifier"
 brew "tldr" # docs, manpages alternative
 brew "yt-dlp" # YouTube downloader
-
 brew "yazi" # file manager
 brew "ffmpegthumbnailer" # video file preview in yazi
 brew "poppler" # pdf preview in yazi
