@@ -1,2 +1,15 @@
 gui:
-  nerdFontsVersion: "3"
+  nerdFontsVersion: "3" # default: "" (disabled)
+  border: "single" # default: "rounded"
+
+git:
+  paging:
+    pager: "delta --dark --paging=never"
+  mainBranches:
+    - master
+    - main
+    - trunk
+  parseEmoji: true
+
+os:
+  edit: "nvim {{filename}}"
