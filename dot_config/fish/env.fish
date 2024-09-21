@@ -2,6 +2,9 @@
 set -gx VISUAL nvim
 set -gx EDITOR $VISUAL
 
+# lazygit: change default config directory
+set -gx XDG_CONFIG_HOME $HOME/.config
+
 # Android
 set -gx JAVA_HOME (/usr/libexec/java_home)
 set -gx ANDROID_HOME $HOME/Library/Android/sdk
