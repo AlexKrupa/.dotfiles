@@ -395,7 +395,6 @@ alias dl "cd ~/Downloads"
 alias dlf "open ~/Downloads"
 alias finder "open ."
 alias python2 "~/.pyenv/versions/2.7.18/bin/python"
-alias qbit "python3 ~/projects/qbittorrent-client/sync.py"
 
 # Remove duplicates from $PATH and $fish_user_paths
 function dedup_paths
