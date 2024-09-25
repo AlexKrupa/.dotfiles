@@ -1,0 +1,12 @@
+[manager]
+show_hidden = true
+
+[opener]
+play = [
+  { run = 'open -a IINA "$@"', desc = "IINA", orphan = true }
+]
+
+[open]
+rules = [
+  { mime = "video/*", use = [ "play", "reveal" ] },
+]
