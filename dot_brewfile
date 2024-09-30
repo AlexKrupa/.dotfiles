@@ -94,7 +94,7 @@ cask "bettertouchtool"
 cask "calibre" # ebook manager
 cask "free-ruler" # screen ruler for measuring pixel distances
 cask "handbrake" # video converter / compressor
-cask "hiddenbar" # hide menu bar icons
+# cask "hiddenbar" # hide menu bar icons
 cask "google-drive"
 # cask "google-chrome" # browser
 cask "grandperspective" # disk space visualizer
@@ -104,6 +104,7 @@ cask "iina" # video player
 cask "imageoptim" # image compressor
 cask "iterm2" # terminal
 cask "jetbrains-toolbox" # JetBrains IDEs
+cask "jordanbaird-ice" # hide menu bar icons, alternative to hiddenbar (slightly better)
 cask "keyboardcleantool" # disable keyboard for cleaning
 cask "latest" # update all apps
 cask "linearmouse" # mouse acceleration fix

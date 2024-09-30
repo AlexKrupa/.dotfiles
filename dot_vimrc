@@ -40,6 +40,7 @@ set nobackup
 
 set ignorecase
 set smartcase
+set showcmd
 set showmode
 set showmatch
 
@@ -98,6 +99,23 @@ nnoremap N Nzzzv
 
 "Preserve register when pasting with <leader>p
 xnoremap <leader>p [[\"_dP]]
+
+"After block yank and paste, move cursor to the end of operated text and don't override register
+vnoremap p "_dP`]
+nnoremap p p`]
+
+"Have x (removes single character) not go into the default registry
+nnoremap x "_x
+
+"Make X an operator that removes without placing text in the default registry
+nmap X "_d
+nmap XX "_dd
+vmap X "_d
+vmap x "_d
+
+"Don't yank to default register when changing something
+nnoremap c "xc
+xnoremap c "xc
 
 nnoremap Q <nop>
 
