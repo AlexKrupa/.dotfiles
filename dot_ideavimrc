@@ -271,6 +271,8 @@ map <leader>V <Action>(SplitVertically)
 map <c-\> <Action>(SplitVertically)
 map <c--> <Action>(SplitHorizontally)
 map <c-=> <Action>(Unsplit)
+map <c-[> <Action>(PrevSplitter)
+map <c-]> <Action>(NextSplitter)
 
 
 
