@@ -212,7 +212,7 @@ nmap mm <Action>(ToggleBookmark)
 nmap ms <Action>(ShowBookmarks)
 
 " run
-nmap <leader>rx <Action>(chooseRunConfiguration)
+nmap <leader>rx <Action>(ChooseRunConfiguration)
 nmap <leader>rr <Action>(Rerun)
 nmap <leader>rs <Action>(Stop)
 "map <leader>q <Action>(Stop)
