@@ -91,6 +91,7 @@ cask "alt-tab" # alt-tab replacement
 cask "appcleaner" # app uninstaller
 cask "betterdisplay"   # display manager
 cask "bettertouchtool"
+cask "bruno" # API-client, Postman alternative
 cask "calibre" # ebook manager
 cask "free-ruler" # screen ruler for measuring pixel distances
 cask "handbrake" # video converter / compressor
