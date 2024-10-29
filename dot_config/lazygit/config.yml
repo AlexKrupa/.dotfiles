@@ -13,3 +13,8 @@ git:
 
 os:
   edit: "nvim {{filename}}"
+
+customCommands:
+  - key: '<c-u>'
+    context: 'global'
+    command: 'git pomr'

@@ -103,7 +103,7 @@ cask "grandperspective" # disk space visualizer
 cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 cask "imageoptim" # image compressor
-cask "iterm2" # terminal
+# cask "iterm2" # terminal
 cask "jetbrains-toolbox" # JetBrains IDEs
 cask "jordanbaird-ice" # hide menu bar icons, alternative to hiddenbar (slightly better)
 cask "keyboardcleantool" # disable keyboard for cleaning
