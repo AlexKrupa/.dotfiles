@@ -13,6 +13,7 @@ alias tmuxc "$EDITOR ~/.tmux.conf"
 alias tmuxr "tmux source-file ~/.tmux.conf"
 alias weztermc "$EDITOR ~/.config/wezterm/wezterm.lua"
 
+alias cd-git-root "cd $(git rev-parse --show-toplevel)"
 alias ls "eza"
 
 # walk file manager
