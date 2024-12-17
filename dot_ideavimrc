@@ -305,8 +305,12 @@ nmap <M-/> :action HarpoonerOpenFile3<cr>
 
 "Invert
 function! Invert(calledFromVisual)
-  let antonyms = ['true', 'false', 'after', 'before', 'start', 'end', 'left', 'right', 'bottom', 'top', 'first', 'last', 'enable', 'disable', 'enabled', 'disabled', 'valid', 'invalid', 'on', 'off', 'up', 'down',
-                 \'True', 'False', 'After', 'Before', 'Start', 'End', 'Left', 'Right', 'Bottom', 'Top', 'First', 'Last', 'Enable', 'Disable', 'Enabled', 'Disabled', 'Valid', 'Invalid', 'On', 'Off', 'Up', 'Down',
+  let antonyms = ['true', 'false', 'after', 'before', 'start', 'end', 'left', 'right', 'bottom', 'top', 
+                 \'first', 'last', 'enable', 'disable', 'enabled', 'disabled', 'valid', 'invalid', 'on', 'off',
+                 \'up', 'down', 'shouldBeTrue', 'shouldBeFalse',
+                 \'True', 'False', 'After', 'Before', 'Start', 'End', 'Left', 'Right', 'Bottom', 'Top', 
+                 \'First', 'Last', 'Enable', 'Disable', 'Enabled', 'Disabled', 'Valid', 'Invalid', 'On', 'Off', 
+                 \'Up', 'Down',
                  \'==', '!=', '===', '!==']
 
   if a:calledFromVisual
