@@ -21,10 +21,9 @@ function lk
     set loc (walk $argv); and cd $loc
 end
 
-
 # Run a command in a new tmux pane.
 function tmux-split
-    set command $argv
+    set -l command $argv
     # Count the number of panes in the current window
     set -l pane_count (tmux list-panes | wc -l)
 
@@ -71,38 +70,36 @@ end
 
 # Select an ADB device from the list of connected devices.
 function select-adb-device
-    set devices "$(adb devices -l | tail -n +2 | ghead -n -1)"
-    set device_count (count (echo $devices | string split -n "\n"))
+    set -l devices "$(adb devices -l | tail -n +2 | ghead -n -1)"
+    set -l device_count (count (echo $devices | string split -n "\n"))
     if test $device_count -ge 2
-        set selected_device (echo $devices | fzf)
+        set -f selected_device (echo $devices | fzf)
         wait
         if test -z "$selected_device"
             echo Device not selected 1>&2
         end
     else if test $device_count -eq 1
-        set selected_device $devices
+        set -f selected_device $devices
     else
         echo No connected devices 1>&2
     end
-
     echo (echo $selected_device | cut -f1 -w)
 end
 
 function emu
-    set avds "$(avdmanager list avd -c)"
-    set avd_count (count (echo $avds | string split -n "\n"))
+    set -l avds "$(avdmanager list avd -c)"
+    set -l avd_count (count (echo $avds | string split -n "\n"))
     if test $avd_count -ge 2
-        set selected_avd (echo $avds | fzf)
+        set -f selected_avd (echo $avds | fzf)
         wait
         if test -z "$selected_avd"
             echo AVD not selected 1>&2
         end
     else if test $avd_count -eq 1
-        set selected_avd $avds
+        set -f selected_avd $avds
     else
         echo No AVDs found 1>&2
     end
-
     # Start the emulator with Google's DNS server to avoid network issues.
     emulator -avd $selected_avd -dns-server 8.8.8.8
 end
@@ -110,26 +107,27 @@ end
 # Install and run app on connected device.
 # Usage: andi <variant> <package> <activity>
 function andi
-    set variant $argv[1]
-    set package $argv[2]
-    set activity $argv[3]
+    set -l variant $argv[1]
+    set -l package $argv[2]
+    set -l activity $argv[3]
 
-    set variant_lowercase (string lower $variant)
+    set -l variant_lowercase (string lower $variant)
 
     # android_serial env var is read by both the gradle `install` task and by adb.
     set -fx ANDROID_SERIAL (select-adb-device)
     if test -z "$ANDROID_SERIAL"
         return
     end
+
     echo Installing $package on $ANDROID_SERIAL
 
     ./gradlew :app:assemble$variant
-    set gradle_status $status
+    set -l gradle_status $status
 
     if test $gradle_status -eq 0
         # Find the most recent APK
-        set apk_path (find app/build/outputs/apk -name "*.apk" -type f -exec stat -f "%m %N" {} + | sort -rn | head -1 | cut -d' ' -f2-)
-        
+        set -l apk_path (find app/build/outputs/apk -name "*.apk" -type f -exec stat -f "%m %N" {} + | sort -rn | head -1 | cut -d' ' -f2-)
+
         if test -n "$apk_path"
             # Force install the APK using adb
             echo "Force-installing APK with adb: $apk_path"
@@ -154,12 +152,13 @@ end
 
 # Uninstall all apps with package starting with the first argument.
 function andu
-    set package $argv[1]
+    set -l package $argv[1]
 
     set -fx ANDROID_SERIAL (select-adb-device)
     if test -z "$ANDROID_SERIAL"
         return
     end
+
     echo Uninstalling $package from $ANDROID_SERIAL
 
     adb shell pm list packages | grep $package | sed -e s/package:// | xargs -L1 adb uninstall
@@ -184,13 +183,13 @@ function font-scale
         return
     end
 
-    set scale $argv
+    set -l scale $argv
 
     if test -z $scale
         adb shell settings get system font_scale
         return
     end
-      
+
     echo Setting DPI to $argv on $ANDROID_SERIAL
 
     adb shell settings put system font_scale $scale
@@ -210,9 +209,9 @@ end
 
 # Screenshot connected ADB device into ~/Downloads folder.
 function screenshot
-    set file_name (media-file-name)
-    set path ~/Downloads/android-img-
-    set image $path$file_name.png
+    set -l file_name (media-file-name)
+    set -l path ~/Downloads/android-img-
+    set -l image $path$file_name.png
 
     set -fx ANDROID_SERIAL (select-adb-device)
     if test -z "$ANDROID_SERIAL"
@@ -227,11 +226,11 @@ end
 
 # Screenshot connected ADB device in both day and night mode into ~/Downloads folder.
 function screenshot-daynight
-    set file_name (media-file-name)
-    set path ~/Downloads/android-img-
-    set image $path$file_name.png
-    set image_day $path$file_name-day.png
-    set image_night $path$file_name-night.png
+    set -l file_name (media-file-name)
+    set -l path ~/Downloads/android-img-
+    set -l image $path$file_name.png
+    set -l image_day $path$file_name-day.png
+    set -l image_night $path$file_name-night.png
 
     set -fx ANDROID_SERIAL (select-adb-device)
     if test -z "$ANDROID_SERIAL"
@@ -256,10 +255,10 @@ end
 
 # Record an MP4 video of connected ADB device into ~/Downloads folder and then compresses it.
 function screenrecord
-    set file_name (media-file-name)
-    set path ~/Downloads/android-vid-
-    set video $path$file_name.mp4
-    set compressed $path$file_name-compressed-noaudio.mp4
+    set -l file_name (media-file-name)
+    set -l path ~/Downloads/android-vid-
+    set -l video $path$file_name.mp4
+    set -l compressed $path$file_name-compressed-noaudio.mp4
 
     set -fx ANDROID_SERIAL (select-adb-device)
     if test -z "$ANDROID_SERIAL"
@@ -281,18 +280,18 @@ end
 set -g adb_static_port 4444
 
 function adb-wifi
-    set ip $argv[1]
-    set port $adb_static_port
-    set ip_with_port "$ip:$port"
+    set -l ip $argv[1]
+    set -l port $adb_static_port
+    set -l ip_with_port "$ip:$port"
     echo "Connecting to $ip_with_port"
     adb connect $ip_with_port
 end
 
 function adb-wifi-new
-    set ip $argv[1]
-    set port $argv[2]
-    set ip_with_port "$ip:$port"
-    set ip_with_new_port "$ip:$adb_static_port"
+    set -l ip $argv[1]
+    set -l port $argv[2]
+    set -l ip_with_port "$ip:$port"
+    set -l ip_with_new_port "$ip:$adb_static_port"
 
     echo "Connecting to $ip_with_port"
     adb connect $ip_with_port
@@ -305,9 +304,9 @@ function adb-wifi-new
 end
 
 function adb-dc
-    set ip $argv[1]
-    set port $adb_static_port
-    set ip_with_port "$ip:$port"
+    set -l ip $argv[1]
+    set -l port $adb_static_port
+    set -l ip_with_port "$ip:$port"
     echo "Disconnecting from $ip_with_port"
     adb disconnect $ip_with_port
 end
@@ -332,36 +331,36 @@ end
 
 # Convert all PNGs in drawable-xxxhdpi to WebP and split them into drawable-xxhdpi, drawable-xhdpi, drawable-hdpi, and drawable-mdpi.
 function convert-xxxhdpi-to-split-webp
-  set file_filter $argv[1]
+    set -l file_filter $argv[1]
 
-  function convert-image
-    set in_dir $argv[1]
-    set out_dir $argv[2]
-    set file $argv[3]
-    set convert_arguments $argv[4]
+    function convert-image
+        set -l in_dir $argv[1]
+        set -l out_dir $argv[2]
+        set -l file $argv[3]
+        set -l convert_arguments $argv[4]
 
-    mkdir -p $out_dir
-    set webp_file (string replace '.png' '.webp' $file)
-    convert "$in_dir/$file" $convert_arguments -define webp:lossless=true "$out_dir/$webp_file"
-  end
-
-  for xxxhdpi_dir in (find . -name "drawable-xxxhdpi")
-    echo "$xxxhdpi_dir"
-    for file in (ls $xxxhdpi_dir/$file_filter)
-      set file (basename $file)
-      echo "$file"
-      if not string match -q "*.webp" $file
-        convert_image $xxxhdpi_dir $xxxhdpi_dir $file ""
-        rm "$xxxhdpi_dir/$file"
-      end
-
-      set webp_file (string replace '.png' '.webp' $file)
-      convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xxhdpi" $webp_file "-resize 75%"
-      convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xhdpi" $webp_file "-resize 50%"
-      convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file "-resize 37.5%"
-      convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file "-resize 25%"
+        mkdir -p $out_dir
+        set -l webp_file (string replace '.png' '.webp' $file)
+        convert "$in_dir/$file" $convert_arguments -define webp:lossless=true "$out_dir/$webp_file"
     end
-  end
+
+    for xxxhdpi_dir in (find . -name "drawable-xxxhdpi")
+        echo "$xxxhdpi_dir"
+        for file in (ls $xxxhdpi_dir/$file_filter)
+            set -l file (basename $file)
+            echo "$file"
+            if not string match -q "*.webp" $file
+                convert_image $xxxhdpi_dir $xxxhdpi_dir $file ""
+                rm "$xxxhdpi_dir/$file"
+            end
+
+            set -l webp_file (string replace '.png' '.webp' $file)
+            convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xxhdpi" $webp_file "-resize 75%"
+            convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xhdpi" $webp_file "-resize 50%"
+            convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file "-resize 37.5%"
+            convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file "-resize 25%"
+        end
+    end
 end
 
 ################################################################################
@@ -374,11 +373,19 @@ end
 
 # Java quick switch
 # https://stackoverflow.com/questions/64917779/wrong-java-home-after-upgrade-to-macos-big-sur-v11-0-1
-alias javav "java -version"
-alias java8 "set -gx JAVA_HOME (/usr/libexec/java_home -v 1.8)"
-alias java11 "set -gx JAVA_HOME (/usr/libexec/java_home -v 11)"
-alias java17 "set -gx JAVA_HOME (/usr/libexec/java_home -v 17)"
-alias java21 "set -gx JAVA_HOME (/usr/libexec/java_home -v 21)"
+function jdk
+    set -l jdk_version $argv
+    if test $jdk_version
+        set -gx JAVA_HOME $(/usr/libexec/java_home -v $jdk_version);
+    end
+    java -version
+end
+
+# alias javav "java -version"
+# alias java8 "set -gx JAVA_HOME (/usr/libexec/java_home -v 1.8)"
+# alias java11 "set -gx JAVA_HOME (/usr/libexec/java_home -v 11)"
+# alias java17 "set -gx JAVA_HOME (/usr/libexec/java_home -v 17)"
+# alias java21 "set -gx JAVA_HOME (/usr/libexec/java_home -v 21)"
 
 ## Gradle
 alias gr "./gradlew"
@@ -432,14 +439,14 @@ end
 #    Now imagine doing it accidentally on a several-hours long audiobook.
 #    That's why I wrote this script.
 function shokz
-    set tempo "1.5"
-    set segment_length_s 60
+    set -l tempo "1.5"
+    set -l segment_length_s 60
 
-    set source_file $argv
-    set prefix (string split -r -m1 . $source_file)[1] # Trim file extension.
-    set suffix -%03d.mp3 # 000, 001, 002, etc.
-    set subdir $prefix
-    set segment $subdir/$prefix$suffix
+    set -l source_file $argv
+    set -l prefix (string split -r -m1 . $source_file)[1] # Trim file extension.
+    set -l suffix -%03d.mp3 # 000, 001, 002, etc.
+    set -l subdir $prefix
+    set -l segment $subdir/$prefix$suffix
 
     echo "source_file=$source_file, prefix=$prefix, suffix=$suffix, subdir=$subdir, segment=$segment, tempo=$tempo, segment_length_s=$segment_length_s"
 
@@ -458,7 +465,7 @@ function shokz
 
     # In case of 2, the following code set each segment's 'title' tag to its trimmed file name.
     cd $subdir
-    set prefix tmp-
+    set -l prefix tmp-
     for file in *.mp3
         set title (string split -r -m1 . $file)[1] # Trim file extension.
 
