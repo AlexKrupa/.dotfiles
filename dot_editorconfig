@@ -2,8 +2,24 @@ root = true
 
 [*]
 charset = utf-8
-
-[*.fish]
-indent_style = space
+end_of_line = lf
 indent_size = 2
+indent_style = space
+tab_width = 2
 trim_trailing_whitespace = true
+
+[*.editorconfig]
+spaces_around_operators = true
+spaces_around_brackets = false
+
+[{*.kt,*.kts}]
+ij_kotlin_code_style_defaults = KOTLIN_OFFICIAL
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+ij_kotlin_call_parameters_new_line_after_left_paren = true
+ij_kotlin_call_parameters_right_paren_on_new_line = true
+ij_kotlin_method_parameters_new_line_after_left_paren = true
+ij_kotlin_method_parameters_right_paren_on_new_line = true
+max_line_length = 120
+spaces_around_operators = true
+spaces_around_brackets = false
