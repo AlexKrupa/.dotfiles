@@ -19,6 +19,7 @@ vim.opt.relativenumber = true
 vim.opt.tabstop = 2 -- Default tab width
 vim.opt.shiftwidth = 2 -- Default indentation at each level
 vim.opt.expandtab = true -- Convert tabs to spaces
+vim.opt.smartindent = true -- syntax aware indentations for newline inserts
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
