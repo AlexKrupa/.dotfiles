@@ -31,7 +31,7 @@ eval (/opt/homebrew/bin/brew shellenv)
 fish_add_path ~/Library/Frameworks/Python.framework/Versions/3.9/bin
 
 if command -v pyenv 1>/dev/null 2>&1
-    pyenv init - | source
+  pyenv init - | source
 end
 
 # -----------
