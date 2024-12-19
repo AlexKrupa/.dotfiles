@@ -1,0 +1,60 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = true
+
+format = """
+$username\
+$hostname\
+$localip\
+$directory\
+$git_branch\
+$git_commit\
+$git_state\
+$git_metrics\
+$git_status\
+$memory_usage\
+$sudo\
+$fill\
+$cmd_duration\
+$time\
+$line_break\
+$jobs\
+$battery\
+$status\
+$character"""
+
+[cmd_duration]
+min_time = 0
+show_milliseconds = true
+
+[directory]
+fish_style_pwd_dir_length = 1
+
+[fill]
+symbol = '─'
+style = "white"
+
+[git_commit]
+only_detached = false
+tag_disabled = false
+tag_max_candidates = 0
+tag_symbol = '/'
+
+[git_metrics]
+disabled = false
+
+[gcloud]
+disabled = true
+
+[localip]
+disabled = false
+
+[status]
+disabled = false
+
+[sudo]
+disabled = false
+
+[time]
+disabled = false
+
