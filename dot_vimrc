@@ -2,7 +2,7 @@
 
 set shell=/bin/zsh
 
-#Use fzf in Vim
+"Use fzf in Vim
 set rtp+=/opt/homebrew/opt/fzf
 
 syntax on

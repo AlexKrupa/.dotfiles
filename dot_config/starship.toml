@@ -19,8 +19,6 @@ $cmd_duration\
 $time\
 $line_break\
 $jobs\
-$battery\
-$status\
 $character"""
 
 [cmd_duration]

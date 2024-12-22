@@ -2,7 +2,7 @@ local wezterm = require("wezterm")
 
 local config = wezterm.config_builder()
 
--- config.default_prog = { "tmux", "new-session", "-A", "-s", "main" }
+-- config.default_prog = { "tmux" }
 
 config.color_scheme = "Dracula (Official)"
 
@@ -11,8 +11,8 @@ config.font_size = 15
 config.line_height = 1.1
 
 config.inactive_pane_hsb = {
-	saturation = 0.9,
-	brightness = 0.8,
+  saturation = 0.9,
+  brightness = 0.8,
 }
 
 config.enable_tab_bar = false
@@ -23,10 +23,10 @@ config.window_decorations = "RESIZE"
 
 config.enable_scroll_bar = false -- doesn't work with tmux
 config.window_padding = {
-	left = "1cell",
-	right = "1cell",
-	top = "0.5cell",
-	bottom = 0,
+  left = "1cell",
+  right = "1cell",
+  top = "0.5cell",
+  bottom = 0,
 }
 
 -- https://wezfurlong.org/wezterm/config/keyboard-concepts.html#macos-left-and-right-option-key

@@ -39,7 +39,7 @@ sudo nvram SystemAudioVolume=" "
 ## # Disable transparency in the menu bar and elsewhere on MacOS
 ## defaults write com.apple.universalaccess.plist reduceTransparency -bool true
 ## Set sidebar icon size to large
-#defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 3
+#defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 4
 ## Adjust toolbar title rollover delay
 #defaults write NSGlobalDomain NSToolbarTitleViewRolloverDelay -float 0
 ## Increase window resize speed for Cocoa applications

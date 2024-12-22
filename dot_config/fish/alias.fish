@@ -13,8 +13,9 @@ alias tmuxc "$EDITOR ~/.tmux.conf"
 alias tmuxr "tmux source-file ~/.tmux.conf"
 alias weztermc "$EDITOR ~/.config/wezterm/wezterm.lua"
 
-alias cd-git-root "cd $(git rev-parse --show-toplevel)"
-alias ls "eza"
+function cd-git-root
+  cd $(git rev-parse --show-toplevel)
+end
 
 # walk file manager
 function lk
@@ -48,7 +49,7 @@ function tmux-split
   else
     tmux split-window -dv -t $last_pane_id "fish -c '$command; cat'"
     # tmux select-layout even-vertical
-  end 
+  end
 
   # Resize panes only after the second pane has been created
   if test $pane_count -ge 2
@@ -58,7 +59,7 @@ end
 alias tms tmux-split
 
 ################################################################################
-## Android                                                                     
+## Android
 ################################################################################
 
 alias adb-slow-enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
@@ -144,7 +145,7 @@ function andi
       echo "Force-installing APK with adb: $apk_path"
 
       # -d  allow downgrade
-      # -r  
+      # -r
       # --no-streaming  workaround for Streamed install getting stuck
       adb install -r -d --no-streaming $apk_path
       if test $status -eq 0
@@ -322,7 +323,7 @@ function adb-dc
   adb disconnect $ip_with_port
 end
 
-# Fix Android Studio settings sync after update. Android Studio should be closed! 
+# Fix Android Studio settings sync after update. Android Studio should be closed!
 function fix-android-studio-settings-sync
   cd ~/Applications/IntelliJ\ IDEA\ Community\ Edition.app/Contents/lib/
 
@@ -375,11 +376,11 @@ function convert-xxxhdpi-to-split-webp
 end
 
 ################################################################################
-## Projects                                                                     
+## Projects
 ################################################################################
 
 ################################################################################
-## Tools                                                                     
+## Tools
 ################################################################################
 
 # Java quick switch
@@ -407,9 +408,9 @@ alias grccc "rm -rf .gradle/configuration-cache"
 
 ## Other
 alias brewkill "rm -rf $(brew --prefix)/var/homebrew/locks" # Terminate Brew update in case it gets stuck.
-alias g git
-alias lg lazygit
-alias ls lsd
+alias g "git"
+alias lg "lazygit"
+alias ls "lsd"
 alias dl "cd ~/Downloads"
 alias dlf "open ~/Downloads"
 alias finder "open ."
@@ -437,7 +438,7 @@ function dedup_paths
 end
 
 ################################################################################
-## Shokz OpenSwim                                                                     
+## Shokz OpenSwim
 ################################################################################
 
 # Prepare a podcast or audiobook MP3 file to use on Shokz OpenSwim swimming headphones.
@@ -464,10 +465,10 @@ function shokz
   # Create a subdirectory to keep segments in, instead of polluting the source directory.
   mkdir -p $subdir
 
-  # Change tempo. 
+  # Change tempo.
   # Note that tempo is not the same as speed, as it doesn't affect pitch.
   # This keeps the sound normal instead of "chipmunking" it.
-  # Then pipe the sped-up output and split the file into equal-length segments. 
+  # Then pipe the sped-up output and split the file into equal-length segments.
   ffmpeg -i $source_file -map 0:a -filter:a "atempo=$tempo" -f mp3 pipe: | ffmpeg -f mp3 -i pipe: -f segment -segment_time $segment_length_s -segment_start_number 1 -c:a copy $segment
 
   # Regarding playback order, unfortunately I don't remember which one of these was true. Either:

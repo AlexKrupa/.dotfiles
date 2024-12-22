@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Based on Kaushik Gopal's dotfiles 
+# Based on Kaushik Gopal's dotfiles
 # https://github.com/kaushikgopal/dotfiles/blob/c0ce216a8029dc00ea9338a2d498f8cc1c967c7f/.setup.sh
 
 # switching section
