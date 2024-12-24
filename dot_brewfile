@@ -89,16 +89,17 @@ brew "pyenv"
 
 # Mac apps
 cask "1password"
-# cask "1password-cli" # required for Raycast/Alfred integration
+cask "1password-cli" # required for Raycast/Alfred integration
 cask "alt-tab" # alt-tab replacement
 cask "appcleaner" # app uninstaller
 cask "betterdisplay"   # display manager
 cask "bettertouchtool"
 # cask "bruno" # API-client, Postman alternative
 cask "calibre" # ebook manager
+cask "discord"
 cask "free-ruler" # screen ruler for measuring pixel distances
 # cask "handbrake" # video converter / compressor
-# cask "hiddenbar" # hide menu bar icons
+cask "homerow" # keyboard shortcuts for every button on the screen
 # cask "google-drive"
 cask "google-chrome" # browser
 cask "grandperspective" # disk space visualizer
@@ -106,12 +107,12 @@ cask "grandperspective" # disk space visualizer
 cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 # cask "imageoptim" # image compressor
-# cask "iterm2" # terminal
 cask "jetbrains-toolbox" # JetBrains IDEs
 cask "jordanbaird-ice" # hide menu bar icons, alternative to hiddenbar (slightly better)
 cask "keyboardcleantool" # disable keyboard for cleaning
 cask "latest" # update all apps
 cask "linearmouse" # mouse acceleration fix
+cask "lulu" # connection blocker
 cask "marta" # file manager
 cask "microsoft-edge" # browser
 cask "mitmproxy" # for debugging network requests
