@@ -67,9 +67,109 @@ Plug 'kana/vim-textobj-entire'
 " <count>iI	Inner Indentation level (no lines above/below).
 Plug 'michaeljsmith/vim-indent-object'
 
+" if - "inner function" - selects the function body (excluding braces)
+" af - "around function" - selects the entire function (including braces and signature)
+set functiontextobj
+
 Plug 'vim-scripts/argtextobj.vim'
 " select items in a list or generic class definition in Java/Kotlin
 let g:argtextobj_pairs="[:],(:),<:>"
+
+" In normal mode: Press " to see registers before using them in commands
+" In insert mode: Press Ctrl-R to see registers before pasting their contents
+set peekaboo
+
+set switch
+nnoremap <C-s> :Switch<CR>
+nnoremap <C-S-s> :SwitchReverse<CR>
+let g:switch_definitions = 'group:basic'
+" Some custom definitions exist in built-in ones, but let's define them for visibility.
+let g:switch_custom_definitions = [
+  \ switchWords(['isEmpty', 'isNotEmpty']),
+  \ switchWords(['isBlank', 'isNotBlank']),
+  \ switchWords(['onSuccess', 'onFailure']),
+  \ switchWords(['shouldBe', 'shouldNotBe']),
+  \ switchWords(['shouldBeNull', 'shouldNotBeNull']),
+  \ switchWords(['shouldBeSuccess', 'shouldBeFailure']),
+  \ switchWords(['shouldBeTrue', 'shouldBeFalse']),
+  \ switchWords(['ON_CREATE', 'ON_START', 'ON_RESUME', 'ON_PAUSE', 'ON_STOP', 'ON_DESTROY']),
+  \ switchWords(['INITIALIZED', 'CREATED', 'STARTED', 'RESUMED', 'PAUSED', 'STOPPED', 'DESTROYED']),
+  \ switchWords(['Timber.i', 'Timber.d', 'Timber.w', 'Timber.e', 'Timber.wtf']),
+  \ switchNormalizedCaseWords(['on', 'off']),
+  \ switchNormalizedCaseWords(['foreground', 'background']),
+  \ switchNormalizedCaseWords(['horizontal', 'vertical']),
+  \ switchNormalizedCaseWords(['visible', 'invisible']),
+  \ switchNormalizedCaseWords(['before', 'after']),
+  \ switchNormalizedCaseWords(['below', 'above']),
+  \ switchNormalizedCaseWords(['under', 'over']),
+  \ switchNormalizedCaseWords(['top', 'bottom', 'start', 'end']),
+  \ switchNormalizedCaseWords(['width', 'height']),
+  \ switchNormalizedCaseWords(['light', 'dark']),
+  \ switchNormalizedCaseWords(['day', 'night']),
+  \ switchNormalizedCaseWords(['first', 'last']),
+  \ switchNormalizedCaseWords(['min', 'max']),
+  \ switchNormalizedCaseWords(['old', 'new']),
+  \ switchNormalizedCaseWords(['previous', 'current', 'next']),
+  \ switchNormalizedCaseWords(['accept', 'decline']),
+  \ switchNormalizedCaseWords(['accepted', 'declined']),
+  \ switchNormalizedCaseWords(['accepting', 'declining']),
+  \ switchNormalizedCaseWords(['accepts', 'declines']),
+  \ switchNormalizedCaseWords(['activate', 'deactivate']),
+  \ switchNormalizedCaseWords(['activated', 'deactivated']),
+  \ switchNormalizedCaseWords(['activates', 'deactivates']),
+  \ switchNormalizedCaseWords(['activating', 'deactivating']),
+  \ switchNormalizedCaseWords(['active', 'inactive']),
+  \ switchNormalizedCaseWords(['allow', 'deny']),
+  \ switchNormalizedCaseWords(['allowed', 'denied']),
+  \ switchNormalizedCaseWords(['allowing', 'denying']),
+  \ switchNormalizedCaseWords(['allows', 'denies']),
+  \ switchNormalizedCaseWords(['attach', 'detach']),
+  \ switchNormalizedCaseWords(['attached', 'detached']),
+  \ switchNormalizedCaseWords(['attaches', 'detaches']),
+  \ switchNormalizedCaseWords(['attaching', 'detaching']),
+  \ switchNormalizedCaseWords(['enable', 'disable']),
+  \ switchNormalizedCaseWords(['enabled', 'disabled']),
+  \ switchNormalizedCaseWords(['enables', 'disables']),
+  \ switchNormalizedCaseWords(['enabling', 'disabling']),
+  \ switchNormalizedCaseWords(['enter', 'exit']),
+  \ switchNormalizedCaseWords(['enters', 'exits']),
+  \ switchNormalizedCaseWords(['expand', 'collapse']),
+  \ switchNormalizedCaseWords(['expanded', 'collapsed']),
+  \ switchNormalizedCaseWords(['expanding', 'collapsing']),
+  \ switchNormalizedCaseWords(['expands', 'collapses']),
+  \ switchNormalizedCaseWords(['grant', 'revoke']),
+  \ switchNormalizedCaseWords(['granted', 'revoked']),
+  \ switchNormalizedCaseWords(['granting', 'revoking']),
+  \ switchNormalizedCaseWords(['grants', 'revokes']),
+  \ switchNormalizedCaseWords(['include', 'exclude']),
+  \ switchNormalizedCaseWords(['included', 'excluded']),
+  \ switchNormalizedCaseWords(['includes', 'excludes']),
+  \ switchNormalizedCaseWords(['including', 'excluding']),
+  \ switchNormalizedCaseWords(['increase', 'decrease']),
+  \ switchNormalizedCaseWords(['increased', 'decreased']),
+  \ switchNormalizedCaseWords(['increases', 'decreases']),
+  \ switchNormalizedCaseWords(['increasing', 'decreasing']),
+  \ switchNormalizedCaseWords(['open', 'close']),
+  \ switchNormalizedCaseWords(['opened', 'closed']),
+  \ switchNormalizedCaseWords(['opening', 'closing']),
+  \ switchNormalizedCaseWords(['opens', 'closes']),
+  \ switchNormalizedCaseWords(['show', 'hide']),
+  \ switchNormalizedCaseWords(['showing', 'hiding']),
+  \ switchNormalizedCaseWords(['shown', 'hidden']),
+  \ switchNormalizedCaseWords(['shows', 'hides']),
+  \ switchNormalizedCaseWords(['start', 'stop', 'pause']),
+  \ switchNormalizedCaseWords(['started', 'stopped', 'paused']),
+  \ switchNormalizedCaseWords(['starting', 'stopping', 'pausing']),
+  \ switchNormalizedCaseWords(['starts', 'stops', 'pauses']),
+  \ switchNormalizedCaseWords(['succeeded', 'failed']),
+  \ switchNormalizedCaseWords(['succeeding', 'failing']),
+  \ switchNormalizedCaseWords(['succeeds', 'fails']),
+  \ switchNormalizedCaseWords(['success', 'failure']),
+  \ switchNormalizedCaseWords(['valid', 'invalid']),
+  \ switchNormalizedCaseWords(['validated', 'invalidated']),
+  \ switchNormalizedCaseWords(['validates', 'invalidates']),
+  \ switchNormalizedCaseWords(['validating', 'invalidating'])
+\ ]
 
 " Flash plugin setup
 map s <Action>(flash.search)
@@ -305,11 +405,11 @@ nmap <M-/> :action HarpoonerOpenFile3<cr>
 
 "Invert
 function! Invert(calledFromVisual)
-  let antonyms = ['true', 'false', 'after', 'before', 'start', 'end', 'left', 'right', 'bottom', 'top', 
+  let antonyms = ['true', 'false', 'after', 'before', 'start', 'end', 'left', 'right', 'bottom', 'top',
                  \'first', 'last', 'enable', 'disable', 'enabled', 'disabled', 'valid', 'invalid', 'on', 'off',
                  \'up', 'down', 'shouldBeTrue', 'shouldBeFalse',
-                 \'True', 'False', 'After', 'Before', 'Start', 'End', 'Left', 'Right', 'Bottom', 'Top', 
-                 \'First', 'Last', 'Enable', 'Disable', 'Enabled', 'Disabled', 'Valid', 'Invalid', 'On', 'Off', 
+                 \'True', 'False', 'After', 'Before', 'Start', 'End', 'Left', 'Right', 'Bottom', 'Top',
+                 \'First', 'Last', 'Enable', 'Disable', 'Enabled', 'Disabled', 'Valid', 'Invalid', 'On', 'Off',
                  \'Up', 'Down',
                  \'==', '!=', '===', '!==']
 
@@ -332,5 +432,6 @@ function! Invert(calledFromVisual)
   endwhile
 endfunction
 
-nnoremap ! :call Invert(0)<CR>
-vnoremap ! :<C-u>call Invert(1)<CR>
+" Disabled because ideavim-switch is better
+"nnoremap ! :call Invert(0)<CR>
+"vnoremap ! :<C-u>call Invert(1)<CR>
