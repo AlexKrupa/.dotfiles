@@ -25,7 +25,7 @@ config.enable_scroll_bar = false -- doesn't work with tmux
 config.window_padding = {
   left = "1cell",
   right = "1cell",
-  top = "1cell",
+  top = "0.5cell",
   bottom = "0cell",
 }
 
