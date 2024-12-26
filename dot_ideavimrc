@@ -84,7 +84,6 @@ nnoremap <C-s> :Switch<CR>
 nnoremap <C-S-s> :SwitchReverse<CR>
 let g:switch_definitions = 'group:basic'
 " Some custom definitions exist in built-in ones, but let's define them for visibility.
-
 let g:switch_custom_definitions = [
   \ switchWords(['isEmpty', 'isNotEmpty']),
   \ switchWords(['isBlank', 'isNotBlank']),
