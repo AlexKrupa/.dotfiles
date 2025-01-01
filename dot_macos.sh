@@ -25,6 +25,9 @@ while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 # we’re about to change
 osascript -e 'tell application "System Preferences" to quit'
 
+# Set hostname
+sudo scutil --set HostName lex-macbook
+
 ################################################################################
 ## General UI/UX                                                               #
 ################################################################################
@@ -39,8 +42,7 @@ defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
 # Expand print panel by default
 defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
 defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
-# Save to disk (not to iCloud) by default
-# defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+
 # Automatically quit printer app once the print jobs complete
 defaults write com.apple.print.PrintingPrefs "Quit When Finished" -bool true
 
@@ -57,6 +59,9 @@ defaults write NSGlobalDomain NSAutomaticTextCompletionEnabled -bool false
 
 # Show scroll bars only when scrolling
 defaults write -g AppleShowScrollBars -string "WhenScrolling"
+
+# Disable tiled window margins
+defaults write com.apple.WindowManager EnableTiledWindowMargins -bool false
 
 ################################################################################
 ## Trackpad, mouse, keyboard, Bluetooth accessories, and input                 #
@@ -202,7 +207,7 @@ defaults write com.apple.finder OpenWindowForNewRemovableDisk -bool true
 /usr/libexec/PlistBuddy -c "Set :StandardViewSettings:IconViewSettings:iconSize 80" ~/Library/Preferences/com.apple.finder.plist
 # Use list view in all Finder windows by default
 # Four-letter codes for the other view modes: `icnv`, `Nlsv`, `clmv`, `glyv`
-defaults write com.apple.finder FXPreferredViewStyle -string "clmv"
+defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
 # Show the ~/Library folder
 chflags nohidden ~/Library && xattr -d com.apple.FinderInfo ~/Library
 # Show the /Volumes folder
@@ -359,6 +364,13 @@ defaults write com.apple.messageshelper.MessageController SOInputLineSettings -d
 # Disable continuous spell checking
 defaults write com.apple.messageshelper.MessageController SOInputLineSettings -dict-add "continuousSpellCheckingEnabled" -bool false
 
+################################################################################
+## Privacy                                                                     #
+################################################################################
+
+defaults write com.apple.AdLib.plist allowApplePersonalizedAdvertising -bool false
+defaults write com.apple.AdLib.plist allowIdentifierForAdvertising -bool false
+defaults write com.apple.AdLib.plist personalizedAdsMigrated -bool false
 
 ################################################################################
 ## Touch ID
@@ -374,5 +386,8 @@ else
 fi
 
 ###############################################################################
+
+# Restart dock and finder to apply changes
+killall Dock && killall Finder && killall SystemUIServer
 
 echo -e "${GRAY}---- MacOS related changes done. Note that some of these changes require a logout/restart to take effect.${NC}\n\n\n\n\n\n"

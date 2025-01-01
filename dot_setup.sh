@@ -72,11 +72,8 @@ sudo -v
 
 function delete_if_exists {
     if [ -f "$1" ]; then
-        # echo -e "$1 exists."
         echo -e "${PURPLE}---- $1 present, so deleting${NC}"
         sudo rm "$1"
-    # else
-        # echo -e "$1 does not exist."
     fi
 }
 
@@ -177,7 +174,6 @@ git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 ##############################################################
 # MISC.
 ##############################################################
-
 
 source $HOME/.brew.sh
 $(brew --prefix)/opt/fzf/install
