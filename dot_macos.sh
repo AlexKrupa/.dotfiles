@@ -214,7 +214,7 @@ chflags nohidden ~/Library && xattr -d com.apple.FinderInfo ~/Library
 sudo chflags nohidden /Volumes
 
 ###############################################################################
-## Dock, Dashboard, and hot corners                                            #
+## Dock, Dashboard
 ###############################################################################
 
 # Enable highlight hover effect for the grid view of a stack (Dock)
@@ -330,6 +330,8 @@ defaults write com.apple.ActivityMonitor ShowCategory -int 0
 # Sort Activity Monitor results by CPU usage
 defaults write com.apple.ActivityMonitor SortColumn -string "CPUUsage"
 defaults write com.apple.ActivityMonitor SortDirection -int 0
+# Refresh Activty Monitor every 1s
+defaults write com.apple.ActivityMonitor "UpdatePeriod" -int "1"
 
 ################################################################################
 ## Mac App Store                                                               #
@@ -388,6 +390,6 @@ fi
 ###############################################################################
 
 # Restart dock and finder to apply changes
-killall Dock && killall Finder && killall SystemUIServer
+killall Dock && killall Finder && killall SystemUIServer && killall Activity\ Monitor
 
 echo -e "${GRAY}---- MacOS related changes done. Note that some of these changes require a logout/restart to take effect.${NC}\n\n\n\n\n\n"
