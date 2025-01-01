@@ -35,7 +35,7 @@ osascript -e 'tell application "System Preferences" to quit'
 ## gitignore future changes
 #
 ## Disable the sound effects on boot
-sudo nvram SystemAudioVolume=" "
+# sudo nvram SystemAudioVolume=" "
 ## # Disable transparency in the menu bar and elsewhere on MacOS
 ## defaults write com.apple.universalaccess.plist reduceTransparency -bool true
 ## Set sidebar icon size to large
