@@ -15,19 +15,19 @@ function as --description "Open Android Studio"
   # cd $PWD
 end
 
-alias adb-slow-enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
-alias adb-slow-disable "adb shell settings put global ingress_rate_limit_bytes_per_second -1"
-alias adb-settings "adb shell am start -n com.android.settings/.Settings"
-alias adb-settings-dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
+alias adb_slow_enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
+alias adb_slow_disable "adb shell settings put global ingress_rate_limit_bytes_per_second -1"
+alias adb_settings "adb shell am start -n com.android.settings/.Settings"
+alias adb_settings-dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
 
 # Get a media (screenshot/video) file name with a timestamp.
 # Example: 2021-08-31_14-23-45
-function _media-file-name
+function __media-file-name
   echo (date +"%Y-%m-%d_%H-%M-%S")
 end
 
 # Select an ADB device from the list of connected devices.
-function select-adb-device
+function __select_adb_device
   set -l devices "$(adb devices -l | tail -n +2 | ghead -n -1)"
   set -l device_count (count (echo $devices | string split -n "\n"))
   if test $device_count -ge 2
@@ -72,7 +72,7 @@ function andi
   set -l variant_lowercase (string lower $variant)
 
   # android_serial env var is read by both the gradle `install` task and by adb.
-  set -fx ANDROID_SERIAL (select-adb-device)
+  set -fx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return
   end
@@ -112,7 +112,7 @@ end
 function andu
   set -l package $argv[1]
 
-  set -fx ANDROID_SERIAL (select-adb-device)
+  set -fx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return
   end
@@ -124,7 +124,7 @@ end
 
 # Set connected ADB device DPI to passed value (e.g. 420).
 function dpi
-  set -fx ANDROID_SERIAL (select-adb-device)
+  set -fx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return
   end
@@ -135,8 +135,8 @@ function dpi
 end
 
 # Set connected ADB device font scale to passed value (e.g. 1.2).
-function font-scale
-  set -fx ANDROID_SERIAL (select-adb-device)
+function font_scale
+  set -fx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return
   end
@@ -155,7 +155,7 @@ end
 
 # Set connected ADB device screen size to passed value (e.g. 1080x1920).
 function screensize
-  set -fx ANDROID_SERIAL (select-adb-device)
+  set -fx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return
   end
@@ -167,11 +167,11 @@ end
 
 # Screenshot connected ADB device into ~/Downloads folder.
 function screenshot
-  set -l file_name (_media-file-name)
+  set -l file_name (__media-file-name)
   set -l path ~/Downloads/android-img-
   set -l image $path$file_name.png
 
-  set -fx ANDROID_SERIAL (select-adb-device)
+  set -fx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return
   end
@@ -183,14 +183,14 @@ function screenshot
 end
 
 # Screenshot connected ADB device in both day and night mode into ~/Downloads folder.
-function screenshot-daynight
-  set -l file_name (_media-file-name)
+function screenshot_daynight
+  set -l file_name (__media-file-name)
   set -l path ~/Downloads/android-img-
   set -l image $path$file_name.png
   set -l image_day $path$file_name-day.png
   set -l image_night $path$file_name-night.png
 
-  set -fx ANDROID_SERIAL (select-adb-device)
+  set -fx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return
   end
@@ -213,12 +213,12 @@ end
 
 # Record an MP4 video of connected ADB device into ~/Downloads folder and then compresses it.
 function screenrecord
-  set -l file_name (_media-file-name)
+  set -l file_name (__media-file-name)
   set -l path ~/Downloads/android-vid-
   set -l video $path$file_name.mp4
   set -l compressed $path$file_name-compressed-noaudio.mp4
 
-  set -fx ANDROID_SERIAL (select-adb-device)
+  set -fx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return
   end
@@ -237,7 +237,7 @@ end
 
 set -g adb_static_port 4444
 
-function adb-wifi
+function adb_wifi
   set -l ip $argv[1]
   set -l port $adb_static_port
   set -l ip_with_port "$ip:$port"
@@ -245,7 +245,7 @@ function adb-wifi
   adb connect $ip_with_port
 end
 
-function adb-wifi-new
+function adb_wifi_new
   set -l ip $argv[1]
   set -l port $argv[2]
   set -l ip_with_port "$ip:$port"
@@ -261,7 +261,7 @@ function adb-wifi-new
   adb disconnect $ip_with_port
 end
 
-function adb-dc
+function adb_dc
   set -l ip $argv[1]
   set -l port $adb_static_port
   set -l ip_with_port "$ip:$port"
@@ -269,29 +269,11 @@ function adb-dc
   adb disconnect $ip_with_port
 end
 
-# Fix Android Studio settings sync after update. Android Studio should be closed!
-function fix-android-studio-settings-sync
-  cd ~/Applications/IntelliJ\ IDEA\ Community\ Edition.app/Contents/lib/
-
-  echo "Extracting IntelliJ lib.jar"
-  unzip lib.jar -d lib-idea
-
-  echo "Backing up Android Studio lib.jar"
-  cp ~/Applications/Android\ Studio.app/Contents/lib/lib.jar ~/Applications/Android\ Studio.app/Contents/lib/lib-backup.jar
-  cd lib-idea
-  echo "Updating Android Studio lib.jar with IntelliJ's cloudconfig classes"
-  jar -uf ~/Applications/Android\ Studio.app/Contents/lib/lib.jar com/jetbrains/cloudconfig/**/*
-
-  cd ..
-  echo "Cleaning up"
-  rm -rf lib-idea
-end
-
 # Convert all PNGs in drawable-xxxhdpi to WebP and split them into drawable-xxhdpi, drawable-xhdpi, drawable-hdpi, and drawable-mdpi.
-function convert-xxxhdpi-to-split-webp
+function convert_xxxhdpi_to_split_webp
   set -l file_filter $argv[1]
 
-  function convert-image
+  function convert_image
     set -l in_dir $argv[1]
     set -l out_dir $argv[2]
     set -l file $argv[3]
@@ -313,10 +295,10 @@ function convert-xxxhdpi-to-split-webp
       end
 
       set -l webp_file (string replace '.png' '.webp' $file)
-      convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xxhdpi" $webp_file "-resize 75%"
-      convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xhdpi" $webp_file "-resize 50%"
-      convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file "-resize 37.5%"
-      convert-image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file "-resize 25%"
+      convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xxhdpi" $webp_file "-resize 75%"
+      convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xhdpi" $webp_file "-resize 50%"
+      convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file "-resize 37.5%"
+      convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file "-resize 25%"
     end
   end
 end

@@ -1,4 +1,4 @@
-function _git_main
+function __git_main
   for branch in "trunk" "main" "master"
     if git rev-parse "$branch" &>/dev/null
       echo $branch
@@ -19,12 +19,12 @@ function gco --wraps="git checkout"
   if test (count $argv) -gt 0
     git checkout $argv
   else
-    git checkout (_git_main)
+    git checkout (__git_main)
   end
 end
 
 function rebase
-  set trunk (_git_main)
+  set trunk (__git_main)
   git checkout $trunk
   and git pull --prune
   and git checkout -
@@ -32,11 +32,11 @@ function rebase
 end
 
 function catch-up
-  git checkout (_git_main)
+  git checkout (__git_main)
   and git pull --prune
 end
 
 function rm-merged-local
-  set trunk (_git_main)
+  set trunk (__git_main)
   git branch --merged $trunk | command grep -v $trunk | xargs git branch -D
 end
