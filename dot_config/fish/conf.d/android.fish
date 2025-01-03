@@ -1,6 +1,12 @@
-################################################################################
-## Android
-################################################################################
+set -gx JAVA_HOME (/usr/libexec/java_home)
+set -gx ANDROID_HOME $HOME/Library/Android/sdk
+set -gx ANDROID_SDK $ANDROID_HOME
+set -gx ANDROID_SDK_ROOT $ANDROID_HOME
+
+fish_add_path ~/Library/Android/sdk/cmdline-tools/latest/bin
+fish_add_path ~/Library/Android/sdk/emulator
+fish_add_path ~/Library/Android/sdk/platform-tools
+fish_add_path ~/Library/Android/sdk/tools
 
 function as --description "Open Android Studio"
   # set dir $PWD
