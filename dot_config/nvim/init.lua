@@ -15,6 +15,9 @@ vim.opt.number = true
 --  Experiment for yourself to see if you like it!
 vim.opt.relativenumber = true
 
+-- Disable text wrapping
+vim.opt.wrap = false
+
 -- Set default indentation
 vim.opt.tabstop = 2 -- Default tab width
 vim.opt.shiftwidth = 2 -- Default indentation at each level

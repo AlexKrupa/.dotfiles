@@ -79,13 +79,20 @@ let g:argtextobj_pairs="[:],(:),<:>"
 " In insert mode: Press Ctrl-R to see registers before pasting their contents
 set peekaboo
 
+" Switch plugin setup
 set switch
 nnoremap <C-s> :Switch<CR>
 nnoremap <C-S-s> :SwitchReverse<CR>
 let g:switch_definitions = 'group:basic'
 " Some custom definitions exist in built-in ones, but let's define them for visibility.
 let g:switch_custom_definitions = [
+  \ switchWords(['val', 'var']),
+  \ switchWords(['private', 'internal', 'protected', 'public']),
+  \ switchWords(['interface', 'class', 'object']),
+  \ switchWords(['open', 'abstract', 'sealed']),
   \ switchWords(['isEmpty', 'isNotEmpty']),
+  \ switchWords(['check', 'require']),
+  \ switchWords(['checkNotNull', 'requireNotNull']),
   \ switchWords(['isBlank', 'isNotBlank']),
   \ switchWords(['onSuccess', 'onFailure']),
   \ switchWords(['shouldBe', 'shouldNotBe']),
@@ -94,6 +101,7 @@ let g:switch_custom_definitions = [
   \ switchWords(['shouldBeTrue', 'shouldBeFalse']),
   \ switchWords(['ON_CREATE', 'ON_START', 'ON_RESUME', 'ON_PAUSE', 'ON_STOP', 'ON_DESTROY']),
   \ switchWords(['INITIALIZED', 'CREATED', 'STARTED', 'RESUMED', 'PAUSED', 'STOPPED', 'DESTROYED']),
+  \ switchWords(['Log.i', 'Log.d', 'Log.w', 'Log.e', 'Log.wtf']),
   \ switchWords(['Timber.i', 'Timber.d', 'Timber.w', 'Timber.e', 'Timber.wtf']),
   \ switchNormalizedCaseWords(['on', 'off']),
   \ switchNormalizedCaseWords(['foreground', 'background']),

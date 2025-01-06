@@ -1,9 +1,8 @@
 # Configs
 alias fisha "$EDITOR ~/.config/fish/alias.fish"
 alias fishc "$EDITOR ~/.config/fish/config.fish"
-alias fishr "source ~/.config/fish/config.fish"
+alias fishr "source ~/.config/fish/**/*.fish"
 alias fishl "$EDITOR ~/.config/fish/local.fish"
-alias fishrl "source ~/.config/fish/local.fish"
 alias fishe "$EDITOR ~/.config/fish/env.fish"
 alias ghosttyc "~/.config/ghostty/config"
 alias gitc "$EDITOR ~/.gitconfig-base"
