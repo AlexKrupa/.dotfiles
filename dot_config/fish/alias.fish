@@ -4,7 +4,7 @@ alias fishc "$EDITOR ~/.config/fish/config.fish"
 alias fishr "source ~/.config/fish/**/*.fish"
 alias fishl "$EDITOR ~/.config/fish/local.fish"
 alias fishe "$EDITOR ~/.config/fish/env.fish"
-alias ghosttyc "~/.config/ghostty/config"
+alias ghosttyc "$EDITOR ~/.config/ghostty/config"
 alias gitc "$EDITOR ~/.gitconfig-base"
 alias gradlep "$EDITOR ~/.gradle/gradle.properties"
 alias gradlei "$EDITOR ~/.gradle/init.gradle"
@@ -63,21 +63,25 @@ alias tms tmux-split
 ## Tools
 ################################################################################
 
-# Java quick switch
-# https://stackoverflow.com/questions/64917779/wrong-java-home-after-upgrade-to-macos-big-sur-v11-0-1
-function jdk
-  set -l jdk_version $argv
-  if test $jdk_version
-    set -gx JAVA_HOME $(/usr/libexec/java_home -v $jdk_version);
-  end
-  java -version
-end
 
-# alias javav "java -version"
-# alias java8 "set -gx JAVA_HOME (/usr/libexec/java_home -v 1.8)"
-# alias java11 "set -gx JAVA_HOME (/usr/libexec/java_home -v 11)"
-# alias java17 "set -gx JAVA_HOME (/usr/libexec/java_home -v 17)"
-# alias java21 "set -gx JAVA_HOME (/usr/libexec/java_home -v 21)"
+function jdk
+  argparse 's/silent' -- $argv
+  or return
+
+  # This handles cases when --silent is passed as a first or second argument.
+  set -l jdk_version $argv[-1]
+
+  if test -n "$jdk_version"
+    set -gx JAVA_HOME $(/usr/libexec/java_home -v "$jdk_version")
+  else
+    echo "Error: No JDK version specified." >&2  # Redirect to stderr
+    return 1
+  end
+
+  if not set -q _flag_silent
+    java -version
+  end
+end
 
 ## Other
 alias brewkill "rm -rf $(brew --prefix)/var/homebrew/locks" # Terminate Brew update in case it gets stuck.

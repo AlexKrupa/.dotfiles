@@ -2,7 +2,7 @@ source ~/.config/fish/env.fish
 source ~/.config/fish/alias.fish
 source ~/.config/fish/colors.fish
 
-jdk 21 # default Java version
+jdk 21 --silent # default Java version
 starship init fish | source
 fish_vi_key_bindings # Vim mode, fish_default_key_bindings for default
 fish_vi_cursor

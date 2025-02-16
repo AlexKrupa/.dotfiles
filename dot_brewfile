@@ -45,6 +45,7 @@ brew "openssl"
 brew "renameutils"  # bulk renaming / copying
 brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
+brew "scc" # project metric counter (e.g. LOC)
 brew "terminal-notifier"
 brew "tldr" # docs, manpages alternative
 brew "yt-dlp" # YouTube downloader
