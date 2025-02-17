@@ -9,8 +9,8 @@ function gw --wraps=gradle
   end
 end
 
-alias grs "gw --stop"
-alias grad "gw assembleDebug"
-alias grtd "gw testDebugUnitTest"
-alias grccc "rm -rf .gradle/configuration-cache"
+alias gws "gw --stop"
+alias gwad "gw assembleDebug"
+alias gwtd "gw testDebugUnitTest"
+alias gwccc "rm -rf .gradle/configuration-cache"
 
