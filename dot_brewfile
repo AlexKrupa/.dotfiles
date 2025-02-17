@@ -38,17 +38,18 @@ brew "jless" # JSON viewer
 brew 'jq' # grep for JSON
 brew 'noahgorstein/tap/jqp' # jq TUI
 brew "lsd" # better ls
-brew "neofetch" # system info
 brew "neovim"
 brew "node"
 brew "openssl"
-brew "renameutils"  # bulk renaming / copying
+brew "renameutils" # bulk renaming / copying
 brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
 brew "scc" # project metric counter (e.g. LOC)
+brew "sesh" # tmux session manager (used with fzf)
 brew "terminal-notifier"
 brew "tldr" # docs, manpages alternative
 brew "yt-dlp" # YouTube downloader
+brew "zoxide" # smart cd replacement
 
 # yazi file manager
 brew "yazi" # file manager
@@ -72,6 +73,7 @@ brew "tmux"
 tap "mdogan/zulu"
 cask "zulu-jdk11"
 cask "zulu-jdk17"
+cask "zulu-jdk21"
 brew "kotlin"
 brew "gradle"
 brew "scrcpy" # screen mirroring
@@ -92,10 +94,10 @@ brew "pyenv"
 
 # Mac apps
 cask "1password"
-cask "1password-cli" # required for Raycast/Alfred integration
+# cask "1password-cli" # required for Raycast/Alfred integration
 cask "alt-tab" # alt-tab replacement
 cask "appcleaner" # app uninstaller
-cask "betterdisplay"   # display manager
+# cask "betterdisplay"   # display manager
 cask "bettertouchtool"
 # cask "bruno" # API-client, Postman alternative
 cask "calibre" # ebook manager
@@ -119,7 +121,7 @@ cask "lulu" # connection blocker
 cask "marta" # file manager
 cask "microsoft-edge" # browser
 cask "mitmproxy" # for debugging network requests
-cask "mullvadvpn"
+# cask "mullvadvpn"
 cask "notunes" # disable iTunes on media button press
 cask "obsidian" # note taking, Markdown
 cask "omnidisksweeper" # disk space visualizer and cleaner
@@ -138,7 +140,7 @@ cask "sublime-text" # text editor
 cask "the-unarchiver" # unzip
 cask "via" # keyboard configurator (e.g. Keychron)
 # cask "visual-studio-code"
-cask "wezterm" # terminal emulator
+# cask "wezterm" # terminal emulator
 
 # fonts
 cask "font-hack"
@@ -148,10 +150,9 @@ cask "font-jetbrains-mono-nerd-font"
 cask "font-sf-mono"
 
 # Karabiner / Goku
-cask "karabiner-elements"
-tap "candid82/brew"
-tap "yqrashawn/goku"
-brew "yqrashawn/goku/goku" # Karabiner config manager
+# cask "karabiner-elements"
+# tap "yqrashawn/goku"
+# brew "yqrashawn/goku/goku" # Karabiner config manager
 
 ##################
 # Helpful commands

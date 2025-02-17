@@ -1,12 +1,15 @@
 [manager]
 show_hidden = true
 
+# MacOS: open Quick Look
+[[manager.prepend_keymap]]
+on = "<C-p>"
+run = 'shell -- qlmanage -p "$@"'
+
 [opener]
+edit = [
+  { run = '$EDITOR "$@"', block = true, for = "unix" }
+]
 play = [
   { run = 'open -a IINA "$@"', desc = "IINA", orphan = true }
-]
-
-[open]
-rules = [
-  { mime = "video/*", use = [ "play", "reveal" ] },
 ]

@@ -24,7 +24,7 @@ end
 
 # yy shell wrapper that provides the ability to change the current working directory when exiting Yazi.
 # https://yazi-rs.github.io/docs/quick-start#shell-wrapper
-function yy
+function y
   set -l tmp (mktemp -t "yazi-cwd.XXXXXX")
   yazi $argv --cwd-file="$tmp"
   if set -f cwd (command cat -- "$tmp"); and [ -n "$cwd" ]; and [ "$cwd" != "$PWD" ]
@@ -85,6 +85,7 @@ end
 
 ## Other
 alias brewkill "rm -rf $(brew --prefix)/var/homebrew/locks" # Terminate Brew update in case it gets stuck.
+alias cd "z" # zoxide
 alias g "git"
 alias lg "lazygit"
 alias ls "lsd"
