@@ -1,5 +1,5 @@
 function __git_main
-  for branch in "trunk" "main" "master"
+  for branch in "main" "master" "trunk"
     if git rev-parse "$branch" &>/dev/null
       echo $branch
       break
@@ -23,12 +23,16 @@ function gco --wraps="git checkout"
   end
 end
 
+function gbf
+  git for-each-ref --format='%(refname:short)' --sort=-committerdate refs/heads | fzf --preview "git show {}"
+end
+
 function rebase
-  set trunk (__git_main)
-  git checkout $trunk
+  set main (__git_main)
+  git checkout $main
   and git pull --prune
   and git checkout -
-  and git rebase $trunk
+  and git rebase $main
 end
 
 function catch-up
@@ -37,6 +41,6 @@ function catch-up
 end
 
 function rm-merged-local
-  set trunk (__git_main)
-  git branch --merged $trunk | command grep -v $trunk | xargs git branch -D
+  set main (__git_main)
+  git branch --merged $main | command grep -v $main | xargs git branch -D
 end

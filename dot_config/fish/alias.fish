@@ -1,6 +1,7 @@
 # Configs
 alias fisha "$EDITOR ~/.config/fish/alias.fish"
 alias fishc "$EDITOR ~/.config/fish/config.fish"
+alias fishcd "cd ~/.config/fish/conf.d/"
 alias fishr "source ~/.config/fish/**/*.fish"
 alias fishl "$EDITOR ~/.config/fish/local.fish"
 alias fishe "$EDITOR ~/.config/fish/env.fish"

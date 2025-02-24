@@ -78,11 +78,11 @@
   canv = !(git add . && git commit --amend --no-verify)
   cane = !(git add . && git commit --amend --no-edit)
   canenv = !(git add . && git commit --amend --no-edit --no-verify)
-  cb = checkout -b
-  cbf = !(git for-each-ref --format='%(refname:short)' --sort=-committerdate refs/heads | fzf --preview \"git show {}\"| xargs git checkout)
   cf = "!f() { !(git add . && git commit --fixup $1) }; f"
   cleanup = !(git po && git dm)
   co = checkout
+  cob = checkout -b
+  cof = !fish -c 'gbf | xargs git checkout'
   cob="!f() { !(git refb @{-$1}) }; f"
   code-changes = !(git log --format=format: --name-only | egrep -v '^$' | sort | uniq -c | sort -rg | head -50)
   cp = cherry-pick
@@ -98,8 +98,7 @@
   unskip = update-index --no-skip-worktree
   skipped = !(git ls-files -v | grep '^S')
   lg = log --graph --no-merges --pretty=format:'%h %<(14)%Cblue%ar%Creset %<(14,trunc)%aN %Cgreen%s%Creset %C(auto)%d%Creset'
-  main = checkout main
-  master = checkout master
+  main = !fish -c '__git_main'
   ma = merge --abort
   mc = merge --continue --no-edit
   po = remote prune origin
@@ -109,8 +108,10 @@
   ra = rebase --abort
   rbob = "!f() { git rebase --onto $1 $1@{1} $2; }; f"
   rboc = "!f() { git rbob $(git rev-parse --abbrev-ref HEAD) $1; }; f"
+  rbocf = !fish -c 'gbf | xargs git rboc'
   rc = !(git add . && git rebase --continue)
   rcob = "!f() { git rbob $1 $(git rev-parse --abbrev-ref HEAD); }; f"
+  rcobf = !fish -c 'gbf | xargs git rcob'
   refb="!f() { !(git reflog | egrep -io \"moving from ([^[:space:]]+)\" | awk '{ print NR \" - \" $3 }' | head -n 5) }; f"
   ri = rebase -i
   rias = rebase -i --autosquash
