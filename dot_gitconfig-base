@@ -83,7 +83,7 @@
   co = checkout
   cob = checkout -b
   cof = !fish -c 'gbf | xargs git checkout'
-  cob="!f() { !(git refb @{-$1}) }; f"
+  # cob="!f() { !(git refb @{-$1}) }; f"
   code-changes = !(git log --format=format: --name-only | egrep -v '^$' | sort | uniq -c | sort -rg | head -50)
   cp = cherry-pick
   cpa = cherry-pick --abort
