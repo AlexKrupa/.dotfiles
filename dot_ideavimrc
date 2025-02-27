@@ -301,8 +301,8 @@ nmap <leader>qd <Action>(QuickDefinition)
 nmap <leader>qD <Action>(QuickTypeDefinition)
 
 " code
-map <leader>c <Action>(CommentByLineComment)
-map <leader>C <Action>(CommentByBlockComment)
+map <leader>cl <Action>(CommentByLineComment)
+map <leader>cb <Action>(CommentByBlockComment)
 nmap <leader>qf <Action>(ShowIntentionActions)
 nmap <leader>se <Action>(ShowErrorDescription)
 nmap <leader>om <Action>(OverrideMethods)
@@ -329,7 +329,8 @@ nmap <leader>dv <Action>(ViewBreakpoints)
 
 map <leader>v <Action>(Vcs.QuickListPopupAction)
 "map <leader>b <Action>(ToggleLineBreakpoint)
-"nmap <leader>c <Action>(CallHierarchy)
+map <leader>bv <Action>(ActivateBuildVariantsToolWindow)
+nmap <leader>ch <Action>(CallHierarchy)
 " Highlight usages, use CMD+G/Shift+CMD+G to iterate
 nmap <leader>hu <Action>(HighlightUsagesInFile)
 "nmap <leader>q <Action>(ToggleRenderedDocPresentation)
