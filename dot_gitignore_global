@@ -1,1 +1,5 @@
+.DS_Store
 .aider*
+.idea/
+.npm/
+node_modules/

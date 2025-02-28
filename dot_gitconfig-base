@@ -4,6 +4,7 @@
   autocrlf = input
   excludesfile = ~/.gitignore_global
   fsmonitor = true
+  untrackedCache = true
   pager = delta
 [init]
   defaultBranch = main
@@ -19,6 +20,10 @@
   # statusHints = false
 [format]
     #pretty = format:%h %Cblue%ar%Creset %aN %Cgreen%s%Creset
+[status]
+  showStash = true
+[stash]
+  showPatch = true
 [log]
   date = iso
 [branch]
@@ -26,13 +31,20 @@
   sort = committerdate
 [rebase]
   # Makes it much easier to rebase multiple stacked branches at a time.
+  autosquash = true
+  autostash = true
   updateRefs = true
   instructionFormat =    %ar    %aE    %s
 [rerere]
   # This enables rerere (”reuse recovered resolution”), which remembers how you resolved merge conflicts during a git rebase and automatically resolves conflicts for you when it can.
   enabled = true
+  autoupdate = true
 [merge]
   conflictstyle = zdiff3
+[fetch]
+  prune = true
+  pruneTags = true
+  all = true
 [pull]
   # This automatically runs git stash before a git rebase and git stash pop after. It basically passes --autostash to git rebase.
   autostash = true
@@ -60,6 +72,9 @@
 [diff]
   colorMoved = default
   colormovedws = "allow-indentation-change"
+  mnemonicPrefix = true
+  renames = true
+  external = difft
   tool = difftastic
 [difftool]
   prompt = false
