@@ -5,7 +5,6 @@ set -gx EDITOR $VISUAL
 # lazygit: change default config directory
 set -gx XDG_CONFIG_HOME $HOME/.config
 
-fish_add_path /opt/homebrew/bin
 fish_add_path ~/Library/Application\ Support/JetBrains/Toolbox/scripts
 fish_add_path ~/.jetbrains
 
