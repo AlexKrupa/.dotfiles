@@ -47,7 +47,7 @@ brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
 brew "scc" # project metric counter (e.g. LOC)
 brew "sesh" # tmux session manager (used with fzf)
 brew "terminal-notifier"
-brew "tldr" # docs, manpages alternative
+brew "tlrc" # tldr - docs, manpages alternative
 brew "yt-dlp" # YouTube downloader
 brew "zoxide" # smart cd replacement
 
