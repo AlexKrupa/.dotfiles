@@ -6,7 +6,8 @@ SESSION_NAME="0-me"
 
 if [ $? -eq 0 ]; then
  # If the session exists, reattach to it
- /opt/homebrew/bin/tmux attach-session -t $SESSION_NAME
+ # /opt/homebrew/bin/tmux attach-session -t $SESSION_NAME
+ /opt/homebrew/bin/tmux
 else
  # If the session doesn't exist, start a new one
  /opt/homebrew/bin/tmux new-session -s $SESSION_NAME -d
