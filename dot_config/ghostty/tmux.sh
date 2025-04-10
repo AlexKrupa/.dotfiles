@@ -1,5 +1,5 @@
 #!/bin/env bash
-SESSION_NAME="0-me"
+SESSION_NAME="me"
 
 # Check if the session already exists
 /opt/homebrew/bin/tmux has-session -t $SESSION_NAME 2>/dev/null
