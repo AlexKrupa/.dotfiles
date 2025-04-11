@@ -379,7 +379,7 @@ map <c-=> <Action>(Unsplit)
 map <c-[> <Action>(PrevSplitter)
 map <c-]> <Action>(NextSplitter)
 
-
+" Macros
 vnoremap <leader>ld yoTimber.d("${<Esc>pa}")<Esc>
 
 "-----------------------
