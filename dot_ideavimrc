@@ -380,8 +380,7 @@ map <c-[> <Action>(PrevSplitter)
 map <c-]> <Action>(NextSplitter)
 
 
-
-
+vnoremap <leader>ld yoTimber.d("${<Esc>pa}")<Esc>
 
 "-----------------------
 "----- HARPOON(ER) -----
