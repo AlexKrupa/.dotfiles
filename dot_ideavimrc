@@ -380,7 +380,11 @@ map <c-[> <Action>(PrevSplitter)
 map <c-]> <Action>(NextSplitter)
 
 " Macros
-vnoremap <leader>ld yoTimber.d("${<Esc>pa}")<Esc>
+vnoremap <leader>lti yoTimber.i("${<Esc>pa}")<Esc>
+vnoremap <leader>ltd yoTimber.d("${<Esc>pa}")<Esc>
+vnoremap <leader>ltw yoTimber.w("${<Esc>pa}")<Esc>
+vnoremap <leader>lte yoTimber.e("${<Esc>pa}")<Esc>
+vnoremap <leader>lp yoprintln("${<Esc>pa}")<Esc>
 
 "-----------------------
 "----- HARPOON(ER) -----
