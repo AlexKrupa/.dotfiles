@@ -353,7 +353,7 @@ nmap <leader>ra <Action>(Refactorings.QuickListPopupAction)
 "nmap <leader>sd <Action>(SafeDelete)
 nmap <leader>oi <Action>(OptimizeImports)
 "nmap <leader>rf <Action>(ReformatCode)
-nmap <leader>fc <Action>(ReformatCode)
+nmap <leader>ff <Action>(ReformatCode)
 
 " hierarchy
 nmap <leader>hc <Action>(CallHierarchy)
@@ -379,12 +379,24 @@ map <c-=> <Action>(Unsplit)
 map <c-[> <Action>(PrevSplitter)
 map <c-]> <Action>(NextSplitter)
 
-" Macros
+
+"------------------
+"----- MACROS -----
+"------------------
+
+" Log selection
 vnoremap <leader>lti yoTimber.i("${<Esc>pa}")<Esc>
 vnoremap <leader>ltd yoTimber.d("${<Esc>pa}")<Esc>
 vnoremap <leader>ltw yoTimber.w("${<Esc>pa}")<Esc>
 vnoremap <leader>lte yoTimber.e("${<Esc>pa}")<Esc>
 vnoremap <leader>lp yoprintln("${<Esc>pa}")<Esc>
+
+" Format whole file or selection JSON with jq
+nnoremap <silent> <leader>fj :%!jq<CR>
+vnoremap <silent> <leader>fj :'<,'>!jq<CR>
+nnoremap <silent> <leader>fcj :%!jq --compact-output<CR>
+vnoremap <silent> <leader>fcj :'<,'>!jq --compact-output<CR>
+
 
 "-----------------------
 "----- HARPOON(ER) -----
@@ -402,9 +414,6 @@ nmap <M-/> :action HarpoonerOpenFile3<cr>
 " nmap <M-7> :action HarpoonerOpenFile7<cr>
 " nmap <M-8> :action HarpoonerOpenFile8<cr>
 " nmap <M-9> :action HarpoonerOpenFile9<cr>
-
-
-
 
 
 "---------------------

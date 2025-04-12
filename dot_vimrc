@@ -1,6 +1,7 @@
 "source $VIMRUNTIME/defaults.vim
 
-set shell=/bin/zsh
+" set shell=/bin/zsh
+set shell=/opt/homebrew/bin/fish
 
 "Use fzf in Vim
 set rtp+=/opt/homebrew/opt/fzf

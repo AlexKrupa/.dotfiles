@@ -786,3 +786,17 @@ require('lazy').setup {
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
+
+--------------
+-- MAPPINGS --
+--------------
+
+local opts = { noremap = true, silent = true }
+
+-- Whole buffer
+vim.keymap.set('n', '<Leader>fj', '<Cmd>%!jq<CR>', opts)
+vim.keymap.set('n', '<Leader>fcj', '<Cmd>%!jq --compact-output<CR>', opts)
+
+-- Visual selection
+vim.keymap.set('v', '<Leader>fj', ":'<,'>!jq<CR>", opts)
+vim.keymap.set('v', '<Leader>fcj', ":'<,'>!jq --compact-output<CR>", opts)
