@@ -86,7 +86,7 @@ nnoremap <C-S-s> :SwitchReverse<CR>
 let g:switch_definitions = 'group:basic'
 " Some custom definitions exist in built-in ones, but let's define them for visibility.
 let g:switch_custom_definitions = [
-  \ switchWords(['val', 'var']),
+  'val', 'var',
   \ switchWords(['private', 'internal', 'protected', 'public']),
   \ switchWords(['interface', 'class', 'object']),
   \ switchWords(['open', 'abstract', 'sealed']),
@@ -385,11 +385,19 @@ map <c-]> <Action>(NextSplitter)
 "------------------
 
 " Log selection
-vnoremap <leader>lti yoTimber.i("${<Esc>pa}")<Esc>
-vnoremap <leader>ltd yoTimber.d("${<Esc>pa}")<Esc>
-vnoremap <leader>ltw yoTimber.w("${<Esc>pa}")<Esc>
-vnoremap <leader>lte yoTimber.e("${<Esc>pa}")<Esc>
-vnoremap <leader>lp yoprintln("${<Esc>pa}")<Esc>
+vnoremap <leader>ltv yoTimber.v("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lti yoTimber.i("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>ltd yoTimber.d("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>ltw yoTimber.w("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lte yoTimber.e("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>ltf yoTimber.wtf("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>llv yoLog.v("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lli yoLog.i("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lld yoLog.d("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>llw yoLog.w("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lle yoLog.e("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>llf yoLog.wtf("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lp yoprintln("<Esc>pa=${<Esc>pa}")<Esc>
 
 " Format whole file or selection JSON with jq
 nnoremap <silent> <leader>fj :%!jq<CR>
