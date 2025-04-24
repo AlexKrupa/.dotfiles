@@ -25,6 +25,7 @@ set number
 
 set incsearch
 set hlsearch
+
 "Clear highlight on ESC
 nnoremap <esc> :noh<CR><esc>
 
@@ -98,6 +99,32 @@ nnoremap <C-u> <C-u>zz
 nnoremap n nzzzv
 nnoremap N Nzzzv
 
+" Redo with U
+map U <C-R>
+
+" Don't yank x to default register
+nnoremap x \"_x
+vnoremap x \"_x
+
+" Don't yank d to register if prefixed by leader
+nnoremap <leader>d \"_d
+vnoremap <leader>d \"_d
+
+" Don't yank selection to register if pasting prefixed by leader
+vnoremap <leader>p \"_dP
+
+" Remove prefix
+" Go to start of word, toggle case and start typing. E.g. `<leader>iget`: `property` -> `getProperty`
+map <leader>i wb~hi
+
+" Add prefix
+" Remove selection and toggle case. E.g. `v2l<leader>u`: `getProperty` -> `property`
+vmap <leader>u d~h
+
+" Move between blocks
+map <C-j> }
+map <C-k> {
+
 "Preserve register when pasting with <leader>p
 xnoremap <leader>p [[\"_dP]]
 
@@ -133,3 +160,31 @@ if $TERM_PROGRAM =~ "iTerm"
   let &t_SR = "\<Esc>]50;CursorShape=2\x7"
   let &t_EI = "\<Esc>]50;CursorShape=0\x7"
 endif
+
+
+"------------------
+"----- MACROS -----
+"------------------
+
+" Log selection
+vnoremap <leader>ltv yoTimber.v("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lti yoTimber.i("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>ltd yoTimber.d("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>ltw yoTimber.w("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lte yoTimber.e("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>ltf yoTimber.wtf("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>llv yoLog.v("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lli yoLog.i("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lld yoLog.d("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>llw yoLog.w("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lle yoLog.e("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>llf yoLog.wtf("<Esc>pa=${<Esc>pa}")<Esc>
+vnoremap <leader>lp yoprintln("<Esc>pa=${<Esc>pa}")<Esc>
+
+" Format whole file or selection JSON with jq
+nnoremap <silent> <leader>fj :%!jq<CR>
+vnoremap <silent> <leader>fj :'<,'>!jq<CR>
+nnoremap <silent> <leader>fcj :%!jq --compact-output<CR>
+vnoremap <silent> <leader>fcj :'<,'>!jq --compact-output<CR>
+
+

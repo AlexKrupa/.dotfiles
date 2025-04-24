@@ -9,9 +9,11 @@ alias ghosttyc "$EDITOR ~/.config/ghostty/config"
 alias gitc "$EDITOR ~/.gitconfig-base"
 alias gradlep "$EDITOR ~/.gradle/gradle.properties"
 alias gradlei "$EDITOR ~/.gradle/init.gradle"
+alias ivimc "$EDITOR ~/.ideavimrc"
 alias nvimc "$EDITOR ~/.config/nvim/init.lua"
 alias tmuxc "$EDITOR ~/.tmux.conf"
 alias tmuxr "tmux source-file ~/.tmux.conf"
+alias vimc "$EDITOR ~/.vimrc"
 alias weztermc "$EDITOR ~/.config/wezterm/wezterm.lua"
 
 function cd-git-root

@@ -178,60 +178,10 @@ let g:switch_custom_definitions = [
 " Flash plugin setup
 map s <Action>(flash.search)
 
-" Sneak plugin setup
-"set sneak
-"let g:sneak#label = 1
-"nnoremap s <Plug>Sneak_s
-"nnoremap S <Plug>Sneak_S
-" Unfortunately these don't work in IdeaVim: https://github.com/Mishkun/ideavim-sneak/issues/28
-"map f <Plug>Sneak_f
-"map F <Plug>Sneak_F
-"map t <Plug>Sneak_t
-"map T <Plug>Sneak_T
-
-" quickscope plugin setup
-" Must be after vim-sneak
-"set quickscope
-" Highlight only on key press
-"let g:qs_highlight_on_keys = ['f', 'F', 't', 'T']
-
-" EasyMotion plugin setup
-"Plug 'easymotion/vim-easymotion'
-"map <Leader> <Plug>(easymotion-prefix)
-
-
-
-
 
 "--------------------
 "----- MAPPINGS -----
 "--------------------
-
-" Redo with U
-map U <C-R>
-
-" Don't yank x to default register
-nnoremap x \"_x
-vnoremap x \"_x
-
-" Don't yank d to register if prefixed by leader
-nnoremap <leader>d \"_d
-vnoremap <leader>d \"_d
-
-" Don't yank selection to register if pasting prefixed by leader
-vnoremap <leader>p \"_dP
-
-" Remove prefix
-" Go to start of word, toggle case and start typing. E.g. `<leader>iget`: `property` -> `getProperty`
-map <leader>i wb~hi
-
-" Add prefix
-" Remove selection and toggle case. E.g. `v2l<leader>u`: `getProperty` -> `property`
-vmap <leader>u d~h
-
-" Move between blocks
-map <C-j> }
-map <C-k> {
 
 vmap J <Action>(MoveLineDown)
 vmap K <Action>(MoveLineUp)
@@ -380,32 +330,6 @@ map <c-[> <Action>(PrevSplitter)
 map <c-]> <Action>(NextSplitter)
 
 
-"------------------
-"----- MACROS -----
-"------------------
-
-" Log selection
-vnoremap <leader>ltv yoTimber.v("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>lti yoTimber.i("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>ltd yoTimber.d("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>ltw yoTimber.w("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>lte yoTimber.e("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>ltf yoTimber.wtf("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>llv yoLog.v("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>lli yoLog.i("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>lld yoLog.d("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>llw yoLog.w("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>lle yoLog.e("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>llf yoLog.wtf("<Esc>pa=${<Esc>pa}")<Esc>
-vnoremap <leader>lp yoprintln("<Esc>pa=${<Esc>pa}")<Esc>
-
-" Format whole file or selection JSON with jq
-nnoremap <silent> <leader>fj :%!jq<CR>
-vnoremap <silent> <leader>fj :'<,'>!jq<CR>
-nnoremap <silent> <leader>fcj :%!jq --compact-output<CR>
-vnoremap <silent> <leader>fcj :'<,'>!jq --compact-output<CR>
-
-
 "-----------------------
 "----- HARPOON(ER) -----
 "-----------------------
@@ -422,41 +346,3 @@ nmap <M-/> :action HarpoonerOpenFile3<cr>
 " nmap <M-7> :action HarpoonerOpenFile7<cr>
 " nmap <M-8> :action HarpoonerOpenFile8<cr>
 " nmap <M-9> :action HarpoonerOpenFile9<cr>
-
-
-"---------------------
-"----- FUNCTIONS -----
-"---------------------
-
-" Invert
-" Disabled because ideavim-switch is better
-function! Invert(calledFromVisual)
-  let antonyms = ['true', 'false', 'after', 'before', 'start', 'end', 'left', 'right', 'bottom', 'top',
-                 \'first', 'last', 'enable', 'disable', 'enabled', 'disabled', 'valid', 'invalid', 'on', 'off',
-                 \'up', 'down', 'shouldBeTrue', 'shouldBeFalse',
-                 \'True', 'False', 'After', 'Before', 'Start', 'End', 'Left', 'Right', 'Bottom', 'Top',
-                 \'First', 'Last', 'Enable', 'Disable', 'Enabled', 'Disabled', 'Valid', 'Invalid', 'On', 'Off',
-                 \'Up', 'Down',
-                 \'==', '!=', '===', '!==']
-
-  if a:calledFromVisual
-    normal gv"wy
-  else
-    normal "wyiw
-  endif
-  let wordUnderCaret = @w
-
-  let eraseWord = a:calledFromVisual ? 'gvc' : 'ciw'
-  let count = 0
-  while (count < len(antonyms))
-    if (antonyms[count] ==# wordUnderCaret)
-      let antonym = (count % 2 ==? 0) ? antonyms[count + 1] : antonyms[count - 1]
-      execute 'normal ' .. eraseWord .. antonym
-      break
-    endif
-    let count += 1
-  endwhile
-endfunction
-
-"nnoremap ! :call Invert(0)<CR>
-"vnoremap ! :<C-u>call Invert(1)<CR>
