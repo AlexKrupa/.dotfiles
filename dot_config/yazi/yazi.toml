@@ -1,8 +1,8 @@
-[manager]
+[mgr]
 show_hidden = true
 
 # MacOS: open Quick Look
-[[manager.prepend_keymap]]
+[[mgr.prepend_keymap]]
 on = "<C-p>"
 run = 'shell -- qlmanage -p "$@"'
 
