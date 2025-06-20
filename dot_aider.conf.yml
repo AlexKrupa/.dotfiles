@@ -1,0 +1,8 @@
+analytics-disable: true
+auto-commits: false
+cache-prompts: true
+dark-mode: true
+git: true
+multiline: true
+vim: true
+watch-files: true
