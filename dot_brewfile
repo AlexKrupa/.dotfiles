@@ -88,8 +88,7 @@ brew "rbenv"
 
 # development ## .py
 brew "pyenv"
-# brew "pyenv-virtualenv"
-# brew "python-tabulate"
+brew "uv"
 # brew "python@3.13"
 
 # Mac apps
@@ -105,10 +104,11 @@ cask "bettertouchtool"
 cask "free-ruler" # screen ruler for measuring pixel distances
 # cask "handbrake" # video converter / compressor
 cask "homerow" # keyboard shortcuts for every button on the screen
+cask "ghostty"
 # cask "google-drive"
 cask "google-chrome" # browser
 cask "grandperspective" # disk space visualizer
-# cask "firefox" # browser
+cask "firefox" # browser
 # cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 # cask "imageoptim" # image compressor
@@ -132,8 +132,8 @@ cask "omnidisksweeper" # disk space visualizer and cleaner
 # cask "rapidapi" # API client (Postman alternative)
 cask "raycast" # productivity tool, Spotlight replacement
 cask "shottr" # screenshot tool
-cask "slack"
-cask "spotify"
+# cask "slack"
+# cask "spotify"
 cask "sublime-text" # text editor
 # cask "table-tool" # CSV editor
 cask "the-unarchiver" # unzip
