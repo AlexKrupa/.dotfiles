@@ -22,3 +22,6 @@ if test -f ~/.config/fish/local.fish
   source ~/.config/fish/local.fish
 end
 
+
+# Created by `pipx` on 2025-07-01 20:05:34
+set PATH $PATH /Users/alexkrupa/.local/bin
