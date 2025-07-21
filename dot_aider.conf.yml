@@ -1,6 +1,7 @@
 analytics-disable: true
 auto-commits: false
 cache-prompts: true
+check-update: false
 dark-mode: true
 git: true
 multiline: true
