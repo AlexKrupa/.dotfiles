@@ -1,4 +1,4 @@
-# Global AI instructions
+# Global AI instructio# Global AI instructions
 
 - **ALWAYS** follow these instructions **UNLESS** explicitly asked or if local instructions specify otherwise (project, subdirectory).
 
@@ -6,11 +6,10 @@
 
 - Communicate like an expert developer to another developer.
 - Lead with the main answer/solution first, then provide supporting details.
-- Be brief and informative.
-- Do not apologize for mistakes.
-- Do not repeat yourself in follow-up questions unless clarifying.
-- Do not repeat my question back to me unless it was unclear.
-- Ask for clarification when questions are too vague or lack sufficient context.
+- Be brief and informative — no apologies, repetition, or generic praise.
+- Don't repeat questions back unless unclear; ask for clarification when context is insufficient.
+- **Use specific details**: Reference actual tools, versions, error messages, or code patterns rather than vague descriptions.
+- **Skip unnecessary analysis**: Don't explain significance unless directly relevant to the problem.
 - Provide sources when available.
 
 ## Formatting
@@ -24,25 +23,32 @@
   - Do not capitalize words that are not usually capitalized.
   - Use sentence case in headings: `## This is correct` not `## This Is Wrong`.
   - It is fine to capitalize proper names or code references.
+- **Natural writing patterns**:
+  - Vary sentence length and structure.
+  - Avoid starting multiple sentences with the same pattern.
+  - Use concrete examples over abstract descriptions.
 
 ## Documentation
 
-- Documentation **MUST** follow general reply and formatting preferences.
-- Write documentation assuming the reader knows the project context but may need specifics about implementation details.
-- Use Markdown for standalone documentation files.
-- Use Mermaid for diagrams.
-- Use `kebab-case.md` naming convention for Markdown files unless it's `README.md`.
+- Follow general reply and formatting preferences.
+- Assume readers know project context but need implementation specifics.
+- Use Markdown for standalone files, Mermaid for diagrams, `kebab-case.md` naming (except `README.md`).
+- **Content approach**:
+  - Include practical limitations, real-world context, and specific tool/version references.
+  - Mix instruction styles and acknowledge multiple valid approaches.
+  - Provide brief context for decisions rather than generic benefit statements.
 
 ## General code
 
 - Follow language-specific style guides (e.g., `gofmt` for Go, official Kotlin coding conventions).
-- In-code documentation must follow documentation preferences.
-- When modifying existing code, add `// Changed:` comments to highlight the specific modifications.
 - Prefer guard statements over nested if/else blocks.
 - Include context in logs and error messages.
-- **Comments**:
-  - Focus on the **WHY** rather than the **WHAT**.
-  - Comment **ONLY** non-obvious code. Omit comments that can be inferred from the commented line.
+- When modifying existing code, add `// Changed:` comments to highlight modifications.
+- **Comments and documentation**:
+  - Focus on **WHY** rather than **WHAT** — comment only non-obvious code.
+  - Explain trade-offs considered, alternatives rejected, or specific gotchas encountered.
+  - Reference the specific use case or constraint that drove implementation choices.
+  - Follow documentation preferences for in-code documentation.
 
 ## Kotlin
 
@@ -57,23 +63,11 @@
 ## Android development
 
 - Use Kotlin for Android and Gradle.
-- Use JUnit4 for Robolectric tests.
-- Use Espresso for Android tests.
+- Use JUnit4 for Robolectric tests, Espresso for Android tests.
 
-## Development environment
+## Tool and environment preferences
 
-- Operating system: MacOS (M4 Pro, ARM, 48 GB RAM).
-- Homebrew for package management.
-- Fish shell.
-- Ghostty terminal with tmux.
-- Android Studio (or IntelliJ) for Android, Kotlin and Java development.
-- NeoVim for other development.
-- Prefer editing with Vim motions - via IdeaVim in Android Studio and IntelliJ, or in NeoVim.
-- Git for version control, favoring trunk-based development.
-- Mitmproxy as scriptable network proxy for testing.
-
-## Tool usage
-- Use Fish instead of Bash for shell scripts.
-- Use `rg` (ripgrep) instead of `grep` for searching.
-- Use `fd` instead of `find` for file discovery.
-
+- **Development environment**: MacOS (M4 Pro, ARM, 48 GB RAM), Fish shell, Ghostty terminal with tmux.
+- **Editors**: Android Studio/IntelliJ (with IdeaVim) for Android/Kotlin/Java; NeoVim for others.
+- **Tools**: Homebrew for packages, Git with trunk-based development, Mitmproxy for network testing.
+- **Shell commands**: Use Fish over Bash, `rg` over `grep`, `fd` over `find`.n

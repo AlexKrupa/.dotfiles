@@ -3,10 +3,14 @@ set -gx ANDROID_HOME $HOME/Library/Android/sdk
 set -gx ANDROID_SDK $ANDROID_HOME
 set -gx ANDROID_SDK_ROOT $ANDROID_HOME
 
-fish_add_path ~/Library/Android/sdk/cmdline-tools/latest/bin
-fish_add_path ~/Library/Android/sdk/emulator
-fish_add_path ~/Library/Android/sdk/platform-tools
-fish_add_path ~/Library/Android/sdk/tools
+# Constants
+set -g ANDROID_MEDIA_PATH ~/Downloads/android-
+set -g ADB_STATIC_PORT 4444
+
+fish_add_path $ANDROID_HOME/cmdline-tools/latest/bin
+fish_add_path $ANDROID_HOME/emulator
+fish_add_path $ANDROID_HOME/platform-tools
+fish_add_path $ANDROID_HOME/tools
 
 function as --description "Open Android Studio"
   # set dir $PWD
@@ -22,8 +26,24 @@ alias adb_settings-dev "adb shell am start -a com.android.settings.APPLICATION_D
 
 # Get a media (screenshot/video) file name with a timestamp.
 # Example: 2021-08-31_14-23-45
-function __media-file-name
+function __media_file_name
   echo (date +"%Y-%m-%d_%H-%M-%S")
+end
+
+# Get full path for media file with given prefix and extension
+function __media_file_path
+  set -l prefix $argv[1]
+  set -l extension $argv[2]
+  echo $ANDROID_MEDIA_PATH$prefix(__media_file_name).$extension
+end
+
+# Helper function for device operations that require device selection
+function __require_device_selection
+  set -fx ANDROID_SERIAL (__select_adb_device)
+  if test -z "$ANDROID_SERIAL"
+    return 1
+  end
+  return 0
 end
 
 # Select an ADB device from the list of connected devices.
@@ -65,6 +85,11 @@ end
 # Install and run app on connected device.
 # Usage: andi <variant> <package> <activity>
 function andi
+  if test (count $argv) -lt 3
+    echo "Usage: andi <variant> <package> <activity>" >&2
+    return 1
+  end
+
   set -l variant $argv[1]
   set -l package $argv[2]
   set -l activity $argv[3]
@@ -72,9 +97,8 @@ function andi
   set -l variant_lowercase (string lower $variant)
 
   # android_serial env var is read by both the gradle `install` task and by adb.
-  set -fx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return
+  if not __require_device_selection
+    return 1
   end
 
   echo Installing $package on $ANDROID_SERIAL
@@ -110,11 +134,15 @@ end
 
 # Uninstall all apps with package starting with the first argument.
 function andu
+  if test (count $argv) -lt 1
+    echo "Usage: andu <package>" >&2
+    return 1
+  end
+
   set -l package $argv[1]
 
-  set -fx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return
+  if not __require_device_selection
+    return 1
   end
 
   echo Uninstalling $package from $ANDROID_SERIAL
@@ -124,9 +152,13 @@ end
 
 # Set connected ADB device DPI to passed value (e.g. 420).
 function dpi
-  set -fx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return
+  if test (count $argv) -lt 1
+    echo "Usage: dpi <value>" >&2
+    return 1
+  end
+
+  if not __require_device_selection
+    return 1
   end
 
   echo Setting DPI to $argv on $ANDROID_SERIAL
@@ -136,44 +168,44 @@ end
 
 # Set connected ADB device font scale to passed value (e.g. 1.2).
 function font_scale
-  set -fx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return
+  if not __require_device_selection
+    return 1
   end
 
-  set -l scale $argv
+  set -l scale $argv[1]
 
-  if test -z $scale
+  if test -z "$scale"
     adb shell settings get system font_scale
     return
   end
 
-  echo Setting DPI to $argv on $ANDROID_SERIAL
+  echo Setting font scale to $scale on $ANDROID_SERIAL
 
   adb shell settings put system font_scale $scale
 end
 
 # Set connected ADB device screen size to passed value (e.g. 1080x1920).
 function screensize
-  set -fx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return
+  if test (count $argv) -lt 1
+    echo "Usage: screensize <size>" >&2
+    return 1
   end
 
-  echo Setting screen size of to $argv on $ANDROID_SERIAL
+  if not __require_device_selection
+    return 1
+  end
+
+  echo Setting screen size to $argv on $ANDROID_SERIAL
 
   adb shell wm size $argv
 end
 
 # Screenshot connected ADB device into ~/Downloads folder.
 function screenshot
-  set -l file_name (__media-file-name)
-  set -l path ~/Downloads/android-img-
-  set -l image $path$file_name.png
+  set -l image (__media_file_path img png)
 
-  set -fx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return
+  if not __require_device_selection
+    return 1
   end
 
   echo Taking a screenshot of $ANDROID_SERIAL
@@ -184,15 +216,12 @@ end
 
 # Screenshot connected ADB device in both day and night mode into ~/Downloads folder.
 function screenshot_daynight
-  set -l file_name (__media-file-name)
-  set -l path ~/Downloads/android-img-
-  set -l image $path$file_name.png
-  set -l image_day $path$file_name-day.png
-  set -l image_night $path$file_name-night.png
+  set -l file_name (__media_file_name)
+  set -l image_day $ANDROID_MEDIA_PATH"img-"$file_name"-day.png"
+  set -l image_night $ANDROID_MEDIA_PATH"img-"$file_name"-night.png"
 
-  set -fx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return
+  if not __require_device_selection
+    return 1
   end
 
   echo Taking day and night screenshots of $ANDROID_SERIAL
@@ -213,14 +242,12 @@ end
 
 # Record an MP4 video of connected ADB device into ~/Downloads folder and then compresses it.
 function screenrecord
-  set -l file_name (__media-file-name)
-  set -l path ~/Downloads/android-vid-
-  set -l video $path$file_name.mp4
-  set -l compressed $path$file_name-compressed-noaudio.mp4
+  set -l video (__media_file_path vid mp4)
+  set -l file_name (__media_file_name)
+  set -l compressed $ANDROID_MEDIA_PATH"vid-"$file_name"-compressed-noaudio.mp4"
 
-  set -fx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return
+  if not __require_device_selection
+    return 1
   end
 
   echo Recording a video of $ANDROID_SERIAL
@@ -235,26 +262,34 @@ function screenrecord
   echo Video saved at $video
 end
 
-set -g adb_static_port 4444
-
 function adb_wifi
+  if test (count $argv) -lt 1
+    echo "Usage: adb_wifi <ip>" >&2
+    return 1
+  end
+
   set -l ip $argv[1]
-  set -l port $adb_static_port
+  set -l port $ADB_STATIC_PORT
   set -l ip_with_port "$ip:$port"
   echo "Connecting to $ip_with_port"
   adb connect $ip_with_port
 end
 
 function adb_wifi_new
+  if test (count $argv) -lt 2
+    echo "Usage: adb_wifi_new <ip> <port>" >&2
+    return 1
+  end
+
   set -l ip $argv[1]
   set -l port $argv[2]
   set -l ip_with_port "$ip:$port"
-  set -l ip_with_new_port "$ip:$adb_static_port"
+  set -l ip_with_new_port "$ip:$ADB_STATIC_PORT"
 
   echo "Connecting to $ip_with_port"
   adb connect $ip_with_port
   sleep 1
-  adb -s $ip_with_port tcpip $adb_static_port
+  adb -s $ip_with_port tcpip $ADB_STATIC_PORT
   sleep 1
   adb connect $ip_with_new_port
   sleep 1
@@ -262,8 +297,13 @@ function adb_wifi_new
 end
 
 function adb_dc
+  if test (count $argv) -lt 1
+    echo "Usage: adb_dc <ip>" >&2
+    return 1
+  end
+
   set -l ip $argv[1]
-  set -l port $adb_static_port
+  set -l port $ADB_STATIC_PORT
   set -l ip_with_port "$ip:$port"
   echo "Disconnecting from $ip_with_port"
   adb disconnect $ip_with_port
