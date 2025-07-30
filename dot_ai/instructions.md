@@ -70,4 +70,4 @@
 - **Development environment**: MacOS (M4 Pro, ARM, 48 GB RAM), Fish shell, Ghostty terminal with tmux.
 - **Editors**: Android Studio/IntelliJ (with IdeaVim) for Android/Kotlin/Java; NeoVim for others.
 - **Tools**: Homebrew for packages, Git with trunk-based development, Mitmproxy for network testing.
-- **Shell commands**: Use Fish over Bash, `rg` over `grep`, `fd` over `find`.n
+- **Shell commands**: Use Fish over Bash, `rg` over `grep`, `fd` over `find`.
