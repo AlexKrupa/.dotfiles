@@ -45,7 +45,6 @@ set notimeout
 Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-surround'
 
-Plug 'preservim/nerdtree'
 let g:NERDTreeMapPreview = 'O'
 
 set multicursor

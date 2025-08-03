@@ -285,7 +285,7 @@
       "modifierFlags" : 1835008
     },
     "lastFourth" : {
-      "keyCode" : 39,
+      "keyCode" : 41,
       "modifierFlags" : 1835008
     },
     "lastThird" : {
@@ -305,11 +305,7 @@
       "modifierFlags" : 1835008
     },
     "nextDisplay" : {
-      "keyCode" : 124,
-      "modifierFlags" : 1835008
-    },
-    "previousDisplay" : {
-      "keyCode" : 123,
+      "keyCode" : 39,
       "modifierFlags" : 1835008
     },
     "reflowTodo" : {
