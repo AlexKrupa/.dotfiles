@@ -1,7 +1,8 @@
 .DS_Store
-.aider*
 .idea/
 .npm/
 node_modules/
+.ai*
+.aider*
 .claude*
 CLAUDE.md

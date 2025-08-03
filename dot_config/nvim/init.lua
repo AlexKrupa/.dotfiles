@@ -470,7 +470,9 @@ require('lazy').setup {
         -- But for many setups, the LSP (`tsserver`) will work just fine
         -- tsserver = {},
         --
-        kotlin_language_server = {},
+        gradle_ls = {},
+        graphql = {},
+        kotlin_lsp = {},
 
         lua_ls = {
           -- cmd = {...},
@@ -498,6 +500,10 @@ require('lazy').setup {
             },
           },
         },
+
+        pylsp = {},
+        ts_ls = {},
+        yamlls = {},
       }
 
       -- Ensure the servers and tools above are installed
