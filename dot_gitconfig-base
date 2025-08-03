@@ -16,6 +16,7 @@
   process = git-lfs filter-process
   required = true
 [advice]
+  addIgnoredFile = false
   # https://stackoverflow.com/a/55465744/3001432
   # statusHints = false
 [format]

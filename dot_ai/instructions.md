@@ -20,9 +20,8 @@
   - Use backticks even in titles and headings.
   - Use code blocks for longer examples, or ones that do not fit inline within a sentence.
 - **Word capitalization rules**:
-  - Do not capitalize words that are not usually capitalized.
-  - Use sentence case in headings: `## This is correct` not `## This Is Wrong`.
-  - It is fine to capitalize proper names or code references.
+  - Do not capitalize words that are not proper names or code references.
+  - Use sentence case in titles and headings: `## This is correct` not `## This Is Wrong`.
 - **Natural writing patterns**:
   - Vary sentence length and structure.
   - Avoid starting multiple sentences with the same pattern.
