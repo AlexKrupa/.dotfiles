@@ -39,7 +39,7 @@ end
 
 # Helper function for device operations that require device selection
 function __require_device_selection
-  set -fx ANDROID_SERIAL (__select_adb_device)
+  set -gx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return 1
   end
@@ -50,18 +50,23 @@ end
 function __select_adb_device
   set -l devices "$(adb devices -l | tail -n +2 | ghead -n -1)"
   set -l device_count (count (echo $devices | string split -n "\n"))
+  set -l selected_device ""
+  
   if test $device_count -ge 2
-    set -f selected_device (echo $devices | fzf)
+    set selected_device (echo $devices | fzf)
     wait
     if test -z "$selected_device"
       echo Device not selected 1>&2
     end
   else if test $device_count -eq 1
-    set -f selected_device $devices
+    set selected_device $devices
   else
     echo No connected devices 1>&2
   end
-  echo (echo $selected_device | cut -f1 -w)
+  
+  if test -n "$selected_device"
+    echo (echo $selected_device | cut -f1 -w)
+  end
 end
 
 function emu
