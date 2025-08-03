@@ -34,7 +34,7 @@
 - Assume readers know project context but need implementation specifics.
 - Use Markdown for standalone files, Mermaid for diagrams, `kebab-case.md` naming (except `README.md`).
 - **Markdown rules**:
-  - Max line width is 120 characters.
+  - Max line width is 100 characters.
 - **Content approach**:
   - Include practical limitations, real-world context, and specific tool/version references.
   - Mix instruction styles and acknowledge multiple valid approaches.
