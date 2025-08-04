@@ -14,6 +14,11 @@ fish_add_path ~/.jetbrains
 # ---------------
 fish_add_path ~/src/me/adx
 
+# ----------
+# --- Go ---
+# ----------
+fish_add_path (go env GOPATH)/bin
+
 # --------------
 # --- Python ---
 # --------------
