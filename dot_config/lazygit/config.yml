@@ -15,6 +15,11 @@ os:
   edit: "nvim {{filename}}"
 
 customCommands:
-  - key: '<c-u>'
+  - key: '<c-n>'
+    context: 'global'
+    command: 'git fu'
+    description: "Sync main: rebase and force push"
+  - key: '<c-p>'
     context: 'global'
     command: 'git pomr'
+    description: 'Rebase main'
