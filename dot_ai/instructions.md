@@ -1,4 +1,4 @@
-# Global AI instructions
+# Personal AI instructions
 
 - **ALWAYS** follow these instructions **UNLESS** explicitly asked or if local instructions specify otherwise (project, subdirectory).
 
@@ -15,6 +15,7 @@
 ## Formatting
 
 - Surround em-dashes with spaces.
+- Avoid excessive **boldface** - use it, but sparsely.
 - **Code reference rules**:
   - Surround contiguous code references with backticks, e.g., `Class.method()`.
   - Use backticks even in titles and headings.
@@ -43,11 +44,13 @@
 ## General code
 
 - Follow language-specific style guides (e.g., `gofmt` for Go, official Kotlin coding conventions).
+- Max line width is 120 characters.
 - Prefer guard statements over nested if/else blocks.
 - Include context in logs and error messages.
 - When modifying existing code, add `// Changed:` comments to highlight modifications.
 - **Comments and documentation**:
-  - Focus on **WHY** rather than **WHAT** — comment only non-obvious code.
+  - Omit obvious comments that could easily be inferred from the commented code.
+  - Focus on **WHY** rather than **WHAT**.
   - Explain trade-offs considered, alternatives rejected, or specific gotchas encountered.
   - Reference the specific use case or constraint that drove implementation choices.
   - Follow documentation preferences for in-code documentation.
@@ -55,7 +58,7 @@
 ## Kotlin
 
 - Use 2-space indents for Kotlin code.
-- Use `CamelCase` naming for enum entries.
+- Use `PascalCase` naming for enum entries.
 - Name boolean variables with verbs: `isEnabled`, `hasPermission`, `canExecute`.
 - **Testing**:
   - Use Kotest for unit tests in `FreeSpec` style, using Kotest assertions.

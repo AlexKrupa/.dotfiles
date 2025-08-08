@@ -9,10 +9,12 @@ git:
     - master
     - main
     - trunk
+  overrideGpg: true
   parseEmoji: true
 
 os:
   edit: "nvim {{filename}}"
+  editInTerminal: true
 
 customCommands:
   - key: '<c-n>'
