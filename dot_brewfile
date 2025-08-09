@@ -1,13 +1,8 @@
 # file location: ~/.brewfile
 # brew bundle --file=".brewfile"
 
-
 # set arguments for all 'brew cask install' commands
 cask_args appdir: '/Applications', no_quarantine: true
-
-# java_present = system('/usr/libexec/java_home --failfast')
-is_arm = Hardware::CPU.arm?   # TODO: All lines that are based on this condition are currently not working for ARM architecture - and thus this check
-
 
 tap "homebrew/bundle"
 tap "homebrew/cask-fonts"
@@ -60,10 +55,9 @@ brew "poppler" # pdf preview in yazi
 brew "git"
 brew "git-delta" # git diff viewer
 brew "git-lfs" # git large file storage
+brew "git-spice" # git stack
 brew "gh"
 brew "github-keygen"
-tap "magus/git-stack"
-cask "git-stack"
 
 # Tmux
 brew "tmux"
@@ -71,7 +65,6 @@ brew "tmux"
 
 # development / android (zulu)
 tap "mdogan/zulu"
-cask "zulu-jdk11"
 cask "zulu-jdk17"
 cask "zulu-jdk21"
 brew "kotlin"
