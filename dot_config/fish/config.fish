@@ -9,6 +9,7 @@ fish_vi_cursor
 fzf_configure_bindings
 fx --comp fish | source
 zoxide init fish | source
+eval "$(gs shell completion fish)" # git-spice completions
 
 set fish_greeting # Disable the greeting
 set -g fish_cursor_default block
