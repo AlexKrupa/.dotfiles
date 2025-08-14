@@ -26,6 +26,9 @@ set ideajoin
 set idearefactormode=keep
 set ideastatusicon=disabled
 
+" Match XML/HTML tags
+set matchit
+
 set visualbell
 
 
