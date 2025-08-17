@@ -44,6 +44,7 @@ set visualbell
 set which-key
 set notimeout
 "set timeoutlen=5000
+let g:WhichKey_DefaultDelay = 0 " default is 200
 
 Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-surround'
@@ -145,7 +146,7 @@ let g:switch_custom_definitions = [
   \ switchNormalizedCaseWords(['enters', 'exits']),
   \ switchNormalizedCaseWords(['expand', 'collapse']),
   \ switchNormalizedCaseWords(['expanded', 'collapsed']),
-  \ switchNormalizedCaseWords(['expanding', 'collapsing']),
+  \ switchNormalizedCaseWords([expanding'expanding', 'collapsing']),
   \ switchNormalizedCaseWords(['expands', 'collapses']),
   \ switchNormalizedCaseWords(['grant', 'revoke']),
   \ switchNormalizedCaseWords(['granted', 'revoked']),
