@@ -25,45 +25,51 @@ accordion-padding = 30
     outer.right =      5
     outer.left =       5
 
+# General binding rules:
+# - Meh key to focus (alt-ctrl-shift)
+# - Hyper key to move (alt-ctrl-shift-cmd)
+
 [mode.main.binding]
-    alt-slash = 'layout tiles horizontal vertical'
-    alt-comma = 'layout accordion horizontal vertical'
+    alt-ctrl-shift-slash = 'layout tiles horizontal vertical'
+    alt-ctrl-shift-comma = 'layout accordion horizontal vertical'
 
-    alt-h = 'focus left'
-    alt-j = 'focus down'
-    alt-k = 'focus up'
-    alt-l = 'focus right'
+    alt-ctrl-shift-h = 'focus left'
+    alt-ctrl-shift-j = 'focus down'
+    alt-ctrl-shift-k = 'focus up'
+    alt-ctrl-shift-l = 'focus right'
 
-    alt-shift-h = 'move left'
-    alt-shift-j = 'move down'
-    alt-shift-k = 'move up'
-    alt-shift-l = 'move right'
+    alt-ctrl-shift-cmd-h = 'move left'
+    alt-ctrl-shift-cmd-j = 'move down'
+    alt-ctrl-shift-cmd-k = 'move up'
+    alt-ctrl-shift-cmd-l = 'move right'
 
-    alt-minus = 'resize smart -50'
-    alt-equal = 'resize smart +50'
+    alt-ctrl-shift-minus = 'resize smart -50'
+    alt-ctrl-shift-equal = 'resize smart +50'
 
-    alt-f = 'fullscreen'
-    alt-shift-space = 'layout floating tiling'
+    alt-ctrl-shift-f = 'fullscreen'
+    alt-ctrl-shift-cmd-space = 'layout floating tiling'
 
-    alt-b = 'workspace B' # browser
-    alt-c = 'workspace C' # chat
-    alt-i = 'workspace I' # IDE
-    alt-m = 'workspace M' # media
-    alt-n = 'workspace N' # notes
+    alt-ctrl-shift-b = 'workspace B' # browser
+    alt-ctrl-shift-c = 'workspace C' # chat
+    alt-ctrl-shift-i = 'workspace I' # IDE
+    alt-ctrl-shift-m = 'workspace M' # media
+    alt-ctrl-shift-n = 'workspace N' # notes
+    alt-ctrl-shift-o = 'workspace O' # other
 
-    alt-shift-b = 'move-node-to-workspace B'
-    alt-shift-c = 'move-node-to-workspace C'
-    alt-shift-i = 'move-node-to-workspace I'
-    alt-shift-m = 'move-node-to-workspace M'
-    alt-shift-n = 'move-node-to-workspace N'
+    alt-ctrl-shift-cmd-b = 'move-node-to-workspace B'
+    alt-ctrl-shift-cmd-c = 'move-node-to-workspace C'
+    alt-ctrl-shift-cmd-i = 'move-node-to-workspace I'
+    alt-ctrl-shift-cmd-m = 'move-node-to-workspace M'
+    alt-ctrl-shift-cmd-n = 'move-node-to-workspace N'
+    alt-ctrl-shift-cmd-o = 'move-node-to-workspace O'
 
-    alt-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
-    alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+    alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
+    alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
 
-    alt-shift-semicolon = 'mode service'
+    alt-ctrl-shift-cmd-semicolon = 'mode service'
 
     # cmd-h = [] # Disable "hide application"
-    # cmd-alt-h = [] # Disable "hide others"
+    # cmd-alt-ctrl-shift-h = [] # Disable "hide others"
 
 [mode.service.binding]
     esc = ['reload-config', 'mode main']
@@ -71,17 +77,18 @@ accordion-padding = 30
     f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
     # backspace = ['close-all-windows-but-current', 'mode main']
 
-    alt-shift-h = ['join-with left', 'mode main']
-    alt-shift-j = ['join-with down', 'mode main']
-    alt-shift-k = ['join-with up', 'mode main']
-    alt-shift-l = ['join-with right', 'mode main']
+    alt-ctrl-shift-cmd-h = ['join-with left', 'mode main']
+    alt-ctrl-shift-cmd-j = ['join-with down', 'mode main']
+    alt-ctrl-shift-cmd-k = ['join-with up', 'mode main']
+    alt-ctrl-shift-cmd-l = ['join-with right', 'mode main']
 
 [workspace-to-monitor-force-assignment]
     B = 'main'
     I = 'main'
     N = 'main'
-    C = ['secondary', 'main']
-    M = ['secondary', 'main']
+    O = 'main'
+    C = ['built-in', 'main']
+    M = ['built-in', 'main']
 
 [[on-window-detected]]
     if.app-id = 'com.google.android.studio'
