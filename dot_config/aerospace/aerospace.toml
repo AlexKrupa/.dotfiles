@@ -47,8 +47,12 @@ accordion-padding = 30
 
     alt-ctrl-shift-minus = 'resize smart -50'
     alt-ctrl-shift-equal = 'resize smart +50'
+    alt-ctrl-shift-u = 'resize smart -50'
+    alt-ctrl-shift-i = 'resize smart +50'
 
     alt-ctrl-shift-f = 'fullscreen'
+
+    alt-ctrl-shift-space = "exec-and-forget aerospace list-windows --all --format '%{window-id} | %{app-name}' | grep 'Ghostty' | head -1 | cut -d'|' -f1 | xargs -I {} aerospace focus --window-id {}"
     alt-ctrl-shift-cmd-space = 'layout floating tiling'
 
     alt-ctrl-shift-b = 'workspace --auto-back-and-forth B' # browser
