@@ -1,0 +1,81 @@
+#!/bin/bash
+# BetterDisplay sharing control script
+
+CACHE_DIR="$HOME/.config/share-focus/.cache"
+ENABLED_FILE="$CACHE_DIR/sharing-enabled"
+
+VIRTUAL_DISPLAY="Sharing"
+BD="/Applications/BetterDisplay.app/Contents/MacOS/BetterDisplay"
+
+# Function to detect main display
+detect_main_display() {
+    # Get all display names from JSON output
+    local display_names=$($BD get -identifiers | grep '"name"' | grep -v 'VirtualScreen\|DisplayGroup' | sed 's/.*"name" : "\([^"]*\)".*/\1/')
+
+    # Check each display to find the main one
+    while IFS= read -r display_name; do
+        if [ -n "$display_name" ]; then
+            local is_main=$($BD get -name="$display_name" -main)
+            if [ "$is_main" = "true" ]; then
+                echo "$display_name"
+                return
+            fi
+        fi
+    done <<< "$display_names"
+}
+
+mkdir -p "$CACHE_DIR"
+
+case "$1" in
+    start)
+        # Detect main display
+        echo "Detecting main display..."
+        MAIN_DISPLAY=$(detect_main_display)
+
+        if [ -z "$MAIN_DISPLAY" ]; then
+            echo "Failed to detect main display"
+            exit 1
+        fi
+
+        echo "Main display detected: $MAIN_DISPLAY"
+
+        # Connect the virtual display
+        echo "Connecting $VIRTUAL_DISPLAY virtual display"
+        $BD set -name="$VIRTUAL_DISPLAY" -connected=on
+
+        # Wait for virtual display to initialize
+        sleep 0.5
+
+        # Stream from main to virtual display
+        echo "Streaming $MAIN_DISPLAY to $VIRTUAL_DISPLAY virtual display"
+        $BD set -name="$MAIN_DISPLAY" -stream=on -targetName="$VIRTUAL_DISPLAY"
+
+        # Get main display resolution using BetterDisplay
+        RESOLUTION=$($BD get -name="$MAIN_DISPLAY" -resolution | sed 's/x/ /')
+        echo "$MAIN_DISPLAY|$RESOLUTION" > "$ENABLED_FILE"
+
+        # Initial run
+        ~/.config/share-focus/sync
+
+        echo "BetterDisplay sharing enabled"
+        ;;
+    stop)
+        # Disconnect the virtual display and remove flag
+        echo "Disconnecting $VIRTUAL_DISPLAY virtual display"
+        $BD set -name="$VIRTUAL_DISPLAY" -connected=off
+
+        rm -f "$ENABLED_FILE"
+        echo "BetterDisplay sharing disabled"
+        ;;
+    status)
+        if [ -f "$ENABLED_FILE" ]; then
+            echo "BetterDisplay sharing is enabled"
+        else
+            echo "BetterDisplay sharing is disabled"
+        fi
+        ;;
+    *)
+        echo "Usage: sharing {start|stop|status}"
+        exit 1
+        ;;
+esac
