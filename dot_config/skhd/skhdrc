@@ -1,34 +1,34 @@
 # Aerospace + BetterDisplay integration
 
 # Move
-alt + ctrl + shift + cmd - h : aerospace move left && ~/.config/aerospace/betterdisplay-sharing
-alt + ctrl + shift + cmd - j : aerospace move down && ~/.config/aerospace/betterdisplay-sharing
-alt + ctrl + shift + cmd - k : aerospace move up && ~/.config/aerospace/betterdisplay-sharing
-alt + ctrl + shift + cmd - l : aerospace move right && ~/.config/aerospace/betterdisplay-sharing
+alt + ctrl + shift + cmd - h : aerospace move left && ~/.config/share-focus/sync
+alt + ctrl + shift + cmd - j : aerospace move down && ~/.config/share-focus/sync
+alt + ctrl + shift + cmd - k : aerospace move up && ~/.config/share-focus/sync
+alt + ctrl + shift + cmd - l : aerospace move right && ~/.config/share-focus/sync
 
 # Fullscreen
-alt + ctrl + shift - f : aerospace fullscreen && ~/.config/aerospace/betterdisplay-sharing
+alt + ctrl + shift - f : aerospace fullscreen && ~/.config/share-focus/sync
 
 # Layout floating/tiling
-alt + ctrl + shift + cmd - f : aerospace layout floating tiling && ~/.config/aerospace/betterdisplay-sharing
+alt + ctrl + shift + cmd - f : aerospace layout floating tiling && ~/.config/share-focus/sync
 
 # Layout tiles/accordion
 # slash /
-alt + ctrl + shift - 0x2C : aerospace layout tiles horizontal vertical && ~/.config/aerospace/betterdisplay-sharing
+alt + ctrl + shift - 0x2C : aerospace layout tiles horizontal vertical && ~/.config/share-focus/sync
 # comma ,
-alt + ctrl + shift - 0x2B : aerospace layout accordion horizontal vertical && ~/.config/aerospace/betterdisplay-sharing
+alt + ctrl + shift - 0x2B : aerospace layout accordion horizontal vertical && ~/.config/share-focus/sync
 
 # Resize
 # minus
-alt + ctrl + shift - 0x1B : aerospace resize smart -50 && ~/.config/aerospace/betterdisplay-sharing
+alt + ctrl + shift - 0x1B : aerospace resize smart -50 && ~/.config/share-focus/sync
 # equal
-alt + ctrl + shift - 0x18 : aerospace resize smart +50 && ~/.config/aerospace/betterdisplay-sharing
+alt + ctrl + shift - 0x18 : aerospace resize smart +50 && ~/.config/share-focus/sync
 
 # Move to workspace
-alt + ctrl + shift + cmd - b : aerospace move-node-to-workspace B && ~/.config/aerospace/betterdisplay-sharing
-alt + ctrl + shift + cmd - d : aerospace move-node-to-workspace D && ~/.config/aerospace/betterdisplay-sharing
-alt + ctrl + shift + cmd - g : aerospace move-node-to-workspace G && ~/.config/aerospace/betterdisplay-sharing
-alt + ctrl + shift + cmd - m : aerospace move-node-to-workspace M && ~/.config/aerospace/betterdisplay-sharing
-alt + ctrl + shift + cmd - t : aerospace move-node-to-workspace T && ~/.config/aerospace/betterdisplay-sharing
-alt + ctrl + shift + cmd - w : aerospace move-node-to-workspace W && ~/.config/aerospace/betterdisplay-sharing
+alt + ctrl + shift + cmd - b : aerospace move-node-to-workspace B && ~/.config/share-focus/sync
+alt + ctrl + shift + cmd - d : aerospace move-node-to-workspace D && ~/.config/share-focus/sync
+alt + ctrl + shift + cmd - g : aerospace move-node-to-workspace G && ~/.config/share-focus/sync
+alt + ctrl + shift + cmd - m : aerospace move-node-to-workspace M && ~/.config/share-focus/sync
+alt + ctrl + shift + cmd - t : aerospace move-node-to-workspace T && ~/.config/share-focus/sync
+alt + ctrl + shift + cmd - w : aerospace move-node-to-workspace W && ~/.config/share-focus/sync
 

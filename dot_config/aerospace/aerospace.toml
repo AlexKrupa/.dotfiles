@@ -18,7 +18,7 @@ default-root-container-orientation = 'horizontal'
 automatically-unhide-macos-hidden-apps = false
 
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
-on-focus-changed = ['move-mouse window-lazy-center', 'exec-and-forget ~/.config/aerospace/betterdisplay-sharing']
+on-focus-changed = ['move-mouse window-lazy-center', 'exec-and-forget ~/.config/share-focus/sync']
 
 accordion-padding = 30
 
