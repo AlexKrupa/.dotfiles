@@ -16,7 +16,8 @@ alias skhdc "$EDITOR ~/.config/skhd/skhdrc"
 alias tmuxc "$EDITOR ~/.tmux.conf"
 alias tmuxr "tmux source-file ~/.tmux.conf"
 alias vimc "$EDITOR ~/.vimrc"
-alias weztermc "$EDITOR ~/.config/wezterm/wezterm.lua"
+
+alias share "~/.config/share-focus/service"
 
 function cd-git-root
   cd $(git rev-parse --show-toplevel)
