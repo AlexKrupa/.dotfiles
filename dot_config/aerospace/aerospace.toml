@@ -48,24 +48,17 @@ accordion-padding = 30
     alt-ctrl-shift-l = 'focus right'
 
     # Workspace bindings (keep in Aerospace - workspace changes don't affect window crop)
-    alt-ctrl-shift-b = 'workspace --auto-back-and-forth B' # browser
-    alt-ctrl-shift-d = 'workspace --auto-back-and-forth D' # dev
-    alt-ctrl-shift-g = 'workspace --auto-back-and-forth G' # general
-    alt-ctrl-shift-m = 'workspace --auto-back-and-forth M' # media
-    alt-ctrl-shift-t = 'workspace --auto-back-and-forth T' # talk
-    alt-ctrl-shift-w = 'workspace --auto-back-and-forth W' # writing
-
-    # alt-ctrl-shift-cmd-b = 'move-node-to-workspace B'
-    # alt-ctrl-shift-cmd-d = 'move-node-to-workspace D'
-    # alt-ctrl-shift-cmd-g = 'move-node-to-workspace G'
-    # alt-ctrl-shift-cmd-m = 'move-node-to-workspace M'
-    # alt-ctrl-shift-cmd-t = 'move-node-to-workspace T'
-    # alt-ctrl-shift-cmd-w = 'move-node-to-workspace W'
-
-    alt-ctrl-shift-space = "exec-and-forget aerospace list-windows --all --format '%{window-id} | %{app-name}' | grep 'Ghostty' | head -1 | cut -d'|' -f1 | xargs -I {} aerospace focus --window-id {}"
-
-    alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
-    alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
+    # alt-ctrl-shift-b = 'workspace --auto-back-and-forth B' # browser
+    # alt-ctrl-shift-d = 'workspace --auto-back-and-forth D' # dev
+    # alt-ctrl-shift-g = 'workspace --auto-back-and-forth G' # general
+    # alt-ctrl-shift-m = 'workspace --auto-back-and-forth M' # media
+    # alt-ctrl-shift-t = 'workspace --auto-back-and-forth T' # talk
+    # alt-ctrl-shift-w = 'workspace --auto-back-and-forth W' # writing
+    #
+    # alt-ctrl-shift-space = "exec-and-forget aerospace list-windows --all --format '%{window-id} | %{app-name}' | grep 'Ghostty' | head -1 | cut -d'|' -f1 | xargs -I {} aerospace focus --window-id {}"
+    #
+    # alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
+    # alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
 
     alt-ctrl-shift-cmd-quote = 'mode service'
 

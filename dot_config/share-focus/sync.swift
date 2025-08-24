@@ -93,7 +93,7 @@ func getFrontmostWindowBounds() -> WindowBounds? {
 }
 
 // Wait for focus change to complete (when called from skhd after Aerospace command)
-Thread.sleep(forTimeInterval: 0.05)  // 50ms delay
+// Thread.sleep(forTimeInterval: 0.025) // seconds
 
 // Main execution
 guard let windowBounds = getFrontmostWindowBounds() else {
