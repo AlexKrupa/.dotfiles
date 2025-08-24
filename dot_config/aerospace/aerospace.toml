@@ -6,7 +6,7 @@ after-startup-command = [
 
 exec-on-workspace-change = [
     '/bin/bash', '-c',
-    '~/.config/aerospace/pip-move.sh',
+    '~/.config/aerospace/pip-move',
 ]
 
 enable-normalization-flatten-containers = true

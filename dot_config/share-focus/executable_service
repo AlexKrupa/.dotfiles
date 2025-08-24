@@ -24,54 +24,99 @@ detect_main_display() {
     done <<< "$display_names"
 }
 
+# Function to ensure sync executable is available
+ensure_sync_executable() {
+    local sync_path="$HOME/.config/share-focus/sync"
+    local swift_path="$HOME/.config/share-focus/sync.swift"
+    
+    if [ ! -f "$sync_path" ]; then
+        if [ -f "$swift_path" ]; then
+            echo "Compiling sync executable..."
+            swiftc "$swift_path" -o "$sync_path"
+            if [ $? -ne 0 ]; then
+                echo "Failed to compile sync executable"
+                return 1
+            fi
+            echo "Successfully compiled sync executable"
+        else
+            echo "sync.swift not found, cannot compile sync executable"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# Function to start sharing
+start() {
+    # Ensure sync executable is available
+    if ! ensure_sync_executable; then
+        return 1
+    fi
+
+    # Detect main display
+    echo "Detecting main display..."
+    MAIN_DISPLAY=$(detect_main_display)
+
+    if [ -z "$MAIN_DISPLAY" ]; then
+        echo "Failed to detect main display"
+        return 1
+    fi
+
+    echo "Main display detected: $MAIN_DISPLAY"
+
+    # Connect the virtual display
+    echo "Connecting $VIRTUAL_DISPLAY virtual display"
+    $BD set -name="$VIRTUAL_DISPLAY" -connected=on
+
+    # Wait for virtual display to initialize
+    sleep 0.5
+
+    # Stream from main to virtual display
+    echo "Streaming $MAIN_DISPLAY to $VIRTUAL_DISPLAY virtual display"
+    $BD set -name="$MAIN_DISPLAY" -stream=on -targetName="$VIRTUAL_DISPLAY"
+
+    # Get main display resolution using BetterDisplay
+    RESOLUTION=$($BD get -name="$MAIN_DISPLAY" -resolution | sed 's/x/ /')
+    echo "$MAIN_DISPLAY|$RESOLUTION" > "$ENABLED_FILE"
+
+    # Initial run
+    ~/.config/share-focus/sync
+
+    echo "BetterDisplay sharing enabled"
+}
+
+# Function to stop sharing
+stop() {
+    # Disconnect the virtual display and remove flag
+    echo "Disconnecting $VIRTUAL_DISPLAY virtual display"
+    $BD set -name="$VIRTUAL_DISPLAY" -connected=off
+
+    rm -f "$ENABLED_FILE"
+    echo "BetterDisplay sharing disabled"
+}
+
 mkdir -p "$CACHE_DIR"
 
 case "$1" in
     start)
-        # Detect main display
-        echo "Detecting main display..."
-        MAIN_DISPLAY=$(detect_main_display)
-
-        if [ -z "$MAIN_DISPLAY" ]; then
-            echo "Failed to detect main display"
-            exit 1
-        fi
-
-        echo "Main display detected: $MAIN_DISPLAY"
-
-        # Connect the virtual display
-        echo "Connecting $VIRTUAL_DISPLAY virtual display"
-        $BD set -name="$VIRTUAL_DISPLAY" -connected=on
-
-        # Wait for virtual display to initialize
-        sleep 0.5
-
-        # Stream from main to virtual display
-        echo "Streaming $MAIN_DISPLAY to $VIRTUAL_DISPLAY virtual display"
-        $BD set -name="$MAIN_DISPLAY" -stream=on -targetName="$VIRTUAL_DISPLAY"
-
-        # Get main display resolution using BetterDisplay
-        RESOLUTION=$($BD get -name="$MAIN_DISPLAY" -resolution | sed 's/x/ /')
-        echo "$MAIN_DISPLAY|$RESOLUTION" > "$ENABLED_FILE"
-
-        # Initial run
-        ~/.config/share-focus/sync
-
-        echo "BetterDisplay sharing enabled"
+        start
         ;;
     stop)
-        # Disconnect the virtual display and remove flag
-        echo "Disconnecting $VIRTUAL_DISPLAY virtual display"
-        $BD set -name="$VIRTUAL_DISPLAY" -connected=off
-
-        rm -f "$ENABLED_FILE"
-        echo "BetterDisplay sharing disabled"
+        stop
         ;;
     status)
         if [ -f "$ENABLED_FILE" ]; then
             echo "BetterDisplay sharing is enabled"
         else
             echo "BetterDisplay sharing is disabled"
+        fi
+        ;;
+    "")
+        # Toggle: start if stopped, stop if started
+        if [ -f "$ENABLED_FILE" ]; then
+            stop
+        else
+            start
         fi
         ;;
     *)

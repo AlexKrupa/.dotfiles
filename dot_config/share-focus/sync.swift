@@ -3,6 +3,14 @@ import Cocoa
 import ApplicationServices
 import Foundation
 
+// Window bounds structure
+struct WindowBounds {
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+}
+
 // Check if sharing is enabled and get display dimensions
 let cacheDir = "\(NSHomeDirectory())/.config/share-focus/.cache"
 let enabledFile = "\(cacheDir)/sharing-enabled"
@@ -32,7 +40,7 @@ let displayWidth: Double = dimensions[0]
 let displayHeight: Double = dimensions[1]
 
 // Get frontmost application window bounds (filtering for AXStandardWindow)
-func getFrontmostWindowBounds() -> (Double, Double, Double, Double)? {
+func getFrontmostWindowBounds() -> WindowBounds? {
     guard let frontmostApp = NSWorkspace.shared.frontmostApplication else { return nil }
     let pid = frontmostApp.processIdentifier
 
@@ -69,7 +77,13 @@ func getFrontmostWindowBounds() -> (Double, Double, Double, Double)? {
 
                 if AXValueGetValue(positionValue as! AXValue, .cgPoint, &position) &&
                    AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) {
-                    return (Double(position.x), Double(position.y), Double(size.width), Double(size.height))
+                    // Adjust for Aerospace gaps and JankyBorders (see ~/.config/aerospace/aerospace.toml)
+                    return WindowBounds(
+                        x: Double(position.x - 5),
+                        y: Double(position.y - 5),
+                        width: Double(size.width + 10),
+                        height: Double(size.height + 10)
+                    )
                 }
             }
         }
@@ -79,18 +93,18 @@ func getFrontmostWindowBounds() -> (Double, Double, Double, Double)? {
 }
 
 // Wait for focus change to complete (when called from skhd after Aerospace command)
-Thread.sleep(forTimeInterval: 0.025)  // 25ms delay
+Thread.sleep(forTimeInterval: 0.05)  // 50ms delay
 
 // Main execution
-guard let (x, y, width, height) = getFrontmostWindowBounds() else {
+guard let windowBounds = getFrontmostWindowBounds() else {
     exit(0)
 }
 
 // Calculate relative coordinates (0.0 to 1.0)
-let relX = x / displayWidth
-let relY = y / displayHeight
-let relWidth = width / displayWidth
-let relHeight = height / displayHeight
+let relX = windowBounds.x / displayWidth
+let relY = windowBounds.y / displayHeight
+let relWidth = windowBounds.width / displayWidth
+let relHeight = windowBounds.height / displayHeight
 
 // Format to 3 decimal places
 let relXStr = String(format: "%.3f", relX)
