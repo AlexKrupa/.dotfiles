@@ -55,12 +55,12 @@ accordion-padding = 30
     alt-ctrl-shift-t = 'workspace --auto-back-and-forth T' # talk
     alt-ctrl-shift-w = 'workspace --auto-back-and-forth W' # writing
 
-    alt-ctrl-shift-cmd-b = 'move-node-to-workspace B'
-    alt-ctrl-shift-cmd-d = 'move-node-to-workspace D'
-    alt-ctrl-shift-cmd-g = 'move-node-to-workspace G'
-    alt-ctrl-shift-cmd-m = 'move-node-to-workspace M'
-    alt-ctrl-shift-cmd-t = 'move-node-to-workspace T'
-    alt-ctrl-shift-cmd-w = 'move-node-to-workspace W'
+    # alt-ctrl-shift-cmd-b = 'move-node-to-workspace B'
+    # alt-ctrl-shift-cmd-d = 'move-node-to-workspace D'
+    # alt-ctrl-shift-cmd-g = 'move-node-to-workspace G'
+    # alt-ctrl-shift-cmd-m = 'move-node-to-workspace M'
+    # alt-ctrl-shift-cmd-t = 'move-node-to-workspace T'
+    # alt-ctrl-shift-cmd-w = 'move-node-to-workspace W'
 
     alt-ctrl-shift-space = "exec-and-forget aerospace list-windows --all --format '%{window-id} | %{app-name}' | grep 'Ghostty' | head -1 | cut -d'|' -f1 | xargs -I {} aerospace focus --window-id {}"
 

@@ -54,7 +54,7 @@ func getFrontmostWindowBounds() -> (Double, Double, Double, Double)? {
 }
 
 // Wait for focus change to complete (when called from skhd after Aerospace command)
-Thread.sleep(forTimeInterval: 0.01)  // 10ms delay
+Thread.sleep(forTimeInterval: 0.025)  // 25ms delay
 
 // Main execution
 guard let (x, y, width, height) = getFrontmostWindowBounds() else {
