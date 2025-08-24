@@ -53,9 +53,10 @@ accordion-padding = 30
     alt-ctrl-shift-i = 'workspace --auto-back-and-forth I'
     alt-ctrl-shift-o = 'workspace --auto-back-and-forth O'
     alt-ctrl-shift-p = 'workspace --auto-back-and-forth P'
-    #
-    # alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
-    # alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
+
+    # TODO: Move these tab bindings to skhd - but for some reason they don't work there.
+    alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
+    alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
 
     alt-ctrl-shift-cmd-quote = 'mode service'
 

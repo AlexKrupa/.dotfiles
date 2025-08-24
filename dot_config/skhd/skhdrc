@@ -41,9 +41,3 @@ alt + ctrl + shift - p : aerospace workspace --auto-back-and-forth P && ~/.confi
 # Focus Ghostty terminal
 alt + ctrl + shift - space : aerospace list-windows --all --format '%{window-id} | %{app-name}' | grep 'Ghostty' | head -1 | cut -d'|' -f1 | xargs -I {} aerospace focus --window-id {} && ~/.config/share-focus/sync
 
-# Focus/workspace back-and-forth
-alt + ctrl + shift - tab : (aerospace focus-back-and-forth || aerospace workspace-back-and-forth) && ~/.config/share-focus/sync
-
-# Move workspace to next monitor
-alt + ctrl + shift + cmd - tab : aerospace move-workspace-to-monitor --wrap-around next && ~/.config/share-focus/sync
-
