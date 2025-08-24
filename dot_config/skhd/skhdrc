@@ -1,0 +1,26 @@
+# Aerospace + BetterDisplay integration
+
+# Move
+alt + ctrl + shift + cmd - h : aerospace move left && ~/.config/aerospace/aerospace-betterdisplay
+alt + ctrl + shift + cmd - j : aerospace move down && ~/.config/aerospace/aerospace-betterdisplay
+alt + ctrl + shift + cmd - k : aerospace move up && ~/.config/aerospace/aerospace-betterdisplay
+alt + ctrl + shift + cmd - l : aerospace move right && ~/.config/aerospace/aerospace-betterdisplay
+
+# Fullscreen
+alt + ctrl + shift - f : aerospace fullscreen && ~/.config/aerospace/aerospace-betterdisplay
+
+# Layout floating/tiling
+alt + ctrl + shift + cmd - f : aerospace layout floating tiling && ~/.config/aerospace/aerospace-betterdisplay
+
+# Layout tiles/accordion
+# slash /
+alt + ctrl + shift - 0x2C : aerospace layout tiles horizontal vertical && ~/.config/aerospace/aerospace-betterdisplay
+# comma ,
+alt + ctrl + shift - 0x2B : aerospace layout accordion horizontal vertical && ~/.config/aerospace/aerospace-betterdisplay
+
+# Resize
+# minus
+alt + ctrl + shift - 0x1B : aerospace resize smart -50 && ~/.config/aerospace/aerospace-betterdisplay
+# equal
+alt + ctrl + shift - 0x18 : aerospace resize smart +50 && ~/.config/aerospace/aerospace-betterdisplay
+
