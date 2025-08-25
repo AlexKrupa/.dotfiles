@@ -31,16 +31,16 @@ accordion-padding = 30
     outer.left =       5
 
 # General binding rules:
-# - Meh key to focus (alt)
-# - Hyper key to move (alt-ctrl-shift-shift)
+# - Meh key to focus (alt-ctrl-shift)
+# - Hyper key to move (alt-ctrl-shift-cmd)
 
 # Avoid conflicts if using just alt: e o a s l z x c n   f   h j k l
 
 [mode.main.binding]
 
     # Layout
-    alt-ctrl-shift-comma = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-slash = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-c = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-v = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
 
     # Resizing
     alt-ctrl-shift-minus = ['resize smart -50', 'exec-and-forget ~/.config/share-focus/sync']
