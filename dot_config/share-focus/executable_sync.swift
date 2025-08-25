@@ -3,7 +3,6 @@ import Cocoa
 import ApplicationServices
 import Foundation
 
-// Window bounds structure
 struct WindowBounds {
     let x: Double
     let y: Double
@@ -92,7 +91,7 @@ func getFrontmostWindowBounds() -> WindowBounds? {
     return nil
 }
 
-// Wait for focus change to complete (when called from skhd after Aerospace command)
+// Wait for focus change to complete
 // Thread.sleep(forTimeInterval: 0.025) // seconds
 
 // Main execution

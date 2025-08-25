@@ -38,6 +38,8 @@ accordion-padding = 30
 
 [mode.main.binding]
 
+    # Manually exec sync for commands that don't change window focus
+
     # Layout
     alt-ctrl-shift-c = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
     alt-ctrl-shift-v = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
