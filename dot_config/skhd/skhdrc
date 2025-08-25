@@ -2,11 +2,6 @@
 # skhd has to trigger sync manually for commands that don't change focus
 # TODO: Check if we can do that in Aerospace config with `exec-and-forget` instead
 
-# Move
-alt + ctrl + shift + cmd - h : aerospace move left && ~/.config/share-focus/sync
-alt + ctrl + shift + cmd - j : aerospace move down && ~/.config/share-focus/sync
-alt + ctrl + shift + cmd - k : aerospace move up && ~/.config/share-focus/sync
-alt + ctrl + shift + cmd - l : aerospace move right && ~/.config/share-focus/sync
 
 # Fullscreen
 alt + ctrl + shift - f : aerospace fullscreen && ~/.config/share-focus/sync

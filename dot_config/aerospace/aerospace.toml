@@ -47,6 +47,12 @@ accordion-padding = 30
     alt-ctrl-shift-k = 'focus up'
     alt-ctrl-shift-l = 'focus right'
 
+    # Move window direction bindings
+    alt-ctrl-shift-cmd-h = ['move left', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-j = ['move down', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-k = ['move up', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-l = ['move right', 'exec-and-forget ~/.config/share-focus/sync']
+
     # Workspace bindings (keep in Aerospace - workspace changes don't affect window crop)
     alt-ctrl-shift-y = 'workspace --auto-back-and-forth Y'
     alt-ctrl-shift-u = 'workspace --auto-back-and-forth U'
