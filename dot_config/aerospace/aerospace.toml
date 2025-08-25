@@ -38,39 +38,47 @@ accordion-padding = 30
 
 [mode.main.binding]
 
-    # IMPORTANT
-    # Move/resize bindings are in skhd for BetterDisplay integration
+    # Layout
+    alt-ctrl-shift-comma = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-slash = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
 
-    # Focus bindings
+    # Resizing
+    alt-ctrl-shift-minus = ['resize smart -50', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-equal = ['resize smart +50', 'exec-and-forget ~/.config/share-focus/sync']
+
+    # Fullscreen
+    alt-ctrl-shift-f = ['fullscreen', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-f = ['layout floating tiling ', 'exec-and-forget ~/.config/share-focus/sync']
+
+    # Focus
     alt-ctrl-shift-h = 'focus left'
     alt-ctrl-shift-j = 'focus down'
     alt-ctrl-shift-k = 'focus up'
     alt-ctrl-shift-l = 'focus right'
 
-    # Move window direction bindings
+    # Focus Ghostty terminal
+    alt-ctrl-shift-space = 'exec-and-forget bash -c "aerospace list-windows --all --format \"%{window-id} | %{app-name}\" | grep \"Ghostty\" | head -1 | cut -d\"|\" -f1 | xargs -I {} aerospace focus --window-id {}"'
+
+    # Move window direction
     alt-ctrl-shift-cmd-h = ['move left', 'exec-and-forget ~/.config/share-focus/sync']
     alt-ctrl-shift-cmd-j = ['move down', 'exec-and-forget ~/.config/share-focus/sync']
     alt-ctrl-shift-cmd-k = ['move up', 'exec-and-forget ~/.config/share-focus/sync']
     alt-ctrl-shift-cmd-l = ['move right', 'exec-and-forget ~/.config/share-focus/sync']
 
-    # Workspace bindings (keep in Aerospace - workspace changes don't affect window crop)
+    # Workspace
     alt-ctrl-shift-y = 'workspace --auto-back-and-forth Y'
     alt-ctrl-shift-u = 'workspace --auto-back-and-forth U'
     alt-ctrl-shift-i = 'workspace --auto-back-and-forth I'
     alt-ctrl-shift-o = 'workspace --auto-back-and-forth O'
     alt-ctrl-shift-p = 'workspace --auto-back-and-forth P'
 
-    # Move to workspace bindings
+    # Move to workspace
     alt-ctrl-shift-cmd-y = 'move-node-to-workspace --focus-follows-window Y'
     alt-ctrl-shift-cmd-u = 'move-node-to-workspace --focus-follows-window U'
     alt-ctrl-shift-cmd-i = 'move-node-to-workspace --focus-follows-window I'
     alt-ctrl-shift-cmd-o = 'move-node-to-workspace --focus-follows-window O'
     alt-ctrl-shift-cmd-p = 'move-node-to-workspace --focus-follows-window P'
 
-    # Focus Ghostty terminal
-    alt-ctrl-shift-space = 'exec-and-forget bash -c "aerospace list-windows --all --format \"%{window-id} | %{app-name}\" | grep \"Ghostty\" | head -1 | cut -d\"|\" -f1 | xargs -I {} aerospace focus --window-id {}"'
-
-    # TODO: Move these tab bindings to skhd - but for some reason they don't work there.
     alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
     alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
 
