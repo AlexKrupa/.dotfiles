@@ -54,6 +54,16 @@ accordion-padding = 30
     alt-ctrl-shift-o = 'workspace --auto-back-and-forth O'
     alt-ctrl-shift-p = 'workspace --auto-back-and-forth P'
 
+    # Move to workspace bindings
+    alt-ctrl-shift-cmd-y = 'move-node-to-workspace --focus-follows-window Y'
+    alt-ctrl-shift-cmd-u = 'move-node-to-workspace --focus-follows-window U'
+    alt-ctrl-shift-cmd-i = 'move-node-to-workspace --focus-follows-window I'
+    alt-ctrl-shift-cmd-o = 'move-node-to-workspace --focus-follows-window O'
+    alt-ctrl-shift-cmd-p = 'move-node-to-workspace --focus-follows-window P'
+
+    # Focus Ghostty terminal
+    alt-ctrl-shift-space = 'exec-and-forget bash -c "aerospace list-windows --all --format \"%{window-id} | %{app-name}\" | grep \"Ghostty\" | head -1 | cut -d\"|\" -f1 | xargs -I {} aerospace focus --window-id {}"'
+
     # TODO: Move these tab bindings to skhd - but for some reason they don't work there.
     alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
     alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'

@@ -1,4 +1,6 @@
 # Aerospace + BetterDisplay integration
+# skhd has to trigger sync manually for commands that don't change focus
+# TODO: Check if we can do that in Aerospace config with `exec-and-forget` instead
 
 # Move
 alt + ctrl + shift + cmd - h : aerospace move left && ~/.config/share-focus/sync
@@ -24,20 +26,4 @@ alt + ctrl + shift - 0x1B : aerospace resize smart -50 && ~/.config/share-focus/
 # equal
 alt + ctrl + shift - 0x18 : aerospace resize smart +50 && ~/.config/share-focus/sync
 
-# Move to workspace
-alt + ctrl + shift + cmd - y : aerospace move-node-to-workspace --focus-follows-window Y && ~/.config/share-focus/sync
-alt + ctrl + shift + cmd - u : aerospace move-node-to-workspace --focus-follows-window U && ~/.config/share-focus/sync
-alt + ctrl + shift + cmd - i : aerospace move-node-to-workspace --focus-follows-window I && ~/.config/share-focus/sync
-alt + ctrl + shift + cmd - o : aerospace move-node-to-workspace --focus-follows-window O && ~/.config/share-focus/sync
-alt + ctrl + shift + cmd - p : aerospace move-node-to-workspace --focus-follows-window P && ~/.config/share-focus/sync
-
-# Workspace switching
-alt + ctrl + shift - y : aerospace workspace --auto-back-and-forth Y && ~/.config/share-focus/sync
-alt + ctrl + shift - u : aerospace workspace --auto-back-and-forth U && ~/.config/share-focus/sync
-alt + ctrl + shift - i : aerospace workspace --auto-back-and-forth I && ~/.config/share-focus/sync
-alt + ctrl + shift - o : aerospace workspace --auto-back-and-forth O && ~/.config/share-focus/sync
-alt + ctrl + shift - p : aerospace workspace --auto-back-and-forth P && ~/.config/share-focus/sync
-
-# Focus Ghostty terminal
-alt + ctrl + shift - space : aerospace list-windows --all --format '%{window-id} | %{app-name}' | grep 'Ghostty' | head -1 | cut -d'|' -f1 | xargs -I {} aerospace focus --window-id {} && ~/.config/share-focus/sync
 
