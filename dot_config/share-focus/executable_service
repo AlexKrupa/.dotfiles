@@ -48,7 +48,7 @@ ensure_sync_executable() {
 # Function to ensure virtual display exists
 ensure_virtual_display() {
     # Check if virtual display exists by trying to get its info
-    local display_exists=$($BD get -name="$VIRTUAL_DISPLAY" 2>/dev/null)
+    local display_exists=$($BD get -identifiers | grep "\"name\" : \"$VIRTUAL_DISPLAY\"")
 
     if [ -z "$display_exists" ]; then
         echo "Creating virtual display: $VIRTUAL_DISPLAY"
