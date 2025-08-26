@@ -1,0 +1,56 @@
+;; Built-in MacBook keyboard (US ANSI layout)
+;; Source layout - standard US QWERTY
+(defsrc
+  esc    f1     f2     f3     f4     f5     f6     f7     f8     f9     f10    f11    f12
+  grv    1      2      3      4      5      6      7      8      9      0      -      =      bspc
+  tab    q      w      e      r      t      y      u      i      o      p      [      ]      \
+  caps   a      s      d      f      g      h      j      k      l      ;      '      ret
+  lsft   z      x      c      v      b      n      m      ,      .      /      rsft
+  fn     lctl   lalt   lmet          spc                  rmet   ralt
+)
+
+(defcfg
+  process-unmapped-keys yes
+
+  ;; Only apply to built-in MacBook keyboard
+  macos-dev-names-include (
+    "Apple Internal Keyboard / Trackpad"
+    "Built-in Keyboard"
+  )
+)
+
+(defvar
+  tap-time 200
+  hold-time 200
+)
+
+(defalias
+  ;; Fn layer toggle
+  fn (tap-hold $tap-time $hold-time esc (layer-toggle fn))
+
+  ;; MEH key: Ctrl+Alt+Shift on hold, Escape on tap
+  meh (tap-hold $tap-time $hold-time esc (multi lctl lalt lsft))
+
+  ;; HYPER key: Ctrl+Alt+Shift+Cmd on hold, Tab on tap
+  hyper (tap-hold $tap-time $hold-time tab (multi lctl lalt lsft lmet))
+)
+
+;; Default layer
+(deflayer base
+  esc    f1     f2     f3     f4     f5     f6     f7     f8     f9     f10    f11    f12
+  grv    1      2      3      4      5      6      7      8      9      0      -      =      bspc
+  tab    q      w      e      r      t      y      u      i      o      p      [      ]      \
+  @fn    a      s      d      f      g      h      j      k      l      ;      '      ret
+  lsft   z      x      c      v      b      n      m      ,      .      /      rsft
+  @meh   lctl   lalt   lmet          spc                  rmet   ralt
+)
+
+;; Function layer (activated by holding Caps Lock)
+(deflayer fn
+  _      🔅     🔆     ✗      ✗      ✗      ✗      ◀◀     ▶⏸     ▶▶     🔇     🔉     🔊
+  _      f1     f2     f3     f4     f5     f6     f7     f8     f9     f10    f11    f12    _
+  _      _      up     _      _      _      _      _      _      _      _      _      _      _
+  _      left   down   rght   _      _      left   down   up     rght   _      _      _
+  _      _      _      _      _      _      _      _      _      _      _      _
+  @hyper _      _      _             _                    _      _
+)
