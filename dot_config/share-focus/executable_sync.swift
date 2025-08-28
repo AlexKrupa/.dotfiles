@@ -92,7 +92,7 @@ func getFrontmostWindowBounds() -> WindowBounds? {
 }
 
 // Wait for focus change to complete
-// Thread.sleep(forTimeInterval: 0.025) // seconds
+Thread.sleep(forTimeInterval: 0.025) // seconds
 
 // Main execution
 guard let windowBounds = getFrontmostWindowBounds() else {
