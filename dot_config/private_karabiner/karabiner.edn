@@ -1,0 +1,63 @@
+{:devices {:external-kb-1 {:vendor 1155 :product 22288}
+           :external-kb-2 {:vendor 13}
+           :pointing-device {:vendor 13364 :product 608}
+           :ignored-device {:vendor 5824 :product 10203}}
+
+ :profiles
+ {:Default
+  {:default true
+   :sim     100
+   :delay   80
+   :alone   200
+   :held    200}}
+
+ :main
+ [{:des "Caps Lock -> Fn (hold) / Escape (tap)"
+   :rules [[:caps_lock :fn nil {:alone :escape}]]}
+
+  {:des "Tab -> Meh (hold) / Tab (tap)"
+   :rules [[:tab [{:key :left_control :modi [:left_shift :left_option] :lazy true}] nil {:alone :tab}]]}
+
+  {:des "Fn + Tab -> Hyper (hold) / Tab (tap)"
+   :rules [[:!Ftab [{:key :left_control :modi [:left_command :left_shift :left_option] :lazy true}] nil {:alone :tab}]]}
+
+  {:des "Fn + WASD -> Arrow Keys"
+   :rules [[:!Fw :up_arrow]
+           [:!Fa :left_arrow]
+           [:!Fs :down_arrow]
+           [:!Fd :right_arrow]]}
+
+  {:des "Fn + HJKL -> Arrow Keys (VIM style)"
+   :rules [[:!Fk :up_arrow]
+           [:!Fh :left_arrow]
+           [:!Fj :down_arrow]
+           [:!Fl :right_arrow]]}
+
+  {:des "Fn + F -> F1-F12"
+   :rules [[:!F1 :f1]
+           [:!F2 :f2]
+           [:!F3 :f3]
+           [:!F4 :f4]
+           [:!F5 :f5]
+           [:!F6 :f6]
+           [:!F7 :f7]
+           [:!F8 :f8]
+           [:!F9 :f9]
+           [:!F0 :f10]
+           [:!Fhyphen :f11]
+           [:!Fequal_sign :f12]]}
+
+  {:des "Fn + Esc -> ` (backtick)"
+   :rules [[:!Fescape :grave_accent_and_tilde]]}]
+
+ :device-rules
+ [{:device :external-kb-1
+   :rules [[:left_command :left_option]
+           [:left_option :left_command]]}
+
+  {:device :external-kb-2
+   :rules [[:left_command :left_option]
+           [:left_option :left_command]]}
+
+  {:device :ignored-device
+   :ignore true}]}
