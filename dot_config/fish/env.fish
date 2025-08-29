@@ -5,6 +5,9 @@ set -gx VISUAL nvim
 # lazygit: change default config directory
 set -gx XDG_CONFIG_HOME $HOME/.config
 
+# Change default Goku config path from ~/.config/karabiner.edn
+set -gx GOKU_EDN_CONFIG_FILE $HOME/.config/karabiner/karabiner.edn
+
 # JetBrains Toolbox
 fish_add_path ~/Library/Application\ Support/JetBrains/Toolbox/scripts
 fish_add_path ~/.jetbrains
