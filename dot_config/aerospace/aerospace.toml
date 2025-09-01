@@ -41,8 +41,8 @@ accordion-padding = 30
     # Manually exec sync for commands that don't change window focus
 
     # Layout
-    alt-ctrl-shift-c = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-v = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-s = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-d = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
 
     # Resizing
     alt-ctrl-shift-minus = ['resize smart -50', 'exec-and-forget ~/.config/share-focus/sync']
@@ -92,7 +92,6 @@ accordion-padding = 30
 [mode.service.binding]
     esc = ['reload-config', 'mode main']
     r = ['flatten-workspace-tree', 'mode main'] # reset layout
-    # backspace = ['close-all-windows-but-current', 'mode main']
 
     alt-ctrl-shift-cmd-h = ['join-with left', 'exec-and-forget ~/.config/share-focus/sync', 'mode main']
     alt-ctrl-shift-cmd-j = ['join-with down', 'exec-and-forget ~/.config/share-focus/sync', 'mode main']
@@ -136,11 +135,6 @@ accordion-padding = 30
 
 [[on-window-detected]]
     if.app-id = 'app.zen-browser.zen'
-    if.window-title-regex-substring = 'Picture-in-Picture'
-    run = 'layout floating'
-
-[[on-window-detected]]
-    if.app-id = 'app.zen-browser.zen'
     run = 'move-node-to-workspace U'
 
 [[on-window-detected]]
@@ -158,6 +152,10 @@ accordion-padding = 30
 [[on-window-detected]]
     if.app-id = 'com.spotify.client'
     run = 'move-node-to-workspace P'
+
+[[on-window-detected]]
+    if.window-title-regex-substring = 'Picture-in-Picture'
+    run = 'layout floating'
 
 [[on-window-detected]]
     check-further-callbacks = true
