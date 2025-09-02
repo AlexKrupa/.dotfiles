@@ -44,7 +44,7 @@ set visualbell
 set which-key
 set notimeout
 "set timeoutlen=5000
-let g:WhichKey_DefaultDelay = 400 " default is 200
+let g:WhichKey_DefaultDelay = 0 " default is 200
 
 Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-surround'
@@ -310,6 +310,7 @@ map <leader>vc <Action>(ActivateCommitToolWindow)
 map <leader>vk <Action>(Git.Commit.Stage)
 map <leader>vd <Action>(Compare.SameVersion)
 map <leader>vh <Action>(Vcs.ShowTabbedFileHistory)
+map <leader>vr <Action>(Git.ResolveConflicts)
 
 " yank/copy
 nmap <leader>yp <Action>(CopyAbsolutePath)
