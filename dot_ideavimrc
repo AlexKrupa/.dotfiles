@@ -44,7 +44,7 @@ set visualbell
 set which-key
 set notimeout
 "set timeoutlen=5000
-let g:WhichKey_DefaultDelay = 0 " default is 200
+let g:WhichKey_DefaultDelay = 400 " default is 200
 
 Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-surround'
@@ -93,9 +93,9 @@ let g:switch_custom_definitions = [
   \ switchWords(['private', 'internal', 'protected', 'public']),
   \ switchWords(['interface', 'class', 'object']),
   \ switchWords(['open', 'abstract', 'sealed']),
-  \ switchWords(['isEmpty', 'isNotEmpty']),
   \ switchWords(['check', 'require']),
   \ switchWords(['checkNotNull', 'requireNotNull']),
+  \ switchWords(['isEmpty', 'isNotEmpty']),
   \ switchWords(['isBlank', 'isNotBlank']),
   \ switchWords(['onSuccess', 'onFailure']),
   \ switchWords(['shouldBe', 'shouldNotBe']),
@@ -104,8 +104,8 @@ let g:switch_custom_definitions = [
   \ switchWords(['shouldBeTrue', 'shouldBeFalse']),
   \ switchWords(['ON_CREATE', 'ON_START', 'ON_RESUME', 'ON_PAUSE', 'ON_STOP', 'ON_DESTROY']),
   \ switchWords(['INITIALIZED', 'CREATED', 'STARTED', 'RESUMED', 'PAUSED', 'STOPPED', 'DESTROYED']),
-  \ switchWords(['Log.i', 'Log.d', 'Log.w', 'Log.e', 'Log.wtf']),
-  \ switchWords(['Timber.i', 'Timber.d', 'Timber.w', 'Timber.e', 'Timber.wtf']),
+  \ switchWords(['Log.v', 'Log.i', 'Log.d', 'Log.w', 'Log.e', 'Log.wtf']),
+  \ switchWords(['Timber.v', 'Timber.i', 'Timber.d', 'Timber.w', 'Timber.e', 'Timber.wtf']),
   \ switchNormalizedCaseWords(['on', 'off']),
   \ switchNormalizedCaseWords(['foreground', 'background']),
   \ switchNormalizedCaseWords(['horizontal', 'vertical']),
@@ -146,7 +146,7 @@ let g:switch_custom_definitions = [
   \ switchNormalizedCaseWords(['enters', 'exits']),
   \ switchNormalizedCaseWords(['expand', 'collapse']),
   \ switchNormalizedCaseWords(['expanded', 'collapsed']),
-  \ switchNormalizedCaseWords([expanding'expanding', 'collapsing']),
+  \ switchNormalizedCaseWords(['expanding', 'collapsing']),
   \ switchNormalizedCaseWords(['expands', 'collapses']),
   \ switchNormalizedCaseWords(['grant', 'revoke']),
   \ switchNormalizedCaseWords(['granted', 'revoked']),
@@ -181,183 +181,168 @@ let g:switch_custom_definitions = [
 " Flash plugin setup
 nmap s <Action>(flash.search)
 xmap s <Action>(flash.search)
-" nmap f <Action>(flash.find)
-" xmap f <Action>(flash.find)
-" nmap F <Action>(flash.find_backward)
-" xmap F <Action>(flash.find_backward)
-" nmap t <Action>(flash.till)
-" xmap t <Action>(flash.till)
-" nmap T <Action>(flash.till_backward)
-" xmap T <Action>(flash.till_backward)
-" nmap ; <Action>(flash.repeat)
-" xmap ; <Action>(flash.repeat)
-" nmap , <Action>(flash.repeat_backward)
-" xmap , <Action>(flash.repeat_backward)
 
 "--------------------
 "----- MAPPINGS -----
 "--------------------
 
+" tag
+nmap <leader>qf <Action>(ShowIntentionActions)
+nmap <leader>qp <Action>(QuickPreview)
+nmap <leader>qd <Action>(QuickDefinition)
+nmap <leader>qD <Action>(QuickTypeDefinition)
+nmap <leader>qr <Action>(ToggleRenderedDocPresentation)
+
+
 vmap J <Action>(MoveLineDown)
 vmap K <Action>(MoveLineUp)
 
-"nmap [[ <Action>(MethodUp)
-"nmap ]] <Action>(MethodDown)
-
-" []
-nmap [e <Action>(GotoPreviousError)
-nmap ]e <Action>(GotoNextError)
-nmap [u <Action>(GotoPrevElementUnderCaretUsage)
-nmap ]u <Action>(GotoNextElementUnderCaretUsage)
-nmap [o <Action>(PreviousOccurence)
-nmap ]o <Action>(NextOccurence)
-nmap [m <Action>(MethodUp)
-nmap ]m <Action>(MethodDown)
-nmap [c <Action>(JumpToLastChange)
-nmap ]c <Action>(JumpToNextChange)
-map <leader>z <Action>(ToggleDistractionFreeMode)
-map <leader>x <Action>(HideAllWindows)
 " Idea smart-select (expanding selection)
-nmap <A-j> <Action>(EditorUnSelectWord)
-nmap <A-k> <Action>(EditorSelectWord)
-vmap <A-j> <Action>(EditorUnSelectWord)
-vmap <A-k> <Action>(EditorSelectWord)
+nmap <m-j> <Action>(EditorUnSelectWord)
+nmap <m-k> <Action>(EditorSelectWord)
+vmap <m-j> <Action>(EditorUnSelectWord)
+vmap <m-k> <Action>(EditorSelectWord)
+
+" find
+map fa <Action>(GotoAction)
+map fc <Action>(GotoClass)
+map fe <Action>(SearchEverywhere)
+map fr <Action>(RecentFiles)
+map ff <Action>(GotoFile)
+map fl <Action>(RecentLocations)
+map fp <Action>(FindInPath)
+map fr <Action>(ReplaceInPath)
+map fs <Action>(GotoSymbol)
+map ft <Action>(TextSearchAction)
+
+" file
+map <leader>fs <Action>(FileStructurePopup)
+
+" usages
+nmap <leader>uf <Action>(FindUsages)
+" Highlight usages, use CMD+G/Shift+CMD+G to iterate
+nmap <leader>uh <Action>(HighlightUsagesInFile)
+nmap <leader>un <Action>(FindNext)
+nmap <leader>up <Action>(FindPrevious)
+nmap <leader>uo <Action>(SelectAllOccurrences)
+nmap <leader>us <Action>(ShowUsages)
+
+" code
+nmap <leader>gmo <Action>(OverrideMethods)
+nmap <leader>gmi <Action>(ImplementMethods)
+nmap <leader>gc <Action>(Generate)
+nmap <leader>gt <Action>(GotoTest)
+
 " goto
-nmap <leader>a <Action>(GotoAction)
-nmap ga <Action>(GotoAction)
 nmap ge <Action>(GotoNextError)
+nmap gE <Action>(GotoPreviousError)
 nmap gb <Action>(Back)
 nmap gd <Action>(GotoDeclaration)
 nmap gD <Action>(GotoTypeDeclaration)
 nmap gf <Action>(Forward)
-nmap gi <Action>(GotoImplementation)
-nmap gI <Action>(ShowIntentionActions)
+nmap gi <Action>(ShowIntentionActions)
+nmap gI <Action>(GotoImplementation)
 nmap gl <Action>(QuickJavaDoc)
 nmap gL <Action>(QuickImplementations)
 nmap gn <Action>(ShowNavBar)
 nmap go <Action>(GotoSuperMethod)
 nmap gt <Action>(GotoTest)
-nmap gT <Action>(TextSearchAction)
 nmap gy <Action>(ShowErrorDescription)
 
-" menu
-nmap <leader>ms <Action>(ScopeViewPopupMenu)
-nmap <leader>mw <Action>(ToolWindowsGroup)
-
-" copy
-nmap <leader>yp <Action>(CopyAbsolutePath)
-nmap <leader>yr <Action>(CopyReference)
-
-
-" file
-nmap <leader>rf <Action>(RecentFiles)
-nmap <leader>rl <Action>(RecentLocations)
-"nmap <leader>si <Action>(SelectIn)
-nmap <leader>fp <Action>(FindInPath)
-nmap <leader>rp <Action>(ReplaceInPath)
-
-" tag
-nmap <leader>fu <Action>(FindUsages)
-nmap <leader>fs <Action>(FileStructurePopup)
-nmap <leader>su <Action>(ShowUsages)
-nmap <leader>hl <Action>(HighlightUsagesInFile)
-nmap <leader>qp <Action>(QuickPreview)
-nmap <leader>qd <Action>(QuickDefinition)
-nmap <leader>qD <Action>(QuickTypeDefinition)
-
-" code
-map <leader>cl <Action>(CommentByLineComment)
-map <leader>cb <Action>(CommentByBlockComment)
-nmap <leader>qf <Action>(ShowIntentionActions)
-nmap <leader>se <Action>(ShowErrorDescription)
-nmap <leader>om <Action>(OverrideMethods)
-"nmap <leader>im <Action>(ImplementMethods)
-nmap <leader>so <Action>(SelectAllOccurrences)
-nmap <leader>gc <Action>(Generate)
-nmap <leader>gt <Action>(GotoTest)
-
-" bookmark
-nmap mm <Action>(ToggleBookmark)
-nmap ms <Action>(ShowBookmarks)
-
-" run
-nmap <leader>rx <Action>(ChooseRunConfiguration)
-nmap <leader>rr <Action>(Rerun)
-nmap <leader>rs <Action>(Stop)
-"map <leader>q <Action>(Stop)
-
-" debug
-nmap <leader>dx <Action>(Debug)
-nmap <leader>db <Action>(ToggleLineBreakpoint)
-nmap <leader>de <Action>(EditBreakpoint)
-nmap <leader>dv <Action>(ViewBreakpoints)
-
-map <leader>v <Action>(Vcs.QuickListPopupAction)
-"map <leader>b <Action>(ToggleLineBreakpoint)
-map <leader>bv <Action>(ActivateBuildVariantsToolWindow)
-nmap <leader>ch <Action>(CallHierarchy)
-" Highlight usages, use CMD+G/Shift+CMD+G to iterate
-nmap <leader>hu <Action>(HighlightUsagesInFile)
-"nmap <leader>q <Action>(ToggleRenderedDocPresentation)
-nmap <leader>s <Action>(ShowUsages)
-nmap <leader>t <Action>(TypeHierarchy)
-nmap <leader>u <Action>(FindUsages)
-map <leader>f <Action>(FileStructurePopup)
-"map <leader>a <Action>(Annotate) " git blame/annotate
+nmap <c-h> <Action>(Back)
+nmap <c-l> <Action>(Forward)
 
 " refactor
-"nmap <leader>r <Action>(RenameElement)
-"nmap <leader>m <Action>(MoveElement)
-"nmap <leader>= <Action>(ReformatCode)
-"nmap <leader>o <Action>(OptimizeImports)
-"map <leader>t <Action>(Refactorings.QuickListPopupAction)
+nmap <leader>r <Action>(Refactorings.QuickListPopupAction)
+nmap <leader>rd <Action>(SafeDelete)
+nmap <leader>rec <Action>(IntroduceConstant)
+nmap <leader>ref <Action>(IntroduceProperty)
+nmap <leader>rem <Action>(ExtractMethod)
+nmap <leader>rev <Action>(IntroduceVariable)
+nmap <leader>rf <Action>(ReformatCode)
+nmap <leader>ri <Action>(Inline)
+nmap <leader>ro <Action>(OptimizeImports)
+nmap <leader>rm <Action>(MoveElement)
 nmap <leader>rn <Action>(RenameElement)
-nmap <leader>ra <Action>(Refactorings.QuickListPopupAction)
-"nmap <leader>uw <Action>(Unwrap)
-"nmap <leader>sw <Action>(SurroundWith)
-"nmap <leader>sd <Action>(SafeDelete)
-nmap <leader>oi <Action>(OptimizeImports)
-"nmap <leader>rf <Action>(ReformatCode)
-nmap <leader>ff <Action>(ReformatCode)
+nmap <leader>rw <Action>(SurroundWith) " wrap
+nmap <leader>ru <Action>(Unwrap)
+
+" build
+map <leader>bg <Action>(Android.SyncProject)
+map <leader>bv <Action>(ActivateBuildVariantsToolWindow)
+
+" run
+map <leader>rc <Action>(ChooseRunConfiguration)
+map <leader>rq <Action>(Stop)
+map <leader>rr <Action>(Rerun)
+
+" debug
+map <leader>dx <Action>(Debug)
+map <leader>db <Action>(ToggleLineBreakpoint)
+map <leader>de <Action>(EditBreakpoint)
+map <leader>dv <Action>(ViewBreakpoints)
 
 " hierarchy
 nmap <leader>hc <Action>(CallHierarchy)
 nmap <leader>hm <Action>(MethodHierarchy)
 nmap <leader>ht <Action>(TypeHierarchy)
 
-" collapse/expand regions
-nmap zz <Action>(ExpandCollapseToggleAction)
-nmap za <Action>(CollapseAllRegions)
-nmap zA <Action>(ExpandAllRegions)
-
-"nnoremap zc :action CollapseRegion<CR>
-"nnoremap zo :action ExpandRegion<CR>
-"nnoremap <leader>zc :action CollapseAllRegions<CR>
-"nnoremap <leader>zo :action ExpandAllRegions<CR>
-
 " splits
 map <leader>H <Action>(SplitHorizontally)
 map <leader>V <Action>(SplitVertically)
-map <c-\> <Action>(SplitVertically)
+map <c-/> <Action>(SplitVertically)
 map <c--> <Action>(SplitHorizontally)
 map <c-=> <Action>(Unsplit)
-map <c-[> <Action>(PrevSplitter)
-map <c-]> <Action>(NextSplitter)
+map <c-tab> <Action>(NextSplitter)
+
+" menu
+nmap <leader>mt <Action>(ToolWindowsGroup)
+nmap <leader>ms <Action>(ScopeViewPopupMenu)
+
+" bookmark
+nmap mm <Action>(ToggleBookmark)
+nmap ma <Action>(ShowBookmarks)
+
+" VCS/Git
+map <leader>v <Action>(Vcs.QuickListPopupAction)
+map <leader>va <Action>(Annotate)
+map <leader>vc <Action>(ActivateCommitToolWindow)
+map <leader>vk <Action>(Git.Commit.Stage)
+map <leader>vd <Action>(Compare.SameVersion)
+map <leader>vh <Action>(Vcs.ShowTabbedFileHistory)
+
+" yank/copy
+nmap <leader>yp <Action>(CopyAbsolutePath)
+nmap <leader>yr <Action>(CopyReference)
+
+" Hide distractions
+map <leader>x <Action>(HideAllWindows)
+map <leader>zz <Action>(ToggleDistractionFreeMode)
+map <leader>zp <Action>(TogglePresentationMode)
+
+" collapse/expand regions
+nmap <leader>za <Action>(ExpandCollapseToggleAction)
+nmap <leader>zc <Action>(CollapseAllRegions)
+nmap <leader>ze <Action>(ExpandAllRegions)
 
 
 "-----------------------
 "----- HARPOON(ER) -----
 "-----------------------
 
-nmap <leader>hm :action HarpoonerQuickMenu<cr>
-nmap <leader>ha :action HarpoonerAddFile<cr>
-"nmap <M-b> :action HarpoonerOpenFile0<cr>
-"nmap <M-n> :action HarpoonerOpenFile1<cr>
-nmap <M-m> :action HarpoonerOpenFile0<cr>
-nmap <M-,> :action HarpoonerOpenFile1<cr>
-nmap <M-.> :action HarpoonerOpenFile2<cr>
-nmap <M-/> :action HarpoonerOpenFile3<cr>
-" nmap <M-6> :action HarpoonerOpenFile6<cr>
-" nmap <M-7> :action HarpoonerOpenFile7<cr>
-" nmap <M-8> :action HarpoonerOpenFile8<cr>
-" nmap <M-9> :action HarpoonerOpenFile9<cr>
+nmap <leader>he <Action>(HarpoonerQuickMenu) " edit
+nmap <leader>hh <Action>(HarpoonerToggleFile)
+nmap <m-0> <Action>(HarpoonerOpenFile0)
+nmap <m-1> <Action>(HarpoonerOpenFile1)
+nmap <m-2> <Action>(HarpoonerOpenFile2)
+nmap <m-3> <Action>(HarpoonerOpenFile3)
+nmap <m-4> <Action>(HarpoonerOpenFile4)
+nmap <m-5> <Action>(HarpoonerOpenFile5)
+nmap <m-6> <Action>(HarpoonerOpenFile6)
+nmap <c-0> <Action>(HarpoonerReplaceFile0)
+nmap <c-1> <Action>(HarpoonerReplaceFile1)
+nmap <c-2> <Action>(HarpoonerReplaceFile2)
+nmap <c-3> <Action>(HarpoonerReplaceFile3)
+nmap <c-4> <Action>(HarpoonerReplaceFile4)
+nmap <c-5> <Action>(HarpoonerReplaceFile5)
+nmap <c-6> <Action>(HarpoonerReplaceFile6)
