@@ -11,6 +11,8 @@ source ~/.vimrc
 " However, it doesn't work for with `nore` commands, so use :action in those cases.
 " List of action ids: https://gist.github.com/zchee/9c78f91cc5ad771c1f5d
 
+" Don't use "end of line comments", Vim will interpret " as a part of a binding
+
 " edit .ideavimrc with \i, reload with \r
 nnoremap \i :e ~/.ideavimrc<CR>
 "nnoremap \r :source ~/.ideavimrc<CR>
@@ -186,6 +188,8 @@ map <c-/> <Action>(SplitVertically)
 map <c--> <Action>(SplitHorizontally)
 map <c-=> <Action>(Unsplit)
 map <c-tab> <Action>(NextSplitter)
+map <m-h> <Action>(PrevSplitter)
+map <m-l> <Action>(NextSplitter)
 
 " movements
 nmap <c-h> <Action>(Back)
@@ -222,21 +226,6 @@ nmap gs <Action>(FileStructurePopup)
 nmap gt <Action>(GotoTest)
 nmap gy <Action>(ShowErrorDescription)
 
-" build
-map <leader>bg <Action>(Android.SyncProject)
-map <leader>bv <Action>(ActivateBuildVariantsToolWindow)
-
-" run
-map <leader>rc <Action>(ChooseRunConfiguration)
-map <leader>rq <Action>(Stop)
-map <leader>rr <Action>(Rerun)
-
-" debug
-map <leader>dx <Action>(Debug)
-map <leader>db <Action>(ToggleLineBreakpoint)
-map <leader>de <Action>(EditBreakpoint)
-map <leader>dv <Action>(ViewBreakpoints)
-
 " refactor
 nmap <leader>r <Action>(Refactorings.QuickListPopupAction)
 nmap <leader>rd <Action>(SafeDelete)
@@ -246,10 +235,13 @@ nmap <leader>rem <Action>(ExtractMethod)
 nmap <leader>rev <Action>(IntroduceVariable)
 nmap <leader>rf <Action>(ReformatCode)
 nmap <leader>ri <Action>(Inline)
+" KDoc formatting plugin
+nmap <leader>rk <Action>(ReflowKDoc)
 nmap <leader>ro <Action>(OptimizeImports)
 nmap <leader>rm <Action>(MoveElement)
 nmap <leader>rn <Action>(RenameElement)
-nmap <leader>rw <Action>(SurroundWith) " wrap
+" wrap
+nmap <leader>rw <Action>(SurroundWith)
 nmap <leader>ru <Action>(Unwrap)
 
 " search
@@ -277,7 +269,7 @@ nmap <leader>ms <Action>(ScopeViewPopupMenu)
 nmap mm <Action>(ToggleBookmark)
 nmap ma <Action>(ShowBookmarks)
 
-" quick
+" quick actions
 nmap <leader>qf <Action>(ShowIntentionActions)
 nmap <leader>qp <Action>(QuickPreview)
 nmap <leader>qd <Action>(QuickDefinition)
@@ -286,10 +278,7 @@ nmap <leader>qr <Action>(ToggleRenderedDocPresentation)
 
 " usages
 nmap <leader>uf <Action>(FindUsages)
-" Highlight usages, use CMD+G/Shift+CMD+G to iterate
 nmap <leader>uh <Action>(HighlightUsagesInFile)
-nmap <leader>un <Action>(FindNext)
-nmap <leader>up <Action>(FindPrevious)
 nmap <leader>uo <Action>(SelectAllOccurrences)
 nmap <leader>us <Action>(ShowUsages)
 
@@ -316,12 +305,27 @@ nmap <leader>za <Action>(ExpandCollapseToggleAction)
 nmap <leader>zc <Action>(CollapseAllRegions)
 nmap <leader>ze <Action>(ExpandAllRegions)
 
+" build
+map <leader>bg <Action>(Android.SyncProject)
+map <leader>bv <Action>(ActivateBuildVariantsToolWindow)
+
+" run
+" make sure to check binding colisions with refactorings above
+map <leader>rc <Action>(ChooseRunConfiguration)
+map <leader>rq <Action>(Stop)
+map <leader>rr <Action>(Rerun)
+
+" debug
+map <leader>dx <Action>(Debug)
+map <leader>db <Action>(ToggleLineBreakpoint)
+map <leader>de <Action>(EditBreakpoint)
+map <leader>dv <Action>(ViewBreakpoints)
 
 "-----------------------
 "----- HARPOONER -----
 "-----------------------
 
-nmap <leader>he <Action>(HarpoonerQuickMenu) " edit
+nmap <leader>he <Action>(HarpoonerToggleQuickMenu)
 nmap <leader>hh <Action>(HarpoonerToggleFile)
 nmap <m-0> <Action>(HarpoonerOpenFile0)
 nmap <m-1> <Action>(HarpoonerOpenFile1)

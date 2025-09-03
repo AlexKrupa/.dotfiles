@@ -11,7 +11,8 @@ filetype on
 filetype plugin on
 filetype indent on
 
-let mapleader=" " " default is \ backslash
+" default is \ backslash
+let mapleader=" "
 
 set nocp
 set clipboard=unnamed
@@ -63,7 +64,8 @@ au InsertLeave * let &updatetime=updaterestore
 nnoremap \e :e ~/.vimrc<CR>
 nnoremap \r :source ~/.vimrc<CR>
 
-nnoremap Q <nop> " unused
+ " unused
+nnoremap Q <nop>
 
 " Unbind arrow keys to learn HJKL
 noremap <left> <nop>
@@ -132,11 +134,11 @@ vnoremap <leader>p "_dP
 
 " Remove prefix
 " Go to start of word, toggle case and start typing. E.g. `<leader>iget`: `property` -> `getProperty`
-map <leader>i wb~hi
+map <leader>pi wb~hi
 
 " Add prefix
 " Remove selection and toggle case. E.g. `v2l<leader>u`: `getProperty` -> `property`
-vmap <leader>u d~h
+vmap <leader>pu d~h
 
 " Replace word under cursor with <leader>s, doesn't work in IdeaVim
 " nnoremap <leader>s :%s/<c-r><c-w>/<c-r><c-w>/gI<Left><Left><Left>
