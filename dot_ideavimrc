@@ -181,8 +181,18 @@ xmap s <Action>(flash.search)
 "----- MAPPINGS -----
 "--------------------
 
+" splits
+map <c-/> <Action>(SplitVertically)
+map <c--> <Action>(SplitHorizontally)
+map <c-=> <Action>(Unsplit)
+map <c-tab> <Action>(NextSplitter)
+
+" movements
 nmap <c-h> <Action>(Back)
 nmap <c-l> <Action>(Forward)
+" experiment: match Vim history with shift for larger movements
+nmap <c-s-i> <Action>(Back)
+nmap <c-s-o> <Action>(Forward)
 
 " Idea smart-select (expanding selection)
 nmap <m-j> <Action>(EditorUnSelectWord)
@@ -190,7 +200,7 @@ nmap <m-k> <Action>(EditorSelectWord)
 vmap <m-j> <Action>(EditorUnSelectWord)
 vmap <m-k> <Action>(EditorSelectWord)
 
-" code
+" generate
 nmap <leader>go <Action>(OverrideMethods)
 nmap <leader>gi <Action>(ImplementMethods)
 nmap <leader>gc <Action>(Generate)
@@ -258,14 +268,6 @@ map <leader>st <Action>(TextSearchAction)
 nmap <leader>hc <Action>(CallHierarchy)
 nmap <leader>hm <Action>(MethodHierarchy)
 nmap <leader>ht <Action>(TypeHierarchy)
-
-" splits
-map <leader>H <Action>(SplitHorizontally)
-map <leader>V <Action>(SplitVertically)
-map <c-/> <Action>(SplitVertically)
-map <c--> <Action>(SplitHorizontally)
-map <c-=> <Action>(Unsplit)
-map <c-tab> <Action>(NextSplitter)
 
 " menu
 nmap <leader>mt <Action>(ToolWindowsGroup)
