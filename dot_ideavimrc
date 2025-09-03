@@ -5,8 +5,10 @@ source ~/.vimrc
 " https://towardsdatascience.com/the-essential-ideavim-remaps-291d4cd3971b
 
 " Syntax for binding IDE actions.
+"
 " <Action>(CommandName)
 " :action CommandName<CR>
+"
 " Both are valid approaches, but <Action> is more readable.
 " However, it doesn't work for with `nore` commands, so use :action in those cases.
 " List of action ids: https://gist.github.com/zchee/9c78f91cc5ad771c1f5d
@@ -25,8 +27,12 @@ set clipboard+=ideaput
 " https://github.com/JetBrains/ideavim/blob/ae1ad9fd2e756063e3d768f5bd74e65de889b7e9/doc/ideajoin-examples.md
 " J (shift-j)
 set ideajoin
+" Map Vim marks to IDEA global marks
+set ideamarks
 set idearefactormode=keep
 set ideastatusicon=disabled
+" Use Vim in IDE dialogs
+set ideavimsupport=dialog
 
 " Match XML/HTML tags with %
 set matchit
@@ -176,168 +182,196 @@ let g:switch_custom_definitions = [
 \ ]
 
 " Flash plugin setup
-nnoremap s <Action>(flash.search)
-xnoremap s <Action>(flash.search)
+nmap s <Action>(flash.search)
+xmap s <Action>(flash.search)
 
 "--------------------
 "----- MAPPINGS -----
 "--------------------
 
 " splits
-noremap <c-/> <Action>(SplitVertically)
-noremap <c--> <Action>(SplitHorizontally)
-noremap <c-=> <Action>(Unsplit)
-noremap <c-tab> <Action>(NextSplitter)
-noremap <m-h> <Action>(PrevSplitter)
-noremap <m-l> <Action>(NextSplitter)
+map <c-/> <Action>(SplitVertically)
+map <c--> <Action>(SplitHorizontally)
+map <c-=> <Action>(Unsplit)
+map <c-tab> <Action>(NextSplitter)
+map <m-h> <Action>(PrevSplitter)
+map <m-l> <Action>(NextSplitter)
+map <c-m-h> <Action>(StretchSplitToLeft)
+map <c-m-l> <Action>(StretchSplitToRight)
 
 " movements
-nnoremap <c-h> <Action>(Back)
-nnoremap <c-l> <Action>(Forward)
+nmap <c-m-j> <Action>(MethodDown)
+nmap <c-m-k> <Action>(MethodUp)
+nmap <c-h> <Action>(Back)
+nmap <c-l> <Action>(Forward)
 " experiment: match Vim history with shift for larger movements
-nnoremap <c-s-i> <Action>(Back)
-nnoremap <c-s-o> <Action>(Forward)
+nmap <c-s-i> <Action>(Back)
+nmap <c-s-o> <Action>(Forward)
 
 " Idea smart-select (expanding selection)
-nnoremap <m-j> <Action>(EditorUnSelectWord)
-nnoremap <m-k> <Action>(EditorSelectWord)
-vnoremap <m-j> <Action>(EditorUnSelectWord)
-vnoremap <m-k> <Action>(EditorSelectWord)
-
-" generate
-nnoremap <leader>go <Action>(OverrideMethods)
-nnoremap <leader>gi <Action>(ImplementMethods)
-nnoremap <leader>gc <Action>(Generate)
-
-" goto
-nnoremap ge <Action>(GotoNextError)
-nnoremap gE <Action>(GotoPreviousError)
-nnoremap gb <Action>(Back)
-nnoremap gd <Action>(GotoDeclaration)
-nnoremap gD <Action>(GotoTypeDeclaration)
-nnoremap gf <Action>(Forward)
-nnoremap gi <Action>(ShowIntentionActions)
-nnoremap gI <Action>(GotoImplementation)
-nnoremap gl <Action>(QuickJavaDoc)
-nnoremap gL <Action>(QuickImplementations)
-nnoremap gn <Action>(ShowNavBar)
-nnoremap go <Action>(GotoSuperMethod)
-nnoremap gs <Action>(FileStructurePopup)
-nnoremap gt <Action>(GotoTest)
-nnoremap gy <Action>(ShowErrorDescription)
+nmap <m-j> <Action>(EditorUnSelectWord)
+nmap <m-k> <Action>(EditorSelectWord)
+vmap <m-j> <Action>(EditorUnSelectWord)
+vmap <m-k> <Action>(EditorSelectWord)
 
 " refactor
-nnoremap <leader>r <Action>(Refactorings.QuickListPopupAction)
-nnoremap <leader>rd <Action>(SafeDelete)
-nnoremap <leader>rec <Action>(IntroduceConstant)
-nnoremap <leader>ref <Action>(IntroduceProperty)
-nnoremap <leader>rem <Action>(ExtractMethod)
-nnoremap <leader>rev <Action>(IntroduceVariable)
-nnoremap <leader>rf <Action>(ReformatCode)
-nnoremap <leader>ri <Action>(Inline)
+map <leader>f <Action>(Refactorings.QuickListPopupAction)
+nmap <leader>fd <Action>(SafeDelete)
+nmap <leader>fec <Action>(IntroduceConstant)
+nmap <leader>fef <Action>(IntroduceProperty)
+nmap <leader>fem <Action>(ExtractMethod)
+nmap <leader>fev <Action>(IntroduceVariable)
+map <leader>ff <Action>(ReformatCode)
+nmap <leader>fi <Action>(Inline)
 " KDoc formatting plugin
-nnoremap <leader>rk <Action>(ReflowKDoc)
-nnoremap <leader>ro <Action>(OptimizeImports)
-nnoremap <leader>rm <Action>(MoveElement)
-nnoremap <leader>rn <Action>(RenameElement)
+nmap <leader>fk <Action>(ReflowKDoc)
+map <leader>fo <Action>(OptimizeImports)
+nmap <leader>fm <Action>(MoveElement)
+nmap <leader>fn <Action>(RenameElement)
+nmap <leader>fss <Action>(StructuralSearchPlugin.StructuralSearchAction)
+nmap <leader>fsr <Action>(StructuralSearchPlugin.StructuralReplaceAction)
 " wrap
-nnoremap <leader>rw <Action>(SurroundWith)
-nnoremap <leader>ru <Action>(Unwrap)
+nmap <leader>fw <Action>(SurroundWith)
+nmap <leader>fu <Action>(Unwrap)
+
+" generate
+nmap <leader>go <Action>(OverrideMethods)
+nmap <leader>gi <Action>(ImplementMethods)
+nmap <leader>gc <Action>(Generate)
+
+" goto
+nmap ge <Action>(GotoNextError)
+nmap gE <Action>(GotoPreviousError)
+nmap gb <Action>(Back)
+nmap gd <Action>(GotoDeclaration)
+nmap gD <Action>(GotoTypeDeclaration)
+nmap gf <Action>(Forward)
+nmap gi <Action>(ShowIntentionActions)
+nmap gI <Action>(GotoImplementation)
+nmap gl <Action>(QuickJavaDoc)
+nmap gL <Action>(QuickImplementations)
+nmap gn <Action>(ShowNavBar)
+nmap go <Action>(GotoSuperMethod)
+nmap gs <Action>(FileStructurePopup)
+nmap gt <Action>(GotoTest)
+nmap gu <Action>(ShowUsages)
+nmap gU <Action>(FindUsages)
+nmap gy <Action>(ShowErrorDescription)
 
 " search
-noremap <leader>sa <Action>(GotoAction)
-noremap <leader>sc <Action>(GotoClass)
-noremap <leader>se <Action>(SearchEverywhere)
-noremap <leader>sf <Action>(GotoFile)
-noremap <leader>sl <Action>(RecentLocations)
-noremap <leader>so <Action>(ReplaceInPath)
-noremap <leader>sp <Action>(FindInPath)
-noremap <leader>sr <Action>(RecentFiles)
-noremap <leader>ss <Action>(GotoSymbol)
-noremap <leader>st <Action>(TextSearchAction)
+map <leader>sa <Action>(GotoAction)
+map <leader>sc <Action>(GotoClass)
+map <leader>se <Action>(SearchEverywhere)
+map <leader>sf <Action>(GotoFile)
+map <leader>sl <Action>(RecentLocations)
+map <leader>so <Action>(ReplaceInPath)
+map <leader>sp <Action>(FindInPath)
+map <leader>sr <Action>(RecentFiles)
+map <leader>ss <Action>(GotoSymbol)
+map <leader>st <Action>(TextSearchAction)
 
 " hierarchy
-nnoremap <leader>hc <Action>(CallHierarchy)
-nnoremap <leader>hm <Action>(MethodHierarchy)
-nnoremap <leader>ht <Action>(TypeHierarchy)
+nmap <leader>hc <Action>(CallHierarchy)
+nmap <leader>hm <Action>(MethodHierarchy)
+nmap <leader>ht <Action>(TypeHierarchy)
 
-" menu
-nnoremap <leader>mt <Action>(ToolWindowsGroup)
-nnoremap <leader>ms <Action>(ScopeViewPopupMenu)
+" menus
+map <leader>ma <Action>(com.developerphil.adbidea.action.AdbIdeaQuickList)
+map <leader>ml <Action>(AnalyzeMenu)
+map <leader>mp <Action>(ManageRecentProjects)
+map <leader>mt <Action>(ToolWindowsGroup)
+map <leader>ms <Action>(ScopeViewPopupMenu)
 
-" bookmark
-nnoremap mm <Action>(ToggleBookmark)
-nnoremap ma <Action>(ShowBookmarks)
+" bookmarks
+nmap mm <Action>(ToggleBookmark)
+nmap ms <Action>(ShowBookmarks)
 
 " quick actions
-nnoremap <leader>qf <Action>(ShowIntentionActions)
-nnoremap <leader>qp <Action>(QuickPreview)
-nnoremap <leader>qd <Action>(QuickDefinition)
-nnoremap <leader>qD <Action>(QuickTypeDefinition)
-nnoremap <leader>qr <Action>(ToggleRenderedDocPresentation)
+nmap <leader>qf <Action>(ShowIntentionActions)
+nmap <leader>qp <Action>(QuickPreview)
+nmap <leader>qd <Action>(QuickDefinition)
+nmap <leader>qD <Action>(QuickTypeDefinition)
+nmap <leader>qr <Action>(ToggleRenderedDocPresentation)
+
+" tool windows
+map <leader>tb <Action>(ActivateBuildToolWindow)
+map <leader>tc <Action>(ActivateCommitToolWindow)
+map <leader>td <Action>(ActivateDebugToolWindow)
+map <leader>te <Action>(ActivateRunningDevicesToolWindow)
+map <leader>tf <Action>(ActivateFindToolWindow)
+map <leader>th <Action>(ActivateHierarchyToolWindow)
+map <leader>tl <Action>(ActivateLogcatToolWindow)
+map <leader>tp <Action>(ActivateProjectToolWindow)
+map <leader>tr <Action>(ActivateRunToolWindow)
+map <leader>ts <Action>(ActivateStructureToolWindow)
+map <leader>tv <Action>(ActivateVersionControlToolWindow)
+map <leader>tw <Action>(ActivateBuildVariantsToolWindow)
+map <leader>tx <Action>(HideActiveWindow)
 
 " usages
-nnoremap <leader>uf <Action>(FindUsages)
-nnoremap <leader>uh <Action>(HighlightUsagesInFile)
-nnoremap <leader>uo <Action>(SelectAllOccurrences)
-nnoremap <leader>us <Action>(ShowUsages)
+nmap <leader>uf <Action>(FindUsages)
+nmap <leader>uh <Action>(HighlightUsagesInFile)
+nmap <leader>uo <Action>(SelectAllOccurrences)
+nmap <leader>us <Action>(ShowUsages)
 
 " VCS/Git
-noremap <leader>v <Action>(Vcs.QuickListPopupAction)
-noremap <leader>va <Action>(Annotate)
-noremap <leader>vc <Action>(ActivateCommitToolWindow)
-noremap <leader>vk <Action>(Git.Commit.Stage)
-noremap <leader>vd <Action>(Compare.SameVersion)
-noremap <leader>vh <Action>(Vcs.ShowTabbedFileHistory)
-noremap <leader>vr <Action>(Git.ResolveConflicts)
+map <leader>v <Action>(Vcs.QuickListPopupAction)
+map <leader>va <Action>(Annotate)
+map <leader>vc <Action>(ActivateCommitToolWindow)
+map <leader>vd <Action>(Compare.SameVersion)
+map <leader>vh <Action>(Vcs.ShowTabbedFileHistory)
+map <leader>vk <Action>(Git.Commit.Stage)
+map <leader>vn <Action>(NextDiff)
+map <leader>vp <Action>(PreviousDiff)
+map <leader>vr <Action>(Git.ResolveConflicts)
 
 " yank/copy
-nnoremap <leader>yp <Action>(CopyAbsolutePath)
-nnoremap <leader>yr <Action>(CopyReference)
+nmap <leader>yp <Action>(CopyAbsolutePath)
+nmap <leader>yr <Action>(CopyReference)
 
 " hide distractions
-noremap <leader>x <Action>(HideAllWindows)
-noremap <leader>zz <Action>(ToggleDistractionFreeMode)
-noremap <leader>zp <Action>(TogglePresentationMode)
+map <leader>x <Action>(HideAllWindows)
+map <leader>zz <Action>(ToggleDistractionFreeMode)
+map <leader>zp <Action>(TogglePresentationMode)
 
 " collapse/expand regions
-nnoremap <leader>za <Action>(ExpandCollapseToggleAction)
-noremap <leader>zc <Action>(CollapseAllRegions)
-nnoremap <leader>ze <Action>(ExpandAllRegions)
-
-" build
-noremap <leader>bg <Action>(Android.SyncProject)
-noremap <leader>bv <Action>(ActivateBuildVariantsToolWindow)
+map <leader>za <Action>(ExpandCollapseToggleAction)
+map <leader>zc <Action>(CollapseAllRegions)
+map <leader>ze <Action>(ExpandAllRegions)
 
 " run
 " make sure to check binding colisions with refactorings above
-noremap <leader>rc <Action>(ChooseRunConfiguration)
-noremap <leader>rq <Action>(Stop)
-noremap <leader>rr <Action>(Rerun)
+map <leader>rc <Action>(ChooseRunConfiguration)
+map <leader>rd <Action>(DebugClass)
+map <leader>rf <Action>(RerunFailedTests)
+map <leader>rg <Action>(Android.SyncProject)
+map <leader>rq <Action>(Stop)
+map <leader>rr <Action>(Rerun)
+map <leader>rt <Action>(RunClass)
 
 " debug
-noremap <leader>dx <Action>(Debug)
-noremap <leader>db <Action>(ToggleLineBreakpoint)
-noremap <leader>de <Action>(EditBreakpoint)
-noremap <leader>dv <Action>(ViewBreakpoints)
+map <leader>dx <Action>(Debug)
+map <leader>db <Action>(ToggleLineBreakpoint)
+map <leader>de <Action>(EditBreakpoint)
+map <leader>dv <Action>(ViewBreakpoints)
 
 "-----------------------
 "----- HARPOONER -----
 "-----------------------
 
-nnoremap <leader>he <Action>(HarpoonerToggleQuickMenu)
-nnoremap <leader>hh <Action>(HarpoonerToggleFile)
-nnoremap <m-0> <Action>(HarpoonerOpenFile0)
-nnoremap <m-1> <Action>(HarpoonerOpenFile1)
-nnoremap <m-2> <Action>(HarpoonerOpenFile2)
-nnoremap <m-3> <Action>(HarpoonerOpenFile3)
-nnoremap <m-4> <Action>(HarpoonerOpenFile4)
-nnoremap <m-5> <Action>(HarpoonerOpenFile5)
-nnoremap <m-6> <Action>(HarpoonerOpenFile6)
-nnoremap <c-0> <Action>(HarpoonerReplaceFile0)
-nnoremap <c-1> <Action>(HarpoonerReplaceFile1)
-nnoremap <c-2> <Action>(HarpoonerReplaceFile2)
-nnoremap <c-3> <Action>(HarpoonerReplaceFile3)
-nnoremap <c-4> <Action>(HarpoonerReplaceFile4)
-nnoremap <c-5> <Action>(HarpoonerReplaceFile5)
-nnoremap <c-6> <Action>(HarpoonerReplaceFile6)
+map <leader>he <Action>(HarpoonerToggleQuickMenu)
+map <leader>hh <Action>(HarpoonerToggleFile)
+map <m-0> <Action>(HarpoonerOpenFile0)
+map <m-1> <Action>(HarpoonerOpenFile1)
+map <m-2> <Action>(HarpoonerOpenFile2)
+map <m-3> <Action>(HarpoonerOpenFile3)
+map <m-4> <Action>(HarpoonerOpenFile4)
+map <m-5> <Action>(HarpoonerOpenFile5)
+map <m-6> <Action>(HarpoonerOpenFile6)
+map <c-0> <Action>(HarpoonerReplaceFile0)
+map <c-1> <Action>(HarpoonerReplaceFile1)
+map <c-2> <Action>(HarpoonerReplaceFile2)
+map <c-3> <Action>(HarpoonerReplaceFile3)
+map <c-4> <Action>(HarpoonerReplaceFile4)
+map <c-5> <Action>(HarpoonerReplaceFile5)
+map <c-6> <Action>(HarpoonerReplaceFile6)
