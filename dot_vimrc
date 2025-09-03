@@ -3,7 +3,7 @@
 " set shell=/bin/zsh
 set shell=/opt/homebrew/bin/fish
 
-"Use fzf in Vim
+" Use fzf in Vim
 set rtp+=/opt/homebrew/opt/fzf
 
 syntax on
@@ -11,14 +11,13 @@ filetype on
 filetype plugin on
 filetype indent on
 
-"Map leader to symbol (default is \ backslash)
-let mapleader=" "
+let mapleader=" " " default is \ backslash
 
 set nocp
 set clipboard=unnamed
 
-"Block cursor
-"set guicursor=""
+" Block cursor
+" set guicursor=""
 
 set relativenumber
 set number
@@ -26,7 +25,7 @@ set number
 set incsearch
 set hlsearch
 
-"Clear highlight on ESC
+" Clear highlight on ESC
 nnoremap <esc> :noh<CR><esc>
 
 set shiftwidth=2
@@ -60,97 +59,7 @@ au CursorHoldI * stopinsert
 au InsertEnter * let updaterestore=&updatetime | set updatetime=10000
 au InsertLeave * let &updatetime=updaterestore
 
-"Unbind arrow keys to learn HJKL
-noremap <left> <nop>
-noremap <right> <nop>
-noremap <up> <nop>
-noremap <down> <nop>
-
-"Map CTRL-c to ESC
-map <C-c> <Esc>
-
-"Map Ctrl+Enter/Ctrl+Shift+Enter (down/up) to new line in normal mode
-nmap <A-o> o<Esc>k
-nmap <A-S-o> O<Esc>j
-"nmap oo o<Esc>k
-"nmap OO O<Esc>j
-
-"Allow moving lines with Alt+J/Alt+K
-"https://stackoverflow.com/questions/7501092/can-i-map-alt-key-in-vim
-"down: ∆
-"up: Ż
-nnoremap <A-S-j> :m .+1<CR>==
-nnoremap <A-S-k> :m .-2<CR>==
-
-inoremap <A-S-j> <Esc>:m .+1<CR>==gi
-inoremap <A-S-k> <Esc>:m .-2<CR>==gi
-
-vnoremap <A-S-j> :m '>+1<CR>gv=gv
-vnoremap <A-S-k> :m '<-2<CR>gv=gv
-
-"Keep cursor in place when joining lines with Shift-J
-"nnoremap <S-j> mzJ`z
-
-"Keep cursor in the middle when jumping with Ctrl+D/Ctrl+U
-nnoremap <C-d> <C-d>zz
-nnoremap <C-u> <C-u>zz
-
-"Keep search terms in the middle
-nnoremap n nzzzv
-nnoremap N Nzzzv
-
-" Redo with U
-map U <C-R>
-
-" Don't yank x to default register
-nnoremap x \"_x
-vnoremap x \"_x
-
-" Don't yank d to register if prefixed by leader
-nnoremap <leader>d \"_d
-vnoremap <leader>d \"_d
-
-" Don't yank selection to register if pasting prefixed by leader
-vnoremap <leader>p \"_dP
-
-" Remove prefix
-" Go to start of word, toggle case and start typing. E.g. `<leader>iget`: `property` -> `getProperty`
-map <leader>i wb~hi
-
-" Add prefix
-" Remove selection and toggle case. E.g. `v2l<leader>u`: `getProperty` -> `property`
-vmap <leader>u d~h
-
-" Move between blocks
-map <C-j> }
-map <C-k> {
-
-"Preserve register when pasting with <leader>p
-xnoremap <leader>p [[\"_dP]]
-
-"After block yank and paste, move cursor to the end of operated text and don't override register
-vnoremap p "_dP`]
-nnoremap p p`]
-
-"Have x (removes single character) not go into the default registry
-nnoremap x "_x
-
-"Make X an operator that removes without placing text in the default registry
-nmap X "_d
-nmap XX "_dd
-vmap X "_d
-vmap x "_d
-
-"Don't yank to default register when changing something
-nnoremap c "xc
-xnoremap c "xc
-
-nnoremap Q <nop>
-
-"Replace word under cursor with <leader>s, doesn't work in IdeaVim
-"nnoremap <leader>s :%s/<c-r><c-w>/<c-r><c-w>/gI<Left><Left><Left>
-
-"edit .vimrc with \e, reload with \r
+" edit .vimrc with \e, reload with \r
 nnoremap \e :e ~/.vimrc<CR>
 nnoremap \r :source ~/.vimrc<CR>
 
@@ -161,10 +70,84 @@ if $TERM_PROGRAM =~ "iTerm"
   let &t_EI = "\<Esc>]50;CursorShape=0\x7"
 endif
 
+" Unbind unused
+nnoremap Q <nop>
+
+" Unbind arrow keys to learn HJKL
+noremap <left> <nop>
+noremap <right> <nop>
+noremap <up> <nop>
+noremap <down> <nop>
+
+" Map CTRL-c to ESC
+map <C-c> <Esc>
+
+" Move between blocks
+map <C-j> }
+map <C-k> {
+
+" Map Ctrl+Enter/Ctrl+Shift+Enter (down/up) to new line in normal mode
+nmap <A-o> o<Esc>k
+nmap <A-S-o> O<Esc>j
+" nmap oo o<Esc>k
+" nmap OO O<Esc>j
+
+" Allow moving lines with Alt+J/Alt+K
+" https://stackoverflow.com/questions/7501092/can-i-map-alt-key-in-vim
+" down: ∆
+" up: Ż
+nnoremap <A-S-j> :m .+1<CR>==
+nnoremap <A-S-k> :m .-2<CR>==
+
+inoremap <A-S-j> <Esc>:m .+1<CR>==gi
+inoremap <A-S-k> <Esc>:m .-2<CR>==gi
+
+vnoremap <A-S-j> :m '>+1<CR>gv=gv
+vnoremap <A-S-k> :m '<-2<CR>gv=gv
+
+" Keep cursor in place when joining lines with Shift-J
+" nnoremap <S-j> mzJ`z
+
+" Keep cursor in the middle when jumping with Ctrl+D/Ctrl+U
+nnoremap <C-d> <C-d>zz
+nnoremap <C-u> <C-u>zz
+
+" Keep search terms in the middle
+nnoremap n nzzzv
+nnoremap N Nzzzv
+
+" Redo with U
+map U <C-R>
+
+" Don't yank x to default register
+nnoremap x \"_x
+vnoremap x \"_x
+
+" Don't yank to default register when changing something
+nnoremap c \"_c
+xnoremap c \"_c
+
+" Don't yank d to register if prefixed by leader
+nnoremap <leader>d \"_d
+vnoremap <leader>d \"_d
+
+" Don't yank selection to register if pasting prefixed by leader
+vnoremap <leader>p \"_dP
 
 "------------------
 "----- MACROS -----
 "------------------
+
+" Remove prefix
+" Go to start of word, toggle case and start typing. E.g. `<leader>iget`: `property` -> `getProperty`
+map <leader>i wb~hi
+
+" Add prefix
+" Remove selection and toggle case. E.g. `v2l<leader>u`: `getProperty` -> `property`
+vmap <leader>u d~h
+
+" Replace word under cursor with <leader>s, doesn't work in IdeaVim
+" nnoremap <leader>s :%s/<c-r><c-w>/<c-r><c-w>/gI<Left><Left><Left>
 
 " Log selection
 vnoremap <leader>ltv yoTimber.v("<Esc>pa=${<Esc>pa}")<Esc>
@@ -186,5 +169,3 @@ nnoremap <silent> <leader>fj :%!jq<CR>
 vnoremap <silent> <leader>fj :'<,'>!jq<CR>
 nnoremap <silent> <leader>fcj :%!jq --compact-output<CR>
 vnoremap <silent> <leader>fcj :'<,'>!jq --compact-output<CR>
-
-

@@ -31,11 +31,6 @@ set matchit
 
 set visualbell
 
-
-
-
-
-
 "-------------------
 "----- PLUGINS -----
 "-------------------
@@ -186,16 +181,8 @@ xmap s <Action>(flash.search)
 "----- MAPPINGS -----
 "--------------------
 
-" tag
-nmap <leader>qf <Action>(ShowIntentionActions)
-nmap <leader>qp <Action>(QuickPreview)
-nmap <leader>qd <Action>(QuickDefinition)
-nmap <leader>qD <Action>(QuickTypeDefinition)
-nmap <leader>qr <Action>(ToggleRenderedDocPresentation)
-
-
-vmap J <Action>(MoveLineDown)
-vmap K <Action>(MoveLineUp)
+nmap <c-h> <Action>(Back)
+nmap <c-l> <Action>(Forward)
 
 " Idea smart-select (expanding selection)
 nmap <m-j> <Action>(EditorUnSelectWord)
@@ -203,35 +190,10 @@ nmap <m-k> <Action>(EditorSelectWord)
 vmap <m-j> <Action>(EditorUnSelectWord)
 vmap <m-k> <Action>(EditorSelectWord)
 
-" find
-map fa <Action>(GotoAction)
-map fc <Action>(GotoClass)
-map fe <Action>(SearchEverywhere)
-map fr <Action>(RecentFiles)
-map ff <Action>(GotoFile)
-map fl <Action>(RecentLocations)
-map fp <Action>(FindInPath)
-map fr <Action>(ReplaceInPath)
-map fs <Action>(GotoSymbol)
-map ft <Action>(TextSearchAction)
-
-" file
-map <leader>fs <Action>(FileStructurePopup)
-
-" usages
-nmap <leader>uf <Action>(FindUsages)
-" Highlight usages, use CMD+G/Shift+CMD+G to iterate
-nmap <leader>uh <Action>(HighlightUsagesInFile)
-nmap <leader>un <Action>(FindNext)
-nmap <leader>up <Action>(FindPrevious)
-nmap <leader>uo <Action>(SelectAllOccurrences)
-nmap <leader>us <Action>(ShowUsages)
-
 " code
-nmap <leader>gmo <Action>(OverrideMethods)
-nmap <leader>gmi <Action>(ImplementMethods)
+nmap <leader>go <Action>(OverrideMethods)
+nmap <leader>gi <Action>(ImplementMethods)
 nmap <leader>gc <Action>(Generate)
-nmap <leader>gt <Action>(GotoTest)
 
 " goto
 nmap ge <Action>(GotoNextError)
@@ -246,11 +208,24 @@ nmap gl <Action>(QuickJavaDoc)
 nmap gL <Action>(QuickImplementations)
 nmap gn <Action>(ShowNavBar)
 nmap go <Action>(GotoSuperMethod)
+nmap gs <Action>(FileStructurePopup)
 nmap gt <Action>(GotoTest)
 nmap gy <Action>(ShowErrorDescription)
 
-nmap <c-h> <Action>(Back)
-nmap <c-l> <Action>(Forward)
+" build
+map <leader>bg <Action>(Android.SyncProject)
+map <leader>bv <Action>(ActivateBuildVariantsToolWindow)
+
+" run
+map <leader>rc <Action>(ChooseRunConfiguration)
+map <leader>rq <Action>(Stop)
+map <leader>rr <Action>(Rerun)
+
+" debug
+map <leader>dx <Action>(Debug)
+map <leader>db <Action>(ToggleLineBreakpoint)
+map <leader>de <Action>(EditBreakpoint)
+map <leader>dv <Action>(ViewBreakpoints)
 
 " refactor
 nmap <leader>r <Action>(Refactorings.QuickListPopupAction)
@@ -267,20 +242,17 @@ nmap <leader>rn <Action>(RenameElement)
 nmap <leader>rw <Action>(SurroundWith) " wrap
 nmap <leader>ru <Action>(Unwrap)
 
-" build
-map <leader>bg <Action>(Android.SyncProject)
-map <leader>bv <Action>(ActivateBuildVariantsToolWindow)
-
-" run
-map <leader>rc <Action>(ChooseRunConfiguration)
-map <leader>rq <Action>(Stop)
-map <leader>rr <Action>(Rerun)
-
-" debug
-map <leader>dx <Action>(Debug)
-map <leader>db <Action>(ToggleLineBreakpoint)
-map <leader>de <Action>(EditBreakpoint)
-map <leader>dv <Action>(ViewBreakpoints)
+" search
+map <leader>sa <Action>(GotoAction)
+map <leader>sc <Action>(GotoClass)
+map <leader>se <Action>(SearchEverywhere)
+map <leader>sf <Action>(GotoFile)
+map <leader>sl <Action>(RecentLocations)
+map <leader>so <Action>(ReplaceInPath)
+map <leader>sp <Action>(FindInPath)
+map <leader>sr <Action>(RecentFiles)
+map <leader>ss <Action>(GotoSymbol)
+map <leader>st <Action>(TextSearchAction)
 
 " hierarchy
 nmap <leader>hc <Action>(CallHierarchy)
@@ -303,6 +275,22 @@ nmap <leader>ms <Action>(ScopeViewPopupMenu)
 nmap mm <Action>(ToggleBookmark)
 nmap ma <Action>(ShowBookmarks)
 
+" quick
+nmap <leader>qf <Action>(ShowIntentionActions)
+nmap <leader>qp <Action>(QuickPreview)
+nmap <leader>qd <Action>(QuickDefinition)
+nmap <leader>qD <Action>(QuickTypeDefinition)
+nmap <leader>qr <Action>(ToggleRenderedDocPresentation)
+
+" usages
+nmap <leader>uf <Action>(FindUsages)
+" Highlight usages, use CMD+G/Shift+CMD+G to iterate
+nmap <leader>uh <Action>(HighlightUsagesInFile)
+nmap <leader>un <Action>(FindNext)
+nmap <leader>up <Action>(FindPrevious)
+nmap <leader>uo <Action>(SelectAllOccurrences)
+nmap <leader>us <Action>(ShowUsages)
+
 " VCS/Git
 map <leader>v <Action>(Vcs.QuickListPopupAction)
 map <leader>va <Action>(Annotate)
@@ -316,7 +304,7 @@ map <leader>vr <Action>(Git.ResolveConflicts)
 nmap <leader>yp <Action>(CopyAbsolutePath)
 nmap <leader>yr <Action>(CopyReference)
 
-" Hide distractions
+" hide distractions
 map <leader>x <Action>(HideAllWindows)
 map <leader>zz <Action>(ToggleDistractionFreeMode)
 map <leader>zp <Action>(TogglePresentationMode)
@@ -328,7 +316,7 @@ nmap <leader>ze <Action>(ExpandAllRegions)
 
 
 "-----------------------
-"----- HARPOON(ER) -----
+"----- HARPOONER -----
 "-----------------------
 
 nmap <leader>he <Action>(HarpoonerQuickMenu) " edit
