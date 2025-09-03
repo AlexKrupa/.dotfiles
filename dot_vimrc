@@ -26,9 +26,6 @@ set number
 set incsearch
 set hlsearch
 
-" Clear highlight on ESC
-nnoremap <esc> :noh<CR><esc>
-
 set shiftwidth=2
 set tabstop=2
 set softtabstop=2
@@ -64,7 +61,10 @@ au InsertLeave * let &updatetime=updaterestore
 nnoremap \e :e ~/.vimrc<CR>
 nnoremap \r :source ~/.vimrc<CR>
 
- " unused
+" Clear highlight on ESC
+nnoremap <esc> :noh<CR><esc>
+
+" unused
 nnoremap Q <nop>
 
 " Unbind arrow keys to learn HJKL
@@ -74,15 +74,15 @@ noremap <up> <nop>
 noremap <down> <nop>
 
 " Map CTRL-c to ESC
-map <C-c> <Esc>
+noremap <C-c> <Esc>
 
 " Move between blocks
-map <C-j> }
-map <C-k> {
+noremap <C-j> }
+noremap <C-k> {
 
 " Map Alt+O/Alt+Shift+O (down/up) to new line in normal mode
-nmap <A-o> o<Esc>k
-nmap <A-S-o> O<Esc>j
+nnoremap <A-o> o<Esc>k
+nnoremap <A-S-o> O<Esc>j
 
 " Allow moving lines with Alt+J/Alt+K
 " https://stackoverflow.com/questions/7501092/can-i-map-alt-key-in-vim
@@ -109,7 +109,7 @@ nnoremap n nzzzv
 nnoremap N Nzzzv
 
 " Redo with U
-map U <C-R>
+noremap U <C-R>
 
 " Don't yank x to default register ever
 nnoremap x "_x
@@ -134,11 +134,11 @@ vnoremap <leader>p "_dP
 
 " Remove prefix
 " Go to start of word, toggle case and start typing. E.g. `<leader>iget`: `property` -> `getProperty`
-map <leader>pi wb~hi
+nnoremap <leader>pi wb~hi
 
 " Add prefix
 " Remove selection and toggle case. E.g. `v2l<leader>u`: `getProperty` -> `property`
-vmap <leader>pu d~h
+vnoremap <leader>pu d~h
 
 " Replace word under cursor with <leader>s, doesn't work in IdeaVim
 " nnoremap <leader>s :%s/<c-r><c-w>/<c-r><c-w>/gI<Left><Left><Left>
