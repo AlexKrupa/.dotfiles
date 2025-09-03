@@ -283,8 +283,8 @@ map <leader>mt <Action>(ToolWindowsGroup)
 map <leader>ms <Action>(ScopeViewPopupMenu)
 
 " bookmarks
+nmap mb <Action>(ShowBookmarks)
 nmap mm <Action>(ToggleBookmark)
-nmap ms <Action>(ShowBookmarks)
 
 " quick actions
 nmap <leader>qf <Action>(ShowIntentionActions)
