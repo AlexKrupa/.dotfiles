@@ -316,14 +316,19 @@ nmap <leader>us <Action>(ShowUsages)
 
 " VCS/Git
 map <leader>v <Action>(Vcs.QuickListPopupAction)
-map <leader>va <Action>(Annotate)
-map <leader>vc <Action>(ActivateCommitToolWindow)
+map <leader>va <Action>(Vcs.Operations.Popup.Annotate)
+map <leader>vb <Action>(Annotate)
+map <leader>vc <Action>(Git.Commit.Stage)
 map <leader>vd <Action>(Compare.SameVersion)
 map <leader>vh <Action>(Vcs.ShowTabbedFileHistory)
-map <leader>vk <Action>(Git.Commit.Stage)
 map <leader>vn <Action>(NextDiff)
 map <leader>vp <Action>(PreviousDiff)
 map <leader>vr <Action>(Git.ResolveConflicts)
+map <leader>vsc <Action>(VcsShowCurrentChangeMarker)
+map <leader>vsn <Action>(VcsShowNextChangeMarker)
+map <leader>vsp <Action>(VcsShowPrevChangeMarker)
+map <leader>vt <Action>(ActivateCommitToolWindow)
+map <leader>vz <Action>(Vcs.RollbackChangedLines)
 
 " yank/copy
 nmap <leader>yp <Action>(CopyAbsolutePath)
@@ -331,13 +336,11 @@ nmap <leader>yr <Action>(CopyReference)
 
 " hide distractions
 map <leader>x <Action>(HideAllWindows)
-map <leader>zz <Action>(ToggleDistractionFreeMode)
-map <leader>zp <Action>(TogglePresentationMode)
-
-" collapse/expand regions
 map <leader>za <Action>(ExpandCollapseToggleAction)
 map <leader>zc <Action>(CollapseAllRegions)
 map <leader>ze <Action>(ExpandAllRegions)
+map <leader>zp <Action>(TogglePresentationMode)
+map <leader>zz <Action>(ToggleDistractionFreeMode)
 
 " run
 " make sure to check binding colisions with refactorings above
