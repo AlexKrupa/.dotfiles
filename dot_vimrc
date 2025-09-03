@@ -63,15 +63,7 @@ au InsertLeave * let &updatetime=updaterestore
 nnoremap \e :e ~/.vimrc<CR>
 nnoremap \r :source ~/.vimrc<CR>
 
-if $TERM_PROGRAM =~ "iTerm"
-  set guicursor=i:ver25-iCursor
-  let &t_SI = "\<Esc>]50;CursorShape=1\x7"
-  let &t_SR = "\<Esc>]50;CursorShape=2\x7"
-  let &t_EI = "\<Esc>]50;CursorShape=0\x7"
-endif
-
-" Unbind unused
-nnoremap Q <nop>
+nnoremap Q <nop> " unused
 
 " Unbind arrow keys to learn HJKL
 noremap <left> <nop>
@@ -86,11 +78,9 @@ map <C-c> <Esc>
 map <C-j> }
 map <C-k> {
 
-" Map Ctrl+Enter/Ctrl+Shift+Enter (down/up) to new line in normal mode
+" Map Alt+O/Alt+Shift+O (down/up) to new line in normal mode
 nmap <A-o> o<Esc>k
 nmap <A-S-o> O<Esc>j
-" nmap oo o<Esc>k
-" nmap OO O<Esc>j
 
 " Allow moving lines with Alt+J/Alt+K
 " https://stackoverflow.com/questions/7501092/can-i-map-alt-key-in-vim
@@ -119,20 +109,22 @@ nnoremap N Nzzzv
 " Redo with U
 map U <C-R>
 
-" Don't yank x to default register
-nnoremap x \"_x
-vnoremap x \"_x
+" Don't yank x to default register ever
+nnoremap x "_x
+vnoremap x "_x
 
-" Don't yank to default register when changing something
-nnoremap c \"_c
-xnoremap c \"_c
+" Don't yank change to default register ever
+nnoremap c "_c
+xnoremap c "_c
 
-" Don't yank d to register if prefixed by leader
-nnoremap <leader>d \"_d
-vnoremap <leader>d \"_d
+" Don't yank delete to default register if prefixed by leader
+nnoremap <leader>d "_d
+vnoremap <leader>d "_d
+nnoremap <leader>D "_D
+vnoremap <leader>D "_D
 
 " Don't yank selection to register if pasting prefixed by leader
-vnoremap <leader>p \"_dP
+vnoremap <leader>p "_dP
 
 "------------------
 "----- MACROS -----

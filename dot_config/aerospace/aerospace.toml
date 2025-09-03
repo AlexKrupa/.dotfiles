@@ -1,8 +1,10 @@
 start-at-login = true
 
-after-startup-command = [
-  'exec-and-forget borders active_color=0xffe1e3e4 inactive_color=0xff494d64 width=5.0 hidpi=on 2>/dev/null 1>&2 &'
-]
+# Temporarily disabled to see if this makes JankyBorders crash.
+# Try `brew services start borders` instead.
+# after-startup-command = [
+#   'exec-and-forget borders active_color=0xffe1e3e4 inactive_color=0xff494d64 width=5.0 hidpi=on 2>/dev/null 1>&2 &'
+# ]
 
 exec-on-workspace-change = [
     '/bin/bash', '-c',
