@@ -12,6 +12,7 @@ tap "buo/cask-upgrade"  # better cask upgrading (see `cu`)
 # CLI tools
 brew "bash"
 brew "bat" # cat alternative with syntax highlighting
+brew "FelixKratz/formulae/borders" # focused window borders
 brew "chezmoi" # dotfiles management
 brew "coreutils" # for gnu date
 brew "curl"
@@ -26,7 +27,7 @@ brew "fzf" # fuzzy finder
 brew "gnupg" # "openssl"
 brew "grc" # command output colorizer
 brew "gum" # easy CLI tools
-brew "httpie" # HTTP client, curl alternative
+# brew "httpie" # HTTP client, curl alternative
 brew "htop" # system monitor
 brew "imagemagick" # image converter / compressor
 brew "jless" # JSON viewer
@@ -41,8 +42,10 @@ brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
 brew "scc" # project metric counter (e.g. LOC)
 brew "sesh" # tmux session manager (used with fzf)
+brew "koekeishiya/formulae/skhd" # keyboard shortcuts
 brew "terminal-notifier"
 brew "tlrc" # tldr - docs, manpages alternative
+brew "uv" # Python virtual env management
 brew "yt-dlp" # YouTube downloader
 brew "zoxide" # smart cd replacement
 
@@ -51,17 +54,19 @@ brew "yazi" # file manager
 brew "ffmpegthumbnailer" # video file preview in yazi
 brew "poppler" # pdf preview in yazi
 
-# development ## general
+# Git
 brew "git"
 brew "git-delta" # git diff viewer
 brew "git-lfs" # git large file storage
 brew "git-spice" # git stack
-brew "gh"
+brew "gh" # GitHub
 brew "github-keygen"
+brew "glab" # GitLab
 
 # Tmux
 brew "tmux"
 # brew "tpm" # tmux plugin manager
+# brew "morantron/tmux-fingers/tmux-fingers" # tmux plugin for searching patterns
 
 # development / android (zulu)
 tap "mdogan/zulu"
@@ -72,6 +77,8 @@ brew "gradle"
 brew "scrcpy" # screen mirroring
 brew "adb-enhanced" # adb with more features
 cask "android-platform-tools" # adb, fastboot
+brew "JakeWharton/repo/diffuse" # APK diff
+brew "mobile-dev-inc/tap/maestro" # UI automation
 
 # development ## .rb
 # brew "asdf"
@@ -87,8 +94,10 @@ brew "uv"
 # Mac apps
 # cask "1password"
 # cask "1password-cli" # required for Raycast/Alfred integration
+cask "nikitabobko/tap/aerospace" # tiling window manager
 cask "alt-tab" # alt-tab replacement
-cask "appcleaner" # app uninstaller
+# cask "appcleaner" # app uninstaller
+cask "battery" # stop charge at 80%
 # cask "betterdisplay"   # display manager
 cask "bettertouchtool"
 # cask "bruno" # API-client, Postman alternative
@@ -96,7 +105,7 @@ cask "bettertouchtool"
 # cask "discord"
 cask "free-ruler" # screen ruler for measuring pixel distances
 # cask "handbrake" # video converter / compressor
-cask "homerow" # keyboard shortcuts for every button on the screen
+# cask "homerow" # keyboard shortcuts for every button on the screen, paid, alt: shortcat
 cask "ghostty"
 # cask "google-drive"
 cask "google-chrome" # browser
@@ -113,17 +122,20 @@ cask "linearmouse" # mouse acceleration fix
 cask "lulu" # connection blocker
 # cask "marta" # file manager
 # cask "microsoft-edge" # browser
+cask "middleclick" # trackpad middle-click with 3 fingers
 cask "mitmproxy" # for debugging network requests
 # cask "mullvadvpn"
 cask "notunes" # disable iTunes on media button press
 # cask "obsidian" # note taking, Markdown
 cask "omnidisksweeper" # disk space visualizer and cleaner
 # cask "onyx" # system maintenance
+cask "pearcleaner" # app uninstaller/cleaner, probably better than appcleaner
 # cask "postman" # API client
 # cask "proxyman" # for debugging network requests
 # cask "qbittorrent" # torrent client
 # cask "rapidapi" # API client (Postman alternative)
 cask "raycast" # productivity tool, Spotlight replacement
+cask "shortcat" # click anything on the screen, alt: homerow
 cask "shottr" # screenshot tool
 # cask "slack"
 # cask "spotify"
@@ -142,9 +154,9 @@ cask "font-jetbrains-mono-nerd-font"
 cask "font-sf-mono"
 
 # Karabiner / Goku
+# Homebrew-managed Karabiner might be problematic during updates (locks system UI, requiring restart)
 # cask "karabiner-elements"
-# tap "yqrashawn/goku"
-# brew "yqrashawn/goku/goku" # Karabiner config manager
+brew "yqrashawn/goku/goku" # Karabiner config manager
 
 ##################
 # Helpful commands
