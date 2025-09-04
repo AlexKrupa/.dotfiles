@@ -8,25 +8,29 @@ initscript {
 }
 
 allprojects {
-    apply<com.adarshr.gradle.testlogger.TestLoggerPlugin>()
-    configure<com.adarshr.gradle.testlogger.TestLoggerExtension> {
-        theme = com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
-        showExceptions = true
-        showStackTraces = true
-        showFullStackTraces = false
-        showCauses = true
-        slowThreshold = 1000
-        showSummary = true
-        showSimpleNames = true
-        showPassed = false
-        showSkipped = false
-        showFailed = true
-        // showOnlySlow = false
-        showStandardStreams = false
-        showPassedStandardStreams = true
-        showSkippedStandardStreams = true
-        showFailedStandardStreams = true
-        logLevel = com.adarshr.gradle.testlogger.logger.LogLevel.LIFECYCLE
+    afterEvaluate {
+        if (!plugins.hasPlugin("com.adarshr.gradle.testlogger")) {
+            apply<com.adarshr.gradle.testlogger.TestLoggerPlugin>()
+        }
+        configure<com.adarshr.gradle.testlogger.TestLoggerExtension> {
+            theme = com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
+            showExceptions = true
+            showStackTraces = true
+            showFullStackTraces = false
+            showCauses = true
+            slowThreshold = 1000
+            showSummary = true
+            showSimpleNames = true
+            showPassed = false
+            showSkipped = false
+            showFailed = true
+            // showOnlySlow = false
+            showStandardStreams = false
+            showPassedStandardStreams = true
+            showSkippedStandardStreams = true
+            showFailedStandardStreams = true
+            logLevel = com.adarshr.gradle.testlogger.logger.LogLevel.LIFECYCLE
+        }
     }
 }
 
@@ -35,3 +39,4 @@ gradle.afterProject { project ->
         maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).takeIf { it > 0 } ?: 1
     }
 }
+
