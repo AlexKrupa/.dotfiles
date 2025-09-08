@@ -846,23 +846,36 @@ require('lazy').setup {
         'bash',
         'c',
         'diff',
+        'dockerfile',
+        'editorconfig',
         'fish',
+        'git_config',
+        'git_rebase',
+        'gitcommit',
+        'gitignore',
         'go',
-        'groovy',
+        'graphql',
         'html',
         'java',
         'javascript',
         'json',
+        'json5',
         'kotlin',
         'lua',
         'luadoc',
         'markdown',
         'markdown_inline',
-        'query',
+        'python',
+        'query', -- treesitter query language
+        'regex',
         'ruby',
         'swift',
+        'tmux',
+        'toml',
+        'typescript',
         'vim',
         'vimdoc',
+        'xml',
         'yaml',
       },
       -- Autoinstall languages that are not installed
@@ -889,6 +902,25 @@ require('lazy').setup {
     event = { 'BufReadPost' },
     ft = { 'json', 'yaml' },
   },
+
+  -- {
+  --   'christoomey/vim-tmux-navigator',
+  --   cmd = {
+  --     'TmuxNavigateLeft',
+  --     'TmuxNavigateDown',
+  --     'TmuxNavigateUp',
+  --     'TmuxNavigateRight',
+  --     'TmuxNavigatePrevious',
+  --     'TmuxNavigatorProcessList',
+  --   },
+  --   keys = {
+  --     { '<M-h>', '<cmd><C-U>TmuxNavigateLeft<cr>' },
+  --     { '<M-j>', '<cmd><C-U>TmuxNavigateDown<cr>' },
+  --     { '<M-k>', '<cmd><C-U>TmuxNavigateUp<cr>' },
+  --     { '<M-l>', '<cmd><C-U>TmuxNavigateRight<cr>' },
+  --     -- { '<M-\\>', '<cmd><C-U>TmuxNavigatePrevious<cr>' },
+  --   },
+  -- },
 
   -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
@@ -919,10 +951,9 @@ require('lazy').setup {
 
 local opts = { noremap = true, silent = true }
 
--- Whole buffer
-vim.keymap.set('n', '<Leader>fj', '<Cmd>%!jq<CR>', opts)
-vim.keymap.set('n', '<Leader>fcj', '<Cmd>%!jq --compact-output<CR>', opts)
+-- jq: Whole buffer
+vim.keymap.set('n', '<leader>fj', '<Cmd>%!jq<CR>', opts)
+vim.keymap.set('n', '<leader>fcj', '<Cmd>%!jq --compact-output<CR>', opts)
 
--- Visual selection
-vim.keymap.set('v', '<Leader>fj', ":'<,'>!jq<CR>", opts)
-vim.keymap.set('v', '<Leader>fcj', ":'<,'>!jq --compact-output<CR>", opts)
+-- jq: Visual selection
+vim.keymap.set('v', '<leader>fj', ":'<,'>!jq<CR>", opts)
