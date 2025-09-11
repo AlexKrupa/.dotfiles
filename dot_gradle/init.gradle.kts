@@ -13,7 +13,6 @@ allprojects {
             apply<com.adarshr.gradle.testlogger.TestLoggerPlugin>()
         }
         configure<com.adarshr.gradle.testlogger.TestLoggerExtension> {
-            theme = com.adarshr.gradle.testlogger.theme.ThemeType.MOCHA_PARALLEL
             showExceptions = true
             showStackTraces = true
             showFullStackTraces = false
@@ -29,13 +28,13 @@ allprojects {
             showPassedStandardStreams = true
             showSkippedStandardStreams = true
             showFailedStandardStreams = true
-            logLevel = com.adarshr.gradle.testlogger.logger.LogLevel.LIFECYCLE
+            logLevel = LogLevel.LIFECYCLE
         }
     }
 }
 
-gradle.afterProject { project ->
-    project.tasks.withType<Test> {
+gradle.afterProject {
+    tasks.withType<Test> {
         maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).takeIf { it > 0 } ?: 1
     }
 }

@@ -227,6 +227,8 @@ let g:switch_custom_definitions = [
 " Flash plugin setup
 nmap s <Action>(flash.search)
 xmap s <Action>(flash.search)
+nmap S <Action>(flash.treesitter)
+xmap S <Action>(flash.treesitter)
 
 "--------------------
 "----- MAPPINGS -----
