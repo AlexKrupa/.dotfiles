@@ -4,14 +4,15 @@ source ~/.vimrc
 " https://github.com/JetBrains/ideavim/blob/master/doc/set-commands.md
 " https://towardsdatascience.com/the-essential-ideavim-remaps-291d4cd3971b
 
-" Syntax for binding IDE actions.
-"
+" Syntax for binding IDE actions:
 " <Action>(CommandName)
 " :action CommandName<CR>
 "
 " Both are valid approaches, but <Action> is more readable.
 " However, it doesn't work for with `nore` commands, so use :action in those cases.
-" List of action ids: https://gist.github.com/zchee/9c78f91cc5ad771c1f5d
+" List of action ids: https://centic9.github.io/IntelliJ-Action-IDs/
+" or execute the :actionlist IdeaVim command.
+
 
 " Don't use "end of line comments", Vim will interpret " as a part of a binding
 
