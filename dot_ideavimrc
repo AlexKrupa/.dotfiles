@@ -224,13 +224,6 @@ let g:switch_custom_definitions = [
   \ switchNormalizedCaseWords(['validating', 'invalidating'])
 \ ]
 
-" Flash plugin setup
-nmap s <Action>(flash.search)
-xmap s <Action>(flash.search)
-nmap S <Action>(flash.treesitter)
-xmap S <Action>(flash.treesitter)
-omap r <Action>(flash.remote)
-
 "--------------------
 "----- MAPPINGS -----
 "--------------------
@@ -260,7 +253,7 @@ nmap <m-k> <Action>(EditorSelectWord)
 vmap <m-j> <Action>(EditorUnSelectWord)
 vmap <m-k> <Action>(EditorSelectWord)
 
-" refactor
+" re[f]actor / [f]ormat
 map <leader>f <Action>(Refactorings.QuickListPopupAction)
 nmap <leader>fd <Action>(SafeDelete)
 nmap <leader>fec <Action>(IntroduceConstant)
@@ -280,12 +273,12 @@ nmap <leader>fsr <Action>(StructuralSearchPlugin.StructuralReplaceAction)
 nmap <leader>fw <Action>(SurroundWith)
 nmap <leader>fu <Action>(Unwrap)
 
-" generate
+" [g]enerate
 nmap <leader>go <Action>(OverrideMethods)
 nmap <leader>gi <Action>(ImplementMethods)
 nmap <leader>gc <Action>(Generate)
 
-" goto
+" [g]oto
 nmap ge <Action>(GotoNextError)
 nmap gE <Action>(GotoPreviousError)
 nmap gb <Action>(Back)
@@ -306,7 +299,7 @@ nmap gu <Action>(ShowUsages)
 nmap gU <Action>(FindUsages)
 nmap gy <Action>(ShowErrorDescription)
 
-" search
+" [s]earch
 map <leader>sa <Action>(GotoAction)
 map <leader>sc <Action>(GotoClass)
 map <leader>se <Action>(SearchEverywhere)
@@ -318,19 +311,19 @@ map <leader>sr <Action>(RecentFiles)
 map <leader>ss <Action>(GotoSymbol)
 map <leader>st <Action>(TextSearchAction)
 
-" hierarchy
+" [h]ierarchy
 nmap <leader>hc <Action>(CallHierarchy)
 nmap <leader>hm <Action>(MethodHierarchy)
 nmap <leader>ht <Action>(TypeHierarchy)
 
-" menus
+" [m]enus
 map <leader>ma <Action>(com.developerphil.adbidea.action.AdbIdeaQuickList)
 map <leader>ml <Action>(AnalyzeMenu)
 map <leader>mp <Action>(ManageRecentProjects)
 map <leader>mt <Action>(ToolWindowsGroup)
 map <leader>ms <Action>(ScopeViewPopupMenu)
 
-" bookmarks
+" book[m]arks
 nmap mb <Action>(ShowBookmarks)
 nmap mm <Action>(ToggleBookmark)
 
@@ -341,7 +334,7 @@ nmap <leader>qd <Action>(QuickDefinition)
 nmap <leader>qD <Action>(QuickTypeDefinition)
 nmap <leader>qr <Action>(ToggleRenderedDocPresentation)
 
-" tool windows
+" [t]ool windows
 map <leader>tb <Action>(ActivateBuildToolWindow)
 map <leader>tc <Action>(ActivateCommitToolWindow)
 map <leader>td <Action>(ActivateDebugToolWindow)
@@ -356,29 +349,29 @@ map <leader>tv <Action>(ActivateVersionControlToolWindow)
 map <leader>tw <Action>(ActivateBuildVariantsToolWindow)
 map <leader>tx <Action>(HideActiveWindow)
 
-" usages
+" [u]sages
 nmap <leader>uf <Action>(FindUsages)
 nmap <leader>uh <Action>(HighlightUsagesInFile)
 nmap <leader>uo <Action>(SelectAllOccurrences)
 nmap <leader>us <Action>(ShowUsages)
 
-" VCS/Git
+" [v]ersion control / Git
 map <leader>v <Action>(Vcs.QuickListPopupAction)
 map <leader>va <Action>(Vcs.Operations.Popup.Annotate)
 map <leader>vb <Action>(Annotate)
 map <leader>vc <Action>(Git.Commit.Stage)
 map <leader>vd <Action>(Compare.SameVersion)
 map <leader>vh <Action>(Vcs.ShowTabbedFileHistory)
+map <leader>vmc <Action>(VcsShowCurrentChangeMarker)
+map <leader>vmn <Action>(VcsShowNextChangeMarker)
+map <leader>vmp <Action>(VcsShowPrevChangeMarker)
 map <leader>vn <Action>(NextDiff)
 map <leader>vp <Action>(PreviousDiff)
 map <leader>vr <Action>(Git.ResolveConflicts)
-map <leader>vsc <Action>(VcsShowCurrentChangeMarker)
-map <leader>vsn <Action>(VcsShowNextChangeMarker)
-map <leader>vsp <Action>(VcsShowPrevChangeMarker)
 map <leader>vt <Action>(ActivateCommitToolWindow)
 map <leader>vz <Action>(Vcs.RollbackChangedLines)
 
-" yank/copy
+" [y]ank / copy
 nmap <leader>yp <Action>(CopyAbsolutePath)
 nmap <leader>yr <Action>(CopyReference)
 
@@ -390,8 +383,7 @@ map <leader>ze <Action>(ExpandAllRegions)
 map <leader>zp <Action>(TogglePresentationMode)
 map <leader>zz <Action>(ToggleDistractionFreeMode)
 
-" run
-" make sure to check binding colisions with refactorings above
+" [r]un
 map <leader>rc <Action>(ChooseRunConfiguration)
 map <leader>rd <Action>(DebugClass)
 map <leader>rf <Action>(RerunFailedTests)
@@ -400,16 +392,20 @@ map <leader>rq <Action>(Stop)
 map <leader>rr <Action>(Rerun)
 map <leader>rt <Action>(RunClass)
 
-" debug
+" [d]ebug
 map <leader>dx <Action>(Debug)
 map <leader>db <Action>(ToggleLineBreakpoint)
 map <leader>de <Action>(EditBreakpoint)
 map <leader>dv <Action>(ViewBreakpoints)
 
-"-----------------------
-"----- HARPOONER -----
-"-----------------------
+" Flash plugin setup
+nmap s <Action>(flash.search)
+xmap s <Action>(flash.search)
+nmap S <Action>(flash.treesitter)
+xmap S <Action>(flash.treesitter)
+omap r <Action>(flash.remote)
 
+" [H]arpooner plugin
 map <leader>he <Action>(HarpoonerToggleQuickMenu)
 map <leader>hh <Action>(HarpoonerToggleFile)
 map <m-0> <Action>(HarpoonerOpenFile0)
