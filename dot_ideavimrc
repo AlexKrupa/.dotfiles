@@ -93,14 +93,42 @@ set notimeout
 "set timeoutlen=5000
 let g:WhichKey_DefaultDelay = 0 " default is 200
 
+" gc{motion}  Comment or uncomment lines that {motion} moves over.
+" gcc         Comment or uncomment [count] lines.
+" {Visual}gc  Comment or uncomment the highlighted lines.
+" gc          Text object for a comment (operator pending mode
+" gcgc, gcu   Uncomment the current and adjacent commented lines.
 Plug 'tpope/vim-commentary'
+
 Plug 'tpope/vim-surround'
 
-let g:NERDTreeMapPreview = 'O'
-
-set multicursor
-Plug 'terryma/vim-multiple-cursors'
+" cx{motion} Used in pairs.
+"            FIRST USE: define the first region of text to be exchanged. Any valid {motion} can be used.
+"            SECOND USE: define the second region of text and perform the exchange.
+"            Note: If a region was defined accidentally, it can be cleared with |cxc|
+" cxx        Like |cx|, but for the current line. |linewise|
+" cxc        Clear any defined region of text (previously defined by a |cx| command)
+" {Visual}X  Can be used in visual mode.
 Plug 'tommcdo/vim-exchange'
+
+Plug 'terryma/vim-multiple-cursors'
+" Remap multiple-cursors shortcuts to match terryma/vim-multiple-cursors
+nmap <C-n> <Plug>NextWholeOccurrence
+xmap <C-n> <Plug>NextWholeOccurrence
+nmap g<C-n> <Plug>NextOccurrence
+xmap g<C-n> <Plug>NextOccurrence
+xmap <C-x> <Plug>SkipOccurrence
+xmap <C-p> <Plug>RemoveOccurrence
+" Note that the default <A-n> and g<A-n> shortcuts don't work on Mac due to dead keys.
+" <A-n> is used to enter accented text e.g. ñ
+" Feel free to pick your own mappings that are not affected. I like to use <leader>
+nmap <leader><C-n> <Plug>AllWholeOccurrences
+xmap <leader><C-n> <Plug>AllWholeOccurrences
+nmap <leader>g<C-n> <Plug>AllOccurrences
+xmap <leader>g<C-n> <Plug>AllOccurrences
+
+Plug 'preservim/nerdtree'
+let g:NERDTreeMapPreview = 'O'
 
 " highlightedyank plugin setup
 Plug 'machakann/vim-highlightedyank'
@@ -108,13 +136,12 @@ let g:highlightedyank_highlight_duration = "500"
 let g:highlightedyank_highlight_color = "rgba(57, 197, 187, 155)"
 
 Plug 'dbakker/vim-paragraph-motion'
-Plug 'vim-scripts/ReplaceWithRegister'
 Plug 'kana/vim-textobj-entire'
 
-" <count>ai	An Indentation level and line above.
-" <count>ii	Inner Indentation level (no line above).
-" <count>aI	An Indentation level and lines above/below.
-" <count>iI	Inner Indentation level (no lines above/below).
+" <count>ai	 An Indentation level and line above.
+" <count>ii	 Inner Indentation level (no line above).
+" <count>aI	 An Indentation level and lines above/below.
+" <count>iI	 Inner Indentation level (no lines above/below).
 Plug 'michaeljsmith/vim-indent-object'
 
 " if - "inner function" - selects the function body (excluding braces)
@@ -354,6 +381,8 @@ map <leader>tx <Action>(HideActiveWindow)
 nmap <leader>uf <Action>(FindUsages)
 nmap <leader>uh <Action>(HighlightUsagesInFile)
 nmap <leader>uo <Action>(SelectAllOccurrences)
+nmap <A-n> <Action>(SelectNextOccurrence)
+nmap <A-x> <Action>(UnselectPreviousOccurrence)
 nmap <leader>us <Action>(ShowUsages)
 
 " [v]ersion control / Git
@@ -409,7 +438,8 @@ vnoremap <Space> :action LeaderAction<cr>
 nmap s <Action>(flash.search)
 xmap s <Action>(flash.search)
 nmap S <Action>(flash.treesitter)
-xmap S <Action>(flash.treesitter)
+" Conflicts with vim-surround in visual mode
+" xmap S <Action>(flash.treesitter)
 omap r <Action>(flash.remote)
 
 " [H]arpooner plugin
