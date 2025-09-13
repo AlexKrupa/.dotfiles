@@ -370,6 +370,7 @@ map <leader>vp <Action>(PreviousDiff)
 map <leader>vr <Action>(Git.ResolveConflicts)
 map <leader>vt <Action>(ActivateCommitToolWindow)
 map <leader>vz <Action>(Vcs.RollbackChangedLines)
+map <leader>vZ <Action>(ChangesView.Revert)
 
 " [y]ank / copy
 nmap <leader>yp <Action>(CopyAbsolutePath)
@@ -397,6 +398,11 @@ map <leader>dx <Action>(Debug)
 map <leader>db <Action>(ToggleLineBreakpoint)
 map <leader>de <Action>(EditBreakpoint)
 map <leader>dv <Action>(ViewBreakpoints)
+
+" Ataman
+" Remember to bind 'Ataman: Transparent Leader Key' in IDE keymap
+nnoremap <Space> :action LeaderAction<cr>
+vnoremap <Space> :action LeaderAction<cr>
 
 " Flash plugin setup
 nmap s <Action>(flash.search)
