@@ -36,6 +36,12 @@
 
   ;; HYPER key: Ctrl+Alt+Shift+Cmd on hold
   hyper (multi lctl lalt lsft lmet)
+
+  ;; LGUI hold / Backspace tap
+  lmet (tap-hold $tap-time $hold-time bspc lmet)
+
+  ;; RGUI hold / Delete tap
+  ralt (tap-hold $tap-time $hold-time del ralt)
 )
 
 ;; Default layer
@@ -45,7 +51,7 @@
   @meh   q      w      e      r      t      y      u      i      o      p      [      ]      \
   @fn    a      s      d      f      g      h      j      k      l      ;      '      ret
   lsft   z      x      c      v      b      n      m      ,      .      /      rsft
-  @hyper lctl   lalt   lmet          spc                  rmet   ralt
+  @hyper lctl   lalt   @lmet         spc                  @ralt  rmet
 )
 
 ;; Function layer (activated by holding Caps Lock)
