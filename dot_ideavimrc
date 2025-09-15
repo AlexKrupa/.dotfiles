@@ -293,7 +293,7 @@ nmap <leader>fi <Action>(Inline)
 " KDoc formatting plugin
 nmap <leader>fk <Action>(ReflowKDoc)
 map <leader>fo <Action>(OptimizeImports)
-nmap <leader>fm <Action>(MoveElement)
+nmap <leader>fm <Action>(Move)
 nmap <leader>fn <Action>(RenameElement)
 nmap <leader>fss <Action>(StructuralSearchPlugin.StructuralSearchAction)
 nmap <leader>fsr <Action>(StructuralSearchPlugin.StructuralReplaceAction)

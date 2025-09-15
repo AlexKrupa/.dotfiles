@@ -23,3 +23,6 @@ if test -f ~/.config/fish/local.fish
   source ~/.config/fish/local.fish
 end
 
+status is-interactive; and begin
+    set fish_tmux_autostart true
+end

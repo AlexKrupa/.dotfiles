@@ -1,4 +1,3 @@
-command = bash ~/.config/ghostty/tmux.sh
 theme = Dracula
 window-padding-x = 4
 window-padding-y = 2,0
