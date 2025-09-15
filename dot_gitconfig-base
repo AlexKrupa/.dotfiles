@@ -115,7 +115,7 @@
   unskip = update-index --no-skip-worktree
   skipped = !(git ls-files -v | grep '^S')
   lg = log --graph --no-merges --pretty=format:'%h %<(14)%Cblue%ar%Creset %<(14,trunc)%aN %Cgreen%s%Creset %C(auto)%d%Creset'
-  main = !fish -c '__git_main'
+  main = "!f() { git co $(fish -c '__git_main'); }; f"
   ma = merge --abort
   mc = merge --continue --no-edit
   po = remote prune origin
