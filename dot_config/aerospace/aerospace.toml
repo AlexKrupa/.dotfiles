@@ -86,7 +86,7 @@ accordion-padding = 30
     alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
     alt-ctrl-shift-cmd-tab = ['move-workspace-to-monitor --wrap-around next', 'exec-and-forget ~/.config/share-focus/sync']
 
-    alt-ctrl-shift-cmd-quote = 'mode service'
+    alt-ctrl-shift-cmd-semicolon = 'mode service'
 
     # cmd-h = [] # Disable "hide application"
     # cmd-alt-ctrl-shift-h = [] # Disable "hide others"
