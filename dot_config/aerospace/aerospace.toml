@@ -76,12 +76,26 @@ accordion-padding = 30
     alt-ctrl-shift-o = 'workspace --auto-back-and-forth O'
     alt-ctrl-shift-p = 'workspace --auto-back-and-forth P'
 
+    # Workspace - mirror
+    alt-ctrl-shift-t = 'workspace --auto-back-and-forth Y'
+    alt-ctrl-shift-r = 'workspace --auto-back-and-forth U'
+    alt-ctrl-shift-e = 'workspace --auto-back-and-forth I'
+    alt-ctrl-shift-w = 'workspace --auto-back-and-forth O'
+    alt-ctrl-shift-q = 'workspace --auto-back-and-forth P'
+
     # Move to workspace
     alt-ctrl-shift-cmd-y = ['move-node-to-workspace --focus-follows-window Y', 'exec-and-forget ~/.config/share-focus/sync']
     alt-ctrl-shift-cmd-u = ['move-node-to-workspace --focus-follows-window U', 'exec-and-forget ~/.config/share-focus/sync']
     alt-ctrl-shift-cmd-i = ['move-node-to-workspace --focus-follows-window I', 'exec-and-forget ~/.config/share-focus/sync']
     alt-ctrl-shift-cmd-o = ['move-node-to-workspace --focus-follows-window O', 'exec-and-forget ~/.config/share-focus/sync']
     alt-ctrl-shift-cmd-p = ['move-node-to-workspace --focus-follows-window P', 'exec-and-forget ~/.config/share-focus/sync']
+
+    # Move to workspace - mirror
+    alt-ctrl-shift-cmd-t = ['move-node-to-workspace --focus-follows-window Y', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-r = ['move-node-to-workspace --focus-follows-window U', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-e = ['move-node-to-workspace --focus-follows-window I', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-w = ['move-node-to-workspace --focus-follows-window O', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-q = ['move-node-to-workspace --focus-follows-window P', 'exec-and-forget ~/.config/share-focus/sync']
 
     alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
     alt-ctrl-shift-cmd-tab = ['move-workspace-to-monitor --wrap-around next', 'exec-and-forget ~/.config/share-focus/sync']
