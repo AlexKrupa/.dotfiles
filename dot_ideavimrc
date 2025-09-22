@@ -425,6 +425,7 @@ map <leader>rt <Action>(RunClass)
 
 " [d]ebug
 map <leader>dx <Action>(Debug)
+map <leader>da <Action>(AndroidConnectDebuggerAction)
 map <leader>db <Action>(ToggleLineBreakpoint)
 map <leader>de <Action>(EditBreakpoint)
 map <leader>dv <Action>(ViewBreakpoints)
