@@ -1,10 +1,29 @@
 [mgr]
-show_hidden = true
+ratio          = [ 2, 4, 3 ]
+sort_by        = "alphabetical"
+sort_sensitive = false
+sort_reverse 	 = false
+sort_dir_first = true
+sort_translit  = false
+linemode       = "size_and_mtime"
+show_hidden    = true
+show_symlink   = true
+scrolloff      = 5
 
 # MacOS: open Quick Look
 [[mgr.prepend_keymap]]
 on = "<C-p>"
 run = 'shell -- qlmanage -p "$@"'
+
+[input]
+cursor_blink = false
+
+[preview]
+wrap            = "no"
+tab_size        = 2
+max_width       = 1000
+max_height      = 1000
+image_delay     = 30
 
 [opener]
 edit = [
@@ -13,3 +32,11 @@ edit = [
 play = [
   { run = 'open -a IINA "$@"', desc = "IINA", orphan = true }
 ]
+open = [
+	{ run = 'open "$@"', desc = "Open", for = "macos" },
+]
+reveal = [
+	{ run = 'open -R "$1"',                         desc = "Reveal", for = "macos" },
+	{ run = '''clear; exiftool "$1"; echo "Press enter to exit"; read _''', block = true, desc = "Show EXIF", for = "unix" },
+]
+
