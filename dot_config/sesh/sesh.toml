@@ -1,0 +1,65 @@
+[default_session]
+preview_command = "ls {}"
+
+[[session]]
+preview_command = "ls {}"
+
+[[session]]
+name = "home (~)"
+path = "~"
+disable_startup_command = true
+
+[[session]]
+name = "src"
+path = "~/src"
+startup_command = "yazi"
+
+[[session]]
+name = "Downloads"
+path = "~/Downloads"
+startup_command = "yazi"
+
+[[session]]
+name = "config"
+path = "~/.config"
+startup_command = "yazi"
+
+[[session]]
+name = "aerospace config"
+path = "~/.config/aerospace"
+startup_command = "nvim aerospace.toml"
+
+[[session]]
+name = "fish config"
+path = "~/.config/fish"
+startup_command = "nvim config.fish"
+
+[[session]]
+name = "ghostty config"
+path = "~/.config/ghostty"
+startup_command = "nvim config"
+
+[[session]]
+name = "kanata config"
+path = "~/.config/kanata"
+startup_command = "nvim kanata.kbd"
+
+[[session]]
+name = "lazygit config"
+path = "~/.config/lazygit"
+startup_command = "nvim config.yml"
+
+[[session]]
+name = "nvim config"
+path = "~/.config/nvim"
+startup_command = "nvim init.lua"
+
+[[session]]
+name = "sesh config"
+path = "~/.config/sesh"
+startup_command = "nvim sesh.toml"
+
+[[session]]
+name = "yazi config"
+path = "~/.config/yazi"
+startup_command = "nvim yazi.toml"
