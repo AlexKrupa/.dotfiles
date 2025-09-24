@@ -2,15 +2,6 @@
   "$schema" : "https:\/\/schema.linearmouse.app\/0.10.2",
   "schemes" : [
     {
-      "buttons" : {
-        "clickDebouncing" : {
-          "buttons" : [
-            0
-          ],
-          "timeout" : 0
-        },
-        "universalBackForward" : true
-      },
       "if" : {
         "device" : {
           "category" : "mouse",
@@ -100,8 +91,6 @@
         "device" : {
           "category" : "mouse",
           "productID" : "0x1977",
-          "productName" : "Voyager",
-          "serialNumber" : "amZp5\/XbN7l6",
           "vendorID" : "0x3297"
         }
       },
@@ -115,22 +104,5 @@
         "speed" : 0
       }
     },
-    {
-      "if" : {
-        "device" : {
-          "category" : "mouse",
-          "productID" : "0x1977",
-          "productName" : "Voyager",
-          "serialNumber" : "amZp5\/eadOQK",
-          "vendorID" : "0x3297"
-        }
-      },
-      "scrolling" : {
-        "acceleration" : 1,
-        "distance" : 3,
-        "reverse" : true,
-        "speed" : 0
-      }
-    }
   ]
 }
