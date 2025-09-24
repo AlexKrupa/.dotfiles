@@ -41,8 +41,11 @@
   ;; LGUI hold / Backspace tap
   lmet (tap-hold-press $tap-time $hold-time bspc lmet)
 
-  ;; RGUI hold / Delete tap
+  ;; RALT hold / Delete tap
   ralt (tap-hold-press $tap-time $hold-time del ralt)
+
+  ;; RGUI hold / Delete tap
+  rmet (tap-hold-press $tap-time $hold-time del rmet)
 )
 
 ;; Default layer
@@ -52,7 +55,7 @@
   @meh   q      w      e      r      t      y      u      i      o      p      [      ]      \
   @fn    a      s      d      f      g      h      j      k      l      ;      '      ret
   lsft   z      x      c      v      b      n      m      ,      .      /      rsft
-  @hyper lctl   lalt   @lmet         spc                  @ralt  rmet
+  @hyper lctl   lalt   @lmet         spc                  @rmet  ralt
 )
 
 ;; Function layer (activated by holding Caps Lock)

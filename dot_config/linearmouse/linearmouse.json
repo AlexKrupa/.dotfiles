@@ -27,7 +27,7 @@
       "scrolling" : {
         "acceleration" : 1,
         "distance" : 3,
-        "reverse": true,
+        "reverse" : true,
         "speed" : 0
       }
     },
@@ -49,7 +49,7 @@
       "scrolling" : {
         "acceleration" : 1,
         "distance" : 3,
-        "reverse": true,
+        "reverse" : true,
         "speed" : 0
       }
     },
@@ -70,7 +70,7 @@
       "scrolling" : {
         "acceleration" : 1,
         "distance" : 3,
-        "reverse": true,
+        "reverse" : true,
         "speed" : 0
       }
     },
@@ -111,7 +111,24 @@
       "scrolling" : {
         "acceleration" : 1,
         "distance" : 3,
-        "reverse": true,
+        "reverse" : true,
+        "speed" : 0
+      }
+    },
+    {
+      "if" : {
+        "device" : {
+          "category" : "mouse",
+          "productID" : "0x1977",
+          "productName" : "Voyager",
+          "serialNumber" : "amZp5\/eadOQK",
+          "vendorID" : "0x3297"
+        }
+      },
+      "scrolling" : {
+        "acceleration" : 1,
+        "distance" : 3,
+        "reverse" : true,
         "speed" : 0
       }
     }

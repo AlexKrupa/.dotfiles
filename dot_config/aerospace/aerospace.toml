@@ -47,8 +47,8 @@ accordion-padding = 30
     alt-ctrl-shift-d = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
 
     # Resizing
-    alt-ctrl-shift-minus = ['resize smart -50', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-equal = ['resize smart +50', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-minus = ['resize smart -100', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-equal = ['resize smart +100', 'exec-and-forget ~/.config/share-focus/sync']
 
     # Fullscreen
     alt-ctrl-shift-f = ['fullscreen', 'exec-and-forget ~/.config/share-focus/sync']
