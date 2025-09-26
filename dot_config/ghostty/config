@@ -1,5 +1,4 @@
 command = "/opt/homebrew/bin/fish --login"
-initial-command = "/opt/homebrew/bin/fish --login -c 'sesh_start'"
 shell-integration = fish
 shell-integration-features = "no-cursor,sudo"
 
