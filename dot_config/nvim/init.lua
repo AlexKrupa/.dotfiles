@@ -255,10 +255,13 @@ require('lazy').setup {
       spec = {
         { '<leader>c', group = '[C]ode' },
         { '<leader>d', group = '[D]ocument' },
+        { '<leader>f', group = '[F]ormat/refactor' },
         { '<leader>r', group = '[R]ename' },
         { '<leader>s', group = '[S]earch' },
+        { '<leader>v', group = '[V]ersion control' },
         { '<leader>w', group = '[W]orkspace' },
-        { '<leader>t', group = '[T]oggle' },
+        { '<leader>t', group = '[T]ool windows' },
+        { '<leader>z', group = '[Z]en/view' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
       },
     },
@@ -688,7 +691,7 @@ require('lazy').setup {
     cmd = { 'ConformInfo' },
     keys = {
       {
-        '<leader>f',
+        '<leader>ff',
         function()
           require('conform').format { async = true, lsp_format = 'fallback' }
         end,
@@ -903,24 +906,177 @@ require('lazy').setup {
     ft = { 'json', 'yaml' },
   },
 
-  -- {
-  --   'christoomey/vim-tmux-navigator',
-  --   cmd = {
-  --     'TmuxNavigateLeft',
-  --     'TmuxNavigateDown',
-  --     'TmuxNavigateUp',
-  --     'TmuxNavigateRight',
-  --     'TmuxNavigatePrevious',
-  --     'TmuxNavigatorProcessList',
-  --   },
-  --   keys = {
-  --     { '<M-h>', '<cmd><C-U>TmuxNavigateLeft<cr>' },
-  --     { '<M-j>', '<cmd><C-U>TmuxNavigateDown<cr>' },
-  --     { '<M-k>', '<cmd><C-U>TmuxNavigateUp<cr>' },
-  --     { '<M-l>', '<cmd><C-U>TmuxNavigateRight<cr>' },
-  --     -- { '<M-\\>', '<cmd><C-U>TmuxNavigatePrevious<cr>' },
-  --   },
-  -- },
+  -- Flash: Enhanced search and navigation (IdeaVim flash equivalent)
+  {
+    'folke/flash.nvim',
+    event = 'VeryLazy',
+    opts = {
+      search = {
+        mode = 'exact',
+        incremental = true, -- Show matches as you type
+      },
+      label = {
+        distance = true, -- for the current window, label targets closer to the cursor first
+        -- minimum pattern length to show labels
+        -- Ignored for custom labelers.
+        min_pattern_length = 0, -- Show labels immediately
+        -- Enable this to use rainbow colors to highlight labels
+        -- Can be useful for visualizing Treesitter ranges.
+        rainbow = {
+          enabled = true,
+          -- number between 1 and 9
+          shade = 5,
+        },
+        uppercase = false, -- allow uppercase labels
+      },
+      modes = {
+        char = {
+          enabled = false, -- Disable single-char f/F/t/T replacement
+        },
+      },
+      jump = {
+        autojump = true, -- Automatically jump when there is only one match
+        nohlsearch = false, -- Clear highlight after jump
+      },
+      highlight = {
+        -- Highlight the search matches
+        matches = true,
+      },
+    },
+    keys = {
+      {
+        's',
+        mode = { 'n', 'x', 'o' },
+        function()
+          require('flash').jump()
+        end,
+        desc = 'Flash',
+      },
+      {
+        'S',
+        mode = { 'n', 'x', 'o' },
+        function()
+          require('flash').treesitter()
+        end,
+        desc = 'Flash Treesitter',
+      },
+      {
+        'r',
+        mode = 'o',
+        function()
+          require('flash').remote()
+        end,
+        desc = 'Remote Flash',
+      },
+    },
+  },
+
+  -- Toggler: Toggle word variants (val/var, true/false, etc.)
+  {
+    'nguyenvukhang/nvim-toggler',
+    event = 'BufRead',
+    opts = {
+      remove_default_keybinds = true,
+    },
+    keys = {
+      {
+        '<C-s>',
+        function()
+          require('nvim-toggler').toggle()
+        end,
+        mode = 'n',
+        desc = 'Toggle word',
+      },
+    },
+  },
+
+  -- Visual Multi: Multiple cursors
+  {
+    'mg979/vim-visual-multi',
+    branch = 'master',
+    event = 'BufRead',
+    init = function()
+      vim.g.VM_maps = {
+        ['Find Under'] = '<C-n>',
+        ['Find Subword Under'] = '<C-n>',
+        ['Select All'] = '<Leader><C-n>',
+        ['Skip Region'] = '<C-x>',
+        ['Remove Region'] = '<C-p>',
+      }
+    end,
+  },
+
+  -- Exchange: Swap text regions
+  {
+    'tommcdo/vim-exchange',
+    event = 'BufRead',
+  },
+
+  -- LazyGit: Terminal UI for Git
+  {
+    'kdheepak/lazygit.nvim',
+    cmd = {
+      'LazyGit',
+      'LazyGitConfig',
+      'LazyGitCurrentFile',
+      'LazyGitFilter',
+      'LazyGitFilterCurrentFile',
+    },
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+    },
+    keys = {
+      { '<leader>v', '<cmd>LazyGit<cr>', desc = 'LazyGit' },
+      { '<leader>vf', '<cmd>LazyGitCurrentFile<cr>', desc = 'LazyGit current file' },
+    },
+  },
+
+  -- Neo-tree: File explorer
+  {
+    'nvim-neo-tree/neo-tree.nvim',
+    branch = 'v3.x',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons',
+      'MunifTanjim/nui.nvim',
+    },
+    cmd = 'Neotree',
+    keys = {
+      { '<leader>tp', '<cmd>Neotree toggle<cr>', desc = 'Toggle file tree' },
+      { '<leader>tf', '<cmd>Neotree reveal<cr>', desc = 'Reveal current file in tree' },
+    },
+    opts = {
+      filesystem = {
+        follow_current_file = { enabled = true },
+        hijack_netrw_behavior = 'open_current',
+      },
+      window = {
+        mappings = {
+          ['<esc>'] = function()
+            vim.cmd 'wincmd p'
+          end,
+        },
+      },
+    },
+  },
+
+  -- Zen Mode: Distraction-free coding
+  {
+    'folke/zen-mode.nvim',
+    cmd = 'ZenMode',
+    keys = {
+      { '<leader>zz', '<cmd>ZenMode<cr>', desc = 'Toggle zen mode' },
+    },
+    opts = {
+      window = {
+        width = 120,
+        options = {
+          number = false,
+          relativenumber = true,
+        },
+      },
+    },
+  },
 
   -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
@@ -957,3 +1113,26 @@ vim.keymap.set('n', '<leader>fcj', '<Cmd>%!jq --compact-output<CR>', opts)
 
 -- jq: Visual selection
 vim.keymap.set('v', '<leader>fj', ":'<,'>!jq<CR>", opts)
+
+-- Back/forward navigation (consistent with IdeaVim)
+vim.keymap.set('n', 'gb', '<C-o>', { desc = 'Go back' })
+vim.keymap.set('n', 'gf', '<C-i>', { desc = 'Go forward' })
+
+-- Alt+O for newlines (from vimrc:84-85)
+vim.keymap.set('n', '<A-o>', 'o<Esc>k', { desc = 'Insert line below without entering insert mode' })
+vim.keymap.set('n', '<A-O>', 'O<Esc>j', { desc = 'Insert line above without entering insert mode' })
+
+-- Split management shortcuts (IdeaVim-style)
+vim.keymap.set('n', '<leader>/', '<cmd>vsplit<CR>', { desc = 'Split vertically' })
+vim.keymap.set('n', '<leader>-', '<cmd>split<CR>', { desc = 'Split horizontally' })
+vim.keymap.set('n', '<leader>=', '<cmd>only<CR>', { desc = 'Close all other splits' })
+
+-- Enhanced LSP mappings (IdeaVim-style g* shortcuts)
+vim.keymap.set('n', 'ge', vim.diagnostic.goto_next, { desc = 'Go to next error' })
+vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev, { desc = 'Go to previous error' })
+vim.keymap.set('n', 'gh', vim.lsp.buf.hover, { desc = 'Show hover info' })
+vim.keymap.set('n', 'gl', vim.lsp.buf.hover, { desc = 'Quick doc (alias for hover)' })
+vim.keymap.set('n', 'gy', vim.diagnostic.open_float, { desc = 'Show error description' })
+vim.keymap.set('n', 'gp', '<cmd>Neotree reveal<CR>', { desc = 'Reveal file in tree' })
+vim.keymap.set('n', 'gu', '<cmd>Telescope lsp_references<CR>', { desc = 'Show usages' })
+vim.keymap.set('n', 'gs', '<cmd>Telescope lsp_document_symbols<CR>', { desc = 'File structure' })
