@@ -19,6 +19,8 @@ window-height = 9999
 
 font-size = 15
 font-family = JetBrainsMono Nerd Font
+# Disable ligatures
+font-feature = -calt, -liga, -dlig
 bold-color = bright
 
 mouse-hide-while-typing = true
@@ -30,3 +32,5 @@ macos-titlebar-style = hidden
 clipboard-read = "allow"
 clipboard-trim-trailing-spaces = true
 clipboard-write = "allow"
+# Shift+Enter newline in Claude Code
+keybind = shift+enter=text:\x1b\r
