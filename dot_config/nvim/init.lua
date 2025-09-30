@@ -256,11 +256,13 @@ require('lazy').setup {
         { '<leader>c', group = '[C]ode' },
         { '<leader>d', group = '[D]ocument' },
         { '<leader>f', group = '[F]ormat/refactor' },
+        { '<leader>l', group = '[L]og' },
         { '<leader>r', group = '[R]ename' },
         { '<leader>s', group = '[S]earch' },
+        { '<leader>t', group = '[T]ree/tools' },
         { '<leader>v', group = '[V]ersion control' },
         { '<leader>w', group = '[W]orkspace' },
-        { '<leader>t', group = '[T]ool windows' },
+        { '<leader>y', group = '[Y]ank/copy' },
         { '<leader>z', group = '[Z]en/view' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
       },
@@ -1128,11 +1130,26 @@ vim.keymap.set('n', '<leader>-', '<cmd>split<CR>', { desc = 'Split horizontally'
 vim.keymap.set('n', '<leader>=', '<cmd>only<CR>', { desc = 'Close all other splits' })
 
 -- Enhanced LSP mappings (IdeaVim-style g* shortcuts)
+vim.keymap.set('n', 'gd', '<cmd>Telescope lsp_definitions<CR>', { desc = 'Go to definition' })
+vim.keymap.set('n', 'gD', '<cmd>Telescope lsp_type_definitions<CR>', { desc = 'Go to type definition' })
 vim.keymap.set('n', 'ge', vim.diagnostic.goto_next, { desc = 'Go to next error' })
 vim.keymap.set('n', 'gE', vim.diagnostic.goto_prev, { desc = 'Go to previous error' })
 vim.keymap.set('n', 'gh', vim.lsp.buf.hover, { desc = 'Show hover info' })
+vim.keymap.set('n', 'gi', vim.lsp.buf.code_action, { desc = 'Show code actions' })
+vim.keymap.set('n', 'gI', '<cmd>Telescope lsp_implementations<CR>', { desc = 'Go to implementation' })
 vim.keymap.set('n', 'gl', vim.lsp.buf.hover, { desc = 'Quick doc (alias for hover)' })
-vim.keymap.set('n', 'gy', vim.diagnostic.open_float, { desc = 'Show error description' })
 vim.keymap.set('n', 'gp', '<cmd>Neotree reveal<CR>', { desc = 'Reveal file in tree' })
-vim.keymap.set('n', 'gu', '<cmd>Telescope lsp_references<CR>', { desc = 'Show usages' })
 vim.keymap.set('n', 'gs', '<cmd>Telescope lsp_document_symbols<CR>', { desc = 'File structure' })
+vim.keymap.set('n', 'gu', '<cmd>Telescope lsp_references<CR>', { desc = 'Show usages' })
+vim.keymap.set('n', 'gy', vim.diagnostic.open_float, { desc = 'Show error description' })
+
+-- Refactoring and formatting actions (<leader>f prefix from IdeaVim)
+vim.keymap.set('n', '<leader>fa', vim.lsp.buf.code_action, { desc = 'Code actions' })
+vim.keymap.set('v', '<leader>fa', vim.lsp.buf.code_action, { desc = 'Code actions' })
+vim.keymap.set('n', '<leader>fn', vim.lsp.buf.rename, { desc = 'Rename symbol' })
+vim.keymap.set('n', '<leader>fo', function()
+  vim.lsp.buf.code_action {
+    context = { only = { 'source.organizeImports' } },
+    apply = true,
+  }
+end, { desc = 'Organize imports' })
