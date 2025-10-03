@@ -94,7 +94,7 @@ alias brewkill "rm -rf $(brew --prefix)/var/homebrew/locks" # Terminate Brew upd
 alias cd "z" # zoxide
 alias g "git"
 alias lg "lazygit"
-alias ls "lsd --all --long --git --group-dirs=first"
+alias ls "lsd --long"
 alias dl "cd ~/Downloads"
 alias dlf "open ~/Downloads"
 alias finder "open ."
