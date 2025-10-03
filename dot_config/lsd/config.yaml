@@ -1,0 +1,25 @@
+blocks:
+  - permission
+  - date
+  - size
+  - name
+
+color:
+  when: always
+  # https://github.com/dracula/lsd
+  theme: custom
+
+icons:
+  when: always
+  theme: fancy
+  separator: " "
+
+indicators: true
+
+layout: grid
+
+sorting:
+  dir-grouping: first
+
+# Total size of directories.
+total-size: true
