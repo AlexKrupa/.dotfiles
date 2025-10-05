@@ -20,7 +20,7 @@ set -g fish_vi_force_cursor 1
 
 # fzf
 fzf_configure_bindings
-set -Ux FZF_DEFAULT_COMMAND "fd -H -E '.git'"
+set -Ux FZF_DEFAULT_COMMAND "fd --type f --strip-cwd-prefix --hidden --follow --exclude .git"
 # style: default, full, minimal
 set -Ux FZF_DEFAULT_OPTS (printf '%s ' \
     '--style=minimal' \
