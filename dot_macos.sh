@@ -63,6 +63,9 @@ defaults write -g AppleShowScrollBars -string "WhenScrolling"
 # Disable tiled window margins
 defaults write com.apple.WindowManager EnableTiledWindowMargins -bool false
 
+# Basic crash dialog
+defaults write com.apple.CrashReporter DialogType basic
+
 ################################################################################
 ## Trackpad, mouse, keyboard, Bluetooth accessories, and input                 #
 ################################################################################

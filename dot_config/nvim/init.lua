@@ -678,12 +678,6 @@ require('lazy').setup {
           end,
         },
       }
-
-      -- Manual LSP setup for servers not available in Mason
-      -- SourceKit-LSP for Swift (requires Swift toolchain or Xcode)
-      require('lspconfig').sourcekit.setup {
-        capabilities = capabilities,
-      }
     end,
   },
 
