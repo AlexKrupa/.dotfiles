@@ -70,18 +70,18 @@ accordion-padding = 30
     alt-ctrl-shift-cmd-l = ['move right', 'exec-and-forget ~/.config/share-focus/sync']
 
     # Workspace
-    alt-ctrl-shift-y = 'workspace --auto-back-and-forth Y'
-    alt-ctrl-shift-u = 'workspace --auto-back-and-forth U'
-    alt-ctrl-shift-i = 'workspace --auto-back-and-forth I'
-    alt-ctrl-shift-o = 'workspace --auto-back-and-forth O'
-    alt-ctrl-shift-p = 'workspace --auto-back-and-forth P'
+    alt-ctrl-shift-y = 'workspace Y'
+    alt-ctrl-shift-u = 'workspace U'
+    alt-ctrl-shift-i = 'workspace I'
+    alt-ctrl-shift-o = 'workspace O'
+    alt-ctrl-shift-p = 'workspace P'
 
     # Workspace - mirror
-    alt-ctrl-shift-t = 'workspace --auto-back-and-forth Y'
-    alt-ctrl-shift-r = 'workspace --auto-back-and-forth U'
-    alt-ctrl-shift-e = 'workspace --auto-back-and-forth I'
-    alt-ctrl-shift-w = 'workspace --auto-back-and-forth O'
-    alt-ctrl-shift-q = 'workspace --auto-back-and-forth P'
+    alt-ctrl-shift-t = 'workspace Y'
+    alt-ctrl-shift-r = 'workspace U'
+    alt-ctrl-shift-e = 'workspace I'
+    alt-ctrl-shift-w = 'workspace O'
+    alt-ctrl-shift-q = 'workspace P'
 
     # Move to workspace
     alt-ctrl-shift-cmd-y = ['move-node-to-workspace --focus-follows-window Y', 'exec-and-forget ~/.config/share-focus/sync']
