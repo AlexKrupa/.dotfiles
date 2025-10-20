@@ -62,6 +62,7 @@ accordion-padding = 30
 
     # Focus Ghostty terminal
     alt-ctrl-shift-space = 'exec-and-forget bash -c "aerospace list-windows --all --format \"%{window-id} | %{app-name}\" | grep \"Ghostty\" | head -1 | cut -d\"|\" -f1 | xargs -I {} aerospace focus --window-id {}"'
+    alt-ctrl-shift-enter = 'exec-and-forget bash -c "aerospace list-windows --all --format \"%{window-id} | %{app-name}\" | grep \"Android Studio\" | head -1 | cut -d\"|\" -f1 | xargs -I {} aerospace focus --window-id {}"'
 
     # Move window direction
     alt-ctrl-shift-cmd-h = ['move left', 'exec-and-forget ~/.config/share-focus/sync']
@@ -102,7 +103,7 @@ accordion-padding = 30
 
     alt-ctrl-shift-cmd-semicolon = 'mode service'
 
-    # cmd-h = [] # Disable "hide application"
+    cmd-h = [] # Disable "hide application"
     # cmd-alt-ctrl-shift-h = [] # Disable "hide others"
 
 [mode.service.binding]
