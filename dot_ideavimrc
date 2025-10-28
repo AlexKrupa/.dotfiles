@@ -267,13 +267,13 @@ map <c-m-h> <Action>(StretchSplitToLeft)
 map <c-m-l> <Action>(StretchSplitToRight)
 
 " movements
-nmap <c-m-j> <Action>(MethodDown)
-nmap <c-m-k> <Action>(MethodUp)
-nmap <c-h> <Action>(Back)
-nmap <c-l> <Action>(Forward)
+map <c-m-j> <Action>(MethodDown)
+map <c-m-k> <Action>(MethodUp)
+map <c-h> <Action>(Back)
+map <c-l> <Action>(Forward)
 " experiment: match Vim history with shift for larger movements
-nmap <c-s-i> <Action>(Back)
-nmap <c-s-o> <Action>(Forward)
+map <c-s-i> <Action>(Back)
+map <c-s-o> <Action>(Forward)
 
 " Idea smart-select (expanding selection)
 nmap <m-j> <Action>(EditorUnSelectWord)
@@ -283,49 +283,49 @@ vmap <m-k> <Action>(EditorSelectWord)
 
 " re[f]actor / [f]ormat
 map <leader>f <Action>(Refactorings.QuickListPopupAction)
-nmap <leader>fd <Action>(SafeDelete)
-nmap <leader>fec <Action>(IntroduceConstant)
-nmap <leader>fef <Action>(IntroduceProperty)
-nmap <leader>fem <Action>(ExtractMethod)
-nmap <leader>fev <Action>(IntroduceVariable)
+map <leader>fd <Action>(SafeDelete)
+map <leader>fec <Action>(IntroduceConstant)
+map <leader>fef <Action>(IntroduceProperty)
+map <leader>fem <Action>(ExtractMethod)
+map <leader>fev <Action>(IntroduceVariable)
 map <leader>ff <Action>(ReformatCode)
-nmap <leader>fi <Action>(Inline)
+map <leader>fi <Action>(Inline)
 " KDoc formatting plugin
-nmap <leader>fk <Action>(ReflowKDoc)
+map <leader>fk <Action>(ReflowKDoc)
 map <leader>fo <Action>(OptimizeImports)
-nmap <leader>fm <Action>(Move)
-nmap <leader>fn <Action>(RenameElement)
-nmap <leader>fss <Action>(StructuralSearchPlugin.StructuralSearchAction)
-nmap <leader>fsr <Action>(StructuralSearchPlugin.StructuralReplaceAction)
+map <leader>fm <Action>(Move)
+map <leader>fn <Action>(RenameElement)
+map <leader>fss <Action>(StructuralSearchPlugin.StructuralSearchAction)
+map <leader>fsr <Action>(StructuralSearchPlugin.StructuralReplaceAction)
 " wrap
-nmap <leader>fw <Action>(SurroundWith)
-nmap <leader>fu <Action>(Unwrap)
+map <leader>fw <Action>(SurroundWith)
+map <leader>fu <Action>(Unwrap)
 
 " [g]enerate
-nmap <leader>go <Action>(OverrideMethods)
-nmap <leader>gi <Action>(ImplementMethods)
-nmap <leader>gc <Action>(Generate)
+map <leader>go <Action>(OverrideMethods)
+map <leader>gi <Action>(ImplementMethods)
+map <leader>gc <Action>(Generate)
 
 " [g]oto
-nmap ge <Action>(GotoNextError)
-nmap gE <Action>(GotoPreviousError)
-nmap gb <Action>(Back)
-nmap gd <Action>(GotoDeclaration)
-nmap gD <Action>(GotoTypeDeclaration)
-nmap gf <Action>(Forward)
-nmap gh <Action>(ShowHoverInfo)
-nmap gi <Action>(ShowIntentionActions)
-nmap gI <Action>(GotoImplementation)
-nmap gl <Action>(QuickJavaDoc)
-nmap gL <Action>(QuickImplementations)
-nmap gn <Action>(ShowNavBar)
-nmap go <Action>(GotoSuperMethod)
-nmap gp <Action>(SelectInProjectView)
+map ge <Action>(GotoNextError)
+map gE <Action>(GotoPreviousError)
+map gb <Action>(Back)
+map gd <Action>(GotoDeclaration)
+map gD <Action>(GotoTypeDeclaration)
+map gf <Action>(Forward)
+map gh <Action>(ShowHoverInfo)
+map gi <Action>(ShowIntentionActions)
+map gI <Action>(GotoImplementation)
+map gl <Action>(QuickJavaDoc)
+map gL <Action>(QuickImplementations)
+map gn <Action>(ShowNavBar)
+map go <Action>(GotoSuperMethod)
+map gp <Action>(SelectInProjectView)
 map gs <Action>(FileStructurePopup)
-nmap gt <Action>(GotoTest)
-nmap gu <Action>(ShowUsages)
-nmap gU <Action>(FindUsages)
-nmap gy <Action>(ShowErrorDescription)
+map gt <Action>(GotoTest)
+map gu <Action>(ShowUsages)
+map gU <Action>(FindUsages)
+map gy <Action>(ShowErrorDescription)
 
 " [s]earch
 map <leader>sa <Action>(GotoAction)
@@ -340,9 +340,9 @@ map <leader>ss <Action>(GotoSymbol)
 map <leader>st <Action>(TextSearchAction)
 
 " [h]ierarchy
-nmap <leader>hc <Action>(CallHierarchy)
-nmap <leader>hm <Action>(MethodHierarchy)
-nmap <leader>ht <Action>(TypeHierarchy)
+map <leader>hc <Action>(CallHierarchy)
+map <leader>hm <Action>(MethodHierarchy)
+map <leader>ht <Action>(TypeHierarchy)
 
 " [m]enus
 map <leader>ma <Action>(com.developerphil.adbidea.action.AdbIdeaQuickList)
@@ -352,15 +352,15 @@ map <leader>mt <Action>(ToolWindowsGroup)
 map <leader>ms <Action>(ScopeViewPopupMenu)
 
 " book[m]arks
-nmap mb <Action>(ShowBookmarks)
-nmap mm <Action>(ToggleBookmark)
+map mb <Action>(ShowBookmarks)
+map mm <Action>(ToggleBookmark)
 
 " quick actions
-nmap <leader>qf <Action>(ShowIntentionActions)
-nmap <leader>qp <Action>(QuickPreview)
-nmap <leader>qd <Action>(QuickDefinition)
-nmap <leader>qD <Action>(QuickTypeDefinition)
-nmap <leader>qr <Action>(ToggleRenderedDocPresentation)
+map <leader>qf <Action>(ShowIntentionActions)
+map <leader>qp <Action>(QuickPreview)
+map <leader>qd <Action>(QuickDefinition)
+map <leader>qD <Action>(QuickTypeDefinition)
+map <leader>qr <Action>(ToggleRenderedDocPresentation)
 
 " [t]ool windows
 map <leader>tb <Action>(ActivateBuildToolWindow)
@@ -378,12 +378,12 @@ map <leader>tw <Action>(ActivateBuildVariantsToolWindow)
 map <leader>tx <Action>(HideActiveWindow)
 
 " [u]sages
-nmap <leader>uf <Action>(FindUsages)
-nmap <leader>uh <Action>(HighlightUsagesInFile)
-nmap <leader>uo <Action>(SelectAllOccurrences)
-nmap <A-n> <Action>(SelectNextOccurrence)
-nmap <A-x> <Action>(UnselectPreviousOccurrence)
-nmap <leader>us <Action>(ShowUsages)
+map <leader>uf <Action>(FindUsages)
+map <leader>uh <Action>(HighlightUsagesInFile)
+map <leader>uo <Action>(SelectAllOccurrences)
+map <A-n> <Action>(SelectNextOccurrence)
+map <A-x> <Action>(UnselectPreviousOccurrence)
+map <leader>us <Action>(ShowUsages)
 
 " [v]ersion control / Git
 map <leader>v <Action>(Vcs.QuickListPopupAction)
@@ -403,8 +403,8 @@ map <leader>vz <Action>(Vcs.RollbackChangedLines)
 map <leader>vZ <Action>(ChangesView.Revert)
 
 " [y]ank / copy
-nmap <leader>yp <Action>(CopyAbsolutePath)
-nmap <leader>yr <Action>(CopyReference)
+map <leader>yp <Action>(CopyAbsolutePath)
+map <leader>yr <Action>(CopyReference)
 
 " hide distractions
 map <leader>x <Action>(HideAllWindows)
@@ -429,11 +429,6 @@ map <leader>da <Action>(AndroidConnectDebuggerAction)
 map <leader>db <Action>(ToggleLineBreakpoint)
 map <leader>de <Action>(EditBreakpoint)
 map <leader>dv <Action>(ViewBreakpoints)
-
-" Ataman
-" Remember to bind 'Ataman: Transparent Leader Key' in IDE keymap
-nnoremap <Space> :action LeaderAction<cr>
-vnoremap <Space> :action LeaderAction<cr>
 
 " Flash plugin setup
 nmap s <Action>(flash.search)

@@ -49,8 +49,6 @@
         "device" : {
           "category" : "mouse",
           "productID" : "0x1977",
-          "productName" : "Voyager",
-          "serialNumber" : "amZp5\/40wQGm",
           "vendorID" : "0x3297"
         }
       },
@@ -85,24 +83,6 @@
         "reverse" : true,
         "speed" : 0
       }
-    },
-    {
-      "if" : {
-        "device" : {
-          "category" : "mouse",
-          "productID" : "0x1977",
-          "vendorID" : "0x3297"
-        }
-      },
-      "pointer" : {
-        "disableAcceleration" : true
-      },
-      "scrolling" : {
-        "acceleration" : 1,
-        "distance" : 3,
-        "reverse" : true,
-        "speed" : 0
-      }
-    },
+    }
   ]
 }
