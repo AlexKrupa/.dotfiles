@@ -42,7 +42,7 @@
 
 - 2-space indents for Kotlin code
 - `PascalCase` enum entries
-- Verb Boolean naming: `isEnabled`, `hasPermission`, `canExecute`
+- Verb boolean naming: `isEnabled`, `hasPermission`, `canExecute`
 - Kotest `FreeSpec` unit tests with Kotest assertions
 - Prefer real implementations or fakes over mocks; only use MockK when necessary or when it matches a local convention
 - **DO NOT** start test case names with "should"
