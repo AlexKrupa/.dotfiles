@@ -55,6 +55,5 @@
 ## Environment
 
 - Fish shell, Ghostty terminal, tmux
-- `rg` over `grep`
-- `fd` over `find`
+- Bash commands: `rg` over `grep`, `fd` over `find`
 - MacOS ARM (M4 Pro)
