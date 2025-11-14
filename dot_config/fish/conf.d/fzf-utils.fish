@@ -1,3 +1,5 @@
+# File name is fzf-utils.fish instead of fzf.fish to avoid conflict with fzf.fish plugin (https://github.com/PatrickF1/fzf.fish)
+
 fzf_configure_bindings
 
 set -Ux FZF_DEFAULT_COMMAND "fd --type f --strip-cwd-prefix --hidden --follow --exclude .git"

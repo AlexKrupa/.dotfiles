@@ -1,3 +1,5 @@
+# File name is tmux-utils.fish instead of tmux.fish to avoid conflict with tmux.fish plugin (https://github.com/budimanjojo/tmux.fish)
+
 # Run a command in a new tmux pane.
 function tmux-split
   set -l command $argv
