@@ -49,6 +49,9 @@ function cd-git-root
   cd $(git rev-parse --show-toplevel)
 end
 
+# git-spice completions (branch stacking)
+eval "$(gs shell completion fish)"
+
 alias g "git"
 alias lg "lazygit"
 alias gitc "$EDITOR ~/.gitconfig-base"
