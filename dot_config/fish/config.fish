@@ -21,6 +21,12 @@ set -g fish_cursor_replace_one underscore
 set -g fish_cursor_visual block
 set -g fish_vi_force_cursor 1
 
+# Automatic command colorizer
+# https://github.com/garabik/grc
+if test -f /opt/homebrew/etc/grc.fish
+  source /opt/homebrew/etc/grc.fish
+end
+
 if test -f ~/.config/fish/local.fish
   source ~/.config/fish/local.fish
 end
