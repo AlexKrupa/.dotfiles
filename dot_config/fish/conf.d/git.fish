@@ -44,3 +44,12 @@ function rm-merged-local
   set main (__git_main)
   git branch --merged $main | command grep -v $main | xargs git branch -D
 end
+
+function cd-git-root
+  cd $(git rev-parse --show-toplevel)
+end
+
+alias g "git"
+alias lg "lazygit"
+alias gitc "$EDITOR ~/.gitconfig-base"
+

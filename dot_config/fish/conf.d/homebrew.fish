@@ -8,4 +8,9 @@ function brew-upgrade
   brew cleanup
 end
 
+# Terminate Brew update in case it gets stuck.
+function brew-kill
+  rm -rf $(brew --prefix)/var/homebrew/locks
+end
+
 eval "$(/opt/homebrew/bin/brew shellenv)"

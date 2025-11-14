@@ -9,8 +9,9 @@ function gw --wraps=gradle
   end
 end
 
+alias gradlep "$EDITOR ~/.gradle/gradle.properties"
+alias gradlei "$EDITOR ~/.gradle/init.gradle.kts"
 alias gws "gw --stop"
 alias gwad "gw assembleDebug"
 alias gwtd "gw testDebugUnitTest"
 alias gwccc "rm -rf .gradle/configuration-cache"
-
