@@ -122,10 +122,19 @@ function andi
       echo "Force-installing APK with adb: $apk_path"
 
       # -d  allow downgrade
-      # -r
-      # --no-streaming  workaround for Streamed install getting stuck
-      adb install -r -d --no-streaming $apk_path
-      if test $status -eq 0
+      # -r  replace existing application
+      # Try streaming install first, fall back to --no-streaming if it fails
+      echo "Attempting streaming install..."
+      adb install -r -d $apk_path
+      set -l install_status $status
+
+      if test $install_status -ne 0
+        echo "Streaming install failed, retrying with --no-streaming..."
+        adb install -r -d --no-streaming $apk_path
+        set install_status $status
+      end
+
+      if test $install_status -eq 0
         echo "App successfully installed."
         adb shell am start -n $package/$activity
       else
