@@ -87,6 +87,13 @@
   autocorrect = prompt
 [absorb] # https://github.com/tummychow/git-absorb
   maxStack=50
+# git-spice - branch stacking (https://github.com/abhinav/git-spice)
+[spice "branchCreate"]
+  commit = false
+[spice "log"]
+  all = true
+  crFormat = url
+  crStatus = true
 [alias]
   abs = !(git add . && git absorb --force)
   c = commit -am
