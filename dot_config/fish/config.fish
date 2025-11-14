@@ -1,4 +1,3 @@
-source ~/.config/fish/alias.fish
 source ~/.config/fish/colors.fish
 
 # Default editor
