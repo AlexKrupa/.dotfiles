@@ -99,7 +99,6 @@
   co = checkout
   cob = checkout -b
   cof = !fish -c 'gbf | xargs git checkout'
-  # cob="!f() { !(git refb @{-$1}) }; f"
   code-changes = !(git log --format=format: --name-only | egrep -v '^$' | sort | uniq -c | sort -rg | head -50)
   cp = cherry-pick
   cpa = cherry-pick --abort
@@ -111,9 +110,7 @@
   hist = log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all
   hreset = reset --hard
   hundo = reset --hard head^
-  skip = update-index --skip-worktree
-  unskip = update-index --no-skip-worktree
-  skipped = !(git ls-files -v | grep '^S')
+  lfsp = lfs push origin head
   lg = log --graph --no-merges --pretty=format:'%h %<(14)%Cblue%ar%Creset %<(14,trunc)%aN %Cgreen%s%Creset %C(auto)%d%Creset'
   main = "!f() { git co $(fish -c '__git_main'); }; f"
   ma = merge --abort
@@ -134,6 +131,9 @@
   rias = rebase -i --autosquash
   riasom = rebase -i --autosquash origin/main
   rs = rebase --skip
+  skip = update-index --skip-worktree
+  unskip = update-index --no-skip-worktree
+  skipped = !(git ls-files -v | grep '^S')
   sreset = reset --soft
   sundo = reset --soft head^
   unstage = restore --staged
