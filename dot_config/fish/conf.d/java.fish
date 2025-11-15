@@ -18,4 +18,4 @@ function jdk
 end
 
 # Set default Java version
-jdk 25 --silent
+jdk 21 --silent
