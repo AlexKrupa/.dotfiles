@@ -14,64 +14,19 @@ fish_add_path $ANDROID_HOME/tools
 
 fish_add_path ~/src/me/adx
 
-function as --description "Open Android Studio"
-  # set dir $PWD
-  # cd
-  open -na "Android Studio" --args "$argv"
-  # cd $PWD
-end
+alias and_dc and_disconnect
+alias and_lag_disable "adb shell settings put global ingress_rate_limit_bytes_per_second -1"
+alias and_lag_enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
+alias and_settings "adb shell am start -n com.android.settings/.Settings"
+alias and_settings_dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
+alias andi and_install_run
+alias andu and_uninstall
+alias emu and_emu
+alias rec and_screenrecord
+alias ss and_screenshot
 
-alias adb_slow_enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
-alias adb_slow_disable "adb shell settings put global ingress_rate_limit_bytes_per_second -1"
-alias adb_settings "adb shell am start -n com.android.settings/.Settings"
-alias adb_settings-dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
-
-# Get a media (screenshot/video) file name with a timestamp.
-# Example: 2021-08-31_14-23-45
-function __media_file_name
-  echo (date +"%Y-%m-%d_%H-%M-%S")
-end
-
-# Get full path for media file with given prefix and extension
-function __media_file_path
-  set -l prefix $argv[1]
-  set -l extension $argv[2]
-  echo $ANDROID_MEDIA_PATH$prefix(__media_file_name).$extension
-end
-
-# Helper function for device operations that require device selection
-function __require_device_selection
-  set -gx ANDROID_SERIAL (__select_adb_device)
-  if test -z "$ANDROID_SERIAL"
-    return 1
-  end
-  return 0
-end
-
-# Select an ADB device from the list of connected devices.
-function __select_adb_device
-  set -l devices "$(adb devices -l | tail -n +2 | ghead -n -1)"
-  set -l device_count (count (echo $devices | string split -n "\n"))
-  set -l selected_device ""
-
-  if test $device_count -ge 2
-    set selected_device (echo $devices | fzf)
-    wait
-    if test -z "$selected_device"
-      echo Device not selected 1>&2
-    end
-  else if test $device_count -eq 1
-    set selected_device $devices
-  else
-    echo No connected devices 1>&2
-  end
-
-  if test -n "$selected_device"
-    echo (echo $selected_device | cut -f1 -w)
-  end
-end
-
-function emu
+# Emulator
+function and_emu
   set -l avds "$(avdmanager list avd -c)"
   set -l avd_count (count (echo $avds | string split -n "\n"))
   if test $avd_count -ge 2
@@ -89,11 +44,12 @@ function emu
   emulator -avd $selected_avd -dns-server 8.8.8.8
 end
 
+# Build & install
 # Install and run app on connected device.
-# Usage: andi <variant> <package> <activity>
-function andi
+# Usage: and_install_run <variant> <package> <activity>
+function and_install_run
   if test (count $argv) -lt 3
-    echo "Usage: andi <variant> <package> <activity>" >&2
+    echo "Usage: and_install_run <variant> <package> <activity>" >&2
     return 1
   end
 
@@ -149,9 +105,9 @@ function andi
 end
 
 # Uninstall all apps with package starting with the first argument.
-function andu
+function and_uninstall
   if test (count $argv) -lt 1
-    echo "Usage: andu <package>" >&2
+    echo "Usage: and_uninstall <package>" >&2
     return 1
   end
 
@@ -166,10 +122,11 @@ function andu
   adb shell pm list packages | grep $package | sed -e s/package:// | xargs -L1 adb uninstall
 end
 
+# Device settings
 # Set connected ADB device DPI to passed value (e.g. 420).
-function dpi
+function and_dpi
   if test (count $argv) -lt 1
-    echo "Usage: dpi <value>" >&2
+    echo "Usage: and_dpi <value>" >&2
     return 1
   end
 
@@ -183,7 +140,7 @@ function dpi
 end
 
 # Set connected ADB device font scale to passed value (e.g. 1.2).
-function font_scale
+function and_font_scale
   if not __require_device_selection
     return 1
   end
@@ -201,9 +158,9 @@ function font_scale
 end
 
 # Set connected ADB device screen size to passed value (e.g. 1080x1920).
-function screensize
+function and_screen_size
   if test (count $argv) -lt 1
-    echo "Usage: screensize <size>" >&2
+    echo "Usage: and_screen_size <size>" >&2
     return 1
   end
 
@@ -216,8 +173,9 @@ function screensize
   adb shell wm size $argv
 end
 
+# Media capture
 # Screenshot connected ADB device into ~/Downloads folder.
-function screenshot
+function and_screenshot
   set -l image (__media_file_path img png)
 
   if not __require_device_selection
@@ -231,7 +189,7 @@ function screenshot
 end
 
 # Screenshot connected ADB device in both day and night mode into ~/Downloads folder.
-function screenshot_daynight
+function and_screenshot_daynight
   set -l file_name (__media_file_name)
   set -l image_day $ANDROID_MEDIA_PATH"img-"$file_name"-day.png"
   set -l image_night $ANDROID_MEDIA_PATH"img-"$file_name"-night.png"
@@ -257,7 +215,7 @@ function screenshot_daynight
 end
 
 # Record an MP4 video of connected ADB device into ~/Downloads folder and then compresses it.
-function screenrecord
+function and_screenrecord
   set -l video (__media_file_path vid mp4)
   set -l file_name (__media_file_name)
   set -l compressed $ANDROID_MEDIA_PATH"vid-"$file_name"-compressed-noaudio.mp4"
@@ -278,9 +236,10 @@ function screenrecord
   echo Video saved at $video
 end
 
-function adb_wifi
+# Connectivity
+function and_wifi
   if test (count $argv) -lt 1
-    echo "Usage: adb_wifi <ip>" >&2
+    echo "Usage: and_wifi <ip>" >&2
     return 1
   end
 
@@ -291,9 +250,9 @@ function adb_wifi
   adb connect $ip_with_port
 end
 
-function adb_wifi_new
+function and_wifi_new
   if test (count $argv) -lt 2
-    echo "Usage: adb_wifi_new <ip> <port>" >&2
+    echo "Usage: and_wifi_new <ip> <port>" >&2
     return 1
   end
 
@@ -312,9 +271,9 @@ function adb_wifi_new
   adb disconnect $ip_with_port
 end
 
-function adb_dc
+function and_disconnect
   if test (count $argv) -lt 1
-    echo "Usage: adb_dc <ip>" >&2
+    echo "Usage: and_disconnect <ip>" >&2
     return 1
   end
 
@@ -325,6 +284,7 @@ function adb_dc
   adb disconnect $ip_with_port
 end
 
+# Utilities
 # Convert all PNGs in drawable-xxxhdpi to WebP and split them into drawable-xxhdpi, drawable-xhdpi, drawable-hdpi, and drawable-mdpi.
 function convert_xxxhdpi_to_split_webp
   set -l file_filter $argv[1]
@@ -356,5 +316,51 @@ function convert_xxxhdpi_to_split_webp
       convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file "-resize 37.5%"
       convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file "-resize 25%"
     end
+  end
+end
+
+# Helper functions (implementation details)
+# Get a media (screenshot/video) file name with a timestamp.
+# Example: 2021-08-31_14-23-45
+function __media_file_name
+  echo (date +"%Y-%m-%d_%H-%M-%S")
+end
+
+# Get full path for media file with given prefix and extension
+function __media_file_path
+  set -l prefix $argv[1]
+  set -l extension $argv[2]
+  echo $ANDROID_MEDIA_PATH$prefix(__media_file_name).$extension
+end
+
+# Helper function for device operations that require device selection
+function __require_device_selection
+  set -gx ANDROID_SERIAL (__select_adb_device)
+  if test -z "$ANDROID_SERIAL"
+    return 1
+  end
+  return 0
+end
+
+# Select an ADB device from the list of connected devices.
+function __select_adb_device
+  set -l devices "$(adb devices -l | tail -n +2 | ghead -n -1)"
+  set -l device_count (count (echo $devices | string split -n "\n"))
+  set -l selected_device ""
+
+  if test $device_count -ge 2
+    set selected_device (echo $devices | fzf)
+    wait
+    if test -z "$selected_device"
+      echo Device not selected 1>&2
+    end
+  else if test $device_count -eq 1
+    set selected_device $devices
+  else
+    echo No connected devices 1>&2
+  end
+
+  if test -n "$selected_device"
+    echo (echo $selected_device | cut -f1 -w)
   end
 end

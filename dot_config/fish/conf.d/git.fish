@@ -1,11 +1,9 @@
-function __git_main
-  for branch in "main" "master" "trunk"
-    if git rev-parse "$branch" &>/dev/null
-      echo $branch
-      break
-    end
-  end
-end
+# git-spice completions (branch stacking)
+eval "$(gs shell completion fish)"
+
+alias g "git"
+alias lg "lazygit"
+alias gitc "$EDITOR ~/.gitconfig-base"
 
 function branch
   if test (count $argv) -eq 0
@@ -13,6 +11,15 @@ function branch
   else
     git checkout -b "$(whoami).$(string join '-' $argv | string replace -a ' ' '-').$(date +%Y-%m-%d)"
   end
+end
+
+function catch_up
+  git checkout (__git_main)
+  and git pull --prune
+end
+
+function cd_git_root
+  cd $(git rev-parse --show-toplevel)
 end
 
 function gco --wraps="git checkout"
@@ -35,24 +42,17 @@ function rebase
   and git rebase $main
 end
 
-function catch-up
-  git checkout (__git_main)
-  and git pull --prune
-end
-
-function rm-merged-local
+function rm_merged_local
   set main (__git_main)
   git branch --merged $main | command grep -v $main | xargs git branch -D
 end
 
-function cd-git-root
-  cd $(git rev-parse --show-toplevel)
+function __git_main
+  for branch in "main" "master" "trunk"
+    if git rev-parse "$branch" &>/dev/null
+      echo $branch
+      break
+    end
+  end
 end
-
-# git-spice completions (branch stacking)
-eval "$(gs shell completion fish)"
-
-alias g "git"
-alias lg "lazygit"
-alias gitc "$EDITOR ~/.gitconfig-base"
 

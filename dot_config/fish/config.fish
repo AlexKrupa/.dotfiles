@@ -42,7 +42,7 @@ alias skhdc "$EDITOR ~/.config/skhd/skhdrc"
 alias vimc "$EDITOR ~/.vimrc"
 
 alias cd "z" # zoxide
-alias ls "lsd --long"
+alias ls "lsd -a --long"
 alias dl "cd ~/Downloads"
 alias dlf "open ~/Downloads"
 alias finder "open ."
