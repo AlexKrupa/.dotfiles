@@ -1,0 +1,4 @@
+# Fix expansion in Claude Code. Auto would use inject (i.e. simulated typing),
+# which automatically submitted the prompt.
+filter_exec: "Ghostty"
+backend: clipboard
