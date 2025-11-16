@@ -284,6 +284,37 @@ function and_disconnect
   adb disconnect $ip_with_port
 end
 
+# Process management
+# Simulate process death by backgrounding the app and killing its process.
+# This tests state restoration when Android kills the app to reclaim memory.
+function and_process_death
+  if test (count $argv) -lt 1
+    echo "Usage: and_process_death <package>" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  echo "Simulating process death for $package on $ANDROID_SERIAL"
+
+  # Background the app by pressing home button
+  echo "Backgrounding app..."
+  adb shell input keyevent KEYCODE_HOME
+
+  # Wait for app to be backgrounded
+  sleep 2
+
+  # Kill the process
+  echo "Killing process..."
+  adb shell am kill $package
+
+  echo "Process death simulated. Re-open the app to test state restoration."
+end
+
 # Utilities
 # Convert all PNGs in drawable-xxxhdpi to WebP and split them into drawable-xxhdpi, drawable-xhdpi, drawable-hdpi, and drawable-mdpi.
 function convert_xxxhdpi_to_split_webp
