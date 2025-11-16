@@ -1,0 +1,41 @@
+matches:
+  # Current ISO date
+  - trigger: ":today"
+    replace: "{{now}}"
+    vars:
+      - name: now
+        type: date
+        params:
+          format: "%F"
+
+  # Current ISO date-time
+  - trigger: ":now"
+    replace: "{{now}}"
+    vars:
+      - name: now
+        type: date
+        params:
+          format: "%FT%T"
+
+  - trigger: ":mdcode"
+    replace: |
+      ```
+      $|$
+      ```
+
+  - trigger: ":aiprompt"
+    replace: |
+      ## Task
+      - $|$
+
+      ## Context/constraints
+      - 
+
+      ## Output
+      - 
+
+      ## Verify
+      -
+
+      ## Files
+      -
