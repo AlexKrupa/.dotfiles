@@ -57,5 +57,3 @@
 - Fish shell, Ghostty terminal, tmux
 - Bash commands: `rg` over `grep`, `fd` over `find`
 - MacOS ARM (M4 Pro)
-- Task
-- Verify
