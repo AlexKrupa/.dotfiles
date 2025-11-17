@@ -51,13 +51,16 @@ matches:
       ## Task
       - $|$
 
-      ## Context/Details/Constraints
+      ## Context files
+      - 
+
+      ## Details/Constraints
       - 
 
       ## Output
       - 
 
       ## Verify
-      -
+      - 
 
-      Start with a plan. Pause after each execution step to let me review.
+      Pause after each step for review.
