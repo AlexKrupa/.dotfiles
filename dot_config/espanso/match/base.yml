@@ -1,6 +1,6 @@
 matches:
   # Current ISO date
-  - trigger: ":today"
+  - triggers: [":date", ":today"]
     replace: "{{now}}"
     vars:
       - name: now
@@ -9,7 +9,7 @@ matches:
           format: "%F"
 
   # Current ISO date-time
-  - trigger: ":now"
+  - triggers: [":datetime", ":now"]
     replace: "{{now}}"
     vars:
       - name: now
@@ -18,26 +18,35 @@ matches:
           format: "%FT%T"
 
   - trigger: ":mdcode"
+    force_mode: clipboard
     replace: |
       ```
       $|$
       ```
 
   - trigger: ":mdtable2"
+    force_mode: clipboard
     replace: |
       |     |     |
       |-----|-----|
-      |     |     |
-      ```
+      | $|$    |     |
 
   - trigger: ":mdtable3"
+    force_mode: clipboard
     replace: |
       |     |     |     |
       |-----|-----|-----|
-      |     |     |     |
-      ```
+      | $|$    |     |     |
+
+  - trigger: ":mdtable4"
+    force_mode: clipboard
+    replace: |
+      |     |     |     |     |
+      |-----|-----|-----|-----|
+      | $|$    |     |     |     |
 
   - trigger: ":aiprompt"
+    force_mode: clipboard
     replace: |
       ## Task
       - $|$
