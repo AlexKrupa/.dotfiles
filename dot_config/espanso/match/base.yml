@@ -23,6 +23,20 @@ matches:
       $|$
       ```
 
+  - trigger: ":mdtable2"
+    replace: |
+      |     |     |
+      |-----|-----|
+      |     |     |
+      ```
+
+  - trigger: ":mdtable3"
+    replace: |
+      |     |     |     |
+      |-----|-----|-----|
+      |     |     |     |
+      ```
+
   - trigger: ":aiprompt"
     replace: |
       ## Task
