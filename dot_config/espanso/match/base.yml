@@ -51,7 +51,7 @@ matches:
       ## Task
       - $|$
 
-      ## Context/constraints
+      ## Context/Details/Constraints
       - 
 
       ## Output
@@ -59,3 +59,5 @@ matches:
 
       ## Verify
       -
+
+      Start with a plan. Pause after each execution step to let me review.
