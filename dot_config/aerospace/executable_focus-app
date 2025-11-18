@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# Focus first window matching app name
+# Usage: focus-app "Ghostty"
+
+app_name="$1"
+
+if [[ -z "$app_name" ]]; then
+    echo "Usage: focus-app <app-name>" >&2
+    exit 1
+fi
+
+aerospace list-windows --all --format "%{window-id} | %{app-name}" \
+    | grep "$app_name" \
+    | head -1 \
+    | cut -d"|" -f1 \
+    | xargs -I {} aerospace focus --window-id {}
