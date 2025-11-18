@@ -67,8 +67,8 @@ accordion-padding = 30
     alt-ctrl-shift-l = 'focus right'
 
     # Focus specific windows
-    alt-ctrl-shift-space = 'exec-and-forget bash -c "aerospace list-windows --all --format \"%{window-id} | %{app-name}\" | grep \"Ghostty\" | head -1 | cut -d\"|\" -f1 | xargs -I {} aerospace focus --window-id {}"'
-    alt-ctrl-shift-enter = 'exec-and-forget bash -c "aerospace list-windows --all --format \"%{window-id} | %{app-name}\" | grep \"Android Studio\" | head -1 | cut -d\"|\" -f1 | xargs -I {} aerospace focus --window-id {}"'
+    alt-ctrl-shift-enter = 'exec-and-forget ~/.config/aerospace/focus-app "Android Studio"'
+    alt-ctrl-shift-space = 'exec-and-forget ~/.config/aerospace/focus-app "Ghostty"'
 
     # Move window direction
     alt-ctrl-shift-cmd-h = ['move left', 'exec-and-forget ~/.config/share-focus/sync']
@@ -107,40 +107,40 @@ accordion-padding = 30
     P = ['built-in', 'DELL']
 
 [[on-window-detected]]
-    if.app-id = 'com.google.android.studio'
-    run = 'move-node-to-workspace I'
-
-[[on-window-detected]]
-    if.app-id = 'com.google.android.studio-EAP'
-    run = 'move-node-to-workspace I'
-
-[[on-window-detected]]
-    if.app-id = 'com.jetbrains.intellij.ce'
-    run = 'move-node-to-workspace I'
-
-[[on-window-detected]]
     if.app-id = 'com.mitchellh.ghostty'
-    run = 'move-node-to-workspace I'
-
-[[on-window-detected]]
-    if.app-id = 'com.google.Chrome'
     run = 'move-node-to-workspace U'
 
 [[on-window-detected]]
-    if.app-id = 'com.microsoft.edgemac'
+    if.app-id = 'com.google.android.studio'
+    run = 'move-node-to-workspace U'
+
+[[on-window-detected]]
+    if.app-id = 'com.google.android.studio-EAP'
+    run = 'move-node-to-workspace U'
+
+[[on-window-detected]]
+    if.app-id = 'com.jetbrains.intellij.ce'
     run = 'move-node-to-workspace U'
 
 [[on-window-detected]]
     if.app-id = 'org.mozilla.firefox'
-    run = 'move-node-to-workspace U'
+    run = 'move-node-to-workspace I'
+
+[[on-window-detected]]
+    if.app-id = 'com.google.Chrome'
+    run = 'move-node-to-workspace I'
+
+[[on-window-detected]]
+    if.app-id = 'com.microsoft.edgemac'
+    run = 'move-node-to-workspace I'
 
 [[on-window-detected]]
     if.app-id = 'app.zen-browser.zen'
-    run = 'move-node-to-workspace U'
+    run = 'move-node-to-workspace I'
 
 [[on-window-detected]]
     if.app-id = 'com.tinyspeck.slackmacgap'
-    run = 'move-node-to-workspace Y'
+    run = 'move-node-to-workspace O'
 
 [[on-window-detected]]
     if.app-id = 'com.apple.Notes'
