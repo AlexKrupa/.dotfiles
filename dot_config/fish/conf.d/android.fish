@@ -23,7 +23,8 @@ alias andi and_install_run
 alias andu and_uninstall
 alias emu and_emu
 alias rec and_screenrecord
-alias ss and_screenshot
+alias scr and_screenshot
+alias scrdn and_screenshot_daynight
 
 # Emulator
 function and_emu
@@ -173,8 +174,7 @@ function and_screen_size
   adb shell wm size $argv
 end
 
-# Media capture
-# Screenshot connected ADB device into ~/Downloads folder.
+# Screenshot connected ADB device into ~/Downloads folder and copy the image to clipboard..
 function and_screenshot
   set -l image (__media_file_path img png)
 
@@ -184,8 +184,9 @@ function and_screenshot
 
   echo Taking a screenshot of $ANDROID_SERIAL
 
-  adbe -s $ANDROID_SERIAL screenshot $image
+  adbe -s $ANDROID_SERIAL screenshot $image &>/dev/null
   echo Screenshot saved at $image
+  __copy_png_to_clipboard $image
 end
 
 # Screenshot connected ADB device in both day and night mode into ~/Downloads folder.
@@ -200,18 +201,20 @@ function and_screenshot_daynight
 
   echo Taking day and night screenshots of $ANDROID_SERIAL
 
-  adbe -s $ANDROID_SERIAL dark mode off
+  adbe -s $ANDROID_SERIAL dark mode off &>/dev/null
   sleep 2
-  adbe -s $ANDROID_SERIAL screenshot $image_day
+  adbe -s $ANDROID_SERIAL screenshot $image_day &>/dev/null
   echo Day screenshot saved at $image_day
+  __copy_png_to_clipboard $image_day
 
-  adbe -s $ANDROID_SERIAL dark mode on
+  adbe -s $ANDROID_SERIAL dark mode on &>/dev/null
   sleep 2
-  adbe -s $ANDROID_SERIAL screenshot $image_night
+  adbe -s $ANDROID_SERIAL screenshot $image_night &>/dev/null
   echo Night screenshot saved at $image_night
+  __copy_png_to_clipboard $image_night
 
   sleep 2
-  adbe -s $ANDROID_SERIAL dark mode off
+  adbe -s $ANDROID_SERIAL dark mode off &>/dev/null
 end
 
 # Record an MP4 video of connected ADB device into ~/Downloads folder and then compresses it.
@@ -225,15 +228,16 @@ function and_screenrecord
   end
 
   echo Recording a video of $ANDROID_SERIAL
+  echo Press Ctrl-C to finish
 
-  adbe screenrecord $video
-  # echo Video saved at $video
+  adbe screenrecord $video &>/dev/null
 
   ffmpeg -i $video -vcodec h264 -an $compressed -hide_banner -preset ultrafast -loglevel error
-  # echo Compressed video saved at $compressed
+
   rm $video
   mv $compressed $video
   echo Video saved at $video
+  __reveal_in_finder $video
 end
 
 # Connectivity
@@ -393,5 +397,34 @@ function __select_adb_device
 
   if test -n "$selected_device"
     echo (echo $selected_device | cut -f1 -w)
+  end
+end
+
+# Copy a PNG image to the macOS clipboard.
+function __copy_png_to_clipboard
+  set -l file_path $argv[1]
+
+  if not command -q osascript
+    echo "Warning: osascript not available, skipping clipboard copy" >&2
+    return
+  end
+
+  osascript -e "set the clipboard to (read (POSIX file \"$file_path\") as «class PNGf»)" 2>/dev/null
+  if test $status -eq 0
+    echo "Copied to clipboard"
+  else
+    echo "Warning: Failed to copy to clipboard" >&2
+  end
+end
+
+# Reveal a file in Finder with it selected.
+function __reveal_in_finder
+  set -l file_path $argv[1]
+
+  open -R "$file_path" 2>/dev/null
+  if test $status -eq 0
+    echo "Revealed in Finder"
+  else
+    echo "Warning: Failed to reveal in Finder" >&2
   end
 end
