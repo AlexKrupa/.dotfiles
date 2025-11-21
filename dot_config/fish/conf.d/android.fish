@@ -71,7 +71,7 @@ function and_install_run
 
   if test $gradle_status -eq 0
     # Find the most recent APK
-    set -l apk_path (fd -e apk . app/build/outputs/apk -t f -x ls -t | head -1)
+    set -l apk_path (find app/build/outputs/apk -name "*.apk" -type f -exec stat -f "%m %N" {} + | sort -rn | head -1 | cut -d' ' -f2-)
 
     if test -n "$apk_path"
       # Force install the APK using adb
@@ -92,7 +92,7 @@ function and_install_run
 
       if test $install_status -eq 0
         echo "App successfully installed."
-        adb shell monkey -p $package -c android.intent.category.LAUNCHER 1
+        adb shell monkey -p $package -c android.intent.category.LAUNCHER 1 &>/dev/null
       else
         echo "Installation failed."
       end
