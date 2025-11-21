@@ -174,7 +174,7 @@ function and_screen_size
   adb shell wm size $argv
 end
 
-# Screenshot connected ADB device into ~/Downloads folder and copy the image to clipboard..
+# Screenshot connected ADB device into ~/Downloads folder and copy the image to clipboard.
 function and_screenshot
   set -l image (__media_file_path img png)
 
@@ -185,7 +185,8 @@ function and_screenshot
   echo Taking a screenshot of $ANDROID_SERIAL
 
   adbe -s $ANDROID_SERIAL screenshot $image &>/dev/null
-  echo Screenshot of $ANDROID_SERIAL saved at $image
+  __optimize_png $image
+  echo Screenshot saved at $image
   __copy_png_to_clipboard $image
 end
 
@@ -212,7 +213,8 @@ function and_screenshot_daynight
   magick $image_day $image_night +append $image_stitched
   rm $image_day $image_night
 
-  echo Stitched day/night screenshot of $ANDROID_SERIAL saved at $image_stitched
+  __optimize_png $image_stitched
+  echo Stitched day/night screenshot saved at $image_stitched
   __copy_png_to_clipboard $image_stitched
 
   sleep 2
@@ -233,7 +235,23 @@ function and_screenrecord
 
   adbe screenrecord $video &>/dev/null
 
-  ffmpeg -i $video -vcodec h264 -an $compressed -hide_banner -preset ultrafast -loglevel error
+  # -f mp4: output format (can't infer from .tmp extension)
+  # -vcodec h264: broad compatibility
+  # -an: strip audio
+  # -preset fast: balanced encoding speed vs compression
+  # -crf 28: quality level (0-51, higher = smaller file)
+  # -movflags +faststart: enable streaming before full download
+  ffmpeg \
+    -i $video \
+    -f mp4 \
+    -vcodec h264 \
+    -an \
+    -preset fast \
+    -crf 28 \
+    -movflags +faststart \
+    -hide_banner \
+    -loglevel error \
+    $compressed
 
   rm $video
   mv $compressed $video
@@ -502,6 +520,22 @@ function __reveal_in_finder
   else
     echo "Warning: Failed to reveal in Finder" >&2
   end
+end
+
+# Optimize PNG for web upload (PRs, Slack) using pngquant.
+# Compresses in place. Returns 0 on success.
+function __optimize_png
+  set -l png_path $argv[1]
+
+  if not command -q pngquant
+    echo "Warning: pngquant not installed, skipping optimization (brew install pngquant)" >&2
+    return 1
+  end
+
+  # --quality 65-90: target quality range, picks best within budget
+  # --skip-if-larger: keep original if compressed is larger
+  # --force --ext .png: overwrite original
+  pngquant --quality 65-90 --skip-if-larger --force --ext .png "$png_path" 2>/dev/null
 end
 
 # Convert an image to WebP format with optional resize.
