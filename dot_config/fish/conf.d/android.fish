@@ -176,7 +176,7 @@ end
 
 # Screenshot connected ADB device into ~/Downloads folder and copy the image to clipboard.
 function and_screenshot
-  set -l image (__media_file_path img png)
+  set -l image (__media_file_path png)
 
   if not __require_device_selection
     return 1
@@ -194,7 +194,7 @@ end
 function and_screenshot_daynight
   set -l image_day (mktemp -t android-day.XXXXXX.png)
   set -l image_night (mktemp -t android-night.XXXXXX.png)
-  set -l image_stitched (__media_file_path img png daynight)
+  set -l image_stitched (__media_file_path png daynight)
 
   if not __require_device_selection
     return 1
@@ -223,7 +223,7 @@ end
 
 # Record an MP4 video of connected ADB device into ~/Downloads folder and then compresses it.
 function and_screenrecord
-  set -l video (__media_file_path vid mp4)
+  set -l video (__media_file_path mp4)
   set -l compressed "$video.tmp"
 
   if not __require_device_selection
@@ -444,20 +444,20 @@ end
 
 # Helper functions (implementation details)
 # Get full path for media file
-# Usage: __media_file_path <prefix> <ext> [suffix]
+# Usage: __media_file_path <ext> [suffix]
 # Examples:
-#   __media_file_path img png          → ~/Downloads/android-img-2024-01-15_10-30-45.png
-#   __media_file_path img png daynight → ~/Downloads/android-img-2024-01-15_10-30-45-daynight.png
+#   __media_file_path png         → ~/Downloads/android-20250121-143025.png
+#   __media_file_path png daynight → ~/Downloads/android-20250121-143025-daynight.png
 function __media_file_path
-  set -l prefix $argv[1]
-  set -l ext $argv[2]
-  set -l suffix $argv[3]
-  set -l timestamp (date +"%Y-%m-%d_%H-%M-%S")
+  set -l ext $argv[1]
+  set -l suffix $argv[2]
+  # Changed: compact timestamp format (YYYYMMDD-HHMMSS), dropped type prefix
+  set -l timestamp (date +"%Y%m%d-%H%M%S")
 
   if test -n "$suffix"
-    echo "$ANDROID_MEDIA_PATH$prefix-$timestamp-$suffix.$ext"
+    echo "$ANDROID_MEDIA_PATH$timestamp-$suffix.$ext"
   else
-    echo "$ANDROID_MEDIA_PATH$prefix-$timestamp.$ext"
+    echo "$ANDROID_MEDIA_PATH$timestamp.$ext"
   end
 end
 
