@@ -10,6 +10,7 @@ tap "homebrew/cask-fonts"
 tap "buo/cask-upgrade"  # better cask upgrading (see `cu`)
 
 # CLI tools
+brew "7zip"
 brew "bash"
 brew "bat" # cat alternative with syntax highlighting
 brew "FelixKratz/formulae/borders" # focused window borders

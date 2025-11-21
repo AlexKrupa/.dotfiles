@@ -185,15 +185,15 @@ function and_screenshot
   echo Taking a screenshot of $ANDROID_SERIAL
 
   adbe -s $ANDROID_SERIAL screenshot $image &>/dev/null
-  echo Screenshot saved at $image
+  echo Screenshot of $ANDROID_SERIAL saved at $image
   __copy_png_to_clipboard $image
 end
 
-# Screenshot connected ADB device in both day and night mode into ~/Downloads folder.
+# Screenshot connected ADB device in both day and night mode, stitch them together (day left, night right).
 function and_screenshot_daynight
-  set -l file_name (__media_file_name)
-  set -l image_day $ANDROID_MEDIA_PATH"img-"$file_name"-day.png"
-  set -l image_night $ANDROID_MEDIA_PATH"img-"$file_name"-night.png"
+  set -l image_day (mktemp -t android-day.XXXXXX.png)
+  set -l image_night (mktemp -t android-night.XXXXXX.png)
+  set -l image_stitched (__media_file_path img png daynight)
 
   if not __require_device_selection
     return 1
@@ -204,14 +204,16 @@ function and_screenshot_daynight
   adbe -s $ANDROID_SERIAL dark mode off &>/dev/null
   sleep 2
   adbe -s $ANDROID_SERIAL screenshot $image_day &>/dev/null
-  echo Day screenshot saved at $image_day
-  __copy_png_to_clipboard $image_day
 
   adbe -s $ANDROID_SERIAL dark mode on &>/dev/null
   sleep 2
   adbe -s $ANDROID_SERIAL screenshot $image_night &>/dev/null
-  echo Night screenshot saved at $image_night
-  __copy_png_to_clipboard $image_night
+
+  magick $image_day $image_night +append $image_stitched
+  rm $image_day $image_night
+
+  echo Stitched day/night screenshot of $ANDROID_SERIAL saved at $image_stitched
+  __copy_png_to_clipboard $image_stitched
 
   sleep 2
   adbe -s $ANDROID_SERIAL dark mode off &>/dev/null
@@ -220,8 +222,7 @@ end
 # Record an MP4 video of connected ADB device into ~/Downloads folder and then compresses it.
 function and_screenrecord
   set -l video (__media_file_path vid mp4)
-  set -l file_name (__media_file_name)
-  set -l compressed $ANDROID_MEDIA_PATH"vid-"$file_name"-compressed-noaudio.mp4"
+  set -l compressed "$video.tmp"
 
   if not __require_device_selection
     return 1
@@ -424,17 +425,22 @@ function convert_xxxhdpi_to_split_webp
 end
 
 # Helper functions (implementation details)
-# Get a media (screenshot/video) file name with a timestamp.
-# Example: 2021-08-31_14-23-45
-function __media_file_name
-  echo (date +"%Y-%m-%d_%H-%M-%S")
-end
-
-# Get full path for media file with given prefix and extension
+# Get full path for media file
+# Usage: __media_file_path <prefix> <ext> [suffix]
+# Examples:
+#   __media_file_path img png          → ~/Downloads/android-img-2024-01-15_10-30-45.png
+#   __media_file_path img png daynight → ~/Downloads/android-img-2024-01-15_10-30-45-daynight.png
 function __media_file_path
   set -l prefix $argv[1]
-  set -l extension $argv[2]
-  echo $ANDROID_MEDIA_PATH$prefix(__media_file_name).$extension
+  set -l ext $argv[2]
+  set -l suffix $argv[3]
+  set -l timestamp (date +"%Y-%m-%d_%H-%M-%S")
+
+  if test -n "$suffix"
+    echo "$ANDROID_MEDIA_PATH$prefix-$timestamp-$suffix.$ext"
+  else
+    echo "$ANDROID_MEDIA_PATH$prefix-$timestamp.$ext"
+  end
 end
 
 # Helper function for device operations that require device selection
