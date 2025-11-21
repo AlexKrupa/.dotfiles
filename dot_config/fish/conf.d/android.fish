@@ -35,11 +35,13 @@ function and_emu
     wait
     if test -z "$selected_avd"
       echo AVD not selected 1>&2
+      return 1
     end
   else if test $avd_count -eq 1
     set -f selected_avd $avds
   else
     echo No AVDs found 1>&2
+    return 1
   end
   # Start the emulator with Google's DNS server to avoid network issues.
   emulator -avd $selected_avd -dns-server 8.8.8.8
@@ -47,18 +49,15 @@ end
 
 # Build & install
 # Install and run app on connected device.
-# Usage: and_install_run <variant> <package> <activity>
+# Usage: and_install_run <variant> <package>
 function and_install_run
-  if test (count $argv) -lt 3
-    echo "Usage: and_install_run <variant> <package> <activity>" >&2
+  if test (count $argv) -lt 2
+    echo "Usage: and_install_run <variant> <package>" >&2
     return 1
   end
 
   set -l variant $argv[1]
   set -l package $argv[2]
-  set -l activity $argv[3]
-
-  set -l variant_lowercase (string lower $variant)
 
   # android_serial env var is read by both the gradle `install` task and by adb.
   if not __require_device_selection
@@ -72,7 +71,7 @@ function and_install_run
 
   if test $gradle_status -eq 0
     # Find the most recent APK
-    set -l apk_path (find app/build/outputs/apk -name "*.apk" -type f -exec stat -f "%m %N" {} + | sort -rn | head -1 | cut -d' ' -f2-)
+    set -l apk_path (fd -e apk . app/build/outputs/apk -t f -x ls -t | head -1)
 
     if test -n "$apk_path"
       # Force install the APK using adb
@@ -93,7 +92,7 @@ function and_install_run
 
       if test $install_status -eq 0
         echo "App successfully installed."
-        adb shell am start -n $package/$activity
+        adb shell monkey -p $package -c android.intent.category.LAUNCHER 1
       else
         echo "Installation failed."
       end
@@ -120,7 +119,7 @@ function and_uninstall
 
   echo Uninstalling $package from $ANDROID_SERIAL
 
-  adb shell pm list packages | grep $package | sed -e s/package:// | xargs -L1 adb uninstall
+  adb shell pm list packages | string match "*$package*" | string replace 'package:' '' | xargs -L1 adb uninstall
 end
 
 # Device settings
@@ -140,18 +139,19 @@ function and_dpi
   adb shell wm density $argv
 end
 
-# Set connected ADB device font scale to passed value (e.g. 1.2).
+# Get or set connected ADB device font scale.
+# Usage: and_font_scale [scale]  (e.g. 1.2, omit to get current value)
 function and_font_scale
   if not __require_device_selection
     return 1
   end
 
-  set -l scale $argv[1]
-
-  if test -z "$scale"
+  if test (count $argv) -lt 1
     adb shell settings get system font_scale
     return
   end
+
+  set -l scale $argv[1]
 
   echo Setting font scale to $scale on $ANDROID_SERIAL
 
@@ -319,21 +319,90 @@ function and_process_death
   echo "Process death simulated. Re-open the app to test state restoration."
 end
 
+# Show logcat filtered by app PID.
+# Usage: and_log <package>
+function and_log
+  if test (count $argv) -lt 1
+    echo "Usage: and_log <package>" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  set -l pid (adb shell pidof -s $package)
+  if test -z "$pid"
+    echo "Process not running: $package" >&2
+    return 1
+  end
+
+  echo "Showing logcat for $package (PID: $pid) on $ANDROID_SERIAL"
+  adb logcat --pid=$pid
+end
+
+# Test a deep link / app link.
+# Usage: and_deeplink <url>
+function and_deeplink
+  if test (count $argv) -lt 1
+    echo "Usage: and_deeplink <url>" >&2
+    return 1
+  end
+
+  set -l url $argv[1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  echo "Opening deep link on $ANDROID_SERIAL: $url"
+  adb shell am start -a android.intent.action.VIEW -d "$url"
+end
+
+# Clear app data.
+# Usage: and_clear_data <package>
+function and_clear_data
+  if test (count $argv) -lt 1
+    echo "Usage: and_clear_data <package>" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  echo "Clearing data for $package on $ANDROID_SERIAL"
+  adb shell pm clear $package
+end
+
+# Force stop and relaunch app.
+# Usage: and_restart <package>
+function and_restart
+  if test (count $argv) -lt 1
+    echo "Usage: and_restart <package>" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  echo "Restarting $package on $ANDROID_SERIAL"
+  adb shell am force-stop $package
+  # Launch via monkey to open the default launcher activity
+  adb shell monkey -p $package -c android.intent.category.LAUNCHER 1
+end
+
 # Utilities
 # Convert all PNGs in drawable-xxxhdpi to WebP and split them into drawable-xxhdpi, drawable-xhdpi, drawable-hdpi, and drawable-mdpi.
 function convert_xxxhdpi_to_split_webp
   set -l file_filter $argv[1]
-
-  function convert_image
-    set -l in_dir $argv[1]
-    set -l out_dir $argv[2]
-    set -l file $argv[3]
-    set -l convert_arguments $argv[4]
-
-    mkdir -p $out_dir
-    set -l webp_file (string replace '.png' '.webp' $file)
-    convert "$in_dir/$file" $convert_arguments -define webp:lossless=true "$out_dir/$webp_file"
-  end
 
   for xxxhdpi_dir in (find . -name "drawable-xxxhdpi")
     echo "$xxxhdpi_dir"
@@ -341,15 +410,15 @@ function convert_xxxhdpi_to_split_webp
       set -l file (basename $file)
       echo "$file"
       if not string match -q "*.webp" $file
-        convert_image $xxxhdpi_dir $xxxhdpi_dir $file ""
+        __convert_to_webp $xxxhdpi_dir $xxxhdpi_dir $file ""
         rm "$xxxhdpi_dir/$file"
       end
 
       set -l webp_file (string replace '.png' '.webp' $file)
-      convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xxhdpi" $webp_file "-resize 75%"
-      convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xhdpi" $webp_file "-resize 50%"
-      convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file "-resize 37.5%"
-      convert_image $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file "-resize 25%"
+      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xxhdpi" $webp_file "-resize 75%"
+      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xhdpi" $webp_file "-resize 50%"
+      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file "-resize 37.5%"
+      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file "-resize 25%"
     end
   end
 end
@@ -427,4 +496,16 @@ function __reveal_in_finder
   else
     echo "Warning: Failed to reveal in Finder" >&2
   end
+end
+
+# Convert an image to WebP format with optional resize.
+function __convert_to_webp
+  set -l in_dir $argv[1]
+  set -l out_dir $argv[2]
+  set -l file $argv[3]
+  set -l convert_arguments $argv[4]
+
+  mkdir -p $out_dir
+  set -l webp_file (string replace '.png' '.webp' $file)
+  convert "$in_dir/$file" $convert_arguments -define webp:lossless=true "$out_dir/$webp_file"
 end
