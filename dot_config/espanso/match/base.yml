@@ -48,19 +48,19 @@ matches:
   - trigger: ":aiprompt"
     force_mode: clipboard
     replace: |
-      ## Task
+      Task:
       - $|$
 
-      ## Context files
+      Details/Constraints:
       - 
 
-      ## Details/Constraints
+      Context files:
       - 
 
-      ## Output
+      Output:
       - 
 
-      ## Verify
+      Verify:
       - 
 
       Pause after each step for review.
