@@ -24,10 +24,10 @@ font-feature = -calt, -liga, -dlig
 bold-color = bright
 
 mouse-hide-while-typing = true
+
 macos-non-native-fullscreen = true
 macos-option-as-alt = left
 macos-titlebar-style = hidden
-# macos-window-shadow = false
 
 clipboard-read = "allow"
 clipboard-trim-trailing-spaces = true
