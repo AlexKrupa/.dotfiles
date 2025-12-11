@@ -55,7 +55,6 @@ accordion-padding = 20
 
     cmd-h = [] # Disable "hide application"
     cmd-m = [] # Disable "minimize application"
-    cmd-alt-ctrl-shift-h = [] # Disable "hide others"
 
     # Resizing
     alt-ctrl-shift-minus = ['resize smart -100', 'exec-and-forget ~/.config/share-focus/sync']
@@ -78,11 +77,11 @@ accordion-padding = 20
     alt-ctrl-shift-cmd-l = ['move right', 'exec-and-forget ~/.config/share-focus/sync']
 
     # Workspace
-    alt-ctrl-shift-y = ['workspace Y', 'focus dfs-next --boundaries-action wrap-around-the-workspace']
-    alt-ctrl-shift-u = ['workspace U', 'focus dfs-next --boundaries-action wrap-around-the-workspace']
-    alt-ctrl-shift-i = ['workspace I', 'focus dfs-next --boundaries-action wrap-around-the-workspace']
-    alt-ctrl-shift-o = ['workspace O', 'focus dfs-next --boundaries-action wrap-around-the-workspace']
-    alt-ctrl-shift-p = ['workspace P', 'focus dfs-next --boundaries-action wrap-around-the-workspace']
+    alt-ctrl-shift-y = 'exec-and-forget aerospace workspace Y --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
+    alt-ctrl-shift-u = 'exec-and-forget aerospace workspace U --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
+    alt-ctrl-shift-i = 'exec-and-forget aerospace workspace I --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
+    alt-ctrl-shift-o = 'exec-and-forget aerospace workspace O --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
+    alt-ctrl-shift-p = 'exec-and-forget aerospace workspace P --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
 
     # Move to workspace
     alt-ctrl-shift-cmd-y = ['move-node-to-workspace --focus-follows-window Y', 'exec-and-forget ~/.config/share-focus/sync']
