@@ -43,14 +43,14 @@
 - 2-space indents for Kotlin code
 - `PascalCase` enum entries
 - Verb boolean naming: `isEnabled`, `hasPermission`, `canExecute`
-- Kotest `FreeSpec` unit tests with Kotest assertions
 - Prefer real implementations or fakes over mocks; only use MockK when necessary or when it matches a local convention
-- **DO NOT** start test case names with "should"
+- Test case names in 3rd person or passive voice, do not start with "should"
 
 ## Android development
 
 - Kotlin for Android/Gradle
 - JUnit4 for Robolectric, Espresso for Android tests
+- Run Gradle commands in quiet mode (`-q`)
 
 ## Environment
 

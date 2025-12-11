@@ -1,21 +1,18 @@
 gui:
   nerdFontsVersion: "3" # default: "" (disabled)
   border: "single" # default: "rounded"
-
 git:
-  paging:
-    pager: "delta --dark --paging=never"
+  pagers:
+    - pager: "delta --dark --paging=never"
   mainBranches:
     - master
     - main
     - trunk
   overrideGpg: true
   parseEmoji: true
-
 os:
   edit: "nvim {{filename}}"
   editInTerminal: true
-
 customCommands:
   - key: '<c-n>'
     context: 'global'

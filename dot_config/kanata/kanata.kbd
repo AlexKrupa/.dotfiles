@@ -55,7 +55,7 @@
   @meh   q      w      e      r      t      y      u      i      o      p      [      ]      \
   @fn    a      s      d      f      g      h      j      k      l      ;      '      ret
   lsft   z      x      c      v      b      n      m      ,      .      /      rsft
-  @hyper lctl   lalt   @lmet         spc                  @rmet  ralt
+  @hyper lctl   lalt   lmet         spc                  rmet  ralt
 )
 
 ;; Function layer (activated by holding Caps Lock)
