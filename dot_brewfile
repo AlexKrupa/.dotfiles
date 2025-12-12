@@ -41,11 +41,11 @@ brew "openssl"
 brew "renameutils" # bulk renaming / copying
 brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
-brew "scc" # project metric counter (e.g. LOC)
 brew "sesh" # tmux session manager (used with fzf)
 brew "koekeishiya/formulae/skhd" # keyboard shortcuts
 brew "terminal-notifier"
 brew "tlrc" # tldr - docs, manpages alternative
+brew "tokei" # project metric counter (e.g. LOC, complexity)
 brew "uv" # Python virtual env management
 brew "yt-dlp" # YouTube downloader
 brew "zoxide" # smart cd replacement
