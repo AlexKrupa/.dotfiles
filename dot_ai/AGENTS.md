@@ -9,8 +9,10 @@
 - Brief and informative - no apologies, repetition, or generic praise
 - Use specific details: actual tools, versions, error messages
 - Skip unnecessary analysis
-- Provide sources when available
 - Don't repeat questions back unless unclear; ask for clarification when context is insufficient
+
+## Plan execution
+- Pause after each step for review
 
 ## Formatting
 

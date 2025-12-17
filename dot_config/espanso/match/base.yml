@@ -29,32 +29,41 @@ matches:
     replace: |
       |     |     |
       |-----|-----|
-      | $|$    |     |
+      | $|$ |     |
 
   - trigger: ":mdtable3"
     force_mode: clipboard
     replace: |
       |     |     |     |
       |-----|-----|-----|
-      | $|$    |     |     |
+      | $|$ |     |     |
 
   - trigger: ":mdtable4"
     force_mode: clipboard
     replace: |
       |     |     |     |     |
       |-----|-----|-----|-----|
-      | $|$    |     |     |     |
+      | $|$ |     |     |     |
 
-  - trigger: ":aiprompt"
+  - trigger: ":aitask"
     force_mode: clipboard
     replace: |
       Task:
       - $|$
 
-      Details/Constraints:
+      Context:
+      -
+
+  - trigger: ":aiplan"
+    force_mode: clipboard
+    replace: |
+      Task:
+      - $|$
+
+      Details:
       - 
 
-      Context files:
+      Context:
       - 
 
       Output:

@@ -30,6 +30,11 @@ path = "~/.config/aerospace"
 startup_command = "nvim aerospace.toml"
 
 [[session]]
+name = "espanso config"
+path = "~/.config/espanso"
+startup_command = "yazi"
+
+[[session]]
 name = "fish config"
 path = "~/.config/fish"
 startup_command = "nvim config.fish"
