@@ -36,7 +36,6 @@
 
 - Max line width: 120 chars
 - Guard clauses over nested conditionals
-- Add `// Changed:` comments when modifying existing code
 - Comments explain WHY: trade-offs, rejected alternatives, gotchas, constraints, motivation
 - Include context in logs and error messages
 
