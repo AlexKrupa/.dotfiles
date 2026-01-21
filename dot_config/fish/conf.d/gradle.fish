@@ -11,7 +11,7 @@ end
 
 alias grp "$EDITOR ~/.gradle/gradle.properties"
 alias gri "$EDITOR ~/.gradle/init.gradle.kts"
-alias grccc "rm -rf .gradle/configuration-cache"
+alias grccc "rm -rf ~/.gradle/configuration-cache"
 alias gws "gw --stop"
 alias gwad "gw assembleDebug"
 alias gwtd "gw testDebugUnitTest"

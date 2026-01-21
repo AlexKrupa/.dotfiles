@@ -1,4 +1,4 @@
-source ~/.config/fish/colors.fish
+source $XDG_CONFIG_HOME/fish/colors.fish
 
 # Default editor
 set -gx EDITOR nvim
@@ -27,18 +27,18 @@ if test -f /opt/homebrew/etc/grc.fish
   source /opt/homebrew/etc/grc.fish
 end
 
-if test -f ~/.config/fish/local.fish
-  source ~/.config/fish/local.fish
+if test -f $XDG_CONFIG_HOME/fish/local.fish
+  source $XDG_CONFIG_HOME/fish/local.fish
 end
 
-alias fishc "$EDITOR ~/.config/fish/config.fish"
-alias fishr "source ~/.config/fish/**/*.fish"
-alias fishl "$EDITOR ~/.config/fish/local.fish"
-alias aerospacec "$EDITOR ~/.config/aerospace/aerospace.toml"
-alias ghosttyc "$EDITOR ~/.config/ghostty/config"
+alias fishc "$EDITOR $XDG_CONFIG_HOME/fish/config.fish"
+alias fishr "source $XDG_CONFIG_HOME/fish/**/*.fish"
+alias fishl "$EDITOR $XDG_CONFIG_HOME/fish/local.fish"
+alias aerospacec "$EDITOR $XDG_CONFIG_HOME/aerospace/aerospace.toml"
+alias ghosttyc "$EDITOR $XDG_CONFIG_HOME/ghostty/config"
 alias ideavimc "$EDITOR ~/.ideavimrc"
-alias nvimc "$EDITOR ~/.config/nvim/init.lua"
-alias skhdc "$EDITOR ~/.config/skhd/skhdrc"
+alias nvimc "$EDITOR $XDG_CONFIG_HOME/nvim/init.lua"
+alias skhdc "$EDITOR $XDG_CONFIG_HOME/skhd/skhdrc"
 alias vimc "$EDITOR ~/.vimrc"
 
 alias cd "z" # zoxide
@@ -46,5 +46,5 @@ alias ls "lsd -a --long"
 alias dl "cd ~/Downloads"
 alias dlf "open ~/Downloads"
 alias finder "open ."
-alias share "~/.config/share-focus/service"
+alias share "$XDG_CONFIG_HOME/share-focus/service"
 
