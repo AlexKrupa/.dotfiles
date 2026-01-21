@@ -5,6 +5,5 @@
     "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1"
   },
-  "alwaysThinkingEnabled": true,
-  "model": "opus"
+  "alwaysThinkingEnabled": true
 }
