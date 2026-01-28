@@ -1,12 +1,14 @@
-source $XDG_CONFIG_HOME/fish/colors.fish
-
-# Default editor
+# Environment variables — always load
+set -gx XDG_CONFIG_HOME $HOME/.config
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 
-# lazygit: change default config directory
-set -gx XDG_CONFIG_HOME $HOME/.config
+# Skip interactive setup when loaded by IDE
+if set -q INTELLIJ_ENVIRONMENT_READER
+  exit 0
+end
 
+source $XDG_CONFIG_HOME/fish/colors.fish
 starship init fish | source
 fish_vi_key_bindings # Vim mode, fish_default_key_bindings for default
 fish_vi_cursor
