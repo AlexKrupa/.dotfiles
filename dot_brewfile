@@ -99,8 +99,8 @@ cask "nikitabobko/tap/aerospace" # tiling window manager
 cask "alt-tab" # alt-tab replacement
 # cask "appcleaner" # app uninstaller
 cask "battery" # stop charge at 80%
-# cask "betterdisplay"   # display manager
-cask "bettertouchtool"
+# cask "betterdisplay" # display manager
+# cask "bettertouchtool" # may be causing freezes on upgrades, better upgrade manually
 # cask "bruno" # API-client, Postman alternative
 # cask "calibre" # ebook manager
 # cask "discord"
