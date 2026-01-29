@@ -19,8 +19,15 @@ alias and_lag_disable "adb shell settings put global ingress_rate_limit_bytes_pe
 alias and_lag_enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
 alias and_settings "adb shell am start -n com.android.settings/.Settings"
 alias and_settings_dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
-alias andi and_install_run
+alias andis and_install_start
+alias andi and_install
 alias andu and_uninstall
+alias andc and_clear
+alias andpd and_process_death
+alias andk and_kill
+alias ands and_start
+alias andr and_restart
+alias andcs and_clear_start
 alias emu and_emu
 alias rec and_screenrecord
 alias scr and_screenshot
@@ -48,60 +55,72 @@ function and_emu
 end
 
 # Build & install
-# Install and run app on connected device.
-# Usage: and_install_run <variant> <package>
-function and_install_run
+# Build and install app on connected device.
+# Usage: and_install <variant> <package>
+function and_install
   if test (count $argv) -lt 2
-    echo "Usage: and_install_run <variant> <package>" >&2
+    echo "Usage: and_install <variant> <package>" >&2
     return 1
   end
 
   set -l variant $argv[1]
   set -l package $argv[2]
 
-  # android_serial env var is read by both the gradle `install` task and by adb.
   if not __require_device_selection
     return 1
   end
 
-  echo Installing $package on $ANDROID_SERIAL
+  echo "Installing $package on $ANDROID_SERIAL"
 
-  ./gradlew :app:assemble$variant
-  set -l gradle_status $status
-
-  if test $gradle_status -eq 0
-    # Find the most recent APK
-    set -l apk_path (find app/build/outputs/apk -name "*.apk" -type f -exec stat -f "%m %N" {} + | sort -rn | head -1 | cut -d' ' -f2-)
-
-    if test -n "$apk_path"
-      # Force install the APK using adb
-      echo "Force-installing APK with adb: $apk_path"
-
-      # -d  allow downgrade
-      # -r  replace existing application
-      # Try streaming install first, fall back to --no-streaming if it fails
-      echo "Attempting streaming install..."
-      adb install -r -d $apk_path
-      set -l install_status $status
-
-      if test $install_status -ne 0
-        echo "Streaming install failed, retrying with --no-streaming..."
-        adb install -r -d --no-streaming $apk_path
-        set install_status $status
-      end
-
-      if test $install_status -eq 0
-        echo "App successfully installed."
-        adb shell monkey -p $package -c android.intent.category.LAUNCHER 1 &>/dev/null
-      else
-        echo "Installation failed."
-      end
-    else
-      echo "No APK found after build."
-    end
-  else
+  gw :app:assemble$variant
+  if test $status -ne 0
     echo "Gradle build failed."
+    return 1
   end
+
+  set -l apk_path (__find_apk $variant)
+  if test -z "$apk_path"
+    echo "No APK found for variant: $variant"
+    return 1
+  end
+
+  echo "Installing APK: $apk_path"
+  adb install -r -d $apk_path
+  set -l install_status $status
+
+  if test $install_status -ne 0
+    echo "Streaming install failed, retrying with --no-streaming..."
+    adb install -r -d --no-streaming $apk_path
+    set install_status $status
+  end
+
+  if test $install_status -ne 0
+    echo "Installation failed."
+    return 1
+  end
+
+  echo "App successfully installed."
+  return 0
+end
+
+# Build, install, and start app on connected device.
+# Usage: and_install_start <variant> <package> [intent_args...]
+function and_install_start
+  if test (count $argv) -lt 2
+    echo "Usage: and_install_start <variant> <package> [intent_args...]" >&2
+    return 1
+  end
+
+  set -l variant $argv[1]
+  set -l package $argv[2]
+  set -l intent_args $argv[3..-1]
+
+  and_install $variant $package
+  if test $status -ne 0
+    return 1
+  end
+
+  and_start $package $intent_args
 end
 
 # Uninstall all apps with package starting with the first argument.
@@ -120,6 +139,135 @@ function and_uninstall
   echo Uninstalling $package from $ANDROID_SERIAL
 
   adb shell pm list packages | string match "*$package*" | string replace 'package:' '' | xargs -L1 adb uninstall
+end
+
+# Process management
+# Simulate process death by backgrounding the app and killing its process.
+# This tests state restoration when Android kills the app to reclaim memory.
+function and_process_death
+  if test (count $argv) -lt 1
+    echo "Usage: and_process_death <package>" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  echo "Simulating process death for $package on $ANDROID_SERIAL"
+
+  # Background the app by pressing home button
+  echo "Backgrounding app..."
+  adb shell input keyevent KEYCODE_HOME
+
+  # Wait for app to be backgrounded
+  sleep 2
+
+  # Kill the process
+  echo "Killing process..."
+  adb shell am kill $package
+
+  echo "Process death simulated. Re-open the app to test state restoration."
+end
+
+function and_kill
+  if test (count $argv) -lt 1
+    echo "Usage: and_kill <package>" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  echo "Killing $package on $ANDROID_SERIAL"
+  adb shell am force-stop $package
+end
+
+function and_start
+  if test (count $argv) -lt 1
+    echo "Usage: and_start <package> [intent_args...]" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+  set -l intent_args $argv[2..-1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  echo "Starting $package on $ANDROID_SERIAL"
+
+  # Resolve the launcher activity component
+  set -l component (adb shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER $package 2>/dev/null | tail -n 1)
+
+  if test -z "$component"
+    echo "Could not resolve launcher activity for $package" >&2
+    return 1
+  end
+
+  adb shell am start -n $component $intent_args
+end
+
+# Kill and restart app.
+# Usage: and_restart <package> [intent_args...]
+function and_restart
+  if test (count $argv) -lt 1
+    echo "Usage: and_restart <package> [intent_args...]" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+  set -l intent_args $argv[2..-1]
+
+  and_kill $package
+  if test $status -ne 0
+    return 1
+  end
+
+  and_start $package $intent_args
+end
+
+# Clear app data.
+# Usage: and_clear <package>
+function and_clear
+  if test (count $argv) -lt 1
+    echo "Usage: and_clear <package>" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+
+  if not __require_device_selection
+    return 1
+  end
+
+  echo "Clearing data for $package on $ANDROID_SERIAL"
+  adb shell pm clear $package
+end
+
+# Clear app data and start.
+# Usage: and_clear_start <package> [intent_args...]
+function and_clear_start
+  if test (count $argv) -lt 1
+    echo "Usage: and_clear_start <package> [intent_args...]" >&2
+    return 1
+  end
+
+  set -l package $argv[1]
+  set -l intent_args $argv[2..-1]
+
+  and_clear $package
+  if test $status -ne 0
+    return 1
+  end
+
+  and_start $package $intent_args
 end
 
 # Device settings
@@ -307,37 +455,6 @@ function and_disconnect
   adb disconnect $ip_with_port
 end
 
-# Process management
-# Simulate process death by backgrounding the app and killing its process.
-# This tests state restoration when Android kills the app to reclaim memory.
-function and_process_death
-  if test (count $argv) -lt 1
-    echo "Usage: and_process_death <package>" >&2
-    return 1
-  end
-
-  set -l package $argv[1]
-
-  if not __require_device_selection
-    return 1
-  end
-
-  echo "Simulating process death for $package on $ANDROID_SERIAL"
-
-  # Background the app by pressing home button
-  echo "Backgrounding app..."
-  adb shell input keyevent KEYCODE_HOME
-
-  # Wait for app to be backgrounded
-  sleep 2
-
-  # Kill the process
-  echo "Killing process..."
-  adb shell am kill $package
-
-  echo "Process death simulated. Re-open the app to test state restoration."
-end
-
 # Show logcat filtered by app PID.
 # Usage: and_log <package>
 function and_log
@@ -380,44 +497,6 @@ function and_deeplink
   adb shell am start -a android.intent.action.VIEW -d "$url"
 end
 
-# Clear app data.
-# Usage: and_clear_data <package>
-function and_clear_data
-  if test (count $argv) -lt 1
-    echo "Usage: and_clear_data <package>" >&2
-    return 1
-  end
-
-  set -l package $argv[1]
-
-  if not __require_device_selection
-    return 1
-  end
-
-  echo "Clearing data for $package on $ANDROID_SERIAL"
-  adb shell pm clear $package
-end
-
-# Force stop and relaunch app.
-# Usage: and_restart <package>
-function and_restart
-  if test (count $argv) -lt 1
-    echo "Usage: and_restart <package>" >&2
-    return 1
-  end
-
-  set -l package $argv[1]
-
-  if not __require_device_selection
-    return 1
-  end
-
-  echo "Restarting $package on $ANDROID_SERIAL"
-  adb shell am force-stop $package
-  # Launch via monkey to open the default launcher activity
-  adb shell monkey -p $package -c android.intent.category.LAUNCHER 1
-end
-
 # Utilities
 # Convert all PNGs in drawable-xxxhdpi to WebP and split them into drawable-xxhdpi, drawable-xhdpi, drawable-hdpi, and drawable-mdpi.
 function convert_xxxhdpi_to_split_webp
@@ -443,6 +522,38 @@ function convert_xxxhdpi_to_split_webp
 end
 
 # Helper functions (implementation details)
+# Find APK by variant name.
+# Usage: __find_apk [variant]
+# Returns path to most recent APK matching variant, or most recent APK if no variant specified.
+function __find_apk
+  set -l variant (string lower $argv[1])
+  set -l apk_dir "app/build/outputs/apk"
+
+  if not test -d "$apk_dir"
+    return 1
+  end
+
+  # Find all APKs sorted by modification time (newest first)
+  set -l apks (find $apk_dir -name "*.apk" -type f -exec stat -f "%m %N" {} + 2>/dev/null | sort -rn | cut -d' ' -f2-)
+
+  if test -z "$apks"
+    return 1
+  end
+
+  # If variant specified, find matching APK
+  if test -n "$variant"
+    for apk in $apks
+      if string match -qi "*$variant*" (basename $apk)
+        echo $apk
+        return 0
+      end
+    end
+  end
+
+  # Fall back to most recent APK
+  echo $apks[1]
+end
+
 # Get full path for media file
 # Usage: __media_file_path <ext> [suffix]
 # Examples:
@@ -463,6 +574,13 @@ end
 
 # Helper function for device operations that require device selection
 function __require_device_selection
+  # Reuse existing selection if still connected
+  if test -n "$ANDROID_SERIAL"
+    if adb devices | grep -q "^$ANDROID_SERIAL[[:space:]]"
+      return 0
+    end
+  end
+
   set -gx ANDROID_SERIAL (__select_adb_device)
   if test -z "$ANDROID_SERIAL"
     return 1
@@ -477,7 +595,8 @@ function __select_adb_device
   set -l selected_device ""
 
   if test $device_count -ge 2
-    set selected_device (echo $devices | fzf)
+    # Preview shows device model for highlighted device
+    set selected_device (echo $devices | fzf --preview 'echo {} | cut -f1 -w | xargs -I{} adb -s {} shell getprop ro.product.model 2>/dev/null')
     wait
     if test -z "$selected_device"
       echo Device not selected 1>&2
