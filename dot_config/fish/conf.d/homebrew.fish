@@ -1,15 +1,14 @@
-function brew-update
+function brew-update --description 'Update Homebrew and show outdated'
   brew update -q
   echo && brew outdated --greedy
 end
 
-function brew-upgrade
+function brew-upgrade --description 'Upgrade all packages'
   HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --greedy
   brew cleanup
 end
 
-# Terminate Brew update in case it gets stuck.
-function brew-kill
+function brew-kill --description 'Remove Homebrew lock files'
   rm -rf $(brew --prefix)/var/homebrew/locks
 end
 

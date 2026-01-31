@@ -1,4 +1,5 @@
-function jdk
+# Usage: jdk <version> [--silent]
+function jdk --description 'Switch Java version'
   argparse 's/silent' -- $argv
   or return
 

@@ -1,5 +1,4 @@
-# Remove duplicates from $PATH and $fish_user_paths
-function dedup_paths
+function dedup-paths --description 'Remove duplicates from PATH variables'
   # Remove duplicates from $PATH
   set -l unique_path
   for path in $PATH

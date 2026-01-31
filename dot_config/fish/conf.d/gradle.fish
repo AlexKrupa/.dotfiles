@@ -1,4 +1,4 @@
-function gw --wraps=gradle
+function gw --wraps=gradle --description 'Run Gradle via wrapper with profiling'
   set -l GW "$(upfind gradlew)"
   if [ -z "$GW" ]
     echo "Gradle wrapper not found."

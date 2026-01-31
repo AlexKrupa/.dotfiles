@@ -1,7 +1,11 @@
 # File name is tmux-utils.fish instead of tmux.fish to avoid conflict with tmux.fish plugin (https://github.com/budimanjojo/tmux.fish)
 
-# Run a command in a new tmux pane.
-function tmux-split
+function tmux-split --description 'Run a command in a new tmux pane'
+  if test (count $argv) -lt 1
+    echo "Usage: tmux-split <command>" >&2
+    return 1
+  end
+
   set -l command $argv
   # Count the number of panes in the current window
   set -l pane_count (tmux list-panes | wc -l)

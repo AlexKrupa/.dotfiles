@@ -11,7 +11,12 @@
 #    The headphones can only do previous/next.
 #    Now imagine doing it accidentally on a several-hours long audiobook.
 #    That's why I wrote this script.
-function shokz
+function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
+  if test (count $argv) -lt 1
+    echo "Usage: shokz <file>" >&2
+    return 1
+  end
+
   set -l tempo "1.5"
   set -l segment_length_s 60
 
