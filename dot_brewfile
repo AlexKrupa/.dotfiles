@@ -62,7 +62,7 @@ brew "git-lfs" # git large file storage
 brew "git-spice" # git stack
 brew "gh" # GitHub
 brew "github-keygen"
-brew "glab" # GitLab
+# brew "glab" # GitLab
 
 # Tmux
 brew "tmux"
@@ -73,6 +73,7 @@ brew "tmux"
 tap "mdogan/zulu"
 cask "zulu-jdk17"
 cask "zulu-jdk21"
+cask "zulu-jdk25"
 brew "kotlin"
 brew "gradle"
 brew "scrcpy" # screen mirroring
@@ -100,7 +101,7 @@ cask "alt-tab" # alt-tab replacement
 # cask "appcleaner" # app uninstaller
 cask "battery" # stop charge at 80%
 # cask "betterdisplay" # display manager
-# cask "bettertouchtool" # may be causing freezes on upgrades, better upgrade manually
+# cask "bettertouchtool" # causes OS freeze on upgrades due to permission issues, better install and upgrade manually
 # cask "bruno" # API-client, Postman alternative
 # cask "calibre" # ebook manager
 # cask "discord"
@@ -123,7 +124,7 @@ cask "linearmouse" # mouse acceleration fix
 cask "lulu" # connection blocker
 # cask "marta" # file manager
 # cask "microsoft-edge" # browser
-cask "middleclick" # trackpad middle-click with 3 fingers
+# cask "middleclick" # trackpad middle-click with 3 fingers
 cask "mitmproxy" # for debugging network requests
 # cask "mullvadvpn"
 cask "notunes" # disable iTunes on media button press
@@ -155,9 +156,8 @@ cask "font-jetbrains-mono-nerd-font"
 cask "font-sf-mono"
 
 # Karabiner / Goku
-# Homebrew-managed Karabiner might be problematic during updates (locks system UI, requiring restart)
-# cask "karabiner-elements"
-brew "yqrashawn/goku/goku" # Karabiner config manager
+# cask "karabiner-elements" # causes OS freeze on upgrades due to permission issues, better install and upgrade manually
+# brew "yqrashawn/goku/goku" # Karabiner config manager
 
 ##################
 # Helpful commands

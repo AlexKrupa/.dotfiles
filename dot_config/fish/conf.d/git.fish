@@ -13,12 +13,12 @@ function branch
   end
 end
 
-function catch_up
+function catch-up
   git checkout (__git_main)
   and git pull --prune
 end
 
-function cd_git_root
+function cd-git-root
   cd $(git rev-parse --show-toplevel)
 end
 
@@ -42,7 +42,7 @@ function rebase
   and git rebase $main
 end
 
-function rm_merged_local
+function rm-merged-local
   set main (__git_main)
   git branch --merged $main | command grep -v $main | xargs git branch -D
 end

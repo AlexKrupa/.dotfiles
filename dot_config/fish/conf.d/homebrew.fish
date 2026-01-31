@@ -1,15 +1,15 @@
-function brew_update
+function brew-update
   brew update -q
   echo && brew outdated --greedy
 end
 
-function brew_upgrade
+function brew-upgrade
   HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --greedy
   brew cleanup
 end
 
 # Terminate Brew update in case it gets stuck.
-function brew_kill
+function brew-kill
   rm -rf $(brew --prefix)/var/homebrew/locks
 end
 

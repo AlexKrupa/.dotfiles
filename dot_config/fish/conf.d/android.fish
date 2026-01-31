@@ -14,27 +14,27 @@ fish_add_path $ANDROID_HOME/tools
 
 fish_add_path ~/src/me/adx
 
-alias and_dc and_disconnect
-alias and_lag_disable "adb shell settings put global ingress_rate_limit_bytes_per_second -1"
-alias and_lag_enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
-alias and_settings "adb shell am start -n com.android.settings/.Settings"
-alias and_settings_dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
-alias andis and_install_start
-alias andi and_install
-alias andu and_uninstall
-alias andc and_clear
-alias andpd and_process_death
-alias andk and_kill
-alias ands and_start
-alias andr and_restart
-alias andcs and_clear_start
-alias emu and_emu
-alias rec and_screenrecord
-alias scr and_screenshot
-alias scrdn and_screenshot_daynight
+alias and-dc and-disconnect
+alias and-lag-disable "adb shell settings put global ingress_rate_limit_bytes_per_second -1"
+alias and-lag-enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
+alias and-settings "adb shell am start -n com.android.settings/.Settings"
+alias and-settings-dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
+alias andis and-install-start
+alias andi and-install
+alias andu and-uninstall
+alias andc and-clear
+alias andpd and-process-death
+alias andk and-kill
+alias ands and-start
+alias andr and-restart
+alias andcs and-clear-start
+alias emu and-emu
+alias rec and-screenrecord
+alias scr and-screenshot
+alias scrdn and-screenshot-daynight
 
 # Emulator
-function and_emu
+function and-emu
   set -l avds "$(avdmanager list avd -c)"
   set -l avd_count (count (echo $avds | string split -n "\n"))
   if test $avd_count -ge 2
@@ -56,10 +56,10 @@ end
 
 # Build & install
 # Build and install app on connected device.
-# Usage: and_install <variant> <package>
-function and_install
+# Usage: and-install <variant> <package>
+function and-install
   if test (count $argv) -lt 2
-    echo "Usage: and_install <variant> <package>" >&2
+    echo "Usage: and-install <variant> <package>" >&2
     return 1
   end
 
@@ -104,10 +104,10 @@ function and_install
 end
 
 # Build, install, and start app on connected device.
-# Usage: and_install_start <variant> <package> [intent_args...]
-function and_install_start
+# Usage: and-install-start <variant> <package> [intent_args...]
+function and-install-start
   if test (count $argv) -lt 2
-    echo "Usage: and_install_start <variant> <package> [intent_args...]" >&2
+    echo "Usage: and-install-start <variant> <package> [intent_args...]" >&2
     return 1
   end
 
@@ -115,18 +115,18 @@ function and_install_start
   set -l package $argv[2]
   set -l intent_args $argv[3..-1]
 
-  and_install $variant $package
+  and-install $variant $package
   if test $status -ne 0
     return 1
   end
 
-  and_start $package $intent_args
+  and-start $package $intent_args
 end
 
 # Uninstall all apps with package starting with the first argument.
-function and_uninstall
+function and-uninstall
   if test (count $argv) -lt 1
-    echo "Usage: and_uninstall <package>" >&2
+    echo "Usage: and-uninstall <package>" >&2
     return 1
   end
 
@@ -144,9 +144,9 @@ end
 # Process management
 # Simulate process death by backgrounding the app and killing its process.
 # This tests state restoration when Android kills the app to reclaim memory.
-function and_process_death
+function and-process-death
   if test (count $argv) -lt 1
-    echo "Usage: and_process_death <package>" >&2
+    echo "Usage: and-process-death <package>" >&2
     return 1
   end
 
@@ -172,9 +172,9 @@ function and_process_death
   echo "Process death simulated. Re-open the app to test state restoration."
 end
 
-function and_kill
+function and-kill
   if test (count $argv) -lt 1
-    echo "Usage: and_kill <package>" >&2
+    echo "Usage: and-kill <package>" >&2
     return 1
   end
 
@@ -188,9 +188,9 @@ function and_kill
   adb shell am force-stop $package
 end
 
-function and_start
+function and-start
   if test (count $argv) -lt 1
-    echo "Usage: and_start <package> [intent_args...]" >&2
+    echo "Usage: and-start <package> [intent_args...]" >&2
     return 1
   end
 
@@ -215,29 +215,29 @@ function and_start
 end
 
 # Kill and restart app.
-# Usage: and_restart <package> [intent_args...]
-function and_restart
+# Usage: and-restart <package> [intent_args...]
+function and-restart
   if test (count $argv) -lt 1
-    echo "Usage: and_restart <package> [intent_args...]" >&2
+    echo "Usage: and-restart <package> [intent_args...]" >&2
     return 1
   end
 
   set -l package $argv[1]
   set -l intent_args $argv[2..-1]
 
-  and_kill $package
+  and-kill $package
   if test $status -ne 0
     return 1
   end
 
-  and_start $package $intent_args
+  and-start $package $intent_args
 end
 
 # Clear app data.
-# Usage: and_clear <package>
-function and_clear
+# Usage: and-clear <package>
+function and-clear
   if test (count $argv) -lt 1
-    echo "Usage: and_clear <package>" >&2
+    echo "Usage: and-clear <package>" >&2
     return 1
   end
 
@@ -252,29 +252,29 @@ function and_clear
 end
 
 # Clear app data and start.
-# Usage: and_clear_start <package> [intent_args...]
-function and_clear_start
+# Usage: and-clear-start <package> [intent_args...]
+function and-clear-start
   if test (count $argv) -lt 1
-    echo "Usage: and_clear_start <package> [intent_args...]" >&2
+    echo "Usage: and-clear-start <package> [intent_args...]" >&2
     return 1
   end
 
   set -l package $argv[1]
   set -l intent_args $argv[2..-1]
 
-  and_clear $package
+  and-clear $package
   if test $status -ne 0
     return 1
   end
 
-  and_start $package $intent_args
+  and-start $package $intent_args
 end
 
 # Device settings
 # Set connected ADB device DPI to passed value (e.g. 420).
-function and_dpi
+function and-dpi
   if test (count $argv) -lt 1
-    echo "Usage: and_dpi <value>" >&2
+    echo "Usage: and-dpi <value>" >&2
     return 1
   end
 
@@ -288,8 +288,8 @@ function and_dpi
 end
 
 # Get or set connected ADB device font scale.
-# Usage: and_font_scale [scale]  (e.g. 1.2, omit to get current value)
-function and_font_scale
+# Usage: and-font-scale [scale]  (e.g. 1.2, omit to get current value)
+function and-font-scale
   if not __require_device_selection
     return 1
   end
@@ -307,9 +307,9 @@ function and_font_scale
 end
 
 # Set connected ADB device screen size to passed value (e.g. 1080x1920).
-function and_screen_size
+function and-screen-size
   if test (count $argv) -lt 1
-    echo "Usage: and_screen_size <size>" >&2
+    echo "Usage: and-screen-size <size>" >&2
     return 1
   end
 
@@ -323,7 +323,7 @@ function and_screen_size
 end
 
 # Screenshot connected ADB device into ~/Downloads folder and copy the image to clipboard.
-function and_screenshot
+function and-screenshot
   set -l image (__media_file_path png)
 
   if not __require_device_selection
@@ -339,7 +339,7 @@ function and_screenshot
 end
 
 # Screenshot connected ADB device in both day and night mode, stitch them together (day left, night right).
-function and_screenshot_daynight
+function and-screenshot-daynight
   set -l image_day (mktemp -t android-day.XXXXXX.png)
   set -l image_night (mktemp -t android-night.XXXXXX.png)
   set -l image_stitched (__media_file_path png daynight)
@@ -370,7 +370,7 @@ function and_screenshot_daynight
 end
 
 # Record an MP4 video of connected ADB device into ~/Downloads folder and then compresses it.
-function and_screenrecord
+function and-screenrecord
   set -l video (__media_file_path mp4)
   set -l compressed "$video.tmp"
 
@@ -408,9 +408,9 @@ function and_screenrecord
 end
 
 # Connectivity
-function and_wifi
+function and-wifi
   if test (count $argv) -lt 1
-    echo "Usage: and_wifi <ip>" >&2
+    echo "Usage: and-wifi <ip>" >&2
     return 1
   end
 
@@ -421,9 +421,9 @@ function and_wifi
   adb connect $ip_with_port
 end
 
-function and_wifi_new
+function and-wifi-new
   if test (count $argv) -lt 2
-    echo "Usage: and_wifi_new <ip> <port>" >&2
+    echo "Usage: and-wifi-new <ip> <port>" >&2
     return 1
   end
 
@@ -442,9 +442,9 @@ function and_wifi_new
   adb disconnect $ip_with_port
 end
 
-function and_disconnect
+function and-disconnect
   if test (count $argv) -lt 1
-    echo "Usage: and_disconnect <ip>" >&2
+    echo "Usage: and-disconnect <ip>" >&2
     return 1
   end
 
@@ -456,10 +456,10 @@ function and_disconnect
 end
 
 # Show logcat filtered by app PID.
-# Usage: and_log <package>
-function and_log
+# Usage: and-log <package>
+function and-log
   if test (count $argv) -lt 1
-    echo "Usage: and_log <package>" >&2
+    echo "Usage: and-log <package>" >&2
     return 1
   end
 
@@ -480,10 +480,10 @@ function and_log
 end
 
 # Test a deep link / app link.
-# Usage: and_deeplink <url>
-function and_deeplink
+# Usage: and-deeplink <url>
+function and-deeplink
   if test (count $argv) -lt 1
-    echo "Usage: and_deeplink <url>" >&2
+    echo "Usage: and-deeplink <url>" >&2
     return 1
   end
 
@@ -499,7 +499,7 @@ end
 
 # Utilities
 # Convert all PNGs in drawable-xxxhdpi to WebP and split them into drawable-xxhdpi, drawable-xhdpi, drawable-hdpi, and drawable-mdpi.
-function convert_xxxhdpi_to_split_webp
+function convert-xxxhdpi-to-split-webp
   set -l file_filter $argv[1]
 
   for xxxhdpi_dir in (find . -name "drawable-xxxhdpi")
