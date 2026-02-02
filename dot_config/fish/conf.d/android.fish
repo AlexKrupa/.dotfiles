@@ -675,7 +675,7 @@ end
 function __require_device_selection
   # Reuse existing selection if still connected
   if test -n "$ANDROID_SERIAL"
-    if adb devices | grep -q "^$ANDROID_SERIAL[[:space:]]"
+    if adb devices | string match -q -- "$ANDROID_SERIAL*"
       return 0
     end
   end
