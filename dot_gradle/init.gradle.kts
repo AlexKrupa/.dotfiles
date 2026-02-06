@@ -12,7 +12,7 @@ allprojects {
         if (!plugins.hasPlugin("com.adarshr.gradle.testlogger")) {
             apply<com.adarshr.gradle.testlogger.TestLoggerPlugin>()
         }
-        configure<com.adarshr.gradle.testlogger.TestLoggerExtension> {
+        extensions.configure<com.adarshr.gradle.testlogger.TestLoggerExtension> {
             showExceptions = true
             showStackTraces = true
             showFullStackTraces = false
@@ -34,7 +34,7 @@ allprojects {
 }
 
 gradle.afterProject {
-    tasks.withType<Test> {
+    tasks.withType<Test>().configureEach {
         maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).takeIf { it > 0 } ?: 1
     }
 }
