@@ -32,5 +32,6 @@ macos-titlebar-style = hidden
 clipboard-read = "allow"
 clipboard-trim-trailing-spaces = true
 clipboard-write = "allow"
+
 # Shift+Enter newline in Claude Code
 keybind = shift+enter=text:\x1b\r

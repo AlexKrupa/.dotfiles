@@ -10,10 +10,15 @@ show_hidden    = true
 show_symlink   = true
 scrolloff      = 5
 
-# MacOS: open Quick Look
 [[mgr.prepend_keymap]]
 on = "<C-p>"
 run = 'shell -- qlmanage -p "$@"'
+desc = "Open Quick Look (MacOS)
+
+[[mgr.prepend_keymap]]
+on = [ "g", "r" ]
+run = 'shell -- ya emit cd "$(git rev-parse --show-toplevel)"'
+desc = "Go to git repo root"
 
 [input]
 cursor_blink = false
