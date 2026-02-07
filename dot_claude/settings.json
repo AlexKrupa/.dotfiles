@@ -3,10 +3,18 @@
   "env": {
     "DISABLE_AUTOUPDATER": "1",
     "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
-    "CLAUDE_CODE_ENABLE_TELEMETRY": "1"
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0"
+  },
+  "model": "opus",
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
-    "kotlin-lsp@claude-plugins-official": true
+    "kotlin-lsp@claude-plugins-official": true,
+    "figma@claude-plugins-official": false,
+    "atlassian@claude-plugins-official": false,
+    "superpowers@superpowers-marketplace": true
   },
   "alwaysThinkingEnabled": true
 }

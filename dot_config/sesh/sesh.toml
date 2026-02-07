@@ -30,6 +30,11 @@ path = "~/.config/aerospace"
 startup_command = "nvim aerospace.toml"
 
 [[session]]
+name = "claude config"
+path = "~/.claude"
+startup_command = "nvim settings.json"
+
+[[session]]
 name = "espanso config"
 path = "~/.config/espanso"
 startup_command = "yazi"
