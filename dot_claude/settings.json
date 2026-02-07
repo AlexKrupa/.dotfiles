@@ -19,5 +19,6 @@
     "atlassian@claude-plugins-official": false,
     "superpowers@superpowers-marketplace": true
   },
-  "alwaysThinkingEnabled": true
+  "alwaysThinkingEnabled": true,
+  "prefersReducedMotion": true
 }

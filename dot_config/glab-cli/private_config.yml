@@ -1,0 +1,16 @@
+git_protocol: ssh
+editor:
+browser:
+glamour_style: dark
+check_update: false
+display_hyperlinks: false
+host: gitlab.com
+no_prompt: false
+telemetry: false
+hosts:
+  gitlab.com:
+    api_protocol: https
+    api_host: gitlab.com
+    token:
+    container_registry_domains: gitlab.com,gitlab.com:443,registry.gitlab.com
+    custom_headers: []
