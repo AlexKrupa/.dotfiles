@@ -1,6 +1,6 @@
 [[mgr.prepend_keymap]]
 on = "<C-p>"
-run = 'shell -- qlmanage -p "$@"'
+run = "shell -- qlmanage -p %s"
 desc = "Open Quick Look (MacOS)"
 
 [[mgr.prepend_keymap]]

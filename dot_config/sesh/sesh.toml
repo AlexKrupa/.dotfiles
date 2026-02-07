@@ -70,6 +70,11 @@ path = "~/.config/sesh"
 startup_command = "nvim sesh.toml"
 
 [[session]]
+name = "tmux config"
+path = "~/.config/tmux"
+startup_command = "nvim tmux.conf"
+
+[[session]]
 name = "yazi config"
 path = "~/.config/yazi"
 startup_command = "nvim yazi.toml"
