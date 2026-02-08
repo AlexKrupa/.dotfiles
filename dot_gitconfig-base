@@ -144,6 +144,6 @@
   sreset = reset --soft
   sundo = reset --soft head^
   unstage = restore --staged
-  wip   =  !"wip()  { git add .; git commit -a -m '--wip-- [ci skip]' --no-verify; }; wip"     # basically an immediate commit that u want in you reflog
+  wip   =  !"wip()  { git add .; git commit -a -m 'WIP [ci skip]' --no-verify; }; wip"     # basically an immediate commit that u want in you reflog
   wipr  =  !"wipr() { git reset --soft HEAD~; git reset ; }; wipr"   # undo last commit (works well with gwip) - watch out though
   workon = "!f(){ git fetch && git checkout -b \"$1\" $(git symbolic-ref refs/remotes/origin/HEAD | sed \"s@^refs/remotes/@@\"); };f"

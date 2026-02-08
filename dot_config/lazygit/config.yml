@@ -1,6 +1,17 @@
 gui:
   nerdFontsVersion: "3" # default: "" (disabled)
   border: "single" # default: "rounded"
+  commitLength:
+    show: true
+  expandFocusedSidePanel: true
+  showListFooter: false # for seeing the '5 of 20' message in list panels
+  showRandomTip: false
+  showCommandLog: false
+  showBottomLine: true
+  timeFormat: 2006-01-02
+  shortTimeFormat: 15:04
+  showDivergenceFromBaseBranch: arrowAndNumber # default: "none"
+  filterMode: fuzzy # default: "substring"
 git:
   pagers:
     - pager: "delta --dark --paging=never"
@@ -10,15 +21,22 @@ git:
     - trunk
   overrideGpg: true
   parseEmoji: true
+  skipHookPrefix: WIP
+  commitPrefix:
+    - pattern: "^([^_]+)/.*" # example: ABC-123/branch
+      replace: '[$1] '
+update:
+  method: never
 os:
   edit: "nvim {{filename}}"
   editInTerminal: true
+disableStartupPopups: true
 customCommands:
-  - key: '<c-n>'
-    context: 'global'
-    command: 'git fu'
+  - key: "<c-n>"
+    context: "global"
+    command: "git fu"
     description: "Sync main: rebase and force push"
-  - key: '<c-p>'
-    context: 'global'
-    command: 'git pomr'
-    description: 'Rebase main'
+  - key: "<c-p>"
+    context: "global"
+    command: "git pomr"
+    description: "Rebase main"
