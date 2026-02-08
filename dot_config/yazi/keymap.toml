@@ -3,6 +3,12 @@ on = "<C-p>"
 run = "shell -- qlmanage -p %s"
 desc = "Open Quick Look (MacOS)"
 
+# ya pkg add yazi-rs/plugins:jump-to-char
+[[mgr.prepend_keymap]]
+on   = "f"
+run  = "plugin jump-to-char"
+desc = "Jump to char"
+
 # ya pkg add ciarandg/cd-git-root
 [[manager.prepend_keymap]]
 on   = ["g", "r"]
@@ -14,3 +20,42 @@ desc = "Go to Git repo root"
 on   = [ "g", "c" ]
 run  = "plugin vcs-files"
 desc = "Show Git file changes"
+
+# ya pkg add yazi-rs/plugins:toggle-pane
+[[mgr.prepend_keymap]]
+on   = "T"
+run  = "plugin toggle-pane max-preview"
+desc = "Maximize or restore the preview pane"
+
+# ya pkg add yazi-rs/plugins:chmod
+[[mgr.prepend_keymap]]
+on   = [ "c", "m" ]
+run  = "plugin chmod"
+desc = "Chmod on selected files"
+
+# Compress
+# ya pkg add KKV9/compress
+[[mgr.prepend_keymap]]
+on   = [ "c", "a", "a" ]
+run  = "plugin compress"
+desc = "Archive selected files"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "a", "p" ]
+run  = "plugin compress -p"
+desc = "Archive selected files (password)"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "a", "h" ]
+run  = "plugin compress -ph"
+desc = "Archive selected files (password+header)"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "a", "l" ]
+run  = "plugin compress -l"
+desc = "Archive selected files (compression level)"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "a", "u" ]
+run  = "plugin compress -phl"
+desc = "Archive selected files (password+header+level)"

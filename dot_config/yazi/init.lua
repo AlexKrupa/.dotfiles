@@ -12,7 +12,8 @@ function Linemode:size_and_mtime()
   return string.format("%s %s", size and ya.readable_size(size) or "-", time)
 end
 
+-- ya pkg add yazi-rs/plugins:git
 require("git"):setup({
   -- Order of status signs showing in the linemode
-  order = 1500,
+  order = 500,
 })
