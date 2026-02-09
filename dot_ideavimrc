@@ -137,20 +137,21 @@ let g:highlightedyank_highlight_color = "rgba(57, 197, 187, 155)"
 
 Plug 'dbakker/vim-paragraph-motion'
 Plug 'kana/vim-textobj-entire'
+Plug 'magidc/ideavim-anyobject'
 
 " <count>ai	 An Indentation level and line above.
 " <count>ii	 Inner Indentation level (no line above).
 " <count>aI	 An Indentation level and lines above/below.
 " <count>iI	 Inner Indentation level (no lines above/below).
-Plug 'michaeljsmith/vim-indent-object'
+" Plug 'michaeljsmith/vim-indent-object'
 
 " if - "inner function" - selects the function body (excluding braces)
 " af - "around function" - selects the entire function (including braces and signature)
-set functiontextobj
+" set functiontextobj
 
-Plug 'vim-scripts/argtextobj.vim'
 " select items in a list or generic class definition in Java/Kotlin
-let g:argtextobj_pairs="[:],(:),<:>"
+" Plug 'vim-scripts/argtextobj.vim'
+" let g:argtextobj_pairs="[:],(:),<:>"
 
 " In normal mode: Press " to see registers before using them in commands
 " In insert mode: Press Ctrl-R to see registers before pasting their contents
