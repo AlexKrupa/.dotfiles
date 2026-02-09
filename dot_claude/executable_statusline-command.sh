@@ -29,7 +29,7 @@ if git -C "$cwd" rev-parse --git-dir &>/dev/null; then
     git -C "$cwd" --no-optional-locks diff --quiet 2>/dev/null \
       && git -C "$cwd" --no-optional-locks diff --cached --quiet 2>/dev/null \
       || st="*"
-    git_info=" on \033[35m${br}${st}\033[0m"
+    git_info=" on "$'\033[35m'"${br}${st}"$'\033[0m'
   fi
 fi
 
@@ -37,3 +37,4 @@ t=$(date +%H:%M:%S)
 m=$(echo "$model" | sed 's/Claude //' | sed 's/ Sonnet//')
 
 printf "\033[36m%s\033[0m%s \033[2m%s [%s]\033[0m" "$short" "$git_info" "$t" "$m"
+
