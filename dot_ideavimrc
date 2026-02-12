@@ -137,7 +137,8 @@ let g:highlightedyank_highlight_color = "rgba(57, 197, 187, 155)"
 
 Plug 'dbakker/vim-paragraph-motion'
 Plug 'kana/vim-textobj-entire'
-Plug 'magidc/ideavim-anyobject'
+
+set anyobject
 
 " <count>ai	 An Indentation level and line above.
 " <count>ii	 Inner Indentation level (no line above).
