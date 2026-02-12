@@ -140,20 +140,6 @@ Plug 'kana/vim-textobj-entire'
 
 set anyobject
 
-" <count>ai	 An Indentation level and line above.
-" <count>ii	 Inner Indentation level (no line above).
-" <count>aI	 An Indentation level and lines above/below.
-" <count>iI	 Inner Indentation level (no lines above/below).
-" Plug 'michaeljsmith/vim-indent-object'
-
-" if - "inner function" - selects the function body (excluding braces)
-" af - "around function" - selects the entire function (including braces and signature)
-" set functiontextobj
-
-" select items in a list or generic class definition in Java/Kotlin
-" Plug 'vim-scripts/argtextobj.vim'
-" let g:argtextobj_pairs="[:],(:),<:>"
-
 " In normal mode: Press " to see registers before using them in commands
 " In insert mode: Press Ctrl-R to see registers before pasting their contents
 set peekaboo
