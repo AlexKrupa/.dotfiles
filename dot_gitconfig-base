@@ -116,7 +116,7 @@
   fu = !(git pomr && git fpush)
   hist = log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all
   hreset = reset --hard
-  hundo = reset --hard head^
+  hundo = reset --hard HEAD~1
   lfsp = lfs push origin head
   lg = log --graph --no-merges --pretty=format:'%h %<(14)%Cblue%ar%Creset %<(14,trunc)%aN %Cgreen%s%Creset %C(auto)%d%Creset'
   main = "!f() { git co $(fish -c '__git_main'); }; f"
@@ -142,8 +142,8 @@
   unskip = update-index --no-skip-worktree
   skipped = !(git ls-files -v | grep '^S')
   sreset = reset --soft
-  sundo = reset --soft head^
+  sundo = reset --soft HEAD~1
   unstage = restore --staged
   wip   =  !"wip()  { git add .; git commit -a -m 'WIP [ci skip]' --no-verify; }; wip"     # basically an immediate commit that u want in you reflog
-  wipr  =  !"wipr() { git reset --soft HEAD~; git reset ; }; wipr"   # undo last commit (works well with gwip) - watch out though
+  wipr  =  !"wipr() { git reset --soft HEAD~; git reset ; }; wipr"   # undo last commit (works well with wip) - watch out though
   workon = "!f(){ git fetch && git checkout -b \"$1\" $(git symbolic-ref refs/remotes/origin/HEAD | sed \"s@^refs/remotes/@@\"); };f"
