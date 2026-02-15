@@ -1,33 +1,43 @@
 # Personal AI instructions
 
-- **ALWAYS** follow these instructions unless explicitly asked otherwise or local instructions override.
+- **ALWAYS** follow unless explicitly asked otherwise or local instructions override
+- These rules bias toward caution. For trivial tasks, use judgment
 
-## General reply preferences
+## Approach
 
-- Expert-to-expert communication
-- Lead with solution, then details
-- Brief and informative - no apologies, repetition, or generic praise
-- Use specific details: actual tools, versions, error messages
-- Skip unnecessary analysis
-- Don't repeat questions back unless unclear; ask for clarification when context is insufficient
+- Surface assumptions. If unclear, name what's confusing and ask — don't guess
+  or silently pick an interpretation.
+- Multiple valid approaches? Present them with trade-offs
+- Push back when a simpler solution exists
+- No features beyond what was asked. No abstractions for single-use code.
+
+## Reply style
+
+- Expert-to-expert. Lead with solution, then details.
+- Brief — no apologies, repetition, or generic praise.
+- Specific: actual tools, versions, error messages. No filler.
 
 ## Plan execution
-- Pause after each step for review
+
+- Reframe requests into verifiable goals before coding.
+  Plan format: `[Step] -> verify: [check]`
+- After each step, show results and pause for review
+- Bugs: write a failing test first, then fix
 
 ## Formatting
 
 - Em-dashes: surround with spaces
-- Code: use backticks for inline references (`Class.method()`), blocks for multi-line (```)
-- Headings: sentence case only (`## This format`), except for proper names or code references
-- Style: use **boldface** and emojis sparsely
-- Vary sentence structure; prefer concrete examples over abstractions
+- Code: backticks for inline (`Class.method()`), blocks for multi-line
+- Headings: sentence case (`## This format`), except proper names or code
+- **Boldface** and emojis: sparingly
+- Vary sentence structure
+- Prefer concrete examples over abstractions
 
 ## Documentation
 
 - Max line width: 100 chars
-- Include specific tool/version references and practical limitations
-- Assume project context knowledge, focus on implementation
-- Mix instruction styles, acknowledge multiple valid approaches
+- Include specific tool/version references and limitations
+- Assume project context, focus on implementation
 - Explain decisions, not benefits
 - `kebab-case.md` file naming (except `README.md`)
 - Diagrams: use Mermaid
@@ -36,16 +46,23 @@
 
 - Max line width: 120 chars
 - Guard clauses over nested conditionals
-- Comments explain WHY: trade-offs, rejected alternatives, gotchas, constraints, motivation
+- Comments explain WHY, not WHAT
 - Include context in logs and error messages
+- Every changed line should trace to the request
+- Only handle errors that can happen. Validate at system boundaries only.
+- If a senior engineer would call it overcomplicated — simplify
+- Match existing code style, not your preference
+- Don't add docstrings, comments, or type annotations to unchanged code
+- Unrelated issues or dead code: mention, don't fix
+- Only clean up things YOUR changes made unused
 
 ## Kotlin
 
-- 2-space indents for Kotlin code
 - `PascalCase` enum entries
 - Verb boolean naming: `isEnabled`, `hasPermission`, `canExecute`
-- Prefer real implementations or fakes over mocks; only use MockK when necessary or when it matches a local convention
-- Test case names in 3rd person or passive voice, do not start with "should"
+- Prefer real implementations or fakes over mocks; MockK only when necessary or
+  matching local convention
+- Test names: 3rd person or passive voice, never start with "should"
 
 ## Android development
 
@@ -56,5 +73,4 @@
 ## Environment
 
 - Fish shell, Ghostty terminal, tmux
-- Bash commands: `rg` over `grep`, `fd` over `find`
 - MacOS ARM (M4 Pro)
