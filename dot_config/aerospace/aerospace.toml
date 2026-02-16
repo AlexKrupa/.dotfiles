@@ -135,7 +135,11 @@ accordion-padding = 20
     run = 'move-node-to-workspace O'
 
 [[on-window-detected]]
-    if.app-id = 'com.tinyspeck.slackmacgap'
+    if.app-id = 'com.apple.Finder'
+    run = 'move-node-to-workspace O'
+
+[[on-window-detected]]
+    if.app-id = 'com.apple.iCal'
     run = 'move-node-to-workspace P'
 
 [[on-window-detected]]
@@ -144,6 +148,10 @@ accordion-padding = 20
 
 [[on-window-detected]]
     if.app-id = 'md.obsidian'
+    run = 'move-node-to-workspace P'
+
+[[on-window-detected]]
+    if.app-id = 'com.tinyspeck.slackmacgap'
     run = 'move-node-to-workspace P'
 
 [[on-window-detected]]
