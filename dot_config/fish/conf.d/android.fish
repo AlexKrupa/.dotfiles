@@ -362,6 +362,28 @@ function and-font-scale --description 'Get or set device font scale'
   adb shell settings put system font_scale $scale
 end
 
+# Usage: and-anim-scale [scale]  (e.g. 0.5, 0 to disable, omit to get current values)
+function and-anim-scale --description 'Get or set device animation speeds'
+  if not __require_device_selection
+    return 1
+  end
+
+  if test (count $argv) -lt 1
+    echo "window_animation_scale:" (adb shell settings get global window_animation_scale)
+    echo "transition_animation_scale:" (adb shell settings get global transition_animation_scale)
+    echo "animator_duration_scale:" (adb shell settings get global animator_duration_scale)
+    return
+  end
+
+  set -l scale $argv[1]
+
+  echo Setting animation speeds to $scale on $ANDROID_SERIAL
+
+  adb shell settings put global window_animation_scale $scale
+  adb shell settings put global transition_animation_scale $scale
+  adb shell settings put global animator_duration_scale $scale
+end
+
 function and-screen-size --description 'Set device screen resolution'
   if test (count $argv) -lt 1
     echo "Usage: and-screen-size <size>" >&2
