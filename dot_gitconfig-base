@@ -98,6 +98,29 @@
 	rss = !gs rs && gs sr
 	rsss = !gs rs && gs sr && gs ss
 [alias]
+  # Rebase, cherry-pick, merge
+  cp = cherry-pick
+  cpa = cherry-pick --abort
+  cpc = !(git add . && git cherry-pick --continue --no-edit)
+  ma = merge --abort
+  mc = !(git add . && git merge --continue --no-edit)
+  ra = rebase --abort
+  rc = !(git add . && git rebase --continue)
+  rs = rebase --skip
+
+  # Rebase interactive
+  ri = rebase -i
+  rias = rebase -i --autosquash
+  riasom = rebase -i --autosquash origin/main
+
+  # Rebase onto
+  rbob = "!f() { git rebase --onto $1 $1@{1} $2; }; f"
+  rboc = "!f() { git rbob $(git rev-parse --abbrev-ref HEAD) $1; }; f"
+  rbocf = !fish -c 'gbf | xargs git rboc'
+  rcob = "!f() { git rbob $1 $(git rev-parse --abbrev-ref HEAD); }; f"
+  rcobf = !fish -c 'gbf | xargs git rcob'
+
+  # Commit
   abs = !(git add . && git absorb --force)
   c = commit -am
   ca = !(git add . && git commit --amend)
@@ -105,47 +128,44 @@
   cane = !(git add . && git commit --amend --no-edit)
   canenv = !(git add . && git commit --amend --no-edit --no-verify)
   cf = "!f() { !(git add . && git commit --fixup $1) }; f"
-  cleanup = !(git po && git dm)
+
+  # Checkout
   co = checkout
   cob = checkout -b
   cof = !fish -c 'gbf | xargs git checkout'
-  code-changes = !(git log --format=format: --name-only | egrep -v '^$' | sort | uniq -c | sort -rg | head -50)
-  cp = cherry-pick
-  cpa = cherry-pick --abort
-  cpc = !(git add . && git cherry-pick --continue --no-edit)
   ctf = !(git tag | fzf --preview \"git show {}\"| xargs git checkout)
-  dm = !git branch --merged | grep -v '*' | xargs -n 1 git branch -d
-  fpush = push --force-with-lease
-  fu = !(git pomr && git fpush)
-  hist = log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all
-  hreset = reset --hard
-  hundo = reset --hard HEAD~1
-  lfsp = lfs push origin head
-  lg = log --graph --no-merges --pretty=format:'%h %<(14)%Cblue%ar%Creset %<(14,trunc)%aN %Cgreen%s%Creset %C(auto)%d%Creset'
   main = "!f() { git co $(fish -c '__git_main'); }; f"
-  ma = merge --abort
-  mc = merge --continue --no-edit
-  po = remote prune origin
-  pom = pull origin main --no-edit
-  pomr = pull origin main --autostash --rebase
-  pras = pull --rebase --autostash
-  ra = rebase --abort
-  rbob = "!f() { git rebase --onto $1 $1@{1} $2; }; f"
-  rboc = "!f() { git rbob $(git rev-parse --abbrev-ref HEAD) $1; }; f"
-  rbocf = !fish -c 'gbf | xargs git rboc'
-  rc = !(git add . && git rebase --continue)
-  rcob = "!f() { git rbob $1 $(git rev-parse --abbrev-ref HEAD); }; f"
-  rcobf = !fish -c 'gbf | xargs git rcob'
-  refb="!f() { !(git reflog | egrep -io \"moving from ([^[:space:]]+)\" | awk '{ print NR \" - \" $3 }' | head -n 5) }; f"
-  ri = rebase -i
-  rias = rebase -i --autosquash
-  riasom = rebase -i --autosquash origin/main
-  rs = rebase --skip
+  root = rev-parse --show-toplevel
+
+  # Log
+  code-changes = !(git log --format=format: --name-only | egrep -v '^$' | sort | uniq -c | sort -rg | head -50)
+  hist = log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all
+  lg = log --graph --no-merges --pretty=format:'%h %<(14)%Cblue%ar%Creset %<(14,trunc)%aN %Cgreen%s%Creset %C(auto)%d%Creset'
+
+  # Cleanup
+  cleanup = !(git remote prune origin && git dm)
+  dm = !git branch --merged | grep -v '*' | xargs -n 1 git branch -d
+
+  # Skip (local ignore)
   skip = update-index --skip-worktree
   unskip = update-index --no-skip-worktree
   skipped = !(git ls-files -v | grep '^S')
+
+  # Reset
+  hreset = reset --hard
   sreset = reset --soft
+  hundo = reset --hard HEAD~1
   sundo = reset --soft HEAD~1
+
+  # Pull/push
+  fpush = push --force-with-lease
+  fu = !(git pomr && git fpush)
+  pom = pull origin main --no-edit
+  pomr = pull origin main --autostash --rebase
+  pras = pull --rebase --autostash
+
+  lfsp = lfs push origin head
+  refb="!f() { !(git reflog | egrep -io \"moving from ([^[:space:]]+)\" | awk '{ print NR \" - \" $3 }' | head -n 5) }; f"
   unstage = restore --staged
   wip   =  !"wip()  { git add .; git commit -a -m 'WIP [ci skip]' --no-verify; }; wip"     # basically an immediate commit that u want in you reflog
   wipr  =  !"wipr() { git reset --soft HEAD~; git reset ; }; wipr"   # undo last commit (works well with wip) - watch out though
