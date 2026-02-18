@@ -94,6 +94,9 @@
   all = true
   crFormat = url
   crStatus = true
+[spice "shorthand"]
+	rss = !gs rs && gs sr
+	rsss = !gs rs && gs sr && gs ss
 [alias]
   abs = !(git add . && git absorb --force)
   c = commit -am
