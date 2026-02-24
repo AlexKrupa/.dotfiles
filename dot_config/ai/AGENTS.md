@@ -44,6 +44,7 @@
 
 ## General code
 
+- Use context7 MCP for documentation
 - Max line width: 120 chars
 - Guard clauses over nested conditionals
 - Comments explain WHY, not WHAT
