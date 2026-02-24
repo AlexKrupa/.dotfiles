@@ -1,3 +1,5 @@
+cache = true
+
 [default_session]
 preview_command = "ls {}"
 
