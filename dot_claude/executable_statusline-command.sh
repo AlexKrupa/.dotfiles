@@ -3,6 +3,7 @@
 input=$(cat)
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir')
+cwd="${cwd/#$HOME/\~}"
 model=$(echo "$input" | jq -r '.model.display_name')
 
 # Shorten path: first letter of each component except last
