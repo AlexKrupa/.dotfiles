@@ -12,7 +12,11 @@ len=${#parts[@]}
 if [ $len -gt 1 ]; then
   short=""
   for ((i = 0; i < len - 1; i++)); do
-    [ -n "${parts[$i]}" ] && short="$short/${parts[$i]:0:1}"
+    if [ -n "${parts[$i]}" ]; then
+      seg="${parts[$i]}"
+      [[ "$seg" =~ ^([^[:alnum:]]*[[:alnum:]])(.*)$ ]] && seg="${BASH_REMATCH[1]}"
+      short="$short/$seg"
+    fi
   done
   short="$short/${parts[$len - 1]}"
   short="${short#/}"
@@ -39,17 +43,8 @@ m=$(echo "$model" | sed 's/Claude //' | sed 's/ Sonnet//')
 # Extract context window fields
 pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 win_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
-in_tok=$(echo "$input" | jq -r '.context_window.current_usage.input_tokens // empty')
-out_tok=$(echo "$input" | jq -r '.context_window.current_usage.output_tokens // empty')
-cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // empty')
-cache_write=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // empty')
 cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
 vim_mode=$(echo "$input" | jq -r '.vim.mode // empty')
-
-# Format token count as Nk (divide by 1000, integer)
-fmt_k() {
-  if [ -z "$1" ]; then echo "?"; else echo "$(( $1 / 1000 ))k"; fi
-}
 
 # Format window size: 1000000 -> 1M, otherwise Nk
 fmt_win() {
@@ -82,17 +77,13 @@ fi
 # Line 2: path, git
 printf "\033[36m%s\033[0m%s\n" "$short" "$git_info"
 
-# Line 3: [Model] PCT% WINk | ⇅INk/OUTk ♻CRk/CWk | $COST
+# Line 3: Model | PCT% WINk | $COST
 pct_display="${pct:-?}"
 [ "$pct_display" != "?" ] && pct_display="${pct_display%.*}"
 win_display=$(fmt_win "$win_size")
 
-printf "[%s] $(pct_color "$pct")%s%%\033[0m %s \033[2m| ⇅%s/%s ♻%s/%s | \$%s\033[0m" \
+printf "%s \033[2m|\033[0m $(pct_color "$pct")%s%%\033[0m %s \033[2m| \$%s\033[0m" \
   "$m" \
   "$pct_display" \
   "$win_display" \
-  "$(fmt_k "$in_tok")" \
-  "$(fmt_k "$out_tok")" \
-  "$(fmt_k "$cache_read")" \
-  "$(fmt_k "$cache_write")" \
   "$([ -n "$cost" ] && printf '%.2f' "$cost" || echo '?')"
