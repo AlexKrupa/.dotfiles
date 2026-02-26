@@ -37,5 +37,63 @@ fi
 t=$(date +%H:%M:%S)
 m=$(echo "$model" | sed 's/Claude //' | sed 's/ Sonnet//')
 
-printf "\033[36m%s\033[0m%s \033[2m%s [%s]\033[0m" "$short" "$git_info" "$t" "$m"
+# Extract context window fields
+pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+win_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
+in_tok=$(echo "$input" | jq -r '.context_window.current_usage.input_tokens // empty')
+out_tok=$(echo "$input" | jq -r '.context_window.current_usage.output_tokens // empty')
+cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // empty')
+cache_write=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // empty')
+cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
+vim_mode=$(echo "$input" | jq -r '.vim.mode // empty')
 
+# Format token count as Nk (divide by 1000, integer)
+fmt_k() {
+  if [ -z "$1" ]; then echo "?"; else echo "$(( $1 / 1000 ))k"; fi
+}
+
+# Format window size: 1000000 -> 1M, otherwise Nk
+fmt_win() {
+  if [ -z "$1" ]; then echo "?";
+  elif [ "$1" -ge 1000000 ]; then echo "$(( $1 / 1000000 ))M";
+  else echo "$(( $1 / 1000 ))k"; fi
+}
+
+# Traffic light color for context percentage
+pct_color() {
+  if [ -z "$1" ]; then printf '\033[2m';
+  else
+    local v="${1%.*}"
+    if [ "$v" -gt 80 ]; then printf '\033[31m';
+    elif [ "$v" -ge 50 ]; then printf '\033[33m';
+    else printf '\033[32m'; fi
+  fi
+}
+
+# Line 1 (optional): vim mode
+if [ -n "$vim_mode" ]; then
+  upper_mode=$(echo "$vim_mode" | tr '[:lower:]' '[:upper:]')
+  if [ "$upper_mode" = "INSERT" ]; then
+    printf '\033[33m-- %s --\033[0m\n' "$upper_mode"
+  else
+    printf '\033[32m-- %s --\033[0m\n' "$upper_mode"
+  fi
+fi
+
+# Line 2: path, git, time
+printf "\033[36m%s\033[0m%s \033[2m%s\033[0m\n" "$short" "$git_info" "$t"
+
+# Line 3: [Model] PCT% WINk | ⇅INk/OUTk ♻CRk/CWk | $COST
+pct_display="${pct:-?}"
+[ "$pct_display" != "?" ] && pct_display="${pct_display%.*}"
+win_display=$(fmt_win "$win_size")
+
+printf "[%s] $(pct_color "$pct")%s%%\033[0m %s \033[2m| ⇅%s/%s ♻%s/%s | \$%s\033[0m" \
+  "$m" \
+  "$pct_display" \
+  "$win_display" \
+  "$(fmt_k "$in_tok")" \
+  "$(fmt_k "$out_tok")" \
+  "$(fmt_k "$cache_read")" \
+  "$(fmt_k "$cache_write")" \
+  "$([ -n "$cost" ] && printf '%.2f' "$cost" || echo '?')"
