@@ -34,7 +34,6 @@ if git -C "$cwd" rev-parse --git-dir &>/dev/null; then
   fi
 fi
 
-t=$(date +%H:%M:%S)
 m=$(echo "$model" | sed 's/Claude //' | sed 's/ Sonnet//')
 
 # Extract context window fields
@@ -80,8 +79,8 @@ if [ -n "$vim_mode" ]; then
   fi
 fi
 
-# Line 2: path, git, time
-printf "\033[36m%s\033[0m%s \033[2m%s\033[0m\n" "$short" "$git_info" "$t"
+# Line 2: path, git
+printf "\033[36m%s\033[0m%s\n" "$short" "$git_info"
 
 # Line 3: [Model] PCT% WINk | ⇅INk/OUTk ♻CRk/CWk | $COST
 pct_display="${pct:-?}"
