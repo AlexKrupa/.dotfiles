@@ -28,6 +28,7 @@
 ## Formatting
 
 - Prose: ASCII only, no typographic/Unicode special characters (but fine in tables, diagrams, code)
+- No en- or em-dashes - use single dashes instead
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
 - **Boldface** and emojis: use sparingly
