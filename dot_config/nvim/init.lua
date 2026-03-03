@@ -1074,6 +1074,91 @@ require('lazy').setup {
     },
   },
 
+  -- Diagram: Render mermaid diagrams inline in markdown
+  {
+    '3rd/diagram.nvim',
+    ft = { 'markdown' },
+    dependencies = {
+      {
+        '3rd/image.nvim',
+        opts = {
+          backend = 'kitty',
+          max_height_window_percentage = 80,
+        },
+      },
+    },
+    config = function()
+      require('diagram').setup {
+        -- Defer BufWinEnter to let render-markdown.nvim finish decorating first
+        events = {
+          render_buffer = { 'InsertLeave', 'TextChanged' },
+          clear_buffer = { 'BufLeave' },
+        },
+        renderer_options = {
+          mermaid = {
+            background = 'transparent',
+            theme = 'dark',
+            scale = 2,
+          },
+        },
+      }
+
+      -- Fix: image.nvim virt_lines count doesn't include render_offset_top,
+      -- so the image pixels extend past the virtual padding by 1 row.
+      -- Zero out render_offset_top to keep pixels aligned with virt_lines.
+      local image_api = require 'image'
+      local orig_from_file = image_api.from_file
+      image_api.from_file = function(path, opts)
+        if opts then
+          opts.render_offset_top = 0
+        end
+        return orig_from_file(path, opts)
+      end
+      vim.api.nvim_create_autocmd('BufWinEnter', {
+        pattern = '*.md',
+        callback = function()
+          vim.defer_fn(function()
+            require('diagram').render()
+          end, 50)
+        end,
+      })
+    end,
+  },
+
+  -- Markdown Preview: Browser-based markdown preview
+  {
+    'iamcco/markdown-preview.nvim',
+    cmd = { 'MarkdownPreviewToggle', 'MarkdownPreview', 'MarkdownPreviewStop' },
+    ft = { 'markdown' },
+    build = function()
+      require('lazy').load { plugins = { 'markdown-preview.nvim' } }
+      vim.fn['mkdp#util#install']()
+    end,
+    keys = {
+      { '<leader>mp', '<cmd>MarkdownPreviewToggle<cr>', desc = 'Markdown preview (browser)' },
+    },
+  },
+
+  -- Render Markdown: Inline markdown rendering
+  {
+    'MeanderingProgrammer/render-markdown.nvim',
+    dependencies = { 'nvim-treesitter/nvim-treesitter', 'echasnovski/mini.nvim' },
+    ft = { 'markdown' },
+    opts = {},
+    keys = {
+      {
+        '<leader>mr',
+        function()
+          vim.cmd 'RenderMarkdown toggle'
+          vim.defer_fn(function()
+            require('diagram').render()
+          end, 50)
+        end,
+        desc = 'Markdown render toggle',
+      },
+    },
+  },
+
   -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- put them in the right spots if you want.
@@ -1085,13 +1170,6 @@ require('lazy').setup {
   --
   -- require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
-
-  -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
-  --    This is the easiest way to modularize your config.
-  --
-  --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  --    For additional information, see `:help lazy.nvim-lazy.nvim-structuring-your-plugins`
-  -- { import = 'custom.plugins' },
 }
 
 -- The line beneath this is called `modeline`. See `:help modeline`

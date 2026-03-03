@@ -94,14 +94,16 @@ brew "uv"
 # brew "python@3.13"
 
 # Mac apps
+# FREEZE: Some upgrades cause OS freeze on upgrades due to permission issues, better install and upgrade manually
+
 # cask "1password"
 # cask "1password-cli" # required for Raycast/Alfred integration
 cask "nikitabobko/tap/aerospace" # tiling window manager
-cask "alt-tab" # alt-tab replacement
+# cask "alt-tab" # FREEZE
 # cask "appcleaner" # app uninstaller
 cask "battery" # stop charge at 80%
 # cask "betterdisplay" # display manager
-# cask "bettertouchtool" # causes OS freeze on upgrades due to permission issues, better install and upgrade manually
+# cask "bettertouchtool" # FREEZE
 # cask "bruno" # API-client, Postman alternative
 # cask "calibre" # ebook manager
 # cask "discord"
