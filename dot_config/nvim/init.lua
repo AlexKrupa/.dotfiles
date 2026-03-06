@@ -1,4 +1,55 @@
 vim.cmd 'source ~/.vimrc'
+  -- Diagram: Render mermaid diagrams inline in markdown
+  {
+    '3rd/diagram.nvim',
+    ft = { 'markdown' },
+    dependencies = {
+      {
+        '3rd/image.nvim',
+        opts = {
+          backend = 'kitty',
+          max_height_window_percentage = 80,
+        },
+      },
+    },
+    config = function()
+      require('diagram').setup {
+        -- Defer BufWinEnter to let render-markdown.nvim finish decorating first
+        events = {
+          render_buffer = { 'InsertLeave', 'TextChanged' },
+          clear_buffer = { 'BufLeave' },
+        },
+        renderer_options = {
+          mermaid = {
+            background = 'transparent',
+            theme = 'dark',
+            scale = 2,
+          },
+        },
+      }
+
+      -- Fix: image.nvim virt_lines count doesn't include render_offset_top,
+      -- so the image pixels extend past the virtual padding by 1 row.
+      -- Zero out render_offset_top to keep pixels aligned with virt_lines.
+      local image_api = require 'image'
+      local orig_from_file = image_api.from_file
+      image_api.from_file = function(path, opts)
+        if opts then
+          opts.render_offset_top = 0
+        end
+        return orig_from_file(path, opts)
+      end
+      vim.api.nvim_create_autocmd('BufWinEnter', {
+        pattern = '*.md',
+        callback = function()
+          vim.defer_fn(function()
+            require('diagram').render()
+          end, 50)
+        end,
+      })
+    end,
+  },
+
 
 -- Set <space> as the leader key
 -- See `:help mapleader`
@@ -1074,57 +1125,6 @@ require('lazy').setup {
     },
   },
 
-  -- Diagram: Render mermaid diagrams inline in markdown
-  {
-    '3rd/diagram.nvim',
-    ft = { 'markdown' },
-    dependencies = {
-      {
-        '3rd/image.nvim',
-        opts = {
-          backend = 'kitty',
-          max_height_window_percentage = 80,
-        },
-      },
-    },
-    config = function()
-      require('diagram').setup {
-        -- Defer BufWinEnter to let render-markdown.nvim finish decorating first
-        events = {
-          render_buffer = { 'InsertLeave', 'TextChanged' },
-          clear_buffer = { 'BufLeave' },
-        },
-        renderer_options = {
-          mermaid = {
-            background = 'transparent',
-            theme = 'dark',
-            scale = 2,
-          },
-        },
-      }
-
-      -- Fix: image.nvim virt_lines count doesn't include render_offset_top,
-      -- so the image pixels extend past the virtual padding by 1 row.
-      -- Zero out render_offset_top to keep pixels aligned with virt_lines.
-      local image_api = require 'image'
-      local orig_from_file = image_api.from_file
-      image_api.from_file = function(path, opts)
-        if opts then
-          opts.render_offset_top = 0
-        end
-        return orig_from_file(path, opts)
-      end
-      vim.api.nvim_create_autocmd('BufWinEnter', {
-        pattern = '*.md',
-        callback = function()
-          vim.defer_fn(function()
-            require('diagram').render()
-          end, 50)
-        end,
-      })
-    end,
-  },
-
   -- Markdown Preview: Browser-based markdown preview
   {
     'iamcco/markdown-preview.nvim',
@@ -1136,26 +1136,6 @@ require('lazy').setup {
     end,
     keys = {
       { '<leader>mp', '<cmd>MarkdownPreviewToggle<cr>', desc = 'Markdown preview (browser)' },
-    },
-  },
-
-  -- Render Markdown: Inline markdown rendering
-  {
-    'MeanderingProgrammer/render-markdown.nvim',
-    dependencies = { 'nvim-treesitter/nvim-treesitter', 'echasnovski/mini.nvim' },
-    ft = { 'markdown' },
-    opts = {},
-    keys = {
-      {
-        '<leader>mr',
-        function()
-          vim.cmd 'RenderMarkdown toggle'
-          vim.defer_fn(function()
-            require('diagram').render()
-          end, 50)
-        end,
-        desc = 'Markdown render toggle',
-      },
     },
   },
 
