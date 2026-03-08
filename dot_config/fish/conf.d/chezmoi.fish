@@ -5,9 +5,9 @@ function chezmoi-work
             $argv
 end
 
-function chezmoi-apply-all
-    echo "Applying personal dotfiles..."
-    chezmoi apply
-    echo "Applying work dotfiles..."
-    chezmoi-work apply
+function chezmoi-update-all
+    echo "Updating personal dotfiles..."
+    chezmoi update
+    echo "Updating work dotfiles..."
+    chezmoi-work update
 end
