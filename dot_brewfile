@@ -44,6 +44,7 @@ brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
 brew "sesh" # tmux session manager (used with fzf)
 brew "koekeishiya/formulae/skhd" # keyboard shortcuts
+brew "slides" # markdown slides, terminal presentation
 brew "terminal-notifier"
 brew "tlrc" # tldr - docs, manpages alternative
 brew "tokei" # project metric counter (e.g. LOC, complexity)
