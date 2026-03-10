@@ -4,7 +4,7 @@ eval "$(gs shell completion fish)"
 alias g "git"
 alias lg "lazygit"
 alias gs "git-spice"
-alias gitc "$EDITOR ~/.gitconfig-base"
+alias gitc '$EDITOR ~/.gitconfig-base'
 
 set -Ux GIT_SPICE_NO_GS_WARNING 1
 

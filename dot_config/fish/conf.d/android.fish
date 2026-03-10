@@ -4,7 +4,6 @@
 # Environment
 # ==============================================================================
 
-set -gx JAVA_HOME (/usr/libexec/java_home)
 set -gx ANDROID_HOME $HOME/Library/Android/sdk
 set -gx ANDROID_SDK $ANDROID_HOME
 set -gx ANDROID_SDK_ROOT $ANDROID_HOME
