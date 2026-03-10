@@ -6,7 +6,44 @@
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0"
   },
   "permissions": {
-    "defaultMode": "default"
+    "defaultMode": "default",
+    "allow": [
+      "Bash(./gradlew *)",
+      "Bash(adb *)",
+      "Bash(cat *)",
+      "Bash(diff *)",
+      "Bash(echo *)",
+      "Bash(env)",
+      "Bash(file *)",
+      "Bash(find *)",
+      "Bash(git branch -a)",
+      "Bash(git branch -r)",
+      "Bash(git branch)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git remote -v)",
+      "Bash(git rev-parse *)",
+      "Bash(git show *)",
+      "Bash(git stash list)",
+      "Bash(git status *)",
+      "Bash(git tag *)",
+      "Bash(glab mr checkout:*)",
+      "Bash(glab mr diff:*)",
+      "Bash(glab mr view:*)",
+      "Bash(grep *)",
+      "Bash(gs branch:*)",
+      "Bash(gs log:*)",
+      "Bash(head *)",
+      "Bash(java *)",
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(rg *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(which *)",
+      "mcp__context7__query-docs",
+      "mcp__context7__resolve-library-id"
+    ]
   },
   "model": "opus",
   "statusLine": {
@@ -15,10 +52,11 @@
   },
   "enabledPlugins": {
     "kotlin-lsp@claude-plugins-official": true,
-    "figma@claude-plugins-official": false,
-    "atlassian@claude-plugins-official": false,
-    "superpowers@superpowers-marketplace": true
+    "superpowers@superpowers-marketplace": true,
+    "context7@claude-plugins-official": true,
+    "serena@claude-plugins-official": false
   },
   "alwaysThinkingEnabled": true,
-  "prefersReducedMotion": false
+  "prefersReducedMotion": false,
+  "effortLevel": "high"
 }
