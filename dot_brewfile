@@ -13,7 +13,7 @@ tap "buo/cask-upgrade"  # better cask upgrading (see `cu`)
 brew "7zip"
 brew "bash"
 brew "bat" # cat alternative with syntax highlighting
-brew "FelixKratz/formulae/borders" # focused window borders
+# brew "FelixKratz/formulae/borders" # focused window borders
 brew "age" # file encryption
 brew "chezmoi" # dotfiles management
 brew "coreutils" # for gnu date
@@ -28,7 +28,7 @@ brew "fx" # JSON viewer / processor
 brew "fzf" # fuzzy finder
 brew "gnupg" # "openssl"
 brew "grc" # command output colorizer
-brew "gum" # easy CLI tools
+# brew "gum" # easy CLI tools
 # brew "httpie" # HTTP client, curl alternative
 brew "htop" # system monitor
 brew "imagemagick" # image converter / compressor
@@ -43,9 +43,8 @@ brew "renameutils" # bulk renaming / copying
 brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
 brew "sesh" # tmux session manager (used with fzf)
-brew "koekeishiya/formulae/skhd" # keyboard shortcuts
+# brew "koekeishiya/formulae/skhd" # keyboard shortcuts
 brew "slides" # markdown slides, terminal presentation
-brew "terminal-notifier"
 brew "tlrc" # tldr - docs, manpages alternative
 brew "tokei" # project metric counter (e.g. LOC, complexity)
 brew "uv" # Python virtual env management
