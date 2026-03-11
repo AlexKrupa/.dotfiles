@@ -9,26 +9,26 @@ initscript {
 
 allprojects {
     afterEvaluate {
-        if (!plugins.hasPlugin("com.adarshr.gradle.testlogger")) {
+        if (extensions.findByName("testlogger") == null) {
             apply<com.adarshr.gradle.testlogger.TestLoggerPlugin>()
-        }
-        extensions.configure<com.adarshr.gradle.testlogger.TestLoggerExtension> {
-            showExceptions = true
-            showStackTraces = true
-            showFullStackTraces = false
-            showCauses = true
-            slowThreshold = 1000
-            showSummary = true
-            showSimpleNames = true
-            showPassed = false
-            showSkipped = false
-            showFailed = true
-            // showOnlySlow = false
-            showStandardStreams = false
-            showPassedStandardStreams = true
-            showSkippedStandardStreams = true
-            showFailedStandardStreams = true
-            logLevel = LogLevel.LIFECYCLE
+            extensions.configure<com.adarshr.gradle.testlogger.TestLoggerExtension> {
+                showExceptions = true
+                showStackTraces = true
+                showFullStackTraces = false
+                showCauses = true
+                slowThreshold = 1000
+                showSummary = true
+                showSimpleNames = true
+                showPassed = false
+                showSkipped = false
+                showFailed = true
+                // showOnlySlow = false
+                showStandardStreams = false
+                showPassedStandardStreams = true
+                showSkippedStandardStreams = true
+                showFailedStandardStreams = true
+                logLevel = LogLevel.LIFECYCLE
+            }
         }
     }
 }
