@@ -34,7 +34,7 @@ brew "htop" # system monitor
 brew "imagemagick" # image converter / compressor
 brew "jless" # JSON viewer
 brew 'jq' # grep for JSON
-brew 'noahgorstein/tap/jqp' # jq TUI
+brew 'jqp' # jq TUI
 brew "lsd" # better ls
 brew "neovim"
 brew "node"
