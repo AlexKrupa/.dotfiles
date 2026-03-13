@@ -32,7 +32,7 @@ status is-interactive; and begin
     set fish_tmux_autostart true
 end
 
-alias tmuxc '$EDITOR ~/.config/tmux/tmux.conf'
+alias tmuxc "$EDITOR ~/.config/tmux/tmux.conf"
 alias tmuxr "tmux source-file ~/.config/tmux/tmux.conf"
 alias tms tmux-split
 

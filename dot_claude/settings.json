@@ -6,7 +6,6 @@
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0"
   },
   "permissions": {
-    "defaultMode": "default",
     "allow": [
       "Bash(./gradlew *)",
       "Bash(adb *)",
@@ -43,7 +42,8 @@
       "Bash(which *)",
       "mcp__context7__query-docs",
       "mcp__context7__resolve-library-id"
-    ]
+    ],
+    "defaultMode": "default"
   },
   "model": "opus",
   "statusLine": {
@@ -57,6 +57,6 @@
     "superpowers@claude-plugins-official": true
   },
   "alwaysThinkingEnabled": true,
-  "prefersReducedMotion": false,
-  "effortLevel": "high"
+  "effortLevel": "medium",
+  "prefersReducedMotion": false
 }
