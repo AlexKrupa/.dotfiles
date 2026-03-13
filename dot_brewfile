@@ -108,9 +108,9 @@ cask "handy" # speech-to-text
 # cask "homerow" # keyboard shortcuts for every button on the screen, paid, alt: shortcat
 cask "ghostty"
 # cask "google-drive"
-cask "google-chrome" # !restart-on-upgrade: Google Chrome:com.google.Chrome
+cask "google-chrome" # restart-on-upgrade: Google Chrome:com.google.Chrome
 cask "grandperspective" # disk space visualizer
-cask "firefox" # !restart-on-upgrade: firefox:org.mozilla.firefox
+cask "firefox" # restart-on-upgrade: firefox:org.mozilla.firefox
 # cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 # cask "imageoptim" # image compressor
@@ -121,7 +121,7 @@ cask "latest" # update all apps
 cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
 cask "lulu" # connection blocker
 # cask "marta" # file manager
-# cask "microsoft-edge" # !restart-on-upgrade: Google Chrome:com.google.Chrome
+# cask "microsoft-edge" # restart-on-upgrade: Google Chrome:com.google.Chrome
 # cask "middleclick" # trackpad middle-click with 3 fingers
 cask "mitmproxy" # for debugging network requests
 # cask "mullvadvpn"
