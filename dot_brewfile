@@ -23,6 +23,13 @@ brew "fd" # find alternative
 brew "ffmpeg" # video converter / compressor
 brew "fx" # JSON viewer / processor
 brew "fzf" # fuzzy finder
+brew "git"
+brew "git-delta" # git diff viewer
+brew "git-lfs" # git large file storage
+brew "git-spice" # git stack
+brew "gh" # GitHub
+brew "github-keygen"
+# brew "glab" # GitLab
 brew "gnupg" # "openssl"
 brew "grc" # command output colorizer
 # brew "gum" # easy CLI tools
@@ -43,6 +50,8 @@ brew "sesh" # tmux session manager (used with fzf)
 # brew "koekeishiya/formulae/skhd" # keyboard shortcuts
 brew "slides" # markdown slides, terminal presentation
 brew "tlrc" # tldr - docs, manpages alternative
+brew "tmux"
+brew "tpm" # tmux plugin manager
 brew "tokei" # project metric counter (e.g. LOC, complexity)
 brew "uv" # Python virtual env management
 # brew "yt-dlp" # YouTube downloader
@@ -53,47 +62,34 @@ brew "yazi" # file manager
 brew "ffmpegthumbnailer" # video file preview in yazi
 brew "poppler" # pdf preview in yazi
 
-# Git
-brew "git"
-brew "git-delta" # git diff viewer
-brew "git-lfs" # git large file storage
-brew "git-spice" # git stack
-brew "gh" # GitHub
-brew "github-keygen"
-# brew "glab" # GitLab
-
-# Tmux
-brew "tmux"
-# brew "tpm" # tmux plugin manager
-# brew "morantron/tmux-fingers/tmux-fingers" # tmux plugin for searching patterns
-
-# development / android (zulu)
+# Android / Java
 tap "mdogan/zulu"
 cask "zulu-jdk17"
 cask "zulu-jdk21"
 cask "zulu-jdk25"
-brew "kotlin"
-brew "gradle"
-brew "scrcpy" # screen mirroring
-brew "adb-enhanced" # adb with more features
-cask "android-platform-tools" # adb, fastboot
 brew "JakeWharton/repo/diffuse" # APK diff
+brew "adb-enhanced" # adb with more features
+brew "gradle"
+brew "kotlin"
 brew "mobile-dev-inc/tap/maestro" # UI automation
+brew "scrcpy" # screen mirroring
+cask "android-platform-tools" # adb, fastboot
 
-# development ## .rb
+# Ruby
 # brew "asdf"
 # brew "ruby-build"
 brew "rbenv"
 # brew "ruby-install"
 
-# development ## .py
+# Python
 brew "pyenv"
 brew "uv"
 # brew "python@3.13"
 
 # Mac apps
 # Some apps go stale when brew replaces the binary while running (accessibility/input-monitoring
-# apps, browsers). `brew-upgrade` auto-handles quit/restart for casks tagged restart-on-upgrade.
+# apps, browsers). `brew-upgrade` auto-handles quit/restart for casks tagged restart-on-upgrade
+# (prefix with ! to temporarily disable, e.g. `# !restart-on-upgrade:`).
 
 # cask "1password"
 # cask "1password-cli" # required for Raycast/Alfred integration
@@ -112,9 +108,9 @@ cask "handy" # speech-to-text
 # cask "homerow" # keyboard shortcuts for every button on the screen, paid, alt: shortcat
 cask "ghostty"
 # cask "google-drive"
-cask "google-chrome" # restart-on-upgrade: Google Chrome:com.google.Chrome
+cask "google-chrome" # !restart-on-upgrade: Google Chrome:com.google.Chrome
 cask "grandperspective" # disk space visualizer
-cask "firefox" # restart-on-upgrade: firefox:org.mozilla.firefox
+cask "firefox" # !restart-on-upgrade: firefox:org.mozilla.firefox
 # cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 # cask "imageoptim" # image compressor
@@ -125,7 +121,7 @@ cask "latest" # update all apps
 cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
 cask "lulu" # connection blocker
 # cask "marta" # file manager
-# cask "microsoft-edge" # browser
+# cask "microsoft-edge" # !restart-on-upgrade: Google Chrome:com.google.Chrome
 # cask "middleclick" # trackpad middle-click with 3 fingers
 cask "mitmproxy" # for debugging network requests
 # cask "mullvadvpn"

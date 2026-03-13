@@ -6,7 +6,7 @@ end
 function brew-upgrade --description 'Upgrade all packages, restart accessibility apps'
     # Parse apps that need quit/restart from Brewfile metadata
     set -l restart_apps
-    for line in (grep '# restart-on-upgrade:' ~/.brewfile)
+    for line in (grep '# restart-on-upgrade:' ~/.brewfile | grep -v '!restart-on-upgrade')
         set -l metadata (string match -r '# restart-on-upgrade:\s*(.+)' $line)[2]
         if test -n "$metadata"
             set -a restart_apps $metadata
