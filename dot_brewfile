@@ -91,7 +91,7 @@ brew "uv"
 # apps, browsers). `brew-upgrade` auto-handles quit/restart for casks tagged restart-on-upgrade
 # (prefix with ! to temporarily disable, e.g. `# !restart-on-upgrade:`).
 
-# cask "1password"
+# cask "1password" # restart-on-upgrade: 1Password:com.1password.1password
 # cask "1password-cli" # required for Raycast/Alfred integration
 cask "nikitabobko/tap/aerospace" # restart-on-upgrade: AeroSpace:bobko.aerospace
 cask "alt-tab" # restart-on-upgrade: AltTab:com.lwouis.alt-tab-macos

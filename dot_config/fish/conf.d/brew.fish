@@ -12,50 +12,48 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
     # Tag casks in ~/.brewfile with `# restart-on-upgrade: AppName:bundle.id`
     # (prefix with ! to temporarily disable).
 
+    # Upgrade formulae first (no app restart needed)
+    HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --formula
+
     # Parse apps that need quit/restart from Brewfile metadata
     set -l restart_apps
     for line in (grep '# restart-on-upgrade:' ~/.brewfile | grep -v '!restart-on-upgrade')
+        set -l cask_name (string match -r 'cask "([^"]+)"' $line)[2]
         set -l metadata (string match -r '# restart-on-upgrade:\s*(.+)' $line)[2]
-        if test -n "$metadata"
-            set -a restart_apps $metadata
+        if test -n "$metadata" -a -n "$cask_name"
+            set -a restart_apps "$cask_name:$metadata"
         end
     end
 
-    # Detect which tagged apps are running, quit them before upgrade
-    set -l was_running
+    # Upgrade tagged casks one-by-one: quit -> upgrade -> restart
     for entry in $restart_apps
-        set -l app_name (string split ':' $entry)[1]
+        set -l cask_name (string split ':' $entry)[1]
+        set -l app_name (string split ':' $entry)[2]
+        set -l bundle_id (string split ':' $entry)[3]
+
         if not pgrep -xq "$app_name"
+            HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
             continue
         end
-        set -a was_running $entry
+
         echo "Quitting $app_name..."
         osascript -e "tell application \"$app_name\" to quit" 2>/dev/null
-    end
-
-    # Wait for apps to quit, force-kill stragglers
-    if test (count $was_running) -gt 0
         sleep 1
-        for entry in $was_running
-            set -l app_name (string split ':' $entry)[1]
-            if pgrep -xq "$app_name"
-                echo "Force-killing $app_name..."
-                killall "$app_name" 2>/dev/null
-            end
+        if pgrep -xq "$app_name"
+            echo "Force-killing $app_name..."
+            killall "$app_name" 2>/dev/null
+            sleep 1
         end
-        sleep 1
-    end
 
-    HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --greedy
-    brew cleanup
+        HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
 
-    # Restart apps that were running before upgrade
-    for entry in $was_running
-        set -l app_name (string split ':' $entry)[1]
-        set -l bundle_id (string split ':' $entry)[2]
         echo "Restarting $app_name..."
         open -b "$bundle_id" -g
     end
+
+    # Upgrade remaining (non-tagged) casks
+    HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask --greedy
+    brew cleanup
 end
 
 function brew-kill --description 'Remove Homebrew lock files'
