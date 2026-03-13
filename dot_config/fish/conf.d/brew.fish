@@ -4,6 +4,14 @@ function brew-update --description 'Update Homebrew and show outdated'
 end
 
 function brew-upgrade --description 'Upgrade all packages, restart accessibility apps'
+    # Some apps (e.g. AltTab, LinearMouse, BetterTouchTool) hook into accessibility or
+    # input-monitoring APIs to intercept mouse/trackpad/keyboard events. If brew replaces
+    # the binary while the app is running, macOS may revoke its permissions or the app may
+    # crash - leaving input blocked or unresponsive until the app is relaunched.
+    # To avoid this, we quit tagged apps before upgrading and restart them after.
+    # Tag casks in ~/.brewfile with `# restart-on-upgrade: AppName:bundle.id`
+    # (prefix with ! to temporarily disable).
+
     # Parse apps that need quit/restart from Brewfile metadata
     set -l restart_apps
     for line in (grep '# restart-on-upgrade:' ~/.brewfile | grep -v '!restart-on-upgrade')
