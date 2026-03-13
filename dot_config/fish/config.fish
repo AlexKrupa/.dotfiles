@@ -1,8 +1,3 @@
-# Environment variables — always load
-set -gx XDG_CONFIG_HOME $HOME/.config
-set -gx EDITOR nvim
-set -gx VISUAL nvim
-
 # Skip interactive setup when loaded by IDE
 if set -q INTELLIJ_ENVIRONMENT_READER
   exit 0
@@ -33,8 +28,14 @@ if test -f ~/.config/fish/local.fish
   source ~/.config/fish/local.fish
 end
 
+function fish --wraps fish --description "Replace shell inside tmux, subshell otherwise"
+    if test (count $argv) -eq 0; and set -q TMUX
+        exec command fish
+    end
+    command fish $argv
+end
+
 alias fishc "$EDITOR ~/.config/fish/config.fish"
-alias fishr "source ~/.config/fish/**/*.fish"
 alias fishl "$EDITOR ~/.config/fish/local.fish"
 alias aerospacec "$EDITOR ~/.config/aerospace/aerospace.toml"
 alias ghosttyc "$EDITOR ~/.config/ghostty/config"
