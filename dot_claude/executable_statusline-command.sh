@@ -3,6 +3,7 @@
 input=$(cat)
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir')
+raw_cwd="$cwd"
 cwd="${cwd/#$HOME/\~}"
 model=$(echo "$input" | jq -r '.model.display_name')
 
@@ -26,13 +27,13 @@ fi
 
 # Git branch + dirty indicator
 git_info=""
-if git -C "$cwd" rev-parse --git-dir &>/dev/null; then
-  br=$(git -C "$cwd" --no-optional-locks branch --show-current 2>/dev/null \
-    || git -C "$cwd" --no-optional-locks rev-parse --short HEAD 2>/dev/null)
+if git -C "$raw_cwd" rev-parse --git-dir &>/dev/null; then
+  br=$(git -C "$raw_cwd" --no-optional-locks branch --show-current 2>/dev/null \
+    || git -C "$raw_cwd" --no-optional-locks rev-parse --short HEAD 2>/dev/null)
   if [ -n "$br" ]; then
     st=""
-    git -C "$cwd" --no-optional-locks diff --quiet 2>/dev/null \
-      && git -C "$cwd" --no-optional-locks diff --cached --quiet 2>/dev/null \
+    git -C "$raw_cwd" --no-optional-locks diff --quiet 2>/dev/null \
+      && git -C "$raw_cwd" --no-optional-locks diff --cached --quiet 2>/dev/null \
       || st="*"
     git_info=" on "$'\033[35m'"${br}${st}"$'\033[0m'
   fi

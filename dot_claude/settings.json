@@ -45,7 +45,20 @@
     ],
     "defaultMode": "default"
   },
-  "model": "sonnet",
+  "model": "opus",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/refresh-usage.sh"
+          }
+        ]
+      }
+    ]
+  },
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh"
@@ -59,13 +72,5 @@
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
-  "prefersReducedMotion": false,
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "bash ~/.claude/refresh-usage.sh" }]
-      }
-    ]
-  }
+  "prefersReducedMotion": false
 }
