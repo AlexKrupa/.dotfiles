@@ -35,7 +35,6 @@
 
 ## Documentation
 
-- Max line width: 100 chars
 - Include specific tool/version references and limitations
 - Assume project context knowledge, focus on implementation
 - Explain decisions, not benefits

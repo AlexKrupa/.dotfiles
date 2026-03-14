@@ -54,7 +54,8 @@
     "context7@claude-plugins-official": true,
     "kotlin-lsp@claude-plugins-official": true,
     "serena@claude-plugins-official": false,
-    "superpowers@claude-plugins-official": true
+    "superpowers@claude-plugins-official": true,
+    "superpowers@superpowers-marketplace": true
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
