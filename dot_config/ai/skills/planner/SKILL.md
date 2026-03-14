@@ -53,8 +53,8 @@ updated: 2026-03-14       # refresh on every modification
 Why this work exists and key constraints.
 
 ## Steps
-- [x] Completed step description -> verify: how you confirmed it
-- [ ] Next step description -> verify: acceptance check
+- [x] Completed step description -> verify: `gradle test` passes, new test covers edge case
+- [ ] Next step description -> verify: `curl -s localhost:8080/api/health` returns 200
 
 ## Decisions
 - Decision made and why (date)
