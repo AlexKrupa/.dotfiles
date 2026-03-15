@@ -25,15 +25,25 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
         end
     end
 
-    # Upgrade non-tagged casks first (no app restart needed)
-    set -l ignore_flags
-    for entry in $restart_apps
-        set -a ignore_flags --ignore=(string split ':' $entry)[1]
-    end
-    HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask --greedy $ignore_flags
-
-    # Upgrade tagged casks one-by-one: quit -> upgrade -> restart
+    # Get outdated casks once (reused for both non-tagged and tagged upgrades)
     set -l outdated_casks (brew outdated --cask --greedy --quiet)
+
+    # Collect tagged cask names for exclusion
+    set -l tagged_casks
+    for entry in $restart_apps
+        set -a tagged_casks (string split ':' $entry)[1]
+    end
+
+    # Upgrade non-tagged outdated casks
+    set -l bulk_casks
+    for cask in $outdated_casks
+        if not contains $cask $tagged_casks
+            set -a bulk_casks $cask
+        end
+    end
+    if test (count $bulk_casks) -gt 0
+        HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $bulk_casks
+    end
     for entry in $restart_apps
         set -l cask_name (string split ':' $entry)[1]
 
@@ -60,7 +70,7 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
         HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
 
         echo "Restarting $app_name..."
-        open -b "$bundle_id" -g
+        open -a "$app_name" -g
     end
 
     brew cleanup
