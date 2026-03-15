@@ -7,9 +7,10 @@ filter_mode = "global"
 filter_mode_shell_up_key_binding = "workspace"
 workspaces = true
 
-style = "compact"
+style = "auto"
 enter_accept = true
 show_preview = true
+show_tabs = false
 command_chaining = true
 
 history_filter = [
@@ -54,9 +55,22 @@ common_subcommands = [
   "tmux",
 ]
 common_prefix = ["sudo"]
+ignored_commands = [
+  "cd",
+  "clear",
+  "exit",
+  "ls",
+  "nvim",
+  "pwd",
+  "yazi",
+  "y", # yazi alias
+  "z",
+]
 
 [sync]
 records = true
 
 [tmux]
 enabled = true
+width = "80%"
+height = "60%"
