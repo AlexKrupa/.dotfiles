@@ -1,0 +1,17 @@
+[general]
+allow_concurrent_presets = true
+
+[defaults]
+tcp_port = 5829
+autorestart_on_crash = true
+
+[presets.MacBook]
+kanata_config = "~/.config/kanata/kanata.kbd"
+kanata_executable = "~/.config/kanata/kanata-sudo"
+autorun = true
+
+[presets.Voyager]
+kanata_config = "~/.config/kanata/voyager.kbd"
+kanata_executable = "~/.config/kanata/kanata-sudo"
+tcp_port = 5830
+autorun = true
