@@ -11,7 +11,7 @@ function upfind --description 'Search parent directories for a file'
 
     if [ -n "$p" ]
       echo "$p"
-      return 1
+      return 0
     end
 
     set -f dir (dirname $dir)

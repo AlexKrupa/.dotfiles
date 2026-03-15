@@ -9,6 +9,7 @@ fish_vi_key_bindings # Vim mode, fish_default_key_bindings for default
 fish_vi_cursor
 fx --comp fish | source
 zoxide init fish | source
+atuin init fish | source
 
 set fish_greeting # Disable the greeting
 set -g fish_cursor_default block

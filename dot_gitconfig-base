@@ -46,6 +46,7 @@
   prune = true
   pruneTags = true
   all = true
+  fsckObjects = true
 [pull]
   # This automatically runs git stash before a git rebase and git stash pop after. It basically passes --autostash to git rebase.
   autostash = true
@@ -97,6 +98,12 @@
 [spice "shorthand"]
 	rss = !gs rs && gs sr
 	rsss = !gs rs && gs sr && gs ss
+[column]
+  ui = auto
+[transfer]
+  fsckObjects = true
+[receive]
+  fsckObjects = true
 [alias]
   # Rebase, cherry-pick, merge
   cp = cherry-pick

@@ -33,5 +33,7 @@ clipboard-read = "allow"
 clipboard-trim-trailing-spaces = true
 clipboard-write = "allow"
 
+cursor-style-blink = false
+
 # Shift+Enter newline in Claude Code
 keybind = shift+enter=text:\x1b\r
