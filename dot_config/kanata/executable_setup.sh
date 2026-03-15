@@ -36,7 +36,7 @@ cat <<'EOF'
 Done. Remaining manual steps:
 
 1. Grant macOS permissions in System Settings > Privacy & Security:
-   - Input Monitoring: add kanata-tray-macos and kanata
+   - Input Monitoring: add kanata (and maybe kanata-tray macos if kanata alone doesn't work)
      /opt/homebrew/Cellar/kanata/<version>/bin/kanata  (real path, not the symlink)
    - Accessibility: same two binaries
    Use Cmd+Shift+G in the file picker to navigate to hidden paths.
