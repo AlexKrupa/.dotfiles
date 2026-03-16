@@ -69,8 +69,15 @@
     "context7@claude-plugins-official": true,
     "kotlin-lsp@claude-plugins-official": true,
     "serena@claude-plugins-official": false,
-    "superpowers@claude-plugins-official": true,
-    "superpowers@superpowers-marketplace": true
+    "superpowers@superpowers-dev": true
+  },
+  "extraKnownMarketplaces": {
+    "superpowers-dev": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers"
+      }
+    }
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",

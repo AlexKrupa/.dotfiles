@@ -49,26 +49,18 @@
 - Comments explain WHY, not WHAT
 - Include context in logs and error messages
 - Every changed line should trace to the request
-- Only handle errors that can happen. Validate at system boundaries only.
+- Only handle errors that can happen
+- Validate at system boundaries only
 - Simplicity: if a senior engineer would call it overcomplicated - simplify
 - No abstractions for single-use code
 - Match existing code style, not your preference
 - Don't add docstrings, comments, or type annotations to unchanged code
 - Unrelated issues or dead code: mention, don't fix
 - Only clean up things YOUR changes made unused
-
-## Kotlin
-
-- `PascalCase` enum entries
-- Verb boolean naming: `isEnabled`, `hasPermission`, `canExecute`
-- Prefer real implementations or fakes over mocks
+- Git: do not commit or open PRs unless requested
+- Test doubles: prefer real implementations or fakes over mocks
 - Test names: 3rd person or passive voice, never start with "should"
-
-## Android development
-
-- Kotlin for Android/Gradle
-- JUnit4 for Robolectric, Espresso for Android tests
-- Run Gradle commands in quiet mode (`-q`)
+- Gradle: run commands in quiet mode (`-q`)
 
 ## Environment
 
