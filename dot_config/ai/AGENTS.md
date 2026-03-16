@@ -62,6 +62,12 @@
 - Test names: 3rd person or passive voice, never start with "should"
 - Gradle: run commands in quiet mode (`-q`)
 
+## Roadmaps
+
+Persistent cross-session roadmaps live in `~/.config/ai/roadmaps/`.
+After completing work that matches an active roadmap step, update the step and timestamp.
+Use `/roadmap` for commands.
+
 ## Environment
 
 - Fish shell, Ghostty terminal, tmux

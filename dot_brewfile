@@ -115,7 +115,6 @@ cask "firefox" # restart-on-upgrade: firefox:org.mozilla.firefox
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 # cask "imageoptim" # image compressor
 cask "jetbrains-toolbox" # JetBrains IDEs
-cask "jordanbaird-ice" # hide menu bar icons, alternative to hiddenbar (slightly better)
 cask "keyboardcleantool" # disable keyboard for cleaning
 cask "latest" # update all apps
 cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
@@ -141,6 +140,7 @@ cask "shottr" # screenshot tool
 # cask "spotify"
 cask "sublime-text" # text editor
 # cask "table-tool" # CSV editor
+cask "thaw" # hide menu bar icons
 cask "the-unarchiver" # unzip
 # cask "via" # keyboard configurator (e.g. Keychron)
 # cask "visual-studio-code"
