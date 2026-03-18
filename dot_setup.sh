@@ -37,9 +37,6 @@ fi
 echo -e "${GRAY}---- Turning Homebrew analytics off.${NC}"
 brew analytics off
 
-echo -e "${YELLOW}---- setting up Git${NC}"
-brew install git
-
 echo -e "${YELLOW}---- setting up GitHub${NC}"
 brew install gh
 gh auth status &> tmp_gh_login.txt
@@ -65,35 +62,9 @@ else
     git reset --hard origin/master
 fi
 
-git config --global credential.helper osxkeychain
-
 echo -e "${YELLOW}---- Asking for an admin password upfront${NC}"
 sudo -v
 
-function delete_if_exists {
-    if [ -f "$1" ]; then
-        echo -e "${PURPLE}---- $1 present, so deleting${NC}"
-        sudo rm "$1"
-    fi
-}
-
-function clone_if_absent {
-    if [ ! -d "$1" ]; then
-        echo -e "${PURPLE}---- $1 not present, so cloning${NC}"
-        git clone $2 $1
-    else
-        echo -e "${GRAY}---- $1 already present. pulling latest version${NC}"
-        cd $1
-        git pull
-        cd ..
-    fi
-}
-
-# echo -e "${GRAY}---- delete native git if it exists${NC}"
-# # sudo rm -rf /usr/bin/git
-# delete_if_exists /etc/paths.d/git
-# delete_if_exists /etc/manpaths.d/git
-# # sudo pkgutil --forget --pkgs=GitOSX\.Installer\.git[A-Za-z0-9]*\.[a-z]*.pkg
 
 ##############################################################
 # Fish shell
@@ -127,49 +98,12 @@ else
     fi
 fi
 
-echo -e "${GRAY}---- symlink fish_history ${NC}"
-trash ~/.local/share/fish/fish_history
-ln -s $XDG_DATA_HOME/fish/fish_history ~/.local/share/fish/
-
 echo -e "${YELLOW}---- Setting up Fisher (Fish plugin manager)${NC}"
-curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
-fisher install jorgebucaran/fisher # plugin manager
-fisher install edc/bass # easier Bash in Fish
-fisher install patrickf1/fzf.fish # fzf keybindings
-fisher install patrickf1/colored_man_pages.fish
-fisher install budimanjojo/tmux.fish # tmux integration (e.g. autostart)
-fisher install gazorby/fish-abbreviation-tips # show exisiting alias when using full command
-fisher install franciscolourenco/done # show notification when command is done, use with `brew install terminal-notifier`
-fisher install orefalo/grc # colorize output of commands, requires `brew install grc`
-
-##############################################################
-# DEV
-##############################################################
-
-
-echo -e "${GRAY}---- moving home${NC}"
-cd ~
-
-echo -e "\n\n\n${YELLOW}---- Install rbenv/ruby${NC}"
-# installs the same ruby version as homebrew just installed via vim
-rbenv install -s $(brew info ruby | awk 'NR==1{print $3}')
-rbenv global $(brew info ruby | awk 'NR==1{print $3}')
-# now pin ruby to this version, so it doesn't change on you with brew update
-brew pin ruby
-# install bundler and gem stuff
-# do this on a new terminal
-gem install bundler
-
-# echo -e "\n\n\n${YELLOW}---- setup for python development${NC}"
-python setup
-pyenv install --list
-pyenv install 3.10.1
-ln -s -f /usr/local/bin/python3 /usr/local/bin/python
-
-
-## tmux
-brew install tmux
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+fish -c '
+    curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+    fisher install jorgebucaran/fisher
+    fisher update
+'
 
 ##############################################################
 # MISC.
@@ -177,8 +111,6 @@ git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 
 source $HOME/.brew.sh
 $(brew --prefix)/opt/fzf/install
-# source $HOME/.macos.sh
-# source $HOME/.cleanup.sh
+source $HOME/.macos.sh
+# source $HOME/.cleanup.sh  # run manually if needed
 
-unset delete_if_exists;
-unset clone_if_absent;
