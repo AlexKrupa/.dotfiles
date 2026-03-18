@@ -88,8 +88,10 @@ brew "uv"
 
 # Mac apps
 # Some apps go stale when brew replaces the binary while running (accessibility/input-monitoring
-# apps, browsers). `brew-upgrade` auto-handles quit/restart for casks tagged restart-on-upgrade
-# (prefix with ! to temporarily disable, e.g. `# !restart-on-upgrade:`).
+# apps, browsers). `brew-upgrade` handles quit/restart for tagged casks:
+#   restart-on-upgrade - auto quit/restart (for accessibility/input tools)
+#   prompt-on-upgrade  - upgrade, then ask to restart if running (for browsers)
+# Prefix with ! to temporarily disable (e.g. `# !restart-on-upgrade:`).
 
 # cask "1password" # restart-on-upgrade: 1Password:com.1password.1password
 # cask "1password-cli" # required for Raycast/Alfred integration
@@ -108,9 +110,9 @@ cask "handy" # speech-to-text
 # cask "homerow" # keyboard shortcuts for every button on the screen, paid, alt: shortcat
 cask "ghostty"
 # cask "google-drive"
-cask "google-chrome" # restart-on-upgrade: Google Chrome:com.google.Chrome
+cask "google-chrome" # prompt-on-upgrade: Google Chrome:com.google.Chrome
 cask "grandperspective" # disk space visualizer
-cask "firefox" # restart-on-upgrade: firefox:org.mozilla.firefox
+cask "firefox" # prompt-on-upgrade: firefox:org.mozilla.firefox
 # cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 # cask "imageoptim" # image compressor
