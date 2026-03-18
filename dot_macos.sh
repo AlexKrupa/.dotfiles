@@ -20,13 +20,11 @@ echo -e "\n\n\n${YELLOW}---- MacOS related changes${NC}"
 # Keep-alive: update existing `sudo` time stamp until `macos` has finished
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-# Closing System Preferences panes
+# Closing System Settings panes
 # prevent them from overriding settings
 # we’re about to change
-osascript -e 'tell application "System Preferences" to quit'
+osascript -e 'tell application "System Settings" to quit'
 
-# Set hostname
-sudo scutil --set HostName lex-macbook
 
 ################################################################################
 ## General UI/UX                                                               #
@@ -75,9 +73,6 @@ defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool
 defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
 defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
 
-# Increase sound quality for Bluetooth headphones/headsets
-defaults write com.apple.BluetoothAudioAgent "Apple Bitpool Min (editable)" -int 40
-
 # Enable full keyboard access for all controls
 # (e.g. enable Tab in modal dialogs)
 defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
@@ -103,8 +98,6 @@ defaults write -g ApplePressAndHoldEnabled -bool false
 defaults write -g InitialKeyRepeat -int 15 # normal minimum is 15 (225 ms)
 defaults write -g KeyRepeat -int 2 # normal minimum is 2 (30 ms)
 
-# Stop iTunes from responding to the keyboard media keys
-launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist 2> /dev/null
 
 ################################################################################
 ## Energy saving                                                               #
@@ -138,7 +131,7 @@ sudo pmset -a standbydelay 86400
 defaults write com.apple.screencapture location -string "${HOME}/Downloads"
 # Save screenshots in PNG format (other options: BMP, GIF, JPG, PDF, TIFF)
 defaults write com.apple.screencapture type -string "png"
-# Enable subpixel font rendering on non-Apple LCDs
+# Disable subpixel font rendering (correct for Retina displays)
 # Reference: https://github.com/kevinSuttle/macOS-Defaults/issues/17#issuecomment-266633501
 defaults write NSGlobalDomain AppleFontSmoothing -int 0
 # Enable HiDPI display modes (requires restart)
@@ -217,7 +210,7 @@ chflags nohidden ~/Library && xattr -d com.apple.FinderInfo ~/Library
 sudo chflags nohidden /Volumes
 
 ###############################################################################
-## Dock, Dashboard
+## Dock
 ###############################################################################
 
 # Enable highlight hover effect for the grid view of a stack (Dock)
@@ -243,14 +236,10 @@ defaults write com.apple.dock launchanim -bool false
 defaults write com.apple.dock expose-animation-duration -float 0.1
 # Don’t group windows by application in Mission Control (i.e. use the old Exposé behavior instead)
 defaults write com.apple.dock expose-group-by-app -bool false
-# Disable Dashboard
-defaults write com.apple.dashboard mcx-disabled -bool true
-# Don’t show Dashboard as a Space
-defaults write com.apple.dock dashboard-in-overlay -bool true
 # Don’t automatically rearrange Spaces based on most recent use
 defaults write com.apple.dock mru-spaces -bool false
 # Remove the auto-hiding Dock delay
-defaults write com.apple.dock autohide-delay -float 60 && defaults write com.apple.dock autohide-time-modifier -float 0.4 && killall Dock
+defaults write com.apple.dock autohide-delay -float 0 && defaults write com.apple.dock autohide-time-modifier -float 0.4 && killall Dock
 # Automatically hide and show the Dock
 defaults write com.apple.dock autohide -bool true
 # Make Dock icons of hidden applications translucent
@@ -259,10 +248,6 @@ defaults write com.apple.dock showhidden -bool true
 defaults write com.apple.dock show-recents -bool false
 # Disable the Launchpad gesture (pinch with thumb and three fingers)
 defaults write com.apple.dock showLaunchpadGestureEnabled -int 0
-# Add a spacer to the left side of the Dock (where the applications are)
-defaults write com.apple.dock persistent-apps -array-add '{tile-data={}; tile-type="spacer-tile";}'
-# Add a spacer to the right side of the Dock (where the Trash is)
-defaults write com.apple.dock persistent-others -array-add '{tile-data={}; tile-type="spacer-tile";}'
 
 ################################################################################
 ## Safari & WebKit                                                             #
@@ -312,13 +297,6 @@ defaults write com.apple.mail AddressesIncludeNameOnPasteboard -bool false
 defaults write com.apple.mail DraftsViewerAttributes -dict-add "DisplayInThreadedMode" -string "yes"
 defaults write com.apple.mail DraftsViewerAttributes -dict-add "SortedDescending" -string "yes"
 defaults write com.apple.mail DraftsViewerAttributes -dict-add "SortOrder" -string "received-date"
-
-################################################################################
-## Spotlight                                                                   #
-################################################################################
-
-# Hide Spotlight tray-icon (and subsequent helper)
-sudo chmod 600 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search
 
 ################################################################################
 ## Activity Monitor                                                            #
@@ -381,13 +359,13 @@ defaults write com.apple.AdLib.plist personalizedAdsMigrated -bool false
 ## Touch ID
 ################################################################################
 
-# Link Touch ID <-> Sudo
-# https://www.imore.com/how-use-sudo-your-mac-touch-id
-if grep -Fq "pam_tid.so" /etc/pam.d/sudo; then
-	echo -e "${GRAY}---- Touch ID is already sudo-able${NC}"
+# Link Touch ID <-> Sudo (uses sudo_local, survives macOS updates)
+if [ -f /etc/pam.d/sudo_local ]; then
+    echo -e "${GRAY}---- Touch ID sudo already configured${NC}"
 else
-	echo -e "${PURPLE}---- Touch ID is already sudo-able${NC}"
-    echo "auth       sufficient     pam_tid.so" | sudo tee -a /etc/pam.d/sudo
+    echo -e "${PURPLE}---- Enabling Touch ID for sudo${NC}"
+    sudo cp /etc/pam.d/sudo_local.template /etc/pam.d/sudo_local
+    sudo sed -i '' 's/^#auth/auth/' /etc/pam.d/sudo_local
 fi
 
 ###############################################################################
