@@ -1154,3 +1154,57 @@ vim.keymap.set('n', '<leader>fo', function()
     apply = true,
   }
 end, { desc = 'Organize imports' })
+
+-- Claude Code: @ file mention support
+-- When editing a Claude Code prompt (claude-prompt-*.md), typing @ in insert mode
+-- opens a Telescope file picker. Selecting a file inserts @path/to/file.
+-- Cancelling (Escape) inserts a bare @.
+vim.api.nvim_create_autocmd('BufEnter', {
+  pattern = '/private/var/folders/*/claude-prompt-*.md',
+  callback = function(ev)
+    if vim.b[ev.buf].claude_at_mapped then
+      return
+    end
+    vim.b[ev.buf].claude_at_mapped = true
+
+    vim.keymap.set('i', '@', function()
+    -- Insert @ immediately, then open picker to append the path
+    vim.api.nvim_feedkeys('@', 'n', false)
+
+    vim.schedule(function()
+      require('telescope.builtin').find_files({
+        prompt_title = '@ File Reference',
+        find_command = { 'fd', '--type', 'f', '--type', 'd', '--strip-cwd-prefix' },
+        attach_mappings = function(prompt_bufnr, map)
+          local actions = require('telescope.actions')
+          local action_state = require('telescope.actions.state')
+
+          actions.select_default:replace(function()
+            local entry = action_state.get_selected_entry()
+            actions.close(prompt_bufnr)
+            if entry then
+              vim.schedule(function()
+                vim.api.nvim_feedkeys('a' .. entry[1] .. ' ', 'n', false)
+              end)
+            end
+          end)
+
+          -- Cancel: close and return to insert mode
+          local function cancel()
+            actions.close(prompt_bufnr)
+            vim.schedule(function()
+              vim.cmd('startinsert!')
+            end)
+          end
+
+          map('i', '<Esc>', cancel)
+          map('n', '<Esc>', cancel)
+          map('n', 'q', cancel)
+
+          return true
+        end,
+      })
+    end)
+    end, { buffer = ev.buf, desc = 'Insert @file reference (Claude Code)' })
+  end,
+})
