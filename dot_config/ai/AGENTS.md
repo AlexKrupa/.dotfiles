@@ -27,7 +27,7 @@
 
 ## Formatting
 
-- Prose: ASCII interpunction only, no typographic/Unicode special characters (but fine in tables, diagrams, code, or for diacritic characters)
+- Prose: ASCII punctuation only, no typographic/Unicode special characters (but fine in tables, diagrams, code, or for diacritic characters)
 - No en- or em-dashes - use single dashes instead
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code

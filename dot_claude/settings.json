@@ -87,6 +87,6 @@
     }
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "prefersReducedMotion": false
 }

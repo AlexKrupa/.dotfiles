@@ -22,7 +22,7 @@
 
 ## Formatting
 
-- Prose: ASCII only for interpunction, no typographic/Unicode special characters (but fine in tables, diagrams, code, or diacritics)
+- Prose: ASCII only for punctuation, no typographic/Unicode special characters (but fine in tables, diagrams, code, or diacritics)
 - No en- or em-dashes - use single dashes instead
 - Code: backticks for inline (`example`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
