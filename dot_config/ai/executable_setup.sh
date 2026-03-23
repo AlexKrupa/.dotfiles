@@ -7,7 +7,6 @@ CLAUDE_DIR="$HOME/.claude"
 mkdir -p "$CLAUDE_DIR"
 
 declare -A links=(
-  ["$SCRIPT_DIR/roadmaps"]="$CLAUDE_DIR/roadmaps"
   ["$SCRIPT_DIR/AGENTS.md"]="$CLAUDE_DIR/CLAUDE.md"
 )
 
