@@ -62,11 +62,11 @@
 - Test names: 3rd person or passive voice, never start with "should"
 - Gradle: run commands in quiet mode (`-q`)
 
-## Roadmaps
+## Design docs
 
-Persistent cross-session roadmaps live in `~/.config/ai/roadmaps/`.
-After completing work that matches an active roadmap step, update the step and timestamp.
-Use `/roadmap` for commands.
+Persistent design docs live in `~/.config/ai/docs/`. Use `/doc` for commands.
+Non-trivial work (anything worth a plan) should have a design doc. Suggest `/doc <name>` before planning.
+After completing a step, run `/doc-sync`.
 
 ## Environment
 
