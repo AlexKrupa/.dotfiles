@@ -39,7 +39,7 @@ if git -C "$raw_cwd" rev-parse --git-dir &>/dev/null; then
   fi
 fi
 
-m=$(echo "$model" | sed 's/Claude //' | sed 's/ Sonnet//')
+m=$(echo "$model" | sed 's/Claude //' | sed 's/ Sonnet//' | sed 's/ ([^)]*context)//')
 model_id=$(echo "$input" | jq -r '.model.model_id // empty')
 
 # Effort level from settings
