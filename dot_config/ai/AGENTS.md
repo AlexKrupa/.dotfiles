@@ -21,7 +21,7 @@
 ## Plan execution
 
 - Reframe requests into verifiable goals before coding
-  Plan format: `[Step] -> verify: [check]`
+- Plan format: `[Step] -> verify: [check]`
 - After each step, show results and pause for review
 - Bugs: write a failing test first, then fix
 
