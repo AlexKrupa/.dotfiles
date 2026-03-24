@@ -128,33 +128,36 @@ pct_display="${pct:-?}"
 [ "$pct_display" != "?" ] && pct_display="${pct_display%.*}"
 win_display=$(fmt_win "$win_size")
 
+# Format a usage window: usage_fmt <label> <utilization> <resets_at> <time_fmt>
+# Outputs segment string to stdout, empty if no data
+usage_fmt() {
+  local label="$1" util="$2" resets="$3" tfmt="$4"
+  [ -z "$util" ] || [ "$util" = "null" ] && return
+  local pct=$(awk "BEGIN { printf \"%.0f\", $util }")
+  local seg="${label}:$(util_color "$pct")${pct}%\033[0m"
+  if [ "$pct" -ge 50 ] && [ -n "$resets" ]; then
+    local ts="${resets%+*}"; ts="${ts%Z}"
+    local epoch=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "$ts" "+%s" 2>/dev/null)
+    # API returns :00 or :59 inconsistently; round to nearest minute
+    [ -n "$epoch" ] && epoch=$(( (epoch + 30) / 60 * 60 ))
+    [ -n "$epoch" ] && seg="$seg → $(date -r "$epoch" "+$tfmt")"
+  fi
+  printf '%s' "$seg"
+}
+
 # Build utilization segment
 usage_seg=""
 if [ -f "$usage_cache" ]; then
-  usage_5h=$(jq -r '.five_hour.utilization // empty' "$usage_cache" 2>/dev/null)
-  resets_5h=$(jq -r '.five_hour.resets_at // empty' "$usage_cache" 2>/dev/null)
-  usage_7d=$(jq -r '.seven_day.utilization // empty' "$usage_cache" 2>/dev/null)
-  resets_7d=$(jq -r '.seven_day.resets_at // empty' "$usage_cache" 2>/dev/null)
-  if [ -n "$usage_5h" ]; then
-    pct_5h=$(awk "BEGIN { printf \"%.0f\", $usage_5h }")
-    seg_5h="5h:$(util_color "$pct_5h")${pct_5h}%\033[0m"
-    if [ "$pct_5h" -ge 50 ] && [ -n "$resets_5h" ]; then
-      ts="${resets_5h%+*}"; ts="${ts%Z}"
-      epoch=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "$ts" "+%s" 2>/dev/null)
-      [ -n "$epoch" ] && seg_5h="$seg_5h → $(date -r "$epoch" "+%H:%M")"
-    fi
-    usage_seg="$seg_5h"
-    if [ -n "$usage_7d" ] && [ "$usage_7d" != "null" ]; then
-      pct_7d=$(awk "BEGIN { printf \"%.0f\", $usage_7d }")
-      seg_7d="7d:$(util_color "$pct_7d")${pct_7d}%\033[0m"
-      if [ "$pct_7d" -ge 50 ] && [ -n "$resets_7d" ]; then
-        ts="${resets_7d%+*}"; ts="${ts%Z}"
-        epoch=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "$ts" "+%s" 2>/dev/null)
-        [ -n "$epoch" ] && seg_7d="$seg_7d → $(date -r "$epoch" "+%a %H:%M")"
-      fi
-      usage_seg="$usage_seg \033[2m|\033[0m $seg_7d"
-    fi
-  fi
+  seg_5h=$(usage_fmt "5h" \
+    "$(jq -r '.five_hour.utilization // empty' "$usage_cache" 2>/dev/null)" \
+    "$(jq -r '.five_hour.resets_at // empty' "$usage_cache" 2>/dev/null)" \
+    "%H:%M")
+  seg_7d=$(usage_fmt "7d" \
+    "$(jq -r '.seven_day.utilization // empty' "$usage_cache" 2>/dev/null)" \
+    "$(jq -r '.seven_day.resets_at // empty' "$usage_cache" 2>/dev/null)" \
+    "%a %H:%M")
+  [ -n "$seg_5h" ] && usage_seg="$seg_5h"
+  [ -n "$seg_7d" ] && usage_seg="${usage_seg:+$usage_seg \033[2m|\033[0m }$seg_7d"
 fi
 
 # Line 3: Model E | PCT% WINk | $COST [| 5h:N% | 7d:N%]
