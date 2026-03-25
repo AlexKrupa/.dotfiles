@@ -33,34 +33,22 @@
 - Headings: sentence case (`## This format`), except proper names or code
 - **Boldface** and emojis: use sparingly
 
-## Documentation
-
-- Include specific tool/version references and limitations
-- Assume project context knowledge, focus on implementation
-- Explain decisions, not benefits
-- `kebab-case.md` file naming (except `README.md`)
-- Diagrams: use Mermaid
-
 ## General code
 
 - Use context7 MCP for documentation
-- Max line width: 120 chars
 - Guard clauses over nested conditionals
 - Comments explain WHY, not WHAT
 - Include context in logs and error messages
 - Every changed line should trace to the request
 - Only handle errors that can happen
 - Validate at system boundaries only
-- Simplicity: if a senior engineer would call it overcomplicated - simplify
 - No abstractions for single-use code
+- Simplicity: if a senior engineer would call it overcomplicated - simplify
 - Match existing code style, not your preference
 - Don't add docstrings, comments, or type annotations to unchanged code
 - Unrelated issues or dead code: mention, don't fix
 - Only clean up things YOUR changes made unused
 - Git: do not commit or open PRs unless requested
-- Test doubles: prefer real implementations or fakes over mocks
-- Test names: 3rd person or passive voice, never start with "should"
-- Gradle: run commands in quiet mode (`-q`)
 
 ## Design docs
 
