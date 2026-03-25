@@ -81,17 +81,9 @@
     "lua-lsp@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true,
     "serena@claude-plugins-official": false,
-    "superpowers@superpowers-marketplace": true,
+    "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {
-    "superpowers-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "obra/superpowers-marketplace"
-      }
-    }
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
