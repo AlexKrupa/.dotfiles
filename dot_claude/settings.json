@@ -95,5 +95,7 @@
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
+  "respectGitignore": true,
+  "autoConnectIde": true,
   "prefersReducedMotion": false
 }
