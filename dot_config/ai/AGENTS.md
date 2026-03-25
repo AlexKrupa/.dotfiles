@@ -8,6 +8,7 @@
 - Multiple valid approaches? Present them with trade-offs.
 - Push back when a simpler solution exists
 - No features beyond what was asked
+- For non-trivial features, interview me about requirements, edge cases, and tradeoffs before coding
 
 ## Reply style
 
@@ -35,7 +36,7 @@
 
 ## General code
 
-- Use context7 MCP for documentation
+- Always check context7 before answering library/framework questions from memory
 - Guard clauses over nested conditionals
 - Comments explain WHY, not WHAT
 - Include context in logs and error messages
@@ -60,3 +61,7 @@ After completing a step, run `/doc-sync`.
 
 - Fish shell, Ghostty terminal, tmux
 - MacOS ARM (M4 Pro)
+
+## Context management
+
+- When compacting, preserve: modified file paths, test commands used, current plan step, and key decisions made
