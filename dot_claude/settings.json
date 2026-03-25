@@ -54,6 +54,7 @@
       "mcp__plugin_context7_context7__resolve-library-id",
       "Edit(~/.config/ai/docs/*)",
       "Read(~/.config/ai/docs/*)",
+      "TaskUpdate(~/.config/ai/docs/*)",
       "Write(~/.config/ai/docs/*)"
     ],
     "deny": [
