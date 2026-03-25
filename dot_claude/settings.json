@@ -44,14 +44,17 @@
       "Bash(pwd)",
       "Bash(rg *)",
       "Bash(tail *)",
-      "Bash(unzip *)",
+      "Bash(unzip * ~/.gradle/caches/*)",
       "Bash(wc *)",
       "Bash(which *)",
       "LSP",
       "mcp__context7__query-docs",
       "mcp__context7__resolve-library-id",
       "mcp__plugin_context7_context7__query-docs",
-      "mcp__plugin_context7_context7__resolve-library-id"
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "Edit(~/.config/ai/docs/*)",
+      "Read(~/.config/ai/docs/*)",
+      "Write(~/.config/ai/docs/*)"
     ],
     "deny": [
       "Bash(rm -rf *)",
