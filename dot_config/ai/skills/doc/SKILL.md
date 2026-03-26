@@ -1,7 +1,7 @@
 ---
 name: doc
 model: sonnet
-description: Use when the user asks about design docs, progress, what's next, or wants to create, update, complete, or check status of a persistent cross-session design doc.
+description: Use when the user asks about design docs, progress, what's next, or wants to create, update, complete, or check status of a persistent cross-session design doc. Also triggers on mentions of "doc", "design doc", or "document" in the context of tracking work.
 argument-hint: "[name|done]"
 ---
 
@@ -14,6 +14,16 @@ serve as clean reference after completion.
 **Claude's plan mode = implementation detail** (ephemeral, session-scoped).
 
 Docs live in `~/.config/ai/docs/`.
+
+## Writing style
+
+Follow `~/.config/ai/rules/documenting.md`. One line per decision or note. Explain the choice, not the benefit. No filler, no AI writing tropes.
+
+## TODO states
+
+- `[ ]` not started
+- `[-]` in progress (started, not finished)
+- `[x]` done
 
 ## Routing
 
@@ -29,13 +39,15 @@ Arguments: $ARGUMENTS
 
 Auto-detect: match git branch name against doc filenames in `~/.config/ai/docs/`.
 If match found: show the doc (TODO progress, open questions, recent decisions).
-If no match: list active docs, ask which one.
+If no match or not in a git repo: list all active docs, ask which one.
 
 ### `/doc <name>` - open or create doc
 
-Look for a doc matching `<name>` in `~/.config/ai/docs/` (fuzzy match on filename or title).
-If found: show it.
-If not found: create a new doc.
+Look for a doc matching `<name>` in `~/.config/ai/docs/` (substring match on filename or `title` frontmatter).
+
+If match is an active doc: show it.
+If match is a completed doc: show it read-only. Don't offer to edit or reopen.
+If no match: create a new doc.
 
 **Creating a new doc:**
 1. Ask for the goal/problem if not obvious from context
@@ -58,7 +70,12 @@ Result should read cleanly as a design reference.
 
 ## Plan mode integration
 
-When entering plan mode with an active doc, seed the plan from the doc's unchecked TODO steps.
+When entering plan mode with an active doc:
+1. Read the doc and present unchecked `[ ]` and in-progress `[-]` TODO steps
+2. Seed the plan from those steps - they become the plan's starting structure
+3. After plan execution, run doc-sync to update the doc with completed steps and new decisions
+
+If a doc exists for the current work, the plan should account for keeping it up to date.
 
 ## Common mistakes
 
@@ -67,3 +84,4 @@ When entering plan mode with an active doc, seed the plan from the doc's uncheck
 | Creating doc for trivial single-step work | Docs are for work with decisions worth preserving |
 | Forgetting `updated` timestamp | Always update when modifying |
 | Adding implementation details to TODO steps | Steps = what, plan mode = how |
+| Wordy entries | One line per decision/note. Terse. |
