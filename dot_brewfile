@@ -12,6 +12,7 @@ brew "bash"
 brew "bat" # cat alternative with syntax highlighting
 # brew "FelixKratz/formulae/borders" # focused window borders
 brew "age" # file encryption
+brew "oven-sh/bun/bun" # JS runtime / package manager
 brew "chezmoi" # dotfiles management
 brew "coreutils" # for gnu date
 brew "curl"
