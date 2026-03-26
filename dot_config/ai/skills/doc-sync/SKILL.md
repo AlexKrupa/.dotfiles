@@ -1,17 +1,21 @@
 ---
 name: doc-sync
+model: sonnet
 description: Use after completing implementation steps, finishing a feature, fixing a bug, or any time work is done that might correspond to an active design doc.
+effort: low
 ---
 
 # Design doc sync
 
 Update the active design doc after completing work.
 
+Current branch: !`git branch --show-current`
+
 ## Procedure
 
 1. Determine the active doc:
    - Primary: user explicitly mentioned a doc this session
-   - Fallback: match git branch name against filenames in `~/.config/ai/docs/`
+   - Fallback: match current branch (above) against filenames in `~/.config/ai/docs/`
 2. If no active doc found, do nothing silently. Stop here.
 3. Read the active doc (must have `status: active` in frontmatter)
 4. For completed work:
