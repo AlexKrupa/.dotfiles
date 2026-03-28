@@ -61,23 +61,6 @@ case "$model_id" in
   *) effort_suffix=$(echo "${effort:0:1}" | tr '[:lower:]' '[:upper:]') ;;
 esac
 
-# Rate limit usage (non-blocking, cache-based)
-usage_cache_dir="$HOME/.cache/claude-statusline"
-usage_cache="$usage_cache_dir/usage.json"
-
-# Background refresh if cache older than 10 min or missing
-need_refresh=0
-if [ ! -f "$usage_cache" ]; then
-  need_refresh=1
-else
-  case "$(uname)" in
-    Darwin) cache_age=$(( $(date +%s) - $(stat -f %m "$usage_cache") )) ;;
-    *) cache_age=$(( $(date +%s) - $(stat -c %Y "$usage_cache") )) ;;
-  esac
-  [ "$cache_age" -gt 600 ] && need_refresh=1
-fi
-[ "$need_refresh" -eq 1 ] && bash ~/.claude/refresh-usage.sh &
-
 # Extract context window fields
 pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 win_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
@@ -128,37 +111,31 @@ pct_display="${pct:-?}"
 [ "$pct_display" != "?" ] && pct_display="${pct_display%.*}"
 win_display=$(fmt_win "$win_size")
 
-# Format a usage window: usage_fmt <label> <utilization> <resets_at> <time_fmt>
-# Outputs segment string to stdout, empty if no data
+# Format a usage window: usage_fmt <label> <pct> <resets_epoch> <time_fmt>
 usage_fmt() {
-  local label="$1" util="$2" resets="$3" tfmt="$4"
-  [ -z "$util" ] || [ "$util" = "null" ] && return
-  local pct=$(awk "BEGIN { printf \"%.0f\", $util }")
+  local label="$1" pct="$2" resets="$3" tfmt="$4"
+  [ -z "$pct" ] || [ "$pct" = "null" ] && return
+  pct=$(printf '%.0f' "$pct")
   local seg="${label}:$(util_color "$pct")${pct}%\033[0m"
-  if [ "$pct" -ge 50 ] && [ -n "$resets" ]; then
-    local ts="${resets%+*}"; ts="${ts%Z}"
-    local epoch=$(date -j -u -f "%Y-%m-%dT%H:%M:%S" "$ts" "+%s" 2>/dev/null)
-    # API returns :00 or :59 inconsistently; round to nearest minute
-    [ -n "$epoch" ] && epoch=$(( (epoch + 30) / 60 * 60 ))
-    [ -n "$epoch" ] && seg="$seg → $(date -r "$epoch" "+$tfmt")"
+  if [ "$pct" -ge 50 ] && [ -n "$resets" ] && [ "$resets" != "null" ]; then
+    local epoch=$(( (resets + 30) / 60 * 60 ))
+    seg="$seg → $(date -r "$epoch" "+$tfmt")"
   fi
   printf '%s' "$seg"
 }
 
-# Build utilization segment
+# Build utilization segment from statusline input
 usage_seg=""
-if [ -f "$usage_cache" ]; then
-  seg_5h=$(usage_fmt "5h" \
-    "$(jq -r '.five_hour.utilization // empty' "$usage_cache" 2>/dev/null)" \
-    "$(jq -r '.five_hour.resets_at // empty' "$usage_cache" 2>/dev/null)" \
-    "%H:%M")
-  seg_7d=$(usage_fmt "7d" \
-    "$(jq -r '.seven_day.utilization // empty' "$usage_cache" 2>/dev/null)" \
-    "$(jq -r '.seven_day.resets_at // empty' "$usage_cache" 2>/dev/null)" \
-    "%a %H:%M")
-  [ -n "$seg_5h" ] && usage_seg="$seg_5h"
-  [ -n "$seg_7d" ] && usage_seg="${usage_seg:+$usage_seg \033[2m|\033[0m }$seg_7d"
-fi
+seg_5h=$(usage_fmt "5h" \
+  "$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')" \
+  "$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')" \
+  "%H:%M")
+seg_7d=$(usage_fmt "7d" \
+  "$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')" \
+  "$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')" \
+  "%a %H:%M")
+[ -n "$seg_5h" ] && usage_seg="$seg_5h"
+[ -n "$seg_7d" ] && usage_seg="${usage_seg:+$usage_seg \033[2m|\033[0m }$seg_7d"
 
 # Line 3: Model E | PCT% WINk | $COST [| 5h:N% | 7d:N%]
 printf "%s%s \033[2m|\033[0m $(pct_color "$pct")%s%%\033[0m %s \033[2m| \$%s\033[0m" \

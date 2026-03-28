@@ -70,19 +70,6 @@
     "defaultMode": "default"
   },
   "model": "opus",
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/refresh-usage.sh"
-          }
-        ]
-      }
-    ]
-  },
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh"
