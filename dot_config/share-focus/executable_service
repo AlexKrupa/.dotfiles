@@ -205,7 +205,7 @@ parse_start_args() {
             --downscale)   DOWNSCALE="$2"; shift ;;
             --delay=*) DELAY="${1#--delay=}" ;;
             --delay)   DELAY="$2"; shift ;;
-            --preview) PREVIEW=1 ;;
+--preview) PREVIEW=1 ;;
             *) echo "Unknown option: $1"; exit 1 ;;
         esac
         shift
