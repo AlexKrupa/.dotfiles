@@ -103,7 +103,7 @@
     "typescript-lsp@claude-plugins-official": true
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "prefersReducedMotion": false,
   "autoConnectIde": true
 }

@@ -20,7 +20,7 @@ default-root-container-orientation = 'horizontal'
 automatically-unhide-macos-hidden-apps = true
 
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
-on-focus-changed = ['move-mouse window-lazy-center', 'exec-and-forget ~/.config/share-focus/sync']
+on-focus-changed = ['move-mouse window-lazy-center', 'exec-and-forget ~/.config/share-focus/share-focus']
 
 accordion-padding = 20
 
@@ -43,13 +43,13 @@ accordion-padding = 20
     # Manually exec sync for commands that don't change window focus
 
     # Layout
-    alt-ctrl-shift-e = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-r = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-f = ['fullscreen', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-cmd-f = ['layout floating tiling ', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-e = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-r = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-f = ['fullscreen', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-f = ['layout floating tiling ', 'exec-and-forget ~/.config/share-focus/share-focus']
 
     alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
-    alt-ctrl-shift-cmd-tab = ['move-workspace-to-monitor --wrap-around next', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-tab = ['move-workspace-to-monitor --wrap-around next', 'exec-and-forget ~/.config/share-focus/share-focus']
 
     alt-ctrl-shift-cmd-semicolon = 'mode service'
 
@@ -58,8 +58,8 @@ accordion-padding = 20
     cmd-m = [] # Disable "minimize application"
 
     # Resizing
-    alt-ctrl-shift-minus = ['resize smart -100', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-equal = ['resize smart +100', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-minus = ['resize smart -100', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-equal = ['resize smart +100', 'exec-and-forget ~/.config/share-focus/share-focus']
 
     # Focus
     alt-ctrl-shift-h = 'focus left'
@@ -72,10 +72,10 @@ accordion-padding = 20
     alt-ctrl-shift-space = 'exec-and-forget ~/.config/aerospace/focus-app "Ghostty"'
 
     # Move window direction
-    alt-ctrl-shift-cmd-h = ['move left', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-cmd-j = ['move down', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-cmd-k = ['move up', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-cmd-l = ['move right', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-h = ['move left', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-j = ['move down', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-k = ['move up', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-l = ['move right', 'exec-and-forget ~/.config/share-focus/share-focus']
 
     # Workspace
     alt-ctrl-shift-y = 'exec-and-forget aerospace workspace Y --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
@@ -85,20 +85,20 @@ accordion-padding = 20
     alt-ctrl-shift-p = 'exec-and-forget aerospace workspace P --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
 
     # Move to workspace
-    alt-ctrl-shift-cmd-y = ['move-node-to-workspace --focus-follows-window Y', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-cmd-u = ['move-node-to-workspace --focus-follows-window U', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-cmd-i = ['move-node-to-workspace --focus-follows-window I', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-cmd-o = ['move-node-to-workspace --focus-follows-window O', 'exec-and-forget ~/.config/share-focus/sync']
-    alt-ctrl-shift-cmd-p = ['move-node-to-workspace --focus-follows-window P', 'exec-and-forget ~/.config/share-focus/sync']
+    alt-ctrl-shift-cmd-y = ['move-node-to-workspace --focus-follows-window Y', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-u = ['move-node-to-workspace --focus-follows-window U', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-i = ['move-node-to-workspace --focus-follows-window I', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-o = ['move-node-to-workspace --focus-follows-window O', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-p = ['move-node-to-workspace --focus-follows-window P', 'exec-and-forget ~/.config/share-focus/share-focus']
 
 [mode.service.binding]
     esc = ['reload-config', 'mode main']
     r = ['flatten-workspace-tree', 'mode main'] # reset layout
 
-    alt-ctrl-shift-cmd-h = ['join-with left', 'exec-and-forget ~/.config/share-focus/sync', 'mode main']
-    alt-ctrl-shift-cmd-j = ['join-with down', 'exec-and-forget ~/.config/share-focus/sync', 'mode main']
-    alt-ctrl-shift-cmd-k = ['join-with up', 'exec-and-forget ~/.config/share-focus/sync', 'mode main']
-    alt-ctrl-shift-cmd-l = ['join-with right', 'exec-and-forget ~/.config/share-focus/sync', 'mode main']
+    alt-ctrl-shift-cmd-h = ['join-with left', 'exec-and-forget ~/.config/share-focus/share-focus', 'mode main']
+    alt-ctrl-shift-cmd-j = ['join-with down', 'exec-and-forget ~/.config/share-focus/share-focus', 'mode main']
+    alt-ctrl-shift-cmd-k = ['join-with up', 'exec-and-forget ~/.config/share-focus/share-focus', 'mode main']
+    alt-ctrl-shift-cmd-l = ['join-with right', 'exec-and-forget ~/.config/share-focus/share-focus', 'mode main']
 
 [workspace-to-monitor-force-assignment]
     Y = ['built-in', 'DELL']

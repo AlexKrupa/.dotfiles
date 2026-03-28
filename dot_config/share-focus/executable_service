@@ -29,42 +29,21 @@ detect_main_display() {
     done <<< "$display_names"
 }
 
-# Function to ensure sync executable is available
-ensure_sync_executable() {
-    local sync_path="$HOME/.config/share-focus/sync"
-    local swift_path="$HOME/.config/share-focus/sync.swift"
+# Function to ensure share-focus executable is available
+ensure_executable() {
+    local bin_path="$HOME/.config/share-focus/share-focus"
+    local swift_path="$HOME/.config/share-focus/share-focus.swift"
 
-    if [ ! -f "$sync_path" ]; then
+    if [ ! -f "$bin_path" ]; then
         if [ -f "$swift_path" ]; then
-            echo "Compiling sync executable"
-            swiftc "$swift_path" -o "$sync_path"
+            echo "Compiling share-focus executable"
+            swiftc "$swift_path" -o "$bin_path"
             if [ $? -ne 0 ]; then
-                echo "Error: Failed to compile sync executable"
+                echo "Error: Failed to compile share-focus executable"
                 return 1
             fi
         else
-            echo "Error: sync.swift not found"
-            return 1
-        fi
-    fi
-    return 0
-}
-
-# Function to ensure watcher executable is available
-ensure_watcher_executable() {
-    local watcher_path="$HOME/.config/share-focus/watcher"
-    local swift_path="$HOME/.config/share-focus/watcher.swift"
-
-    if [ ! -f "$watcher_path" ]; then
-        if [ -f "$swift_path" ]; then
-            echo "Compiling watcher executable"
-            swiftc "$swift_path" -o "$watcher_path"
-            if [ $? -ne 0 ]; then
-                echo "Error: Failed to compile watcher executable"
-                return 1
-            fi
-        else
-            echo "Error: watcher.swift not found"
+            echo "Error: share-focus.swift not found"
             return 1
         fi
     fi
@@ -108,11 +87,15 @@ compute_virtual_resolution() {
 
 # Function to start sharing
 start() {
-    # Ensure executables are available
-    if ! ensure_sync_executable; then
+    # Ensure executable is available
+    if ! ensure_executable; then
         return 1
     fi
-    if ! ensure_watcher_executable; then
+
+    # Check accessibility permissions
+    "$HOME/.config/share-focus/share-focus" --check-ax
+    if [ $? -eq 2 ]; then
+        echo "Approve 'share-focus' in System Settings > Privacy & Security > Accessibility, then run './service start' again."
         return 1
     fi
 
@@ -163,14 +146,14 @@ start() {
     echo "$MAIN_DISPLAY|$(echo "$src_resolution" | sed 's/x/ /')" > "$ENABLED_FILE"
 
     # Initial run
-    ~/.config/share-focus/sync
+    ~/.config/share-focus/share-focus
 
     # Start drag watcher (kill stale instance first)
     if [ -f "$CACHE_DIR/watcher.pid" ]; then
         kill "$(cat "$CACHE_DIR/watcher.pid")" 2>/dev/null
         rm -f "$CACHE_DIR/watcher.pid"
     fi
-    ~/.config/share-focus/watcher &
+    ~/.config/share-focus/share-focus --watch &
     echo "Watcher started"
 
     # Open preview window (BetterDisplay PiP)
