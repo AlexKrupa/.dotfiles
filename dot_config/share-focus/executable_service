@@ -10,6 +10,7 @@ BD="/Applications/BetterDisplay.app/Contents/MacOS/BetterDisplay"
 # Defaults for start args
 ASPECT="16:9"
 DOWNSCALE=2
+DELAY=0
 PREVIEW=0
 
 # Function to detect main display
@@ -146,14 +147,14 @@ start() {
     echo "$MAIN_DISPLAY|$(echo "$src_resolution" | sed 's/x/ /')" > "$ENABLED_FILE"
 
     # Initial run
-    ~/.config/share-focus/share-focus
+    ~/.config/share-focus/share-focus --delay "$DELAY"
 
     # Start drag watcher (kill stale instance first)
     if [ -f "$CACHE_DIR/watcher.pid" ]; then
         kill "$(cat "$CACHE_DIR/watcher.pid")" 2>/dev/null
         rm -f "$CACHE_DIR/watcher.pid"
     fi
-    ~/.config/share-focus/share-focus --watch &
+    ~/.config/share-focus/share-focus --watch --delay "$DELAY" &
     echo "Watcher started"
 
     # Open preview window (BetterDisplay PiP)
@@ -202,6 +203,8 @@ parse_start_args() {
             --aspect)   ASPECT="$2"; shift ;;
             --downscale=*) DOWNSCALE="${1#--downscale=}" ;;
             --downscale)   DOWNSCALE="$2"; shift ;;
+            --delay=*) DELAY="${1#--delay=}" ;;
+            --delay)   DELAY="$2"; shift ;;
             --preview) PREVIEW=1 ;;
             *) echo "Unknown option: $1"; exit 1 ;;
         esac
@@ -261,7 +264,7 @@ case "$1" in
         fi
         ;;
     *)
-        echo "Usage: service {start [--aspect W:H] [--downscale N] [--preview]|stop|restart|status|preview}"
+        echo "Usage: service {start [--aspect W:H] [--downscale N] [--delay MS] [--preview]|stop|restart|status|preview}"
         exit 1
         ;;
 esac

@@ -50,5 +50,5 @@ alias ls "lsd -a --long"
 alias dl "cd ~/Downloads"
 alias dlf "open ~/Downloads"
 alias finder "open ."
-alias share "~/.config/share-focus/share-focus"
+alias share "~/.config/share-focus/service"
 
