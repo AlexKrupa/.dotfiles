@@ -50,6 +50,27 @@ ensure_sync_executable() {
     return 0
 }
 
+# Function to ensure watcher executable is available
+ensure_watcher_executable() {
+    local watcher_path="$HOME/.config/share-focus/watcher"
+    local swift_path="$HOME/.config/share-focus/watcher.swift"
+
+    if [ ! -f "$watcher_path" ]; then
+        if [ -f "$swift_path" ]; then
+            echo "Compiling watcher executable"
+            swiftc "$swift_path" -o "$watcher_path"
+            if [ $? -ne 0 ]; then
+                echo "Error: Failed to compile watcher executable"
+                return 1
+            fi
+        else
+            echo "Error: watcher.swift not found"
+            return 1
+        fi
+    fi
+    return 0
+}
+
 # Function to ensure virtual display exists
 ensure_virtual_display() {
     # Check if virtual display exists by trying to get its info
@@ -87,8 +108,11 @@ compute_virtual_resolution() {
 
 # Function to start sharing
 start() {
-    # Ensure sync executable is available
+    # Ensure executables are available
     if ! ensure_sync_executable; then
+        return 1
+    fi
+    if ! ensure_watcher_executable; then
         return 1
     fi
 
@@ -141,6 +165,14 @@ start() {
     # Initial run
     ~/.config/share-focus/sync
 
+    # Start drag watcher (kill stale instance first)
+    if [ -f "$CACHE_DIR/watcher.pid" ]; then
+        kill "$(cat "$CACHE_DIR/watcher.pid")" 2>/dev/null
+        rm -f "$CACHE_DIR/watcher.pid"
+    fi
+    ~/.config/share-focus/watcher &
+    echo "Watcher started"
+
     # Open preview window (BetterDisplay PiP)
     if [ "$PREVIEW" -eq 1 ]; then
         echo "Starting preview"
@@ -160,6 +192,12 @@ start() {
 
 # Function to stop sharing
 stop() {
+    # Stop drag watcher
+    if [ -f "$CACHE_DIR/watcher.pid" ]; then
+        kill "$(cat "$CACHE_DIR/watcher.pid")" 2>/dev/null
+        rm -f "$CACHE_DIR/watcher.pid"
+    fi
+
     # Close preview window if open
     $BD set -name="$VIRTUAL_DISPLAY" -pip=off 2>/dev/null
 
