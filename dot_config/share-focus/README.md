@@ -2,7 +2,7 @@
 
 Crops a BetterDisplay virtual display stream to match the focused window. Share a single window instead of your whole screen.
 
-Requires **Aerospace** (tiling WM) and **BetterDisplay** (virtual display). First run needs macOS accessibility permissions (System Settings > Privacy & Security > Accessibility).
+Requires **Aerospace** (tiling WM) and **BetterDisplay** (virtual display). First run needs macOS accessibility permissions (System Settings > Privacy & Security > Accessibility). BetterDisplay also needs "CLI and notification control" enabled in its Application settings.
 
 ## Architecture
 
