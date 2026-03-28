@@ -9,7 +9,8 @@ BD="/Applications/BetterDisplay.app/Contents/MacOS/BetterDisplay"
 
 # Defaults for start args
 ASPECT="16:9"
-DOWNSCALE=1
+DOWNSCALE=2
+PREVIEW=0
 
 # Function to detect main display
 detect_main_display() {
@@ -140,11 +141,28 @@ start() {
     # Initial run
     ~/.config/share-focus/sync
 
+    # Open preview window (BetterDisplay PiP)
+    if [ "$PREVIEW" -eq 1 ]; then
+        echo "Starting preview"
+        $BD set -name="$VIRTUAL_DISPLAY" -pip=on \
+            -targetName="$MAIN_DISPLAY" \
+            -priority=topmost \
+            -showTitlebar=off \
+            -excludePipWindow=on \
+            -clickthrough=off \
+            -width=0.25 \
+            -originX=0.74 \
+            -originY=0.01
+    fi
+
     echo "Sharing enabled"
 }
 
 # Function to stop sharing
 stop() {
+    # Close preview window if open
+    $BD set -name="$VIRTUAL_DISPLAY" -pip=off 2>/dev/null
+
     # Disconnect the virtual display and remove flag
     echo "Disconnecting virtual display: $VIRTUAL_DISPLAY"
     $BD set -name="$VIRTUAL_DISPLAY" -connected=off
@@ -163,6 +181,7 @@ parse_start_args() {
             --aspect)   ASPECT="$2"; shift ;;
             --downscale=*) DOWNSCALE="${1#--downscale=}" ;;
             --downscale)   DOWNSCALE="$2"; shift ;;
+            --preview) PREVIEW=1 ;;
             *) echo "Unknown option: $1"; exit 1 ;;
         esac
         shift
@@ -197,8 +216,31 @@ case "$1" in
             start
         fi
         ;;
+    preview)
+        if [ ! -f "$ENABLED_FILE" ]; then
+            echo "Sharing is not active"
+            exit 1
+        fi
+        current=$($BD get -name="$VIRTUAL_DISPLAY" -pip)
+        if [ "$current" = "on" ]; then
+            $BD set -name="$VIRTUAL_DISPLAY" -pip=off
+            echo "Preview off"
+        else
+            MAIN_DISPLAY=$(cut -d'|' -f1 < "$ENABLED_FILE")
+            $BD set -name="$VIRTUAL_DISPLAY" -pip=on \
+                -targetName="$MAIN_DISPLAY" \
+                -priority=topmost \
+                -showTitlebar=off \
+                -excludePipWindow=on \
+                -clickthrough=off \
+                -width=0.25 \
+                -originX=0.74 \
+                -originY=0.01
+            echo "Preview on"
+        fi
+        ;;
     *)
-        echo "Usage: service {start [--aspect W:H] [--downscale N]|stop|restart [--aspect W:H] [--downscale N]|status}"
+        echo "Usage: service {start [--aspect W:H] [--downscale N] [--preview]|stop|restart|status|preview}"
         exit 1
         ;;
 esac
