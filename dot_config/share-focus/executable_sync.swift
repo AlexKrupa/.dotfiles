@@ -38,72 +38,66 @@ guard dimensions.count == 2 else {
 let displayWidth: Double = dimensions[0]
 let displayHeight: Double = dimensions[1]
 
-// Get frontmost application window bounds (filtering for AXStandardWindow)
-func getFrontmostWindowBounds() -> WindowBounds? {
+// Get focused window bounds (filtering for AXStandardWindow)
+func getFocusedWindowBounds() -> WindowBounds? {
     guard let frontmostApp = NSWorkspace.shared.frontmostApplication else { return nil }
     let pid = frontmostApp.processIdentifier
 
-    // Get accessibility element for the frontmost process
     let appElement = AXUIElementCreateApplication(pid)
 
-    // Get windows from the application
-    var windowsRef: CFTypeRef?
-    let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
+    // Get the actually focused window, not just the first in the list
+    var focusedRef: CFTypeRef?
+    let focusedResult = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedRef)
+    guard focusedResult == .success, let focusedWindow = focusedRef else { return nil }
 
-    guard result == .success, let windows = windowsRef as? [AXUIElement] else {
+    // Skip non-standard windows (dialogs, banners, etc.)
+    var subroleRef: CFTypeRef?
+    if AXUIElementCopyAttributeValue(focusedWindow as! AXUIElement, kAXSubroleAttribute as CFString, &subroleRef) == .success,
+       let subrole = subroleRef as? String, subrole != "AXStandardWindow" {
         return nil
     }
 
-    // Find the first AXStandardWindow
-    // Other window types (dialogs, banners) should be ignored
-    for window in windows {
-        var subroleRef: CFTypeRef?
-        let subroleResult = AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subroleRef)
+    var positionRef: CFTypeRef?
+    var sizeRef: CFTypeRef?
 
-        if subroleResult == .success, let subrole = subroleRef as? String, subrole == "AXStandardWindow" {
-            // Get position and size
-            var positionRef: CFTypeRef?
-            var sizeRef: CFTypeRef?
+    let posResult = AXUIElementCopyAttributeValue(focusedWindow as! AXUIElement, kAXPositionAttribute as CFString, &positionRef)
+    let sizeResult = AXUIElementCopyAttributeValue(focusedWindow as! AXUIElement, kAXSizeAttribute as CFString, &sizeRef)
 
-            let posResult = AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &positionRef)
-            let sizeResult = AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeRef)
+    guard posResult == .success && sizeResult == .success,
+          let positionValue = positionRef, let sizeValue = sizeRef else { return nil }
 
-            if posResult == .success && sizeResult == .success,
-               let positionValue = positionRef, let sizeValue = sizeRef {
+    var position = CGPoint()
+    var size = CGSize()
 
-                var position = CGPoint()
-                var size = CGSize()
+    guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
+          AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else { return nil }
 
-                if AXValueGetValue(positionValue as! AXValue, .cgPoint, &position) &&
-                   AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) {
-                    // Adjust for Aerospace gaps and JankyBorders (see ~/.config/aerospace/aerospace.toml)
-                    return WindowBounds(
-                        x: Double(position.x - 5),
-                        y: Double(position.y - 5),
-                        width: Double(size.width + 10),
-                        height: Double(size.height + 10)
-                    )
-                }
-            }
-        }
-    }
-
-    return nil
+    return WindowBounds(
+        x: Double(position.x),
+        y: Double(position.y),
+        width: Double(size.width),
+        height: Double(size.height)
+    )
 }
 
 // Wait for focus change to complete
 Thread.sleep(forTimeInterval: 0.025) // seconds
 
 // Main execution
-guard let windowBounds = getFrontmostWindowBounds() else {
+guard let windowBounds = getFocusedWindowBounds() else {
     exit(0)
 }
 
-// Calculate relative coordinates (0.0 to 1.0)
-let relX = windowBounds.x / displayWidth
-let relY = windowBounds.y / displayHeight
-let relWidth = windowBounds.width / displayWidth
-let relHeight = windowBounds.height / displayHeight
+// Clamp to display bounds, then convert to relative coordinates (0.0 to 1.0)
+let clampedX = max(0, windowBounds.x)
+let clampedY = max(0, windowBounds.y)
+let clampedW = min(displayWidth - clampedX, windowBounds.width)
+let clampedH = min(displayHeight - clampedY, windowBounds.height)
+
+let relX = clampedX / displayWidth
+let relY = clampedY / displayHeight
+let relWidth = clampedW / displayWidth
+let relHeight = clampedH / displayHeight
 
 // Format to 3 decimal places
 let relXStr = String(format: "%.3f", relX)
@@ -118,6 +112,7 @@ task.arguments = [
     "set",
     "-name=\(displayName)",
     "-stream",
+    "-partial=on",
     "-partialOriginX=\(relXStr)",
     "-partialOriginY=\(relYStr)",
     "-partialWidth=\(relWidthStr)",
@@ -125,4 +120,3 @@ task.arguments = [
 ]
 
 task.launch()
-task.waitUntilExit()

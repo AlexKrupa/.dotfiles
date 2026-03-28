@@ -7,6 +7,10 @@ ENABLED_FILE="$CACHE_DIR/sharing-enabled"
 VIRTUAL_DISPLAY="Sharing"
 BD="/Applications/BetterDisplay.app/Contents/MacOS/BetterDisplay"
 
+# Defaults for start args
+ASPECT="16:9"
+DOWNSCALE=1
+
 # Function to detect main display
 detect_main_display() {
     # Get all display names from JSON output
@@ -61,6 +65,25 @@ ensure_virtual_display() {
     return 0
 }
 
+# Compute virtual display resolution from source display, aspect ratio, and downscale
+compute_virtual_resolution() {
+    local src_w=$1 src_h=$2 asp_w=$3 asp_h=$4 ds=$5
+
+    # Fit source into target aspect ratio (bounding box containing source)
+    local from_width=$((src_w * asp_h))
+    local from_height=$((src_h * asp_w))
+
+    local target_w
+    if [ "$from_width" -ge "$from_height" ]; then
+        target_w=$src_w
+    else
+        target_w=$((src_h * asp_w / asp_h))
+    fi
+    local target_h=$((target_w * asp_h / asp_w))
+
+    echo "$((target_w / ds))x$((target_h / ds))"
+}
+
 # Function to start sharing
 start() {
     # Ensure sync executable is available
@@ -84,6 +107,22 @@ start() {
 
     echo "Found main display: $MAIN_DISPLAY"
 
+    # Get source resolution and compute virtual display resolution
+    local src_resolution=$($BD get -name="$MAIN_DISPLAY" -resolution)
+    local src_w=$(echo "$src_resolution" | cut -dx -f1)
+    local src_h=$(echo "$src_resolution" | cut -dx -f2)
+    local asp_w=$(echo "$ASPECT" | cut -d: -f1)
+    local asp_h=$(echo "$ASPECT" | cut -d: -f2)
+
+    local virtual_res=$(compute_virtual_resolution "$src_w" "$src_h" "$asp_w" "$asp_h" "$DOWNSCALE")
+
+    echo "Virtual display: ${virtual_res} (source ${src_resolution}, aspect ${ASPECT}, downscale ${DOWNSCALE})"
+
+    # Set virtual display resolution before connecting
+    # (resolution set prints "Failed." on disconnected displays but works)
+    $BD set -name="$VIRTUAL_DISPLAY" -useResolutionList=on -resolutionList="$virtual_res"
+    $BD set -name="$VIRTUAL_DISPLAY" -resolution="$virtual_res" > /dev/null 2>&1
+
     # Connect the virtual display
     echo "Connecting virtual display: $VIRTUAL_DISPLAY"
     $BD set -name="$VIRTUAL_DISPLAY" -connected=on
@@ -95,9 +134,8 @@ start() {
     echo "Streaming $MAIN_DISPLAY → $VIRTUAL_DISPLAY"
     $BD set -name="$MAIN_DISPLAY" -stream=on -targetName="$VIRTUAL_DISPLAY"
 
-    # Get main display resolution using BetterDisplay
-    RESOLUTION=$($BD get -name="$MAIN_DISPLAY" -resolution | sed 's/x/ /')
-    echo "$MAIN_DISPLAY|$RESOLUTION" > "$ENABLED_FILE"
+    # Write source display info for sync
+    echo "$MAIN_DISPLAY|$(echo "$src_resolution" | sed 's/x/ /')" > "$ENABLED_FILE"
 
     # Initial run
     ~/.config/share-focus/sync
@@ -117,12 +155,32 @@ stop() {
 
 mkdir -p "$CACHE_DIR"
 
+parse_start_args() {
+    shift  # consume "start"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --aspect=*) ASPECT="${1#--aspect=}" ;;
+            --aspect)   ASPECT="$2"; shift ;;
+            --downscale=*) DOWNSCALE="${1#--downscale=}" ;;
+            --downscale)   DOWNSCALE="$2"; shift ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+        shift
+    done
+}
+
 case "$1" in
     start)
+        parse_start_args "$@"
         start
         ;;
     stop)
         stop
+        ;;
+    restart)
+        stop
+        parse_start_args "$@"
+        start
         ;;
     status)
         if [ -f "$ENABLED_FILE" ]; then
@@ -140,7 +198,7 @@ case "$1" in
         fi
         ;;
     *)
-        echo "Usage: sharing {start|stop|status}"
+        echo "Usage: service {start [--aspect W:H] [--downscale N]|stop|restart [--aspect W:H] [--downscale N]|status}"
         exit 1
         ;;
 esac
