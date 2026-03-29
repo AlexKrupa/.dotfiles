@@ -38,6 +38,7 @@ end
 
 alias fishc "$EDITOR ~/.config/fish/config.fish"
 alias fishl "$EDITOR ~/.config/fish/local.fish"
+alias fishr "exec fish"
 alias aerospacec "$EDITOR ~/.config/aerospace/aerospace.toml"
 alias ghosttyc "$EDITOR ~/.config/ghostty/config"
 alias ideavimc "$EDITOR ~/.ideavimrc"

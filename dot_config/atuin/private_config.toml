@@ -7,7 +7,9 @@ filter_mode = "global"
 filter_mode_shell_up_key_binding = "workspace"
 workspaces = true
 
-style = "auto"
+style = "compact"
+inline_height = 40
+invert = true
 enter_accept = true
 show_preview = true
 show_tabs = false
