@@ -60,7 +60,6 @@ ignored_commands = [
   "clear",
   "exit",
   "ls",
-  "nvim",
   "pwd",
   "yazi",
   "y", # yazi alias
