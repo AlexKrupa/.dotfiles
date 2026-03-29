@@ -72,6 +72,6 @@ ignored_commands = [
 records = true
 
 [tmux]
-enabled = true
+enabled = false
 width = "80%"
 height = "60%"
