@@ -1088,6 +1088,25 @@ require('lazy').setup {
     },
   },
 
+  -- QMK keymap.c file formatter
+  {
+    'codethread/qmk.nvim',
+    config = function()
+      ---@type qmk.UserConfig
+      local conf = {
+        name = 'LAYOUT_voyager',
+        layout = {
+          'x x x x x x _ x x x x x x',
+          'x x x x x x _ x x x x x x',
+          'x x x x x x _ x x x x x x',
+          'x x x x x x _ x x x x x x',
+          '_ _ _ _ x x _ x x _ _ _ _',
+        },
+      }
+      require('qmk').setup(conf)
+    end,
+  },
+
   -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- put them in the right spots if you want.
@@ -1168,43 +1187,43 @@ vim.api.nvim_create_autocmd('BufEnter', {
     vim.b[ev.buf].claude_at_mapped = true
 
     vim.keymap.set('i', '@', function()
-    -- Insert @ immediately, then open picker to append the path
-    vim.api.nvim_feedkeys('@', 'n', false)
+      -- Insert @ immediately, then open picker to append the path
+      vim.api.nvim_feedkeys('@', 'n', false)
 
-    vim.schedule(function()
-      require('telescope.builtin').find_files({
-        prompt_title = '@ File Reference',
-        find_command = { 'fd', '--type', 'f', '--type', 'd', '--strip-cwd-prefix' },
-        attach_mappings = function(prompt_bufnr, map)
-          local actions = require('telescope.actions')
-          local action_state = require('telescope.actions.state')
+      vim.schedule(function()
+        require('telescope.builtin').find_files {
+          prompt_title = '@ File Reference',
+          find_command = { 'fd', '--type', 'f', '--type', 'd', '--strip-cwd-prefix' },
+          attach_mappings = function(prompt_bufnr, map)
+            local actions = require 'telescope.actions'
+            local action_state = require 'telescope.actions.state'
 
-          actions.select_default:replace(function()
-            local entry = action_state.get_selected_entry()
-            actions.close(prompt_bufnr)
-            if entry then
+            actions.select_default:replace(function()
+              local entry = action_state.get_selected_entry()
+              actions.close(prompt_bufnr)
+              if entry then
+                vim.schedule(function()
+                  vim.api.nvim_feedkeys('a' .. entry[1] .. ' ', 'n', false)
+                end)
+              end
+            end)
+
+            -- Cancel: close and return to insert mode
+            local function cancel()
+              actions.close(prompt_bufnr)
               vim.schedule(function()
-                vim.api.nvim_feedkeys('a' .. entry[1] .. ' ', 'n', false)
+                vim.cmd 'startinsert!'
               end)
             end
-          end)
 
-          -- Cancel: close and return to insert mode
-          local function cancel()
-            actions.close(prompt_bufnr)
-            vim.schedule(function()
-              vim.cmd('startinsert!')
-            end)
-          end
+            map('i', '<Esc>', cancel)
+            map('n', '<Esc>', cancel)
+            map('n', 'q', cancel)
 
-          map('i', '<Esc>', cancel)
-          map('n', '<Esc>', cancel)
-          map('n', 'q', cancel)
-
-          return true
-        end,
-      })
-    end)
+            return true
+          end,
+        }
+      end)
     end, { buffer = ev.buf, desc = 'Insert @file reference (Claude Code)' })
   end,
 })

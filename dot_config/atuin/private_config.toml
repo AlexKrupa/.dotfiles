@@ -7,9 +7,8 @@ filter_mode = "global"
 filter_mode_shell_up_key_binding = "workspace"
 workspaces = true
 
-style = "compact"
-inline_height = 40
-invert = true
+style = "auto"
+invert = false
 enter_accept = true
 show_preview = true
 show_tabs = false
@@ -72,6 +71,6 @@ ignored_commands = [
 records = true
 
 [tmux]
-enabled = false
-width = "80%"
+enabled = true
+width = "150"
 height = "60%"
