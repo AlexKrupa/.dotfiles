@@ -92,6 +92,5 @@
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
   "prefersReducedMotion": false,
-  "autoConnectIde": true,
-  "model": "opus"
+  "autoConnectIde": true
 }
