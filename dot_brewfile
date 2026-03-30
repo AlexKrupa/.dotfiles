@@ -116,6 +116,7 @@ cask "ghostty"
 # cask "google-drive"
 cask "google-chrome" # prompt-on-upgrade: Google Chrome:com.google.Chrome
 cask "grandperspective" # disk space visualizer
+cask "finetune" # audio volume control
 cask "firefox" # prompt-on-upgrade: firefox:org.mozilla.firefox
 # cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
