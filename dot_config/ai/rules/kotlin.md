@@ -9,6 +9,7 @@ paths:
 - Sealed classes/interfaces for type hierarchies
 - Prefix boolean properties verbs, e.g, `isEnabled` over `enabled`
 - `PascalCase` enum entries
+- Empty function body: use `= Unit` expression over empty lambda `{}`
 - Coroutines over callbacks
   - Convert library callbacks into coroutines using `suspendCancellableCoroutine`
   - Convert library listeners into flows using flow builders 
