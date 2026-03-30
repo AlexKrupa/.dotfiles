@@ -88,11 +88,19 @@ func runSync() {
 
     guard let wb = getFocusedWindowBounds() else { return }
 
+    // Window entirely off the source display - on another monitor
+    if wb.x + wb.width <= 0 || wb.y + wb.height <= 0
+        || wb.x >= displayWidth || wb.y >= displayHeight {
+        return
+    }
+
     // Clamp to display bounds, then convert to relative coordinates (0.0 to 1.0)
     let clampedX = max(0, wb.x)
     let clampedY = max(0, wb.y)
-    let clampedW = min(displayWidth - clampedX, wb.width)
-    let clampedH = min(displayHeight - clampedY, wb.height)
+    let visibleW = wb.width - (clampedX - wb.x)
+    let visibleH = wb.height - (clampedY - wb.y)
+    let clampedW = min(displayWidth - clampedX, visibleW)
+    let clampedH = min(displayHeight - clampedY, visibleH)
 
     let relX = String(format: "%.3f", clampedX / displayWidth)
     let relY = String(format: "%.3f", clampedY / displayHeight)
@@ -129,7 +137,7 @@ func runSync() {
     )
 }
 
-// Parse --delay flag (milliseconds, default 25)
+// Parse --delay flag (milliseconds, default 0)
 var delayMs: Double = 0
 if let idx = CommandLine.arguments.firstIndex(of: "--delay"),
    idx + 1 < CommandLine.arguments.count,
