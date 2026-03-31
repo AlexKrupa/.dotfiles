@@ -138,7 +138,12 @@ let g:highlightedyank_highlight_color = "rgba(57, 197, 187, 155)"
 Plug 'dbakker/vim-paragraph-motion'
 Plug 'kana/vim-textobj-entire'
 
+Plug 'vim-scripts/argtextobj.vim'
+let g:argtextobj_pairs="[:],(:),<:>"
+
 set anyobject
+" Prefer argtextobj for args - supports custom brackets
+let g:anyobject_excluded = "anyArgument,anyArgOrItem"
 
 " In normal mode: Press " to see registers before using them in commands
 " In insert mode: Press Ctrl-R to see registers before pasting their contents
