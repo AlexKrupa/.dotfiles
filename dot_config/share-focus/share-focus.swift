@@ -80,8 +80,11 @@ func runSync() {
     let dimensions = String(parts[1]).split(separator: " ").compactMap { Double($0) }
     guard dimensions.count == 2 else { return }
 
-    let displayWidth = dimensions[0]
-    let displayHeight = dimensions[1]
+    // Use NSScreen for display dimensions - guaranteed same coordinate space as AX APIs,
+    // regardless of what resolution string BetterDisplay reports
+    guard let screen = NSScreen.screens.first else { return }
+    let displayWidth = Double(screen.frame.width)
+    let displayHeight = Double(screen.frame.height)
 
     // Wait for focus change to complete
     Thread.sleep(forTimeInterval: delayMs / 1000.0)
@@ -113,14 +116,14 @@ func runSync() {
     struct BDRequest: Codable {
         var uuid: String?
         var commands: [String]
-        var parameters: [String: String?]
+        var parameters: [String: String]
     }
     let request = BDRequest(
         uuid: UUID().uuidString,
         commands: ["set"],
         parameters: [
             "name": displayName,
-            "stream": nil,
+            "stream": "on",
             "partial": "on",
             "partialOriginX": relX,
             "partialOriginY": relY,

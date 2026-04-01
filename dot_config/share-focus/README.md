@@ -54,6 +54,10 @@ Hooks in `aerospace.toml`:
 - `on-focus-changed` calls `share-focus` on every focus change
 - `exec-and-forget` calls `share-focus` for window-moving bindings
 
+## Design decisions
+
+- **`--aspect` controls the virtual display, not the crop.** The virtual display uses a bounding box of the source fitted to the target aspect ratio (e.g. 3840x1620 source + 16:9 = 3840x2160 virtual). BetterDisplay's partial crop operates in source coordinates, so the crop math stays in source space regardless of virtual display AR. Don't remove aspect ratio support to "fix" coordinate issues - the two coordinate spaces are independent.
+
 ## Key details
 
 - `share-focus` exits silently (exit 0) when sharing is off or bounds can't be read - it runs on every focus change, so this is expected.

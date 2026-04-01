@@ -35,16 +35,16 @@ ensure_executable() {
     local bin_path="$HOME/.config/share-focus/share-focus"
     local swift_path="$HOME/.config/share-focus/share-focus.swift"
 
-    if [ ! -f "$bin_path" ]; then
-        if [ -f "$swift_path" ]; then
-            echo "Compiling share-focus executable"
-            swiftc "$swift_path" -o "$bin_path"
-            if [ $? -ne 0 ]; then
-                echo "Error: Failed to compile share-focus executable"
-                return 1
-            fi
-        else
-            echo "Error: share-focus.swift not found"
+    if [ ! -f "$swift_path" ]; then
+        echo "Error: share-focus.swift not found"
+        return 1
+    fi
+
+    if [ ! -f "$bin_path" ] || [ "$swift_path" -nt "$bin_path" ]; then
+        echo "Compiling share-focus executable"
+        swiftc "$swift_path" -o "$bin_path"
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to compile share-focus executable"
             return 1
         fi
     fi
