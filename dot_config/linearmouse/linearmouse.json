@@ -1,7 +1,15 @@
 {
-  "$schema" : "https:\/\/schema.linearmouse.app\/0.10.2",
+  "$schema" : "https:\/\/schema.linearmouse.app\/0.10.4",
   "schemes" : [
     {
+      "buttons" : {
+        "clickDebouncing" : {
+          "buttons" : [
+            0
+          ],
+          "timeout" : 50
+        }
+      },
       "if" : {
         "device" : {
           "category" : "mouse",
@@ -23,6 +31,14 @@
       }
     },
     {
+      "buttons" : {
+        "clickDebouncing" : {
+          "buttons" : [
+            0
+          ],
+          "timeout" : 50
+        }
+      },
       "if" : {
         "device" : {
           "category" : "mouse",
