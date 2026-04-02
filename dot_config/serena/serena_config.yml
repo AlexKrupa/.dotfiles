@@ -1,0 +1,15 @@
+languages:
+  - kotlin
+
+encoding: "utf-8"
+
+language_backend: JetBrains
+
+ignore_all_files_in_gitignore: true
+
+base_modes:
+  - interactive
+  - editing
+
+default_modes:
+  - no-onboarding
