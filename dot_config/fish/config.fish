@@ -31,7 +31,8 @@ end
 
 function fish --wraps fish --description "Replace shell inside tmux, subshell otherwise"
     if test (count $argv) -eq 0; and set -q TMUX
-        exec command fish
+        set -l fish_bin (command -s fish)
+        exec $fish_bin
     end
     command fish $argv
 end
