@@ -22,6 +22,11 @@ path = "~/Downloads"
 startup_command = "yazi"
 
 [[session]]
+name = "qmk keymap"
+path = "~/src/me/qmk-keymap"
+startup_command = "yazi"
+
+[[session]]
 name = "config"
 path = "~/.config"
 startup_command = "yazi"
@@ -30,6 +35,11 @@ startup_command = "yazi"
 name = "aerospace config"
 path = "~/.config/aerospace"
 startup_command = "nvim aerospace.toml"
+
+[[session]]
+name = "ai config"
+path = "~/.config/ai"
+startup_command = "yazi"
 
 [[session]]
 name = "claude config"
