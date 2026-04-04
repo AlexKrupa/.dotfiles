@@ -32,6 +32,8 @@ osascript -e 'tell application "System Settings" to quit'
 
 # Increase window resize speed for Cocoa applications
 defaults write NSGlobalDomain NSWindowResizeTime -float 0.001
+# Disable window opening animations
+defaults write -g NSAutomaticWindowAnimationsEnabled -bool false
 
 # Expand save panel by default
 defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
