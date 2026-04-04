@@ -597,7 +597,7 @@ require('lazy').setup {
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
+        clangd = {},
         gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
@@ -1099,6 +1099,9 @@ require('lazy').setup {
       ---@type qmk.UserConfig
       local conf = {
         name = 'LAYOUT_voyager',
+        comment_preview = {
+          position = 'none',
+        },
         layout = {
           'x x x x x x _ x x x x x x',
           'x x x x x x _ x x x x x x',
@@ -1191,8 +1194,17 @@ vim.api.nvim_create_autocmd('BufEnter', {
     vim.b[ev.buf].claude_at_mapped = true
 
     vim.keymap.set('i', '@', function()
-      -- Insert @ immediately, then open picker to append the path
-      vim.api.nvim_feedkeys('@', 'n', false)
+      local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+      local bufnr = vim.api.nvim_get_current_buf()
+
+      -- After a backtick, insert literal @ (e.g. inside inline code)
+      if col > 0 then
+        local char_before = vim.api.nvim_buf_get_text(bufnr, row - 1, col - 1, row - 1, col, {})[1]
+        if char_before == '`' then
+          vim.api.nvim_feedkeys('@', 'n', false)
+          return
+        end
+      end
 
       vim.schedule(function()
         require('telescope.builtin').find_files {
@@ -1207,16 +1219,21 @@ vim.api.nvim_create_autocmd('BufEnter', {
               actions.close(prompt_bufnr)
               if entry then
                 vim.schedule(function()
-                  vim.api.nvim_feedkeys('a' .. entry[1] .. ' ', 'n', false)
+                  local text = '@' .. entry[1] .. ' '
+                  vim.api.nvim_buf_set_text(bufnr, row - 1, col, row - 1, col, { text })
+                  vim.api.nvim_win_set_cursor(0, { row, col + #text })
+                  vim.cmd 'startinsert'
                 end)
               end
             end)
 
-            -- Cancel: close and return to insert mode
+            -- Cancel: insert bare @ and return to insert mode
             local function cancel()
               actions.close(prompt_bufnr)
               vim.schedule(function()
-                vim.cmd 'startinsert!'
+                vim.api.nvim_buf_set_text(bufnr, row - 1, col, row - 1, col, { '@' })
+                vim.api.nvim_win_set_cursor(0, { row, col + 1 })
+                vim.cmd 'startinsert'
               end)
             end
 

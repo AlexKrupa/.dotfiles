@@ -70,6 +70,7 @@
     ],
     "defaultMode": "default"
   },
+  "model": "opus",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh"
@@ -93,6 +94,5 @@
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
   "prefersReducedMotion": false,
-  "autoConnectIde": true,
-  "model": "opus"
+  "autoConnectIde": true
 }
