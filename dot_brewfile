@@ -12,6 +12,8 @@ brew "bash"
 brew "bat" # cat alternative with syntax highlighting
 # brew "FelixKratz/formulae/borders" # focused window borders
 brew "age" # file encryption
+brew "atuin" # persistent shell history
+brew "bandwhich" # network monitor, requires sudo
 brew "chezmoi" # dotfiles management
 brew "coreutils" # for gnu date
 brew "curl"
@@ -21,9 +23,11 @@ brew "dust" # disk usage utility, du alternative
 brew "exiftool" # read/write metadata
 brew "fd" # find alternative
 brew "ffmpeg" # video converter / compressor
+# brew "fjira" # Jira CLI
 brew "fx" # JSON viewer / processor
 brew "fzf" # fuzzy finder
 brew "git"
+brew "git-absorb" # smart fixup
 brew "git-delta" # git diff viewer
 brew "git-lfs" # git large file storage
 brew "git-spice" # git stack
@@ -36,13 +40,17 @@ brew "grc" # command output colorizer
 # brew "httpie" # HTTP client, curl alternative
 brew "htop" # system monitor
 brew "imagemagick" # image converter / compressor
+# brew "jira-cli"
 brew "jless" # JSON viewer
 brew 'jq' # grep for JSON
 brew 'jqp' # jq TUI
 brew "lsd" # better ls
+brew "lua-language-server"
+brew "mosh" # mobile shell
 brew "neovim"
 brew "node"
 brew "openssl"
+brew "qmk/qmk/qmk" # keyboard
 brew "renameutils" # bulk renaming / copying
 brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
@@ -52,6 +60,7 @@ brew "slides" # markdown slides, terminal presentation
 brew "tlrc" # tldr - docs, manpages alternative
 brew "tmux"
 brew "tpm" # tmux plugin manager
+brew "tree-sitter"
 brew "tokei" # project metric counter (e.g. LOC, complexity)
 # brew "yt-dlp" # YouTube downloader
 brew "zoxide" # smart cd replacement
@@ -61,16 +70,20 @@ brew "yazi" # file manager
 brew "ffmpegthumbnailer" # video file preview in yazi
 brew "poppler" # pdf preview in yazi
 
-# Android/Java/Kotlin
+# Java/Kotlin
 tap "mdogan/zulu"
 cask "zulu-jdk17"
 cask "zulu-jdk21"
 cask "zulu-jdk25"
+brew "kotlin"
+# brew "kscripting/tap/kscript"
+
+# Android
+brew "adb-enhanced" # adb with more features
 cask "android-platform-tools" # adb, fastboot
 brew "JakeWharton/repo/diffuse" # APK diff
-brew "adb-enhanced" # adb with more features
 brew "gradle"
-brew "kotlin"
+brew "gradle-completion"
 brew "mobile-dev-inc/tap/maestro" # UI automation
 brew "rogcat" # logcat viewer
 brew "scrcpy" # screen mirroring

@@ -18,7 +18,7 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
 
     # Parse apps that need quit/restart from Brewfile metadata
     set -l restart_apps
-    for line in (grep '# restart-on-upgrade:' ~/.brewfile | grep -v '!restart-on-upgrade')
+    for line in (grep '# restart-on-upgrade:' ~/.brewfile | grep -v '!restart-on-upgrade' | grep -v '^#')
         set -l cask_name (string match -r 'cask "([^"]+)"' $line)[2]
         set -l metadata (string match -r '# restart-on-upgrade:\s*(.+)' $line)[2]
         if test -n "$metadata" -a -n "$cask_name"
@@ -28,7 +28,7 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
 
     # Parse apps that prompt before restart
     set -l prompt_apps
-    for line in (grep '# prompt-on-upgrade:' ~/.brewfile | grep -v '!prompt-on-upgrade')
+    for line in (grep '# prompt-on-upgrade:' ~/.brewfile | grep -v '!prompt-on-upgrade' | grep -v '^#')
         set -l cask_name (string match -r 'cask "([^"]+)"' $line)[2]
         set -l metadata (string match -r '# prompt-on-upgrade:\s*(.+)' $line)[2]
         if test -n "$metadata" -a -n "$cask_name"
@@ -84,7 +84,7 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
         HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
 
         echo "Restarting $app_name..."
-        open -a "$app_name" -g
+        open -b "$bundle_id" -g
     end
 
     # Upgrade prompt-on-upgrade casks, ask before restarting running apps
@@ -111,7 +111,7 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
                     sleep 1
                 end
                 echo "Restarting $app_name..."
-                open -a "$app_name" -g
+                open -b "$bundle_id" -g
             end
         end
     end
