@@ -1,3 +1,5 @@
+config-version = 2
+
 start-at-login = true
 
 # Temporarily disabled to see if this makes JankyBorders crash.
@@ -23,6 +25,8 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 on-focus-changed = ['move-mouse window-lazy-center', 'exec-and-forget ~/.config/share-focus/share-focus']
 
 accordion-padding = 20
+
+persistent-workspaces = ["Y", "U", "I", "O", "P"]
 
 [gaps]
     inner.horizontal = 0
@@ -58,8 +62,8 @@ accordion-padding = 20
     cmd-m = [] # Disable "minimize application"
 
     # Resizing
-    alt-ctrl-shift-minus = ['resize smart -100', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-equal = ['resize smart +100', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-minus = ['resize smart -200', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-equal = ['resize smart +200', 'exec-and-forget ~/.config/share-focus/share-focus']
 
     # Focus
     alt-ctrl-shift-h = 'focus left'
