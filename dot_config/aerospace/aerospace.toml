@@ -112,62 +112,62 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     P = ['built-in', 'DELL']
 
 [[on-window-detected]]
+    check-further-callbacks = true
+    run = ['layout floating']
+
+[[on-window-detected]]
     if.app-id = 'com.mitchellh.ghostty'
-    run = ['move-node-to-workspace U', 'layout tiling']
+    run = ['move-node-to-workspace U --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.google.android.studio'
-    run = ['move-node-to-workspace I', 'layout tiling']
+    run = ['move-node-to-workspace I --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.google.android.studio-EAP'
-    run = ['move-node-to-workspace I', 'layout tiling']
+    run = ['move-node-to-workspace I --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.jetbrains.intellij.ce'
-    run = ['move-node-to-workspace I', 'layout tiling']
+    run = ['move-node-to-workspace I --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.google.Chrome'
-    run = ['move-node-to-workspace O', 'layout tiling']
+    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.microsoft.edgemac'
-    run = ['move-node-to-workspace O', 'layout tiling']
+    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'org.mozilla.firefox'
-    run = ['move-node-to-workspace O', 'layout tiling']
+    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
-    if.app-id = 'com.apple.Finder'
-    run = ['move-node-to-workspace O', 'layout tiling']
+    if.app-id = 'com.apple.finder'
+    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.apple.iCal'
-    run = ['move-node-to-workspace P', 'layout tiling']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.apple.Notes'
-    run = ['move-node-to-workspace P', 'layout tiling']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'md.obsidian'
-    run = ['move-node-to-workspace P', 'layout tiling']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.tinyspeck.slackmacgap'
-    run = ['move-node-to-workspace P', 'layout tiling']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.spotify.client'
-    run = ['move-node-to-workspace P', 'layout tiling']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.window-title-regex-substring = 'Picture-in-Picture'
-    run = 'layout floating'
-
-[[on-window-detected]]
-    check-further-callbacks = true
     run = 'layout floating'
 
