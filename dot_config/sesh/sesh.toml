@@ -22,7 +22,7 @@ path = "~/Downloads"
 startup_command = "yazi"
 
 [[session]]
-name = "qmk keymap"
+name = "qmk-keymap"
 path = "~/src/me/qmk-keymap"
 startup_command = "yazi"
 
