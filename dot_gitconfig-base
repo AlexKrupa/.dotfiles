@@ -91,13 +91,19 @@
 # git-spice - branch stacking (https://github.com/abhinav/git-spice)
 [spice "branchCreate"]
   commit = false
+[spice "branchCreate"]
+  trackUntracker = true
 [spice "log"]
   all = true
   crFormat = url
   crStatus = true
 [spice "shorthand"]
-	rss = !gs rs && gs sr
-	rsss = !gs rs && gs sr && gs ss
+  rsr = !gs rs && gs rr
+  rss = !gs rs && gs sr
+  sss = !gs rs && gs sr && gs ss
+[spice "submit"]
+  navigationComment = multiple
+  web = created
 [column]
   ui = auto
 [transfer]
