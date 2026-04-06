@@ -51,6 +51,7 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     alt-ctrl-shift-r = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/share-focus']
     alt-ctrl-shift-f = ['fullscreen', 'exec-and-forget ~/.config/share-focus/share-focus']
     alt-ctrl-shift-cmd-f = ['layout floating tiling ', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-m = ['exec-and-forget ~/.config/share-focus/share-focus', 'macos-native-minimize']
 
     alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
     alt-ctrl-shift-cmd-tab = ['move-workspace-to-monitor --wrap-around next', 'exec-and-forget ~/.config/share-focus/share-focus']
