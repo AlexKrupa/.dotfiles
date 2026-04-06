@@ -65,13 +65,13 @@
       "mcp__plugin_context7_context7__resolve-library-id"
     ],
     "deny": [
-      "Bash(rm -rf *)",
+      "Bash(git branch -D *)",
+      "Bash(git checkout -- *)",
+      "Bash(git clean -f *)",
       "Bash(git push --force *)",
       "Bash(git push -f *)",
       "Bash(git reset --hard *)",
-      "Bash(git checkout -- *)",
-      "Bash(git clean -f *)",
-      "Bash(git branch -D *)"
+      "Bash(rm -rf *)"
     ],
     "ask": [],
     "defaultMode": "default"
@@ -82,6 +82,7 @@
     "command": "bash ~/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
+    "caveman@caveman": true,
     "clangd-lsp@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
@@ -96,6 +97,14 @@
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false
+  },
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
