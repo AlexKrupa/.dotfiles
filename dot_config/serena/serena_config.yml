@@ -13,3 +13,4 @@ base_modes:
 
 default_modes:
   - no-onboarding
+  - no-memories
