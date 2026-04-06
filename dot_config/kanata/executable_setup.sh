@@ -18,12 +18,20 @@ KANATA_TRAY_CONFIG_DIR="$HOME/Library/Application Support/kanata-tray"
 mkdir -p "$KANATA_TRAY_CONFIG_DIR"
 ln -sf "$SCRIPT_DIR/kanata-tray.toml" "$KANATA_TRAY_CONFIG_DIR/kanata-tray.toml"
 
-# 2. Symlink LaunchAgent plist
+# 3. Symlink LaunchAgent plist.
+#    Note: the plist hardcodes /Users/alexkrupa/... in ProgramArguments, so
+#    this whole setup is single-user by design.
 ln -sf "$SCRIPT_DIR/com.kanata-tray-macos.plist" "$HOME/Library/LaunchAgents/com.kanata-tray-macos.plist"
 
-# 3. Set up passwordless sudo for kanata
+# 4. Set up passwordless sudo for kanata. Resolve the real binary via PATH so
+#    this works on both Apple Silicon (/opt/homebrew) and Intel (/usr/local).
+KANATA_BIN="$(command -v kanata || true)"
+if [ -z "$KANATA_BIN" ]; then
+    echo "error: kanata not found on PATH. Install it first (e.g. brew install kanata)." >&2
+    exit 1
+fi
 SUDOERS_FILE="/etc/sudoers.d/kanata"
-SUDOERS_LINE="$USER ALL=(root) NOPASSWD: /opt/homebrew/bin/kanata"
+SUDOERS_LINE="$USER ALL=(root) NOPASSWD: $KANATA_BIN"
 if [ ! -f "$SUDOERS_FILE" ] || ! grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE"; then
     echo "$SUDOERS_LINE" | sudo tee "$SUDOERS_FILE" > /dev/null
     sudo chmod 0440 "$SUDOERS_FILE"
@@ -31,6 +39,15 @@ if [ ! -f "$SUDOERS_FILE" ] || ! grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE"; then
 else
     echo "$SUDOERS_FILE already configured"
 fi
+
+# 5. Bootstrap the LaunchAgent into the GUI domain. This both starts it now
+#    (RunAtLoad=true in the plist) and makes launchd auto-load it on every
+#    future login. `|| true` so re-running setup.sh on an already-configured
+#    machine doesn't abort under `set -e`.
+#    If this step fails, just start kanata-tray manually this once:
+#      open ~/.config/kanata/kanata-tray-macos
+#    It will still come up automatically on next login.
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.kanata-tray-macos.plist" || true
 
 cat <<'EOF'
 Done. Remaining manual steps:
@@ -40,7 +57,4 @@ Done. Remaining manual steps:
      /opt/homebrew/Cellar/kanata/<version>/bin/kanata  (real path, not the symlink)
    - Accessibility: same two binaries
    Use Cmd+Shift+G in the file picker to navigate to hidden paths.
-
-2. Load the LaunchAgent:
-   launchctl load ~/Library/LaunchAgents/com.kanata-tray-macos.plist
 EOF
