@@ -1244,3 +1244,6 @@ vim.api.nvim_create_autocmd('BufEnter', {
     end, { buffer = ev.buf, desc = 'Insert @file reference (Claude Code)' })
   end,
 })
+
+-- Treat Shift+Enter like Enter in insert mode (don't leave insert mode)
+vim.keymap.set('i', '<S-CR>', '<CR>', { desc = 'Shift+Enter acts as Enter' })

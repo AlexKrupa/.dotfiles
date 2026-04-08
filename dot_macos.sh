@@ -23,9 +23,9 @@ while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 # Quit System Settings to avoid overriding changes we're about to make
 osascript -e 'tell application "System Settings" to quit'
 
-################################################################################
+#################################################################################
 ## General UI/UX                                                               #
-################################################################################
+#################################################################################
 
 step "General UI/UX"
 
@@ -69,9 +69,9 @@ defaults write com.apple.CrashReporter DialogType basic
 defaults write -g NSStatusItemSpacing -int 2
 defaults write -g NSStatusItemSelectionPadding -int 2
 
-################################################################################
+#################################################################################
 ## Trackpad, mouse, keyboard, Bluetooth accessories, and input                 #
-################################################################################
+#################################################################################
 
 step "Trackpad, mouse, keyboard, and input"
 
@@ -106,9 +106,9 @@ defaults write -g InitialKeyRepeat -int 15 # normal minimum is 15 (225 ms)
 defaults write -g KeyRepeat -int 2 # normal minimum is 2 (30 ms)
 
 
-################################################################################
+#################################################################################
 ## Energy saving                                                               #
-################################################################################
+#################################################################################
 
 step "Energy saving"
 
@@ -129,9 +129,9 @@ sudo pmset -b sleep 5
 # Set standby delay to 24 hours (default is 1 hour)
 sudo pmset -a standbydelay 86400
 
-################################################################################
+#################################################################################
 ## Screen                                                                      #
-################################################################################
+#################################################################################
 
 step "Screen"
 
@@ -148,9 +148,9 @@ defaults write NSGlobalDomain AppleFontSmoothing -int 0
 # Enable HiDPI display modes (requires restart)
 sudo defaults write /Library/Preferences/com.apple.windowserver DisplayResolutionEnabled -bool true
 
-################################################################################
+#################################################################################
 ## Finder                                                                      #
-################################################################################
+#################################################################################
 
 step "Finder"
 
@@ -222,9 +222,9 @@ chflags nohidden ~/Library && xattr -d com.apple.FinderInfo ~/Library
 # Show the /Volumes folder
 sudo chflags nohidden /Volumes
 
-###############################################################################
+################################################################################
 ## Dock                                                                       #
-###############################################################################
+################################################################################
 
 step "Dock"
 
@@ -264,9 +264,9 @@ defaults write com.apple.dock show-recents -bool false
 # Disable the Launchpad gesture (pinch with thumb and three fingers)
 defaults write com.apple.dock showLaunchpadGestureEnabled -int 0
 
-################################################################################
+#################################################################################
 ## Safari & WebKit                                                             #
-################################################################################
+#################################################################################
 
 step "Safari & WebKit"
 
@@ -301,9 +301,9 @@ defaults write com.apple.Safari SendDoNotTrackHTTPHeader -bool true
 # Update extensions automatically
 defaults write com.apple.Safari InstallExtensionUpdatesAutomatically -bool true
 
-################################################################################
+#################################################################################
 ## Mail                                                                        #
-################################################################################
+#################################################################################
 
 step "Mail"
 
@@ -317,9 +317,9 @@ defaults write com.apple.mail DraftsViewerAttributes -dict-add "DisplayInThreade
 defaults write com.apple.mail DraftsViewerAttributes -dict-add "SortedDescending" -string "yes"
 defaults write com.apple.mail DraftsViewerAttributes -dict-add "SortOrder" -string "received-date"
 
-################################################################################
+#################################################################################
 ## Activity Monitor                                                            #
-################################################################################
+#################################################################################
 
 step "Activity Monitor"
 
@@ -335,9 +335,9 @@ defaults write com.apple.ActivityMonitor SortDirection -int 0
 # Refresh Activity Monitor every 1s
 defaults write com.apple.ActivityMonitor "UpdatePeriod" -int "1"
 
-################################################################################
+#################################################################################
 ## Mac App Store                                                               #
-################################################################################
+#################################################################################
 
 step "Mac App Store"
 
@@ -352,18 +352,18 @@ defaults write com.apple.SoftwareUpdate CriticalUpdateInstall -int 1
 # Turn on app auto-update
 defaults write com.apple.commerce AutoUpdate -bool true
 
-################################################################################
+#################################################################################
 ## Photos                                                                      #
-################################################################################
+#################################################################################
 
 step "Photos"
 
 # Prevent Photos from opening automatically when devices are plugged in
 defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
 
-################################################################################
+#################################################################################
 ## Messages                                                                    #
-################################################################################
+#################################################################################
 
 step "Messages"
 
@@ -374,9 +374,9 @@ defaults write com.apple.messageshelper.MessageController SOInputLineSettings -d
 # Disable continuous spell checking
 defaults write com.apple.messageshelper.MessageController SOInputLineSettings -dict-add "continuousSpellCheckingEnabled" -bool false
 
-################################################################################
+#################################################################################
 ## Privacy                                                                     #
-################################################################################
+#################################################################################
 
 step "Privacy"
 
@@ -384,9 +384,9 @@ defaults write com.apple.AdLib.plist allowApplePersonalizedAdvertising -bool fal
 defaults write com.apple.AdLib.plist allowIdentifierForAdvertising -bool false
 defaults write com.apple.AdLib.plist personalizedAdsMigrated -bool false
 
-################################################################################
+#################################################################################
 ## Touch ID                                                                    #
-################################################################################
+#################################################################################
 
 step "Touch ID for sudo"
 
@@ -399,7 +399,7 @@ else
     sudo sed -i '' 's/^#auth/auth/' /etc/pam.d/sudo_local
 fi
 
-################################################################################
+#################################################################################
 
 step "Restarting affected apps"
 killall Dock Finder SystemUIServer "Activity Monitor" 2>/dev/null

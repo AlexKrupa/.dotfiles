@@ -165,3 +165,6 @@ nnoremap <silent> <leader>fj :%!jq<CR>
 vnoremap <silent> <leader>fj :'<,'>!jq<CR>
 nnoremap <silent> <leader>fcj :%!jq --compact-output<CR>
 vnoremap <silent> <leader>fcj :'<,'>!jq --compact-output<CR>
+
+" Treat Shift+Enter like Enter in insert mode (don't leave insert mode)
+inoremap <S-CR> <CR>
