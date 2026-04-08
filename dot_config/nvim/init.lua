@@ -1182,7 +1182,12 @@ end, { desc = 'Organize imports' })
 -- opens a Telescope file picker. Selecting a file inserts @path/to/file.
 -- Cancelling (Escape) inserts a bare @.
 vim.api.nvim_create_autocmd('BufEnter', {
-  pattern = '/private/var/folders/*/claude-prompt-*.md',
+  pattern = {
+    '/tmp/claude-prompt-*.md',
+    '/private/tmp/claude-prompt-*.md',
+    '/var/folders/*/*/*/claude-prompt-*.md',
+    '/private/var/folders/*/*/*/claude-prompt-*.md',
+  },
   callback = function(ev)
     if vim.b[ev.buf].claude_at_mapped then
       return
