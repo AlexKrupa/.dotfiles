@@ -655,6 +655,8 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'prettier', -- Markdown formatter
+        'markdownlint-cli2', -- Markdown linter
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -707,13 +709,48 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        markdown = { 'prettier' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
       },
+      formatters = {
+        prettier = {
+          prepend_args = {
+            '--parser', 'markdown',
+            '--print-width', '100',
+            '--prose-wrap', 'always',
+            '--tab-width', '2',
+            '--end-of-line', 'lf',
+          },
+        },
+      },
     },
+  },
+
+  { -- Linting
+    'mfussenegger/nvim-lint',
+    event = { 'BufReadPost', 'BufWritePost', 'InsertLeave' },
+    config = function()
+      local lint = require 'lint'
+      lint.linters_by_ft = { markdown = { 'markdownlint-cli2' } }
+
+      -- Inline config: point markdownlint-cli2 at a single file we own,
+      -- so rules live with this nvim config and apply regardless of project.
+      lint.linters['markdownlint-cli2'].args = {
+        '--config',
+        vim.fn.stdpath 'config' .. '/markdownlint.jsonc',
+        '--',
+      }
+
+      vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufWritePost', 'InsertLeave' }, {
+        callback = function()
+          require('lint').try_lint()
+        end,
+      })
+    end,
   },
 
   { -- Autocompletion
