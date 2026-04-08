@@ -1,34 +1,33 @@
 #!/usr/bin/env bash
 
-# good reference to find your Defaults
-# https://macos-defaults.com/
+# References:
+# - https://macos-defaults.com/
+# - https://mths.be/macos
 
-# ~/.macos — https://mths.be/macos
+YELLOW='\033[1;33m' # switching section
+GRAY='\033[1;30m'   # info
+PURPLE='\033[1;35m' # making change
+NC='\033[0m'        # no color
 
-YELLOW='\033[1;33m'     # switching section
-GRAY='\033[1;30m'       # info
-PURPLE='\033[1;35m'     # making change
-NC='\033[0m' # No Color
+info()   { echo -e "${GRAY}---- $1${NC}"; }
+step()   { echo -e "\n${YELLOW}---- $1${NC}"; }
+action() { echo -e "\n${PURPLE}---- $1${NC}"; }
 
-echo -e "\n\n\n${YELLOW}---- Do these settings manually${NC}"
-echo -e "${PURPLE}---- Keyboard > Keyboard Shortcuts > Spotlight${NC}"
-echo -e "${PURPLE}----      disable \"show spotlight search\"${NC}"
-echo -e "${PURPLE}----      disable \"show finder search window\"${NC}"
+action "Apply these settings manually: Keyboard > Keyboard Shortcuts > Spotlight - disable \"Show Spotlight search\" and \"Show Finder search window\""
 
-echo -e "\n\n\n${YELLOW}---- MacOS related changes${NC}"
+step "Applying macOS settings"
 
-# Keep-alive: update existing `sudo` time stamp until `macos` has finished
+# Keep sudo alive until this script finishes
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-# Closing System Settings panes
-# prevent them from overriding settings
-# we’re about to change
+# Quit System Settings to avoid overriding changes we're about to make
 osascript -e 'tell application "System Settings" to quit'
-
 
 ################################################################################
 ## General UI/UX                                                               #
 ################################################################################
+
+step "General UI/UX"
 
 # Increase window resize speed for Cocoa applications
 defaults write NSGlobalDomain NSWindowResizeTime -float 0.001
@@ -74,6 +73,8 @@ defaults write -g NSStatusItemSelectionPadding -int 2
 ## Trackpad, mouse, keyboard, Bluetooth accessories, and input                 #
 ################################################################################
 
+step "Trackpad, mouse, keyboard, and input"
+
 # Trackpad: enable tap to click for this user and for the login screen
 defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
 defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
@@ -109,6 +110,8 @@ defaults write -g KeyRepeat -int 2 # normal minimum is 2 (30 ms)
 ## Energy saving                                                               #
 ################################################################################
 
+step "Energy saving"
+
 # Enable lid wakeup
 sudo pmset -a lidwake 1
 # Restart automatically on power loss
@@ -130,6 +133,8 @@ sudo pmset -a standbydelay 86400
 ## Screen                                                                      #
 ################################################################################
 
+step "Screen"
+
 # Require password immediately after sleep or screen saver begins
 # defaults write com.apple.screensaver askForPassword -int 1
 # defaults write com.apple.screensaver askForPasswordDelay -int 0
@@ -146,6 +151,8 @@ sudo defaults write /Library/Preferences/com.apple.windowserver DisplayResolutio
 ################################################################################
 ## Finder                                                                      #
 ################################################################################
+
+step "Finder"
 
 # Finder: disable window animations and Get Info animations
 defaults write com.apple.finder DisableAllAnimations -bool true
@@ -216,8 +223,10 @@ chflags nohidden ~/Library && xattr -d com.apple.FinderInfo ~/Library
 sudo chflags nohidden /Volumes
 
 ###############################################################################
-## Dock
+## Dock                                                                       #
 ###############################################################################
+
+step "Dock"
 
 # Enable highlight hover effect for the grid view of a stack (Dock)
 defaults write com.apple.dock mouse-over-hilite-stack -bool true
@@ -259,6 +268,8 @@ defaults write com.apple.dock showLaunchpadGestureEnabled -int 0
 ## Safari & WebKit                                                             #
 ################################################################################
 
+step "Safari & WebKit"
+
 # Privacy: don’t send search queries to Apple
 defaults write com.apple.Safari UniversalSearchEnabled -bool false
 defaults write com.apple.Safari SuppressSearchSuggestions -bool true
@@ -294,6 +305,8 @@ defaults write com.apple.Safari InstallExtensionUpdatesAutomatically -bool true
 ## Mail                                                                        #
 ################################################################################
 
+step "Mail"
+
 # Disable send and reply animations in Mail.app
 defaults write com.apple.mail DisableReplyAnimations -bool true
 defaults write com.apple.mail DisableSendAnimations -bool true
@@ -308,6 +321,8 @@ defaults write com.apple.mail DraftsViewerAttributes -dict-add "SortOrder" -stri
 ## Activity Monitor                                                            #
 ################################################################################
 
+step "Activity Monitor"
+
 # Show the main window when launching Activity Monitor
 defaults write com.apple.ActivityMonitor OpenMainWindow -bool true
 # Visualize CPU usage in the Activity Monitor Dock icon
@@ -317,12 +332,14 @@ defaults write com.apple.ActivityMonitor ShowCategory -int 0
 # Sort Activity Monitor results by CPU usage
 defaults write com.apple.ActivityMonitor SortColumn -string "CPUUsage"
 defaults write com.apple.ActivityMonitor SortDirection -int 0
-# Refresh Activty Monitor every 1s
+# Refresh Activity Monitor every 1s
 defaults write com.apple.ActivityMonitor "UpdatePeriod" -int "1"
 
 ################################################################################
 ## Mac App Store                                                               #
 ################################################################################
+
+step "Mac App Store"
 
 # Enable the automatic update check
 defaults write com.apple.SoftwareUpdate AutomaticCheckEnabled -bool true
@@ -339,12 +356,16 @@ defaults write com.apple.commerce AutoUpdate -bool true
 ## Photos                                                                      #
 ################################################################################
 
+step "Photos"
+
 # Prevent Photos from opening automatically when devices are plugged in
 defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
 
 ################################################################################
 ## Messages                                                                    #
 ################################################################################
+
+step "Messages"
 
 # Disable automatic emoji substitution (i.e. use plain text smileys)
 # defaults write com.apple.messageshelper.MessageController SOInputLineSettings -dict-add "automaticEmojiSubstitutionEnablediMessage" -bool false
@@ -357,26 +378,30 @@ defaults write com.apple.messageshelper.MessageController SOInputLineSettings -d
 ## Privacy                                                                     #
 ################################################################################
 
+step "Privacy"
+
 defaults write com.apple.AdLib.plist allowApplePersonalizedAdvertising -bool false
 defaults write com.apple.AdLib.plist allowIdentifierForAdvertising -bool false
 defaults write com.apple.AdLib.plist personalizedAdsMigrated -bool false
 
 ################################################################################
-## Touch ID
+## Touch ID                                                                    #
 ################################################################################
 
-# Link Touch ID <-> Sudo (uses sudo_local, survives macOS updates)
+step "Touch ID for sudo"
+
+# Uses sudo_local so it survives macOS updates
 if [ -f /etc/pam.d/sudo_local ]; then
-    echo -e "${GRAY}---- Touch ID sudo already configured${NC}"
+    info "Touch ID for sudo already configured"
 else
-    echo -e "${PURPLE}---- Enabling Touch ID for sudo${NC}"
+    action "Enabling Touch ID for sudo"
     sudo cp /etc/pam.d/sudo_local.template /etc/pam.d/sudo_local
     sudo sed -i '' 's/^#auth/auth/' /etc/pam.d/sudo_local
 fi
 
-###############################################################################
+################################################################################
 
-# Restart dock and finder to apply changes
-killall Dock && killall Finder && killall SystemUIServer && killall Activity\ Monitor
+step "Restarting affected apps"
+killall Dock Finder SystemUIServer "Activity Monitor" 2>/dev/null
 
-echo -e "${GRAY}---- MacOS related changes done. Note that some of these changes require a logout/restart to take effect.${NC}\n\n\n\n\n\n"
+info "Done. Some changes require a logout or restart to take effect."

@@ -77,7 +77,6 @@
     "ask": [],
     "defaultMode": "default"
   },
-  "model": "opus",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh"
@@ -108,8 +107,9 @@
     }
   },
   "alwaysThinkingEnabled": true,
-  "showThinkingSummaries": true,
   "effortLevel": "medium",
   "prefersReducedMotion": false,
-  "autoConnectIde": true
+  "showThinkingSummaries": true,
+  "autoConnectIde": true,
+  "model": "opus"
 }

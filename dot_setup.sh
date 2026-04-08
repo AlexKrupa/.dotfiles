@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Based on Kaushik Gopal's dotfiles
-# https://github.com/kaushikgopal/dotfiles/blob/c0ce216a8029dc00ea9338a2d498f8cc1c967c7f/.setup.sh
-
 YELLOW='\033[1;33m' # switching section
 GRAY='\033[1;30m'   # info
 PURPLE='\033[1;35m' # making change
@@ -16,7 +13,7 @@ action() { echo -e "\n${PURPLE}---- $1${NC}"; }
 # Basics
 ##############################################################
 
-action "Check for Apple Software Updates then restart your computer. Have you done this (no seriously!)"
+action "Check for Apple software updates and restart your computer"
 
 step "Installing Xcode command line tools"
 touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
@@ -25,21 +22,21 @@ rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
 
 step "Setting up Homebrew"
 if ! command -v brew &>/dev/null; then
-    action "Homebrew not found. Installing..."
+    action "Installing Homebrew"
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 else
-    info "Homebrew is already installed"
+    info "Homebrew already installed"
 fi
 
-info "Turning Homebrew analytics off"
+info "Disabling Homebrew analytics"
 brew analytics off
 
 step "Setting up GitHub"
 brew install gh
 if gh auth status &>/dev/null; then
-    info "Logged in to GitHub"
+    info "Already logged into GitHub"
 else
-    action "You need to setup GitHub, follow the prompts now"
+    action "Log into GitHub - follow the prompts"
     gh auth login
 fi
 
@@ -52,7 +49,7 @@ else
     chezmoi init --apply https://github.com/AlexKrupa/.dotfiles.git
 fi
 
-step "Asking for an admin password upfront"
+step "Requesting admin password upfront"
 sudo -v
 
 ##############################################################
@@ -69,15 +66,16 @@ else
 fi
 
 if grep -Fxq "$FISH_PATH" /etc/shells; then
-    info "fish declaration present in /etc/shells"
+    info "Fish already registered in /etc/shells"
 else
+    info "Registering Fish in /etc/shells"
     echo "$FISH_PATH" | sudo tee -a /etc/shells
 fi
 
 if [[ "fish" == $(basename "${SHELL}") ]]; then
-    info "default shell is fish"
+    info "Default shell already Fish"
 else
-    info "default shell is NOT fish - switching"
+    info "Setting default shell to Fish"
     chsh -s "$FISH_PATH"
 fi
 
