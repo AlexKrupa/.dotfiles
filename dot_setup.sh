@@ -3,102 +3,85 @@
 # Based on Kaushik Gopal's dotfiles
 # https://github.com/kaushikgopal/dotfiles/blob/c0ce216a8029dc00ea9338a2d498f8cc1c967c7f/.setup.sh
 
-# switching section
-YELLOW='\033[1;33m'
-# info
-GRAY='\033[1;30m'
-# making change
-PURPLE='\033[1;35m'
-# No Color
-NC='\033[0m'
+YELLOW='\033[1;33m' # switching section
+GRAY='\033[1;30m'   # info
+PURPLE='\033[1;35m' # making change
+NC='\033[0m'        # no color
+
+info()   { echo -e "${GRAY}---- $1${NC}"; }
+step()   { echo -e "\n${YELLOW}---- $1${NC}"; }
+action() { echo -e "\n${PURPLE}---- $1${NC}"; }
 
 ##############################################################
-# Basics (git & dotfiles)
+# Basics
 ##############################################################
 
-echo -e "\n\n\n${PURPLE}---- Check for Apple Software Updates then restart your computer. \n Have you done this (no seriously!)${NC}"
+action "Check for Apple Software Updates then restart your computer. Have you done this (no seriously!)"
 
-echo -e "\n\n\n${YELLOW}---- installing Xcode command tools (without all of Xcode)${NC}"
-touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress;
+step "Installing Xcode command line tools"
+touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
 softwareupdate --install -a --verbose
 rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
-# install xcode
-# xcode-select --install
 
-echo -e "${YELLOW}---- setting up Homebrew${NC}"
-
+step "Setting up Homebrew"
 if ! command -v brew &>/dev/null; then
-  echo -e "\n\n\n${YELLOW}---- Homebrew not found. Installing...${NC}"
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    action "Homebrew not found. Installing..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 else
-  echo -e "${GRAY}---- Homebrew is already installed.${NC}"
+    info "Homebrew is already installed"
 fi
 
-echo -e "${GRAY}---- Turning Homebrew analytics off.${NC}"
+info "Turning Homebrew analytics off"
 brew analytics off
 
-echo -e "${YELLOW}---- setting up GitHub${NC}"
+step "Setting up GitHub"
 brew install gh
-gh auth status &> tmp_gh_login.txt
-if grep -om1 "Logged in" tmp_gh_login.txt; then
-    rm -f tmp_gh_login.txt
-    echo -e "${GRAY}---- logged in to github${NC}"
+if gh auth status &>/dev/null; then
+    info "Logged in to GitHub"
 else
-    rm -f tmp_gh_login.txt
-    echo -e "${PURPLE}---- you need to setup GitHub, follow the prompts now ${NC}"
+    action "You need to setup GitHub, follow the prompts now"
     gh auth login
 fi
 
-echo -e "${YELLOW}---- setting up dotfiles${NC}"
-cd $HOME
-
-if git rev-parse --git-dir > /dev/null 2>&1; then
-    echo -e "${GRAY}---- looks like dotfile repo is setup${NC}"
+step "Setting up dotfiles with chezmoi"
+brew install chezmoi
+if [ -d "$HOME/.local/share/chezmoi/.git" ]; then
+    info "chezmoi source already initialized"
+    chezmoi update
 else
-    echo -e "${PURPLE}---- setting up home to point to dotfiles${NC}"
-    git init -b master
-    git remote add origin https://github.com/AlexKrupa/.dotfiles.git
-    git fetch origin
-    git reset --hard origin/master
+    chezmoi init --apply https://github.com/AlexKrupa/.dotfiles.git
 fi
 
-echo -e "${YELLOW}---- Asking for an admin password upfront${NC}"
+step "Asking for an admin password upfront"
 sudo -v
-
 
 ##############################################################
 # Fish shell
 ##############################################################
 
+step "Installing Fish"
 brew install fish
 
-echo -e "\n\n\n${YELLOW}---- Setting up Fish${NC}"
 if [[ $(uname -p) == 'arm' ]]; then
-    if grep -Fxq "/opt/homebrew/bin/fish" /etc/shells; then
-        echo -e "${GRAY}---- fish declaration present${NC}"
-    else
-        echo "/opt/homebrew/bin/fish" | sudo tee -a /etc/shells
-    fi
+    FISH_PATH="/opt/homebrew/bin/fish"
 else
-    if grep -Fxq "/usr/local/bin/fish" /etc/shells; then
-        echo -e "${GRAY}---- fish declaration present${NC}"
-    else
-        echo "/usr/local/bin/fish" | sudo tee -a /etc/shells
-    fi
+    FISH_PATH="/usr/local/bin/fish"
+fi
+
+if grep -Fxq "$FISH_PATH" /etc/shells; then
+    info "fish declaration present in /etc/shells"
+else
+    echo "$FISH_PATH" | sudo tee -a /etc/shells
 fi
 
 if [[ "fish" == $(basename "${SHELL}") ]]; then
-    echo -e "${GRAY}---- default shell is fish${NC}"
+    info "default shell is fish"
 else
-    echo -e "${GRAY}---- default shell is NOT fish${NC}"
-    if [[ $(uname -p) == 'arm' ]]; then
-        chsh -s /opt/homebrew/bin/fish
-    else
-        chsh -s /usr/local/bin/fish
-    fi
+    info "default shell is NOT fish - switching"
+    chsh -s "$FISH_PATH"
 fi
 
-echo -e "${YELLOW}---- Setting up Fisher (Fish plugin manager)${NC}"
+step "Setting up Fisher (Fish plugin manager)"
 fish -c '
     curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
     fisher install jorgebucaran/fisher
@@ -106,11 +89,10 @@ fish -c '
 '
 
 ##############################################################
-# MISC.
+# Misc
 ##############################################################
 
-source $HOME/.brew.sh
-$(brew --prefix)/opt/fzf/install
-source $HOME/.macos.sh
-# source $HOME/.cleanup.sh  # run manually if needed
-
+source "$HOME/.brew.sh"
+"$(brew --prefix)/opt/fzf/install"
+source "$HOME/.macos.sh"
+# source "$HOME/.cleanup.sh"  # run manually if needed
