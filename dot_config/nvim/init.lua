@@ -685,6 +685,11 @@ require('lazy').setup({
       {
         '<leader>ff',
         function()
+          -- Skip QMK keymap files: clangd reformats the grid and we rely
+          -- on qmk.nvim's own BufWritePre hook for those files.
+          if vim.api.nvim_buf_get_name(0):match 'keymap%.c$' then
+            return
+          end
           require('conform').format { async = true, lsp_format = 'fallback' }
         end,
         mode = '',
