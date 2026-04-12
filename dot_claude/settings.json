@@ -107,7 +107,7 @@
     }
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "low",
+  "effortLevel": "high",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "autoConnectIde": true
