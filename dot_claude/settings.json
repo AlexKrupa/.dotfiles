@@ -107,9 +107,8 @@
     }
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "medium",
+  "effortLevel": "low",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
-  "autoConnectIde": true,
-  "model": "opus"
+  "autoConnectIde": true
 }

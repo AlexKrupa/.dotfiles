@@ -66,8 +66,8 @@ defaults write com.apple.WindowManager EnableTiledWindowMargins -bool false
 defaults write com.apple.CrashReporter DialogType basic
 
 # Menu bar item spacing
-defaults write -g NSStatusItemSpacing -int 2
-defaults write -g NSStatusItemSelectionPadding -int 2
+defaults write -g NSStatusItemSpacing -int 4
+defaults write -g NSStatusItemSelectionPadding -int 4
 
 #################################################################################
 ## Trackpad, mouse, keyboard, Bluetooth accessories, and input                 #

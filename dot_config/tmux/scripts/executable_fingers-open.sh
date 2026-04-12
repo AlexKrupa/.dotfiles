@@ -26,6 +26,10 @@ elif [ -f "$HOME/$match" ]; then
 fi
 
 if [ -n "$path" ]; then
+  # SVG is XML (text) but usually wanted as a preview, not an edit.
+  case "$path" in
+    *.svg|*.SVG) exec open "$path" ;;
+  esac
   enc=$(file -b --mime-encoding -- "$path" 2>/dev/null || echo binary)
   if [ "$enc" != "binary" ]; then
     # tmux runs the command via `sh -c`, so build a properly quoted string.
