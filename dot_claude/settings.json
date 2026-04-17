@@ -110,5 +110,6 @@
   "effortLevel": "high",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
-  "autoConnectIde": true
+  "autoConnectIde": true,
+  "model": "opus"
 }
