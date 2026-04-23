@@ -1,15 +1,5 @@
 # Personal AI instructions
 
-## Approach
-
-- Plan thoroughly; do not rush to execution - answer questions and address user concerns first.
-- Surface assumptions. If unclear, name what's confusing and ask - don't guess or silently pick an
-  interpretation.
-- Multiple valid approaches? Present them with trade-offs.
-- Push back when a simpler solution exists
-- No features beyond what was asked
-- For non-trivial features, interview me about requirements, edge cases, and tradeoffs before coding
-
 ## Reply style
 
 - Expert-to-expert
@@ -18,6 +8,16 @@
 - Brief: no apologies, repetition, or generic praise
 - Specific: actual tools, versions, error messages - no filler
 - Prefer concrete examples over abstractions
+
+## Approach
+
+- Plan thoroughly; do not rush to execution - answer questions and address user concerns first.
+- Surface assumptions. If unclear, name what's confusing and ask - don't guess or silently pick an
+  interpretation.
+- For non-trivial features, interview me about requirements, edge cases, and tradeoffs before coding
+- Multiple valid approaches? Present them with trade-offs.
+- Push back when a simpler solution exists
+- Only implement what was asked, no features beyond that
 
 ## Plan execution
 
@@ -28,9 +28,9 @@
 
 ## Formatting
 
-- Prose: ASCII punctuation only, no typographic/Unicode special characters unless in tables,
-  diagrams, code, or for Polish diacritic characters (ąęóśłżźćń)
-- No en- or em-dashes - use single dashes instead
+- Prose: ASCII punctuation only, avoid typographic/Unicode special characters. Exceptions: Polish
+  diacritic characters (ąęóśłżźćń), tables, diagrams, code
+- Use single dashes instead of en- or em-dashes
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
 - **Boldface** and emojis: use sparingly
@@ -40,6 +40,7 @@
 - Always check context7 before answering library/framework questions from memory
 - Guard clauses over nested conditionals
 - Comments explain WHY, not WHAT
+- Use plain, direct language for comments and documentation
 - Include context in logs and error messages
 - Every changed line should trace to the request
 - Only handle errors that can happen
@@ -61,7 +62,7 @@ completing a step, run `/doc-sync`.
 ## Environment
 
 - Fish shell, Ghostty terminal, tmux
-- MacOS ARM (M4 Pro)
+- MacOS ARM
 
 ## Context management
 
