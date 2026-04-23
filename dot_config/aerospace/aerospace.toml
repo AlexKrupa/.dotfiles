@@ -2,15 +2,8 @@ config-version = 2
 
 start-at-login = true
 
-# Temporarily disabled to see if this makes JankyBorders crash.
-# Try `brew services start borders` instead.
-# after-startup-command = [
-#   'exec-and-forget borders active_color=0xffe1e3e4 inactive_color=0xff494d64 width=5.0 hidpi=on 2>/dev/null 1>&2 &'
-# ]
-
 exec-on-workspace-change = [
-    '/bin/bash', '-c',
-    '~/.config/aerospace/pip-move',
+    '/bin/bash', '-c', '~/.config/aerospace/pip-move',
 ]
 
 enable-normalization-flatten-containers = true
@@ -44,7 +37,7 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
 
 [mode.main.binding]
 
-    # Manually exec sync for commands that don't change window focus
+    # share-focus: exec for commands that don't change window focus
 
     # Layout
     alt-ctrl-shift-e = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/share-focus']
@@ -81,11 +74,11 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     alt-ctrl-shift-cmd-l = ['move right', 'exec-and-forget ~/.config/share-focus/share-focus']
 
     # Workspace
-    alt-ctrl-shift-y = 'exec-and-forget aerospace workspace Y --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
-    alt-ctrl-shift-u = 'exec-and-forget aerospace workspace U --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
-    alt-ctrl-shift-i = 'exec-and-forget aerospace workspace I --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
-    alt-ctrl-shift-o = 'exec-and-forget aerospace workspace O --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
-    alt-ctrl-shift-p = 'exec-and-forget aerospace workspace P --fail-if-noop || aerospace focus dfs-next --boundaries-action wrap-around-the-workspace'
+    alt-ctrl-shift-y = 'workspace Y'
+    alt-ctrl-shift-u = 'workspace U'
+    alt-ctrl-shift-i = 'workspace I'
+    alt-ctrl-shift-o = 'workspace O'
+    alt-ctrl-shift-p = 'workspace P'
 
     # Move to workspace
     alt-ctrl-shift-cmd-y = ['move-node-to-workspace --focus-follows-window Y', 'exec-and-forget ~/.config/share-focus/share-focus']
@@ -114,8 +107,9 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
 
 [[on-window-detected]]
     if.app-id = 'com.mitchellh.ghostty'
-    run = ['move-node-to-workspace U --focus-follows-window']
+    run = ['move-node-to-workspace U --focus-follows-window', 'layout tiling']
 
+# 'layout tiling' breaks JetBrains - tiles popups too.
 [[on-window-detected]]
     if.app-id = 'com.google.android.studio'
     run = ['move-node-to-workspace I --focus-follows-window']
@@ -130,39 +124,39 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
 
 [[on-window-detected]]
     if.app-id = 'com.google.Chrome'
-    run = ['move-node-to-workspace O --focus-follows-window']
+    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.microsoft.edgemac'
-    run = ['move-node-to-workspace O --focus-follows-window']
+    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'org.mozilla.firefox'
-    run = ['move-node-to-workspace O --focus-follows-window']
+    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.apple.finder'
-    run = ['move-node-to-workspace O --focus-follows-window']
+    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.apple.iCal'
-    run = ['move-node-to-workspace P --focus-follows-window']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.apple.Notes'
-    run = ['move-node-to-workspace P --focus-follows-window']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'md.obsidian'
-    run = ['move-node-to-workspace P --focus-follows-window']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.tinyspeck.slackmacgap'
-    run = ['move-node-to-workspace P --focus-follows-window']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'com.spotify.client'
-    run = ['move-node-to-workspace P --focus-follows-window']
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
 
 [[on-window-detected]]
     if.app-id = 'io.zsa.keymapp'
