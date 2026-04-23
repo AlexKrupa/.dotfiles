@@ -4,7 +4,9 @@
 
 ## Approach
 
-- Surface assumptions. If unclear, name what's confusing and ask - don't guess or silently pick an interpretation.
+- Plan thoroughly; do not rush to execution - answer questions and address user concerns first.
+- Surface assumptions. If unclear, name what's confusing and ask - don't guess or silently pick an
+  interpretation.
 - Multiple valid approaches? Present them with trade-offs.
 - Push back when a simpler solution exists
 - No features beyond what was asked
@@ -28,7 +30,8 @@
 
 ## Formatting
 
-- Prose: ASCII punctuation only, no typographic/Unicode special characters unless in tables, diagrams, code, or for Polish diacritic characters (ąęóśłżźćń)
+- Prose: ASCII punctuation only, no typographic/Unicode special characters unless in tables,
+  diagrams, code, or for Polish diacritic characters (ąęóśłżźćń)
 - No en- or em-dashes - use single dashes instead
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
@@ -53,9 +56,9 @@
 
 ## Design docs
 
-Persistent design docs live in `~/.config/ai/docs/`. Use `/doc` for commands.
-Non-trivial work (anything worth a plan) should have a design doc. Suggest `/doc <name>` before planning.
-After completing a step, run `/doc-sync`.
+Persistent design docs live in `~/.config/ai/docs/`. Use `/doc` for commands. Non-trivial work
+(anything worth a plan) should have a design doc. Suggest `/doc <name>` before planning. After
+completing a step, run `/doc-sync`.
 
 ## Environment
 
@@ -64,4 +67,5 @@ After completing a step, run `/doc-sync`.
 
 ## Context management
 
-- When compacting, preserve: modified file paths, test commands used, current plan step, and key decisions made
+- When compacting, preserve: modified file paths, test commands used, current plan step, and key
+  decisions made
