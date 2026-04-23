@@ -13,7 +13,7 @@
 ## Reply style
 
 - Expert-to-expert
-- Plain, direct language: avoid journalistic cliches, idioms, stock phrases, or tropes
+- Plain, direct language: no journalistic cliches, idioms, stock phrases, or tropes
 - Lead with solution, then details
 - Brief: no apologies, repetition, or generic praise
 - Specific: actual tools, versions, error messages - no filler
