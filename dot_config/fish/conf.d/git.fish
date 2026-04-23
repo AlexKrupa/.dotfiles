@@ -1,11 +1,10 @@
-# git-spice completions (branch stacking)
-eval "$(gs shell completion fish)"
-
 alias g "git"
 alias lg "lazygit"
 alias gs "git-spice"
 alias gitc "$EDITOR ~/.gitconfig-base"
 
+# git-spice completions (branch stacking)
+eval "$(gs shell completion fish)"
 set -Ux GIT_SPICE_NO_GS_WARNING 1
 
 # Usage: branch [name...]
