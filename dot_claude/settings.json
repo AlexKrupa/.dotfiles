@@ -42,6 +42,8 @@
       "Bash(grep *)",
       "Bash(gs branch:*)",
       "Bash(gs log:*)",
+      "Bash(git-spice branch:*)",
+      "Bash(git-spice log:*)",
       "Bash(head *)",
       "Bash(java *)",
       "Bash(ls *)",
