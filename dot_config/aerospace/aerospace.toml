@@ -134,9 +134,10 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     if.app-id = 'org.mozilla.firefox'
     run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
 
+# `layout tiling` breaks Preview
 [[on-window-detected]]
     if.app-id = 'com.apple.finder'
-    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
+    run = ['move-node-to-workspace O --focus-follows-window']
 
 [[on-window-detected]]
     if.app-id = 'com.apple.iCal'
