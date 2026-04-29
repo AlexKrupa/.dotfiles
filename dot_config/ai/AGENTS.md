@@ -11,9 +11,9 @@
 
 ## Approach
 
-- Check for the presence of instructions files in the workspace:
-  `README.md`/`AGENTS.md`/`CLAUDE.md`. When working in a subdirectory, I check whether that
-  subdirectory has its own instructions and follow them.
+- Check for the presence of `README.md` files (or similar) in the workspace and treat it as
+  instructions. When working in a subdirectory, check whether that subdirectory has its own
+  `README.md` and read it.
 - Plan thoroughly; do not rush to execution - answer questions and address user concerns first.
 - Surface assumptions. If unclear, name what's confusing and ask - don't guess or silently pick an
   interpretation.
