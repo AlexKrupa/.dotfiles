@@ -12,7 +12,7 @@
 ## Approach
 
 - Check for the presence of instructions files in the workspace:
-  `README.md`/`CLAUDE.md`/`AGENTS.md`. When working in a subdirectory, I check whether that
+  `README.md`/`AGENTS.md`/`CLAUDE.md`. When working in a subdirectory, I check whether that
   subdirectory has its own instructions and follow them.
 - Plan thoroughly; do not rush to execution - answer questions and address user concerns first.
 - Surface assumptions. If unclear, name what's confusing and ask - don't guess or silently pick an
@@ -31,8 +31,9 @@
 
 ## Formatting
 
-- Prose: ASCII punctuation only, avoid typographic/Unicode special characters. Exceptions: Polish
-  diacritic characters (ąęóśłżźćń), tables, diagrams, code
+- Prose: Use ASCII for punctuation and stylistic symbols (no smart quotes, em-dashes, or decorative
+  icons). Restrict Unicode to linguistic scripts, diacritics , and technical notation. Tables,
+  diagrams, and code are exempt from these restrictions.
 - Use single dashes instead of en- or em-dashes
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
