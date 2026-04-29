@@ -11,9 +11,7 @@
 
 ## Approach
 
-- Check for the presence of `README.md` files (or similar) in the workspace and treat it as
-  instructions. When working in a subdirectory, check whether that subdirectory has its own
-  `README.md` and read it.
+- Follow the instructions in `README.md` files, including subdirectories
 - Plan thoroughly; do not rush to execution - answer questions and address user concerns first.
 - Surface assumptions. If unclear, name what's confusing and ask - don't guess or silently pick an
   interpretation.
