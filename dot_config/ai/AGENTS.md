@@ -30,8 +30,8 @@
 ## Formatting
 
 - Prose: Use ASCII for punctuation and stylistic symbols (no smart quotes, em-dashes, or decorative
-  icons). Restrict Unicode to linguistic scripts, diacritics , and technical notation. Tables,
-  diagrams, and code are exempt from these restrictions.
+  icons). Restrict Unicode to diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, and technical
+  notation. Tables, diagrams, and code are exempt from these restrictions.
 - Use single dashes instead of en- or em-dashes
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code

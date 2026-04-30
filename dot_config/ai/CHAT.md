@@ -24,8 +24,8 @@
 ## Formatting
 
 - Prose: Use ASCII for punctuation and stylistic symbols (no smart quotes, em-dashes, or decorative
-  icons). Restrict Unicode to linguistic scripts, diacritics, and technical notation. Tables,
-  diagrams, and code are exempt from these restrictions.
+  icons). Restrict Unicode to diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, and technical
+  notation. Tables, diagrams, and code are exempt from these restrictions.
 - No en- or em-dashes - use single dashes instead
 - Code: backticks for inline (`example`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
