@@ -109,7 +109,8 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     if.app-id = 'com.mitchellh.ghostty'
     run = ['move-node-to-workspace U --focus-follows-window', 'layout tiling']
 
-# 'layout tiling' breaks JetBrains - tiles popups too.
+# Avoid 'layout tiling' in apps that show popups/dialogs.
+
 [[on-window-detected]]
     if.app-id = 'com.google.android.studio'
     run = ['move-node-to-workspace I --focus-follows-window']
@@ -124,15 +125,15 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
 
 [[on-window-detected]]
     if.app-id = 'com.google.Chrome'
-    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
+    run = ['move-node-to-workspace O --focus-follows-window']
 
 [[on-window-detected]]
     if.app-id = 'com.microsoft.edgemac'
-    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
+    run = ['move-node-to-workspace O --focus-follows-window']
 
 [[on-window-detected]]
     if.app-id = 'org.mozilla.firefox'
-    run = ['move-node-to-workspace O --focus-follows-window', 'layout tiling']
+    run = ['move-node-to-workspace O --focus-follows-window']
 
 # `layout tiling` breaks Preview
 [[on-window-detected]]
