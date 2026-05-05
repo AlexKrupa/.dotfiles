@@ -1,4 +1,5 @@
-cache = true
+# Cache slows down list update when a session is killed
+cache = false
 
 [default_session]
 preview_command = "ls {}"
