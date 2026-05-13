@@ -37,6 +37,7 @@
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
 - **Boldface** and emojis: use sparingly
+- Always put a space after file paths and URLs and the next character (e.g. period)
 
 ## General code
 
