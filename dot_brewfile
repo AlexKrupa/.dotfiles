@@ -51,6 +51,7 @@ brew "neovim"
 brew "node"
 brew "openssl"
 brew "qmk/qmk/qmk" # keyboard
+brew "pngquant" # PNG optimization, e.g. in Android screenshot script
 brew "renameutils" # bulk renaming / copying
 brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
