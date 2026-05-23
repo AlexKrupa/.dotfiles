@@ -37,11 +37,12 @@ reveal = [
 
 # ya pkg add yazi-rs/plugins:git
 [[plugin.prepend_fetchers]]
-id  = "git"
+group = "git"
 url = "*"
 run = "git"
 
 [[plugin.prepend_fetchers]]
-id  = "git"
+group = "git"
 url = "*/"
 run = "git"
+

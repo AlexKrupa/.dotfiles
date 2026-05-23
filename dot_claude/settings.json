@@ -110,7 +110,7 @@
     }
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "low",
+  "effortLevel": "medium",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "preferredNotifChannel": "notifications_disabled",
