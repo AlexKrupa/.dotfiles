@@ -110,9 +110,9 @@
     }
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "high",
+  "effortLevel": "low",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
-  "autoConnectIde": true,
-  "preferredNotifChannel": "notifications_disabled"
+  "preferredNotifChannel": "notifications_disabled",
+  "autoConnectIde": true
 }

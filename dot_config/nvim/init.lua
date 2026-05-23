@@ -724,11 +724,16 @@ require('lazy').setup({
       formatters = {
         prettier = {
           prepend_args = {
-            '--parser', 'markdown',
-            '--print-width', '100',
-            '--prose-wrap', 'always',
-            '--tab-width', '2',
-            '--end-of-line', 'lf',
+            '--parser',
+            'markdown',
+            '--print-width',
+            '100',
+            '--prose-wrap',
+            'always',
+            '--tab-width',
+            '2',
+            '--end-of-line',
+            'lf',
           },
         },
       },
@@ -1010,7 +1015,7 @@ require('lazy').setup({
   -- Toggler: Toggle word variants (val/var, true/false, etc.)
   {
     'nguyenvukhang/nvim-toggler',
-    event = 'BufRead',
+    event = 'VeryLazy',
     opts = {
       remove_default_keybinds = true,
     },
@@ -1030,7 +1035,7 @@ require('lazy').setup({
   {
     'mg979/vim-visual-multi',
     branch = 'master',
-    event = 'BufRead',
+    event = 'VeryLazy',
     init = function()
       vim.g.VM_maps = {
         ['Find Under'] = '<C-n>',
@@ -1045,26 +1050,7 @@ require('lazy').setup({
   -- Exchange: Swap text regions
   {
     'tommcdo/vim-exchange',
-    event = 'BufRead',
-  },
-
-  -- LazyGit: Terminal UI for Git
-  {
-    'kdheepak/lazygit.nvim',
-    cmd = {
-      'LazyGit',
-      'LazyGitConfig',
-      'LazyGitCurrentFile',
-      'LazyGitFilter',
-      'LazyGitFilterCurrentFile',
-    },
-    dependencies = {
-      'nvim-lua/plenary.nvim',
-    },
-    keys = {
-      { '<leader>v', '<cmd>LazyGit<cr>', desc = 'LazyGit' },
-      { '<leader>vf', '<cmd>LazyGitCurrentFile<cr>', desc = 'LazyGit current file' },
-    },
+    event = 'VeryLazy',
   },
 
   -- Neo-tree: File explorer
