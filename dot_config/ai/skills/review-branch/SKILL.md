@@ -37,6 +37,13 @@ this skill only knows "current branch vs its parent".
    only, not parent drift).
 6. `git log <parent>..HEAD --oneline` and `git shortlog -sn <parent>..HEAD`.
 
+## Parent override
+
+A caller (typically another skill, e.g. `review-gitlab`) may supply an explicit parent branch to
+diff against. When given, skip steps 3 and 4 of parent detection and use it directly. Validate the
+ref exists locally (`git rev-parse --verify <parent>`); abort with a clear message if not. Note
+the override source in the report's header so the reader knows the parent was not auto-detected.
+
 ## Scope
 
 Committed changes on the branch (`<parent>...HEAD`). Uncommitted edits are mentioned, not audited —
