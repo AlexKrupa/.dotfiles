@@ -58,7 +58,7 @@
 
 ## Design docs
 
-Persistent design docs live in `~/.config/ai/docs/`. Use `/doc` for commands. Non-trivial work
+Persistent design docs live in `~/.ai/docs/<repo-name>/` (worktrees of one repo share a folder; outside a git repo, docs are flat in `~/.ai/docs/`). Use `/doc` for commands. Non-trivial work
 (anything worth a plan) should have a design doc. Suggest `/doc <name>` before planning. After
 completing a step, run `/doc-sync`.
 

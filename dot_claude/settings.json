@@ -80,6 +80,17 @@
     "defaultMode": "default"
   },
   "model": "opus",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "~/.config/ai/skills/doc/hooks/session-start.sh" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "~/.config/ai/skills/doc/hooks/stop.sh" }] }
+    ],
+    "PreCompact": [
+      { "hooks": [{ "type": "command", "command": "~/.config/ai/skills/doc/hooks/precompact.sh" }] }
+    ]
+  },
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh"
@@ -111,8 +122,10 @@
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "high",
+  "advisorModel": "opus",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "preferredNotifChannel": "notifications_disabled",
-  "autoConnectIde": true
+  "autoConnectIde": true,
+  "skipAutoPermissionPrompt": true
 }

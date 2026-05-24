@@ -15,10 +15,23 @@ Current branch: !`git branch --show-current`
 
 ## Procedure
 
+Docs live in `~/.ai/docs/<repo-name>/` where `<repo-name>` is the main repo dir (worktrees share the folder); outside a git repo, docs are flat in `~/.ai/docs/`. Resolve `$docs_dir`:
+
+```bash
+common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+if [ -n "$common_dir" ]; then
+  docs_dir="$HOME/.ai/docs/$(basename "$(dirname "$common_dir")")"
+else
+  docs_dir="$HOME/.ai/docs"
+fi
+```
+
+Ignore any subfolder starting with `_` (e.g. `_legacy/`) when scanning.
+
 1. Determine the active doc:
    - Primary: user explicitly mentioned a doc this session
-   - Fallback: match current branch (above) against filenames in `~/.config/ai/docs/`
-   - If not in a git repo or no branch match: check all docs in `~/.config/ai/docs/` for `status: active`
+   - Fallback: match current branch (above) against filenames in `$docs_dir`
+   - If not in a git repo or no branch match: check docs in `$docs_dir` (non-recursive) for `status: active`
 2. If no active doc found, do nothing silently. Stop here.
 3. Read the active doc (must have `status: active` in frontmatter)
 4. For completed work:

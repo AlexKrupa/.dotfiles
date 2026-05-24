@@ -13,7 +13,20 @@ serve as clean reference after completion.
 **Doc = living design record** (persistent, cross-session, captures knowledge).
 **Claude's plan mode = implementation detail** (ephemeral, session-scoped).
 
-Docs live in `~/.config/ai/docs/`.
+Docs live in `~/.ai/docs/<repo-name>/`, where `<repo-name>` is the *main* repo directory name. All worktrees of one repo share a single doc folder. Outside any git repo, docs land flat in `~/.ai/docs/`. Subfolders starting with `_` (e.g. `_legacy/`) are ignored when scanning for active docs.
+
+### Resolving `<repo-name>`
+
+```bash
+common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+if [ -n "$common_dir" ]; then
+  docs_dir="$HOME/.ai/docs/$(basename "$(dirname "$common_dir")")"
+else
+  docs_dir="$HOME/.ai/docs"
+fi
+```
+
+`git rev-parse --git-common-dir` returns the main repo's `.git` even from a linked worktree, so all worktrees resolve to the same `docs_dir`.
 
 ## Writing style
 
@@ -39,13 +52,13 @@ Arguments: $ARGUMENTS
 
 ### `/doc` (no args) - show current doc
 
-Auto-detect: match git branch name against doc filenames in `~/.config/ai/docs/`.
+Auto-detect: match git branch name against doc filenames in `$docs_dir` (see "Resolving `<repo-name>`" above).
 If match found: show the doc (TODO progress, open questions, recent decisions).
 If no match or not in a git repo: list all active docs, ask which one.
 
 ### `/doc <name>` - open or create doc
 
-Look for a doc matching `<name>` in `~/.config/ai/docs/` (substring match on filename or `title` frontmatter).
+Look for a doc matching `<name>` in `$docs_dir` (substring match on filename or `title` frontmatter).
 
 If match is an active doc: show it.
 If match is a completed doc: show it read-only. Don't offer to edit or reopen.
@@ -54,7 +67,7 @@ If no match: create a new doc.
 **Creating a new doc:**
 1. Ask for the goal/problem if not obvious from context
 2. Generate filename: `{descriptive-name}.md` (kebab-case)
-3. Create in `~/.config/ai/docs/` using the active doc format in [format-active.md](format-active.md)
+3. `mkdir -p "$docs_dir"`, then create the file in `$docs_dir/` using the active doc format in [format-active.md](format-active.md)
 4. TODO steps follow `[Step] -> verify: [check]` format per CLAUDE.md
 
 ### `/doc done` - complete current doc
