@@ -10,13 +10,16 @@ updated: YYYY-MM-DD
 Why this change exists. The problem, constraints, intended outcome.
 
 ## Decisions
-- Use X instead of Y because [reason] (YYYY-MM-DD)
-
-## Notes
-- Discovered that Z behaves unexpectedly when...
+- Chose X over Y because [reason] (YYYY-MM-DD)
 
 ## Open questions
 - Should we support case X?
+
+## Gotchas
+- Permanent findings worth remembering. Kept in reference format.
+
+## Working notes
+- Transient observations during impl. Stripped on /doc done.
 
 ## TODO
 - [x] Completed step -> verify: unit tests pass

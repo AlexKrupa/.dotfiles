@@ -19,6 +19,8 @@ Docs live in `~/.config/ai/docs/`.
 
 Follow `~/.config/ai/rules/documenting.md`. One line per decision or note. Explain the choice, not the benefit. No filler, no AI writing tropes.
 
+When a decision involved alternatives, name them inline (e.g. "Chose pull over push because backpressure", not "Use pull").
+
 ## TODO states
 
 - `[ ]` not started
@@ -62,9 +64,10 @@ Convert the active doc to the reference format in [format-reference.md](format-r
 2. Add `completed: {today}` to frontmatter
 3. Remove `## TODO` section entirely
 4. Remove `## Open questions` section entirely
-5. Remove dates from individual decisions (the `(YYYY-MM-DD)` suffixes)
-6. Remove empty sections
-7. Update `updated` timestamp
+5. Remove `## Working notes` section entirely (keep `## Gotchas`)
+6. Remove dates from individual decisions (the `(YYYY-MM-DD)` suffixes)
+7. Remove empty sections
+8. Update `updated` timestamp
 
 Result should read cleanly as a design reference.
 

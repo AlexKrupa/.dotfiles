@@ -9,8 +9,8 @@ completed: YYYY-MM-DD
 Why this change exists.
 
 ## Decisions
-- Use X instead of Y because [reason]
+- Chose X over Y because [reason]
 
-## Notes
-- Key findings, gotchas, things worth remembering
+## Gotchas
+- Permanent findings, gotchas, things worth remembering
 ```
