@@ -52,10 +52,10 @@ When a decision involved alternatives, name them inline (e.g. "Chose pull over p
 
 Arguments: $ARGUMENTS
 
-Precedence (exact match wins, no substring fallback for reserved words):
+Precedence (first token wins, no substring fallback for reserved words):
 
 - No args -> show current doc
-- Exact `done` -> complete current doc
+- First token `done` -> complete current doc. Trailing `--force` skips the open-questions refusal.
 - Anything else -> treat as doc name to open/create (use `find-active-doc.sh <name>`)
 
 A doc literally named `done` is unreachable via `/doc done` - rename or use `/doc do` etc.
@@ -79,13 +79,13 @@ If still no match: create a new doc.
 3. `mkdir -p "$docs_dir"`, then create the file in `$docs_dir/` using [templates/active.md](templates/active.md) verbatim, filling in title and dates
 4. TODO steps follow `[Step] -> verify: [check]` format per CLAUDE.md
 
-### `/doc done` - complete current doc
+### `/doc done [--force]` - complete current doc
 
 **Refuse if work isn't done.** Run safety checks first:
 
 1. Find the active doc with `find-active-doc.sh`. If empty, ask which doc.
-2. Read `## Open questions`. If any non-blank bullets remain, **refuse**: list them, tell the user to answer (move to Decisions or Notes) or pass `--force` to drop. Stop.
-3. Read `## Working notes`. If non-empty, dump them to chat and prompt: "Promote any of these to Decisions or Gotchas before I strip the section?" Wait for explicit ack (anything other than yes/proceed/go = stop).
+2. Read `## Open questions`. If any non-blank bullets remain **and** `--force` was not passed, **refuse**: list them, tell the user to answer (move to Decisions or Notes) or re-run with `--force` to drop them. Stop.
+3. Read `## Working notes`. If non-empty, dump them to chat and prompt: "Promote any of these to Decisions or Gotchas before I strip the section?" Wait for explicit ack (anything other than yes/proceed/go = stop). `--force` does NOT skip this - working notes can hide gotchas worth keeping.
 4. Read unchecked / in-progress TODO items (`[ ]` / `[-]`). If any remain, ask: "Open TODO items remain. Drop them or keep doc active?" Stop unless user confirms.
 
 Only after the above:
