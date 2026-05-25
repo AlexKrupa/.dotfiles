@@ -36,83 +36,66 @@ Fail-fast order: local/cheap first, network last. On any failure, print one line
 1. `git rev-parse --is-inside-work-tree` — abort "not in a git repo".
 2. `git status --porcelain` — if non-empty, abort: "uncommitted changes present, commit/stash and
    re-run". Do not auto-stash.
-3. `command -v glab` — abort "glab not installed".
+3. `command -v glab` and `command -v jq` — abort with the missing tool name.
 4. `glab auth status` — abort "glab not authenticated, run `glab auth login`".
-5. `GITLAB_API_TOKEN` — note only; required only if API fallback triggers.
+5. `GITLAB_API_TOKEN` — note only; the script's API fallback uses it when present.
 
-## Local checkout (before MR fetch when possible)
+## Helper script
 
-| Input        | Action                                                                  |
-| ------------ | ----------------------------------------------------------------------- |
-| Empty        | `git rev-parse --abbrev-ref HEAD` → candidate; fetch + checkout now     |
-| Branch name  | candidate = arg; fetch + checkout now                                   |
-| MR id or URL | skip until MR resolution returns `source_branch`, then fetch + checkout |
+All deterministic GitLab fetching and JSON parsing lives in a helper script next to this file. The
+working directory at skill-invocation time is the user's repo, not the skill directory, so always
+invoke the script by absolute path. Bind it once:
 
-Checkout steps:
-
-1. `git fetch <remote> <candidate>` — on failure, abort with the git error verbatim.
-2. `git checkout <candidate>` — on failure, abort with the git error verbatim.
-
-`<remote>` defaults to `origin`; if multiple remotes exist, prefer the one matching the MR's project
-(parsed from URL or `glab mr view`'s `web_url`).
-
-## MR resolution
-
-Goal:
-`(project, mr_iid, source_branch, target_branch, web_url, author, labels, state, draft, pipeline_status, description)`.
-
-| Input                                                         | Command                                                                                                     |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| URL `https://<host>/<group>/<project>/-/merge_requests/<iid>` | parse project path + iid; `glab mr view <iid> -R <group>/<project> --output json`                           |
-| Numeric iid                                                   | `glab mr view <iid> --output json` (glab uses current repo's remote)                                        |
-| Branch                                                        | `glab mr list --source-branch <name> --state opened --output json`; 0 → abort, >1 → ask user to pick by iid |
-| Empty                                                         | resolve current branch, then branch row above                                                               |
-
-API fallback (only when glab cannot return a field, e.g. older glab missing `head_pipeline`):
-
-```
-curl -sH "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
-  "https://<host>/api/v4/projects/<urlencoded-path>/merge_requests/<iid>"
+```sh
+FMR=~/.config/ai/skills/review-gitlab/fetch-mr.sh
 ```
 
-`<urlencoded-path>` = group + `/` + project, URL-encoded (`/` → `%2F`).
+Do not re-derive the script's behavior inline. Subcommands:
 
-## Target branch handling
+| Call                                 | Output                                                                                                                                                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"$FMR" resolve "<input>"`           | JSON: `iid`, `project_path`, `source_branch`, `target_branch`, `web_url`, `state`, `draft`, `labels`, `author`, `pipeline_status`, `description`. Input: URL, numeric iid, branch name, or empty (= current branch). |
+| `"$FMR" discussions <iid> [project]` | JSON array of normalized threads. System-only discussions are already dropped. Fields per element: `id`, `individual_note`, `resolvable`, `resolved`, `note_count`, `authors`, `first_body` (≤280 chars), `files`.   |
+| `"$FMR" diff-check <iid> [target]`   | Exits 0 if local `target...HEAD` file set matches the MR's; exits 1 with the file diff on stderr otherwise. Pass the resolved `target_branch` to skip an extra `glab mr view` round-trip.                            |
 
-After MR resolution and source-branch checkout:
+Exit codes: `0` ok, `1` usage/parse error, `2` not found, `3` ambiguous (multiple open MRs for the
+branch — script lists candidate iids on stderr; surface them and ask the user to pick), `4` missing
+dep / auth, `5` network. On any non-zero, abort with one line; do not retry.
 
-1. Ensure `<target_branch>` exists locally: `git rev-parse --verify <target_branch>` ||
+`pipeline_status` is `"n/a"` when the MR has no head pipeline (draft / freshly pushed) — that is
+informational, not an error.
+
+## Workflow
+
+1. Run prerequisites above and bind `FMR` as shown.
+2. `"$FMR" resolve "<input>"` → parse the JSON with `jq` and bind `iid`, `source_branch`,
+   `target_branch`, `project_path`, etc. as shell vars (or read them on demand).
+3. `git fetch <remote> <source_branch>` then `git checkout <source_branch>`. `<remote>` defaults to
+   `origin`; if multiple remotes exist, prefer the one whose URL matches `project_path`. If the user
+   was on a different branch before, tell them explicitly that the worktree is now on the MR's
+   source branch.
+4. Ensure `<target_branch>` exists locally: `git rev-parse --verify <target_branch>` ||
    `git fetch <remote> <target_branch>:<target_branch>`.
-2. Invoke `review-branch` with `<target_branch>` as the parent override.
-3. Read the generated report file before augmenting.
-
-## MR context calls
-
-Beyond `glab mr view --output json`:
-
-- `glab mr note list <iid>` — top-level notes.
-- `glab api projects/<urlencoded-path>/merge_requests/<iid>/discussions` — threaded conversations
-  including reply chains and resolution state.
-- `glab mr diff <iid>` — optional sanity check that local diff matches MR's; mention any drift.
+5. Invoke `review-branch` with `<target_branch>` as the parent override. Read the generated report
+   file before augmenting.
+6. `"$FMR" discussions "$iid" "$project_path"` → substantive-thread judgment (next section).
+7. Optional: `"$FMR" diff-check "$iid" "$target_branch"`; if it exits 1, note the drift in the
+   report.
+8. Augment the report (see "Report" section).
 
 ## Discussion filtering
 
-Bot notes — include when substantive:
+The script already drops discussions whose every note is a GitLab system note (label/assignee churn,
+pipeline status pings, WIP toggles). For the remaining normalized threads, include in the report
+when:
 
-- CI/pipeline failure summaries (the actual failure message, not "pipeline #123 passed").
-- SAST / dependency-scan / coverage-drop findings.
-- Anything that names a specific file or function.
+- `note_count >= 2`, OR
+- `resolvable == true && resolved == false`, OR
+- `files` overlaps with a file flagged by the audit's findings.
 
-Bot notes — skip:
-
-- Pipeline status pings, label/assignee churn, "WIP" toggles, formatter bots that already pushed
-  fixes.
-
-Human discussions — include when:
-
-- ≥2 replies, OR unresolved, OR touches a finding the audit independently raised.
-
-Otherwise omit. Summarize threads; do not paste full text.
+Otherwise omit. For bot-authored threads (`authors` contains the SAST / coverage / CI bot), include
+only when the `first_body` names a specific file/function or contains a real failure message — not
+pure status pings. Summarize each kept thread in one line; do not paste full bodies.
 
 ## Report
 
@@ -154,3 +137,5 @@ Inherited from `review-branch` plus:
 - Skipping checkout because "the diff is enough". Base skill needs the working tree to inspect real
   file context, not just patch hunks.
 - Multiple open MRs for the same branch and you picked one silently. Ask the user.
+- Calling `glab mr view`, `glab api .../discussions`, or `glab mr list` directly instead of going
+  through `$FMR`. The script owns the JSON shape; ad-hoc calls drift from it.
