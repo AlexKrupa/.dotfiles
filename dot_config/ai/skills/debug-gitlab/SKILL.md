@@ -31,53 +31,49 @@ Fail-fast order: local checks first, network last. On any failure, print one lin
 1. `git rev-parse --is-inside-work-tree` - abort "not in a git repo" (needed for current-branch
    resolution and the optional checkout step).
 2. `command -v glab` - abort "glab not installed".
-3. `glab auth status` - abort "glab not authenticated, run `glab auth login`".
-4. `GITLAB_API_TOKEN` - note presence only. Required only if `glab api` fails authentication or the
-   raw `curl` fallback is needed.
-5. `git status --porcelain` - record but do not block. Only blocks at the optional checkout and fix
+3. `command -v jq` - abort "jq not installed" (the helper script uses it for field projection).
+4. `glab auth status` - abort "glab not authenticated, run `glab auth login`".
+5. `GITLAB_API_TOKEN` - note presence only. Used by `fetch-pipeline.sh trace` as a `curl` fallback
+   when `glab api` cannot reach the project.
+6. `git status --porcelain` - record but do not block. Only blocks at the optional checkout and fix
    steps.
 
 ## Input resolution
 
-Goal of every row: produce
-`(project_path, pipeline_id, [failing_job_ids], [mr_iid], source_branch, target_branch, web_url, sha, status)`.
-Prefer `glab` CLI; fall back to `glab api` (or `curl` with `GITLAB_API_TOKEN`) only when the CLI
-cannot return the field.
+Run `./fetch-pipeline.sh resolve <input>` (script lives next to this SKILL.md). It accepts:
 
-| Input                               | Primary command                                                                                     |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Empty                               | `git rev-parse --abbrev-ref HEAD` -> `glab ci get --branch <b> --output json`                       |
-| Pipeline URL `.../-/pipelines/<id>` | parse `<group>/<project>` + id; `glab ci get --pipeline-id <id> -R <group>/<project> --output json` |
-| Pipeline id (numeric)               | `glab ci get --pipeline-id <id> --output json`                                                      |
-| Job URL `.../-/jobs/<id>`           | parse path + id; `glab api projects/<urlencoded-path>/jobs/<id>`                                    |
-| Job id (numeric)                    | `glab api projects/:fullpath/jobs/<id>` (uses current repo's remote)                                |
-| MR URL `.../-/merge_requests/<iid>` | `glab mr view <iid> -R <group>/<project> --output json`                                             |
-| MR iid (numeric)                    | `glab mr view <iid> --output json`                                                                  |
+- empty -> current branch's failed pipeline
+- pipeline URL (`.../-/pipelines/<id>`)
+- job URL (`.../-/jobs/<id>`) - walks to the parent pipeline
+- MR URL (`.../-/merge_requests/<iid>`) - uses `head_pipeline`, falls back to most recent
+- branch name - same as empty but for a named branch
 
-`<urlencoded-path>` = group + `/` + project, URL-encoded (`/` -> `%2F`).
+Bare numeric ids are rejected as ambiguous; ask the user for the URL form.
 
-After the entry point resolves, always walk outward to the full triple:
+Output is one JSON object:
+`{project_path, pipeline_id, sha, status, ref, source_branch, target_branch, web_url, mr_iid}`.
+`mr_iid` is `null` when no open MR exists for the branch. Use the fields verbatim for the report
+header.
 
-- **Job -> pipeline:** the job JSON includes `pipeline.id`. Then run the pipeline path below.
-- **Pipeline -> MR:** `glab mr list --source-branch <ref> --state opened --output json`. Zero rows =
-  "no MR for branch <ref>" in the report. More than one open MR for the same branch = ask the user
-  to pick by iid before proceeding.
-- **Pipeline -> failing jobs:** `glab api projects/:fullpath/pipelines/<pid>/jobs?scope=failed`.
-- **MR -> pipelines:** `glab api projects/:fullpath/merge_requests/<iid>/pipelines`. Pick
-  `head_pipeline` first; fall back to the most recent.
+Helper exit codes the skill must handle:
 
-Include all three (pipeline, failing jobs, MR) in the report header regardless of which one the user
-passed.
+- `2` not found (no pipeline / no test report / empty trace) - state the gap in the report; do not
+  retry blindly.
+- `3` ambiguous (>1 open MR for the same branch) - the script prints the candidates on stderr; ask
+  the user to pick by iid.
+- `4` missing `glab` / `jq` / auth - covered by Prerequisites.
+- `5` network / API failure - retry once, then surface to the user.
 
 ## Failure signals - cheapest first
 
 Pull signals in this order. Stop as soon as the cause is clear. Most failures do not need the raw
 trace.
 
-### 1. `failure_reason` on the job JSON
+### 1. `failure_reason` per failing job
 
-Already present in `glab api projects/:fullpath/pipelines/<pid>/jobs?scope=failed`. Known values and
-what they mean for the verdict:
+`./fetch-pipeline.sh failed-jobs <pipeline_id>` returns a slim array
+`{id, name, stage, failure_reason, allow_failure, web_url, started_at, finished_at, duration}`.
+Map `failure_reason` to the verdict:
 
 | `failure_reason`             | Verdict               | Action               |
 | ---------------------------- | --------------------- | -------------------- |
@@ -95,21 +91,16 @@ trace.
 
 ### 2. Pipeline test report (for jobs that ran tests)
 
-`glab api projects/:fullpath/pipelines/<pid>/test_report` returns a JUnit-shaped JSON summary. Read
-only the `failed` entries. Each one has the test name, file (often), and a truncated stack trace.
-This is structured, small, and avoids the raw log entirely.
+`./fetch-pipeline.sh test-failures <pipeline_id>` returns only the failed JUnit cases as
+`{name, classname, file, execution_time, system_output, stack_trace}` with `system_output` and
+`stack_trace` each capped at 800 chars. Structured, small, no raw log needed. Exit code `2` means
+the pipeline has no test report - fall through to step 3.
 
 ### 3. Raw trace - only if 1 and 2 do not pinpoint the cause
 
-Keep the trace on disk; never pull the full file into context.
-
-```sh
-glab api projects/:fullpath/jobs/<jid>/trace > /tmp/gl-trace-<jid>.log
-# fallback if glab cannot reach that project:
-curl -sH "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
-  "https://<host>/api/v4/projects/<urlencoded-path>/jobs/<jid>/trace" \
-  > /tmp/gl-trace-<jid>.log
-```
+`./fetch-pipeline.sh trace <job_id>` downloads to `/tmp/gl-trace-<job_id>.log` and prints the path
+(falls back to `curl` with `GITLAB_API_TOKEN` if `glab api` cannot reach the project). Keep the
+trace on disk; never pull the full file into context.
 
 Then read only slices:
 
@@ -124,8 +115,9 @@ Never `cat` or `Read` the whole file. Never use `glab ci trace` for analysis - i
 log into the conversation. Reserve `glab ci trace` for the case where the user explicitly wants to
 watch a running job.
 
-For pipelines with multiple failing jobs, fan out the per-job downloads in parallel (one Bash
-message, multiple calls). Each trace still stays on disk; only slices enter context.
+For pipelines with multiple failing jobs, fan out the per-job `fetch-pipeline.sh trace` calls in
+parallel (one Bash message, multiple calls). Each trace still stays on disk; only slices enter
+context.
 
 ## Classification
 
