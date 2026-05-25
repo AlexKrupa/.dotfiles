@@ -7,26 +7,34 @@ argument-hint: "[name|done]"
 
 # Design doc
 
-Persistent design docs that survive session boundaries. Capture decisions, notes, and context during work;
-serve as clean reference after completion.
+Persistent design docs that survive session boundaries. Capture decisions, notes, and context during work; serve as clean reference after completion.
 
 **Doc = living design record** (persistent, cross-session, captures knowledge).
 **Claude's plan mode = implementation detail** (ephemeral, session-scoped).
 
-Docs live in `~/.ai/docs/<repo-name>/`, where `<repo-name>` is the *main* repo directory name. All worktrees of one repo share a single doc folder. Outside any git repo, docs land flat in `~/.ai/docs/`. Subfolders starting with `_` (e.g. `_legacy/`) are ignored when scanning for active docs.
+Docs live in `~/.ai/docs/<repo-name>/`, where `<repo-name>` is the *main* repo directory name. All worktrees of one repo share one doc folder. Outside any git repo, docs land flat in `~/.ai/docs/`. Subfolders starting with `_` (e.g. `_legacy/`) are ignored.
 
-### Resolving `$docs_dir`
+## Helpers
 
-**Always** run the bundled resolver. Do not infer the path from `$PWD`, `basename`, branch name, or any other heuristic - those all break inside linked worktrees.
+Two bundled scripts. Use them instead of re-implementing path / lookup logic - branch names, `$PWD`, and `basename` all break in linked worktrees.
 
 ```bash
-docs_dir=$(bash "$(dirname "$0")/bin/docs-dir.sh")   # inside a hook
-docs_dir=$("$CLAUDE_PLUGIN_ROOT/skills/doc/bin/docs-dir.sh")   # if available
-# Fallback when invoking from the skill body, with the skill dir as $skill_dir:
-docs_dir=$("$skill_dir/bin/docs-dir.sh")
+# Path of the docs dir (handles worktrees, bare repos, submodules, non-git):
+docs_dir=$(bash ~/.config/ai/skills/doc/bin/docs-dir.sh)
+
+# Path of the currently active doc, or empty:
+doc=$(bash ~/.config/ai/skills/doc/bin/find-active-doc.sh)
+
+# Lookup by name (substring on filename or `title:` frontmatter):
+doc=$(bash ~/.config/ai/skills/doc/bin/find-active-doc.sh some-name)
 ```
 
-The resolver uses `git rev-parse --git-common-dir`, which points at the *main* repo's gitdir even from a linked worktree, so every worktree of one repo resolves to the same `$docs_dir`. It also handles bare repos and submodules.
+`find-active-doc.sh` auto-detect order: branch-name file with `status: active`, else single active doc in `$docs_dir`. Multiple active docs with no branch match -> empty (ask the user).
+
+## Frontmatter invariants
+
+- `updated:` and `created:` are unquoted ISO dates: `2026-05-25`. Trailing comments OK (`2026-05-25 <!-- note -->`). Don't quote.
+- `status: active` is the marker for in-progress docs. Completed docs omit `status` and add `completed: YYYY-MM-DD`.
 
 ## Writing style
 
@@ -44,52 +52,60 @@ When a decision involved alternatives, name them inline (e.g. "Chose pull over p
 
 Arguments: $ARGUMENTS
 
+Precedence (exact match wins, no substring fallback for reserved words):
+
 - No args -> show current doc
-- `done` -> complete current doc
-- Anything else -> treat as doc name to open/create
+- Exact `done` -> complete current doc
+- Anything else -> treat as doc name to open/create (use `find-active-doc.sh <name>`)
+
+A doc literally named `done` is unreachable via `/doc done` - rename or use `/doc do` etc.
 
 ## Commands
 
 ### `/doc` (no args) - show current doc
 
-Auto-detect: match git branch name against doc filenames in `$docs_dir` (see "Resolving `$docs_dir`" above).
-If match found: show the doc (TODO progress, open questions, recent decisions).
-If no match or not in a git repo: list all active docs, ask which one.
+Run `find-active-doc.sh`. If it returns a path: show the doc (TODO progress, open questions, recent decisions). If empty: list all active docs in `$docs_dir`, ask which one.
 
 ### `/doc <name>` - open or create doc
 
-Look for a doc matching `<name>` in `$docs_dir` (substring match on filename or `title` frontmatter).
-
-If match is an active doc: show it.
-If match is a completed doc: show it read-only. Don't offer to edit or reopen.
-If no match: create a new doc.
+Run `find-active-doc.sh <name>`. If a path returns: show it.
+If no match: also check `$docs_dir` for a completed doc by the same lookup (manual `find -maxdepth 1 -name "*$name*.md"`). If a completed doc matches, show read-only - do not offer to edit or reopen.
+If still no match: create a new doc.
 
 **Creating a new doc:**
+
 1. Ask for the goal/problem if not obvious from context
 2. Generate filename: `{descriptive-name}.md` (kebab-case)
-3. `mkdir -p "$docs_dir"`, then create the file in `$docs_dir/` using the active doc format in [format-active.md](format-active.md)
+3. `mkdir -p "$docs_dir"`, then create the file in `$docs_dir/` using [templates/active.md](templates/active.md) verbatim, filling in title and dates
 4. TODO steps follow `[Step] -> verify: [check]` format per CLAUDE.md
 
 ### `/doc done` - complete current doc
 
-Convert the active doc to the reference format in [format-reference.md](format-reference.md):
-1. Remove `status` field from frontmatter
-2. Add `completed: {today}` to frontmatter
-3. Remove `## TODO` section entirely
-4. Remove `## Open questions` section entirely
-5. Remove `## Working notes` section entirely (keep `## Gotchas`)
-6. Remove dates from individual decisions (the `(YYYY-MM-DD)` suffixes)
-7. Remove empty sections
-8. Update `updated` timestamp
+**Refuse if work isn't done.** Run safety checks first:
 
-Result should read cleanly as a design reference.
+1. Find the active doc with `find-active-doc.sh`. If empty, ask which doc.
+2. Read `## Open questions`. If any non-blank bullets remain, **refuse**: list them, tell the user to answer (move to Decisions or Notes) or pass `--force` to drop. Stop.
+3. Read `## Working notes`. If non-empty, dump them to chat and prompt: "Promote any of these to Decisions or Gotchas before I strip the section?" Wait for explicit ack (anything other than yes/proceed/go = stop).
+4. Read unchecked / in-progress TODO items (`[ ]` / `[-]`). If any remain, ask: "Open TODO items remain. Drop them or keep doc active?" Stop unless user confirms.
+
+Only after the above:
+
+5. Remove `status` field from frontmatter
+6. Add `completed: {today}` to frontmatter
+7. Remove `## TODO`, `## Open questions`, `## Working notes` sections entirely
+8. Remove dates from individual decisions (the `(YYYY-MM-DD)` suffixes)
+9. Remove empty sections
+10. Update `updated` timestamp
+
+Result should read cleanly as a design reference per [templates/reference.md](templates/reference.md).
 
 ## Plan mode integration
 
 When entering plan mode with an active doc:
+
 1. Read the doc and present unchecked `[ ]` and in-progress `[-]` TODO steps
 2. Seed the plan from those steps - they become the plan's starting structure
-3. After plan execution, run doc-sync to update the doc with completed steps and new decisions
+3. After plan execution, run `/doc-sync` to update the doc with completed steps and new decisions
 
 If a doc exists for the current work, the plan should account for keeping it up to date.
 
@@ -97,7 +113,11 @@ If a doc exists for the current work, the plan should account for keeping it up 
 
 | Mistake | Fix |
 |---------|-----|
+| Re-implementing active-doc lookup | Use `bin/find-active-doc.sh` |
+| Inferring `$docs_dir` from `$PWD` / branch / basename | Use `bin/docs-dir.sh` - others break in worktrees |
 | Creating doc for trivial single-step work | Docs are for work with decisions worth preserving |
-| Forgetting `updated` timestamp | Always update when modifying |
+| Forgetting `updated` timestamp on edits | Always bump on modification |
 | Adding implementation details to TODO steps | Steps = what, plan mode = how |
 | Wordy entries | One line per decision/note. Terse. |
+| Running `/doc done` with unanswered open questions | Refuse - answer first or `--force` |
+| Quoting `updated:` or `created:` dates | Unquoted ISO; trailing HTML comments fine |

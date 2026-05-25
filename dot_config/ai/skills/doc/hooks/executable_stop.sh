@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
-set -e
-cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
-branch=$(git branch --show-current 2>/dev/null) || exit 0
-[ -z "$branch" ] && exit 0
-docs_dir=$(bash "$(dirname "$0")/../bin/docs-dir.sh" 2>/dev/null) || exit 0
-doc="$docs_dir/$branch.md"
-[ -f "$doc" ] || exit 0
-grep -q "^status: active" "$doc" || exit 0
+source "$(dirname "$0")/_common.sh"
+init_hook
 
-doc_updated=$(awk '/^updated:/ {print $2; exit}' "$doc")
-last_commit=$(git log -1 --format=%cs 2>/dev/null)
-[ -z "$last_commit" ] && exit 0
+doc_updated=$(fm_date "$doc" "updated")
+last_commit=$(git log -1 --format=%cs 2>/dev/null || true)
+[ -z "$doc_updated" ] || [ -z "$last_commit" ] && exit 0
+
 if [[ "$last_commit" > "$doc_updated" ]]; then
   printf 'Active doc %s has activity since last sync (%s -> %s). Consider running /doc-sync.\n' \
-    "$branch" "$doc_updated" "$last_commit"
+    "$(basename "$doc")" "$doc_updated" "$last_commit"
 fi

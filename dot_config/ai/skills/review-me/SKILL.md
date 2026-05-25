@@ -1,15 +1,17 @@
 ---
 name: review-me
 description:
-  Use when self-reviewing the currently checked-out branch and wanting low-risk fixes applied
-  automatically. Runs the review-branch audit, then applies safe fixes (typos, lint, dead imports,
-  doc tweaks) without asking and pauses for confirmation before behavior changes or broad refactors.
+  Use when self-reviewing the currently checked-out branch and wanting low-risk fixes (typos, lint,
+  dead imports, doc tweaks) applied and folded into branch commits automatically. Triggers on
+  "review me", "self-review", "tidy up my branch", "clean up before PR". Pauses for confirmation
+  before behavior changes or broad refactors.
 ---
 
 # review-me
 
 Extends `review-branch` with a fix loop. The audit + report logic is delegated — this skill only
-adds _what to do about findings_. Never commits or pushes.
+adds **what to do about findings**, including folding fixes into their originating commits via
+`git absorb`. Never pushes or rewrites history.
 
 ## When to use
 
@@ -47,14 +49,25 @@ proceeding.
 - Any change to code **not introduced by this branch** (out-of-scope cleanup).
 - Adding concurrency changes — flag and ask; concurrency is rarely "low risk".
 
-### Never
+### Git writes allowed
 
-- `git commit`, `git amend`, `git push`, `git rebase`, `git reset --hard`, `git checkout <other>`.
-- Open, close, or comment on PRs / issues.
-- Edit files outside the branch's diff.
+Only these three. Anything else is forbidden.
+
+- `git absorb --base <parent>` (no `--and-rebase`).
+- `git commit --fixup=<sha>` where `<sha>` is in `<parent>..HEAD`. Fixup against a SHA outside that
+  range would corrupt parent history on autosquash — fall back to a normal commit instead.
+- `git commit -m <msg>` for the no-fixup-target fallback only.
+
+Plus the obvious read/stage helpers (`git add`, `git status`, `git diff`, `git blame`).
+
+Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
+`git absorb --and-rebase`, PR/issue ops, edits to files outside the branch diff.
 
 ## Loop
 
+0. **Precondition:** Run `git status --porcelain`. If non-empty, abort. Show the dirty paths and
+   tell the user to stash or commit before retrying. Do not auto-stash — keeps user work and skill
+   work separate.
 1. Invoke `review-branch`. Read the resulting report.
 2. Partition findings: auto-apply vs ask-first.
 3. Apply auto-fixes, grouped by file. Use parallel edits when files are independent.
@@ -64,8 +77,21 @@ proceeding.
 5. Run repo's validation if discoverable: tests, typecheck, lint. Look in `package.json` scripts,
    `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, etc. If none found, say so — don't invent
    commands.
-6. Re-invoke `review-branch` to regenerate the report against the post-fix state.
-7. Stop when no auto-fixable findings remain, or after **3 passes** (avoid loops). If still looping,
+6. **Absorb pass.** Only if validation passed (or none was found) and at least one fix was applied
+   this iteration. Resolve parent as `git merge-base HEAD origin/HEAD` (fall back to the parent ref
+   `review-branch` used). Then:
+   1. Stage only the files the skill modified this pass: `git add -- <files>`. Never `git add -A`.
+   2. Run `git absorb --base <parent>`. It commits what it can match, leaves the rest staged.
+   3. For each file still showing in `git diff --cached --name-only` (the orphans), resolve one file
+      at a time:
+      - `git blame -L` the changed line ranges in that file. Pick the dominant SHA.
+      - If that SHA is reachable in `<parent>..HEAD` (`git merge-base --is-ancestor <parent> <sha>`
+        and `git merge-base --is-ancestor <sha> HEAD`): `git commit --fixup=<sha> -- <file>`.
+      - Otherwise: `git commit -m "<conventional one-liner>" -- <file>` and note it as a new commit
+        in the summary.
+   4. Surface counts to the user: matched by absorb, fixup-by-blame, new commits.
+7. Re-invoke `review-branch` to regenerate the report against the post-fix state.
+8. Stop when no auto-fixable findings remain, or after **3 passes** (avoid loops). If still looping,
    surface why.
 
 ## Final turn-end summary
@@ -76,13 +102,18 @@ Short, scannable:
 - Auto-fixes applied: count + one-line bullets
 - Deferred (awaiting user): count + one-line bullets
 - Validation: pass/fail/none-found, with command used
+- Fixups via `git absorb`: N (against: `<sha-short> <subject>`, ...)
+- Orphan hunks resolved by blame-based fixup: N (against: `<sha-short> <subject>`, ...)
+- New commits added (no in-range fixup target): N (subjects: ...)
+- Working tree: clean / dirty paths listed if not
 - Remaining findings by severity: critical/major/minor/nit counts
-- **Nothing committed or pushed.**
+- Next step for user: `git rebase -i --autosquash <parent>`, then push.
 
 ## Red flags — stop and reconsider
 
 - About to auto-apply a behavior change because it "feels safe". It's not auto-applicable. Ask.
 - Editing files outside `<parent>...HEAD`. Out of scope.
 - Skipping the re-review pass after fixes — the report on disk would lie.
-- Running `git commit` / `git push` / `gh pr ...`. Never, regardless of how clean the branch looks.
+- Running any git write outside "Git writes allowed".
+- Proceeding to the next pass with a non-clean working tree. Stop and surface the leftover.
 - Looping past 3 passes. Stop and ask the user.

@@ -15,26 +15,41 @@ Current branch: !`git branch --show-current`
 
 ## Procedure
 
-Docs live in `~/.ai/docs/<repo-name>/` where `<repo-name>` is the main repo dir (worktrees share the folder); outside a git repo, docs are flat in `~/.ai/docs/`. **Always** resolve `$docs_dir` by running the bundled resolver from the `doc` skill - do not infer from `$PWD`, `basename`, or branch name (those break in linked worktrees):
+1. Find the active doc. Use the bundled helper - do not infer from `$PWD`, branch, or basename (those break in linked worktrees):
 
-```bash
-docs_dir=$(bash ~/.config/ai/skills/doc/bin/docs-dir.sh)
-```
+   ```bash
+   doc=$(bash ~/.config/ai/skills/doc/bin/find-active-doc.sh)
+   ```
 
-Ignore any subfolder starting with `_` (e.g. `_legacy/`) when scanning.
+   If the user explicitly named a doc this session, prefer it:
 
-1. Determine the active doc:
-   - Primary: user explicitly mentioned a doc this session
-   - Fallback: match current branch (above) against filenames in `$docs_dir`
-   - If not in a git repo or no branch match: check docs in `$docs_dir` (non-recursive) for `status: active`
-2. If no active doc found, do nothing silently. Stop here.
-3. Read the active doc (must have `status: active` in frontmatter)
-4. For completed work:
-   - Mark finished TODO steps `[x]`
-   - Mark partially done TODO steps `[-]` (started but not finished)
-   - Add decisions to `## Decisions` with today's date. A decision is a choice between alternatives that someone resuming this work would want to know. Implementation details obvious from the code don't qualify.
-   - Add noteworthy findings to `## Notes`
-   - Remove answered questions from `## Open questions`, move substance to Decisions or Notes
-5. Update `updated` timestamp in frontmatter
-6. Notify briefly (e.g., "Doc: marked 'implement API' done, added decision about retry strategy")
-7. If all TODO steps are now `[x]`, suggest running `/doc done`
+   ```bash
+   doc=$(bash ~/.config/ai/skills/doc/bin/find-active-doc.sh "<name>")
+   ```
+
+2. If `$doc` is empty, do nothing silently. Stop.
+
+3. Read the doc.
+
+4. For completed work, update sections **idempotently** - skip entries that already exist:
+
+   - Mark finished TODO steps `[x]`. In-progress steps `[-]`.
+   - **Decisions:** for each new decision, case-insensitive substring check against existing `## Decisions` bullets. Skip dupes. Append survivors with today's date. A decision is a choice between alternatives that someone resuming this work would want to know. Implementation details obvious from the code don't qualify.
+   - **Notes:** same dedupe rule against `## Notes`. Append survivors (no date needed).
+   - **Open questions:** remove answered ones; move substance to Decisions or Notes (subject to dedupe). Leave still-open questions alone.
+
+5. Update `updated:` timestamp in frontmatter to today (unquoted ISO).
+
+6. Notify briefly. Example: `Doc: marked 'implement API' done, added decision about retry strategy. 1 duplicate skipped.`
+
+7. If all TODO steps are now `[x]` and `## Open questions` is empty, suggest `/doc done`.
+
+## Common mistakes
+
+| Mistake | Fix |
+|---------|-----|
+| Re-running creates duplicate decisions | Substring-dedupe before append |
+| Re-implementing find-active-doc | Use `bin/find-active-doc.sh` |
+| Recording obvious implementation details as decisions | Only choices between alternatives |
+| Promoting open questions that weren't actually answered | Leave them; the user resolves |
+| Quoting the `updated:` date | Unquoted ISO `YYYY-MM-DD` |

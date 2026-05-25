@@ -134,7 +134,7 @@
   rcobf = !fish -c 'gbf | xargs git rcob'
 
   # Commit
-  abs = !(git add . && git absorb --force)
+  abs = !(git add . && git absorb --force --and-rebase)
   c = commit -am
   ca = !(git add . && git commit --amend)
   canv = !(git add . && git commit --amend --no-verify)
