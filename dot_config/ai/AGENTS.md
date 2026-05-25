@@ -58,9 +58,28 @@
 
 ## Design docs
 
-Persistent design docs live in `~/.ai/docs/<repo-name>/` (worktrees of one repo share a folder; outside a git repo, docs are flat in `~/.ai/docs/`). Use `/doc` for commands. Non-trivial work
+Persistent design docs live in `~/.ai/docs/<repo-name>/` (worktrees of one repo share a folder;
+outside a git repo, docs are flat in `~/.ai/docs/`). Use `/doc` for commands. Non-trivial work
 (anything worth a plan) should have a design doc. Suggest `/doc <name>` before planning. After
 completing a step, run `/doc-sync`.
+
+## Superpowers plans and specs
+
+Override the Superpowers defaults (`docs/superpowers/plans/...`, `docs/superpowers/specs/...`). Save
+to `~/.ai/` instead:
+
+- Plans: `~/.ai/plans/<repo-name>/YYYY-MM-DD-<feature-name>.md`
+- Specs: `~/.ai/specs/<repo-name>/YYYY-MM-DD-<topic>-design.md`
+
+Rules:
+
+- `<repo-name>` is the main repository name. Worktrees of one repo share the same directory - do not
+  create a per-worktree subdirectory. Resolve the main repo name via
+  `basename "$(git rev-parse --path-format=absolute --git-common-dir)/.."` (the `--git-common-dir`
+  form points at the main repo even inside a linked worktree).
+- Outside a git repo: save flat in `~/.ai/plans/` and `~/.ai/specs/`.
+- Keep the Superpowers filename convention (`YYYY-MM-DD-...`).
+- Create the per-repo subdirectory if missing.
 
 ## Environment
 
