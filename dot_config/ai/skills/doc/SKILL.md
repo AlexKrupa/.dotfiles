@@ -15,18 +15,18 @@ serve as clean reference after completion.
 
 Docs live in `~/.ai/docs/<repo-name>/`, where `<repo-name>` is the *main* repo directory name. All worktrees of one repo share a single doc folder. Outside any git repo, docs land flat in `~/.ai/docs/`. Subfolders starting with `_` (e.g. `_legacy/`) are ignored when scanning for active docs.
 
-### Resolving `<repo-name>`
+### Resolving `$docs_dir`
+
+**Always** run the bundled resolver. Do not infer the path from `$PWD`, `basename`, branch name, or any other heuristic - those all break inside linked worktrees.
 
 ```bash
-common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
-if [ -n "$common_dir" ]; then
-  docs_dir="$HOME/.ai/docs/$(basename "$(dirname "$common_dir")")"
-else
-  docs_dir="$HOME/.ai/docs"
-fi
+docs_dir=$(bash "$(dirname "$0")/bin/docs-dir.sh")   # inside a hook
+docs_dir=$("$CLAUDE_PLUGIN_ROOT/skills/doc/bin/docs-dir.sh")   # if available
+# Fallback when invoking from the skill body, with the skill dir as $skill_dir:
+docs_dir=$("$skill_dir/bin/docs-dir.sh")
 ```
 
-`git rev-parse --git-common-dir` returns the main repo's `.git` even from a linked worktree, so all worktrees resolve to the same `docs_dir`.
+The resolver uses `git rev-parse --git-common-dir`, which points at the *main* repo's gitdir even from a linked worktree, so every worktree of one repo resolves to the same `$docs_dir`. It also handles bare repos and submodules.
 
 ## Writing style
 
@@ -52,7 +52,7 @@ Arguments: $ARGUMENTS
 
 ### `/doc` (no args) - show current doc
 
-Auto-detect: match git branch name against doc filenames in `$docs_dir` (see "Resolving `<repo-name>`" above).
+Auto-detect: match git branch name against doc filenames in `$docs_dir` (see "Resolving `$docs_dir`" above).
 If match found: show the doc (TODO progress, open questions, recent decisions).
 If no match or not in a git repo: list all active docs, ask which one.
 

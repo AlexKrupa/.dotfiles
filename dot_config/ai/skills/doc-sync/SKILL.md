@@ -15,15 +15,10 @@ Current branch: !`git branch --show-current`
 
 ## Procedure
 
-Docs live in `~/.ai/docs/<repo-name>/` where `<repo-name>` is the main repo dir (worktrees share the folder); outside a git repo, docs are flat in `~/.ai/docs/`. Resolve `$docs_dir`:
+Docs live in `~/.ai/docs/<repo-name>/` where `<repo-name>` is the main repo dir (worktrees share the folder); outside a git repo, docs are flat in `~/.ai/docs/`. **Always** resolve `$docs_dir` by running the bundled resolver from the `doc` skill - do not infer from `$PWD`, `basename`, or branch name (those break in linked worktrees):
 
 ```bash
-common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
-if [ -n "$common_dir" ]; then
-  docs_dir="$HOME/.ai/docs/$(basename "$(dirname "$common_dir")")"
-else
-  docs_dir="$HOME/.ai/docs"
-fi
+docs_dir=$(bash ~/.config/ai/skills/doc/bin/docs-dir.sh)
 ```
 
 Ignore any subfolder starting with `_` (e.g. `_legacy/`) when scanning.
