@@ -75,8 +75,9 @@ Rules:
 
 - `<repo-name>` is the main repository name. Worktrees of one repo share the same directory - do not
   create a per-worktree subdirectory. Resolve the main repo name via
-  `basename "$(git rev-parse --path-format=absolute --git-common-dir)/.."` (the `--git-common-dir`
-  form points at the main repo even inside a linked worktree).
+  `basename "$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"` (the
+  `--git-common-dir` form points at the main repo even inside a linked worktree; `cd && pwd`
+  normalises away the trailing `/..`).
 - Outside a git repo: save flat in `~/.ai/plans/` and `~/.ai/specs/`.
 - Keep the Superpowers filename convention (`YYYY-MM-DD-...`).
 - Create the per-repo subdirectory if missing.
