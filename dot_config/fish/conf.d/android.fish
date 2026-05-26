@@ -57,7 +57,7 @@ alias and-dc and-disconnect
 # ==============================================================================
 
 function and-emu --description 'Select and start Android emulator'
-  set -l avds "$(avdmanager list avd -c)"
+  set -l avds "$(emulator -list-avds)"
   set -l avd_count (count (echo $avds | string split -n "\n"))
   if test $avd_count -ge 2
     set -f selected_avd (echo $avds | fzf)
