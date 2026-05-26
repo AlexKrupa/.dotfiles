@@ -82,17 +82,13 @@ Empty buckets are fine. Do not invent findings to fill them.
 
 ## Report file
 
-- **Repo name:** worktree-aware.
-  `basename "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"`. Uses
-  `--git-common-dir` so all worktrees of the same repo share one directory (common dir points at the
-  main `.git`, not the worktree's `.git/worktrees/<name>`). Slugify same as below.
-- **Author slug:** majority committer on the branch.
-  `git shortlog -sn <parent>..HEAD | head -1 | sed -E 's/^ *[0-9]+\t//'` → slugify.
-- **Branch slug:** slugify the branch name. **Replace `/` with `-`** explicitly so `feat/foo`
-  becomes `feat-foo` and does not create a nested directory.
-- **Slugifier:** lowercase, replace runs of non-`[a-z0-9]` with `-`, trim leading/trailing `-`.
-- **Path:** `~/.ai/reviews/<repo-slug>/<author-slug>-<branch-slug>.md`. `mkdir -p` the parent.
-  Overwrite if exists (re-runs supersede).
+Run the helper next to this SKILL.md to get the destination path. Do not re-implement repo / author / branch resolution inline.
+
+    path="$(./report-path.sh <parent>)"
+
+The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of `foo` writes under one directory regardless of the worktree folder's own name), slugification, branch-name `/`→`-` flattening, majority-author detection, and `mkdir -p` of the parent. Prints the absolute path on stdout. Overwrite the file if it exists (re-runs supersede).
+
+Do **not** substitute `git rev-parse --show-toplevel` — that returns the worktree root and breaks the main-repo grouping convention.
 
 ## Report structure (BLUF)
 
