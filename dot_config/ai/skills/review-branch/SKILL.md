@@ -2,14 +2,14 @@
 name: review-branch
 description:
   Use when reviewing the currently checked-out git branch against its parent. Produces a Markdown
-  report under ~/.ai/reviews/<repo>/ without modifying code, committing, or posting comments.
+  report under ~/.ai/<repo>/reviews/ without modifying code, committing, or posting comments.
   Platform-agnostic (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
 ---
 
 # review-branch
 
 Read-only audit of current branch vs parent. Output: single Markdown report at
-`~/.ai/reviews/<repo>/<author>-<branch>.md`. No fixes, commits, pushes, or PR comments — ever.
+`~/.ai/<repo>/reviews/<author>-<branch>.md`. No fixes, commits, pushes, or PR comments — ever.
 
 ## When to use
 
@@ -139,7 +139,7 @@ when prose is unclear.
 - **No git mutations:** no `add`, `commit`, `amend`, `push`, `rebase`, `reset`, `checkout` of other
   refs.
 - **No PR/issue interaction:** no `gh pr`, no `glab mr`, no comments.
-- Only filesystem write allowed: report file and its parent dir under `~/.ai/reviews/`.
+- Only filesystem write allowed: report file and its parent dir under `~/.ai/<repo>/reviews/`.
 
 ## Red flags — stop and reconsider
 

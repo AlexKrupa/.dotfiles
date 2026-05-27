@@ -58,8 +58,8 @@
 
 ## Design docs
 
-Persistent design docs live in `~/.ai/docs/<repo-name>/` (worktrees of one repo share a folder;
-outside a git repo, docs are flat in `~/.ai/docs/`). Use `/doc` for commands. Non-trivial work
+Persistent design docs live in `~/.ai/<repo-name>/docs/` (worktrees of one repo share a folder;
+outside a git repo, docs go in `~/.ai/_no-repo/docs/`). Use `/doc` for commands. Non-trivial work
 (anything worth a plan) should have a design doc. Suggest `/doc <name>` before planning. After
 completing a step, run `/doc-sync`.
 
@@ -68,17 +68,18 @@ completing a step, run `/doc-sync`.
 Override the Superpowers defaults (`docs/superpowers/plans/...`, `docs/superpowers/specs/...`). Save
 to `~/.ai/` instead:
 
-- Plans: `~/.ai/plans/<repo-name>/YYYY-MM-DD-<feature-name>.md`
-- Specs: `~/.ai/specs/<repo-name>/YYYY-MM-DD-<topic>-design.md`
+- Plans: `~/.ai/<repo-name>/plans/YYYY-MM-DD-<feature-name>.md`
+- Specs: `~/.ai/<repo-name>/specs/YYYY-MM-DD-<topic>-design.md`
 
 Rules:
 
-- `<repo-name>` is the main repository name. Worktrees of one repo share the same directory - do not
-  create a per-worktree subdirectory. Resolve the main repo name via
-  `basename "$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"` (the
-  `--git-common-dir` form points at the main repo even inside a linked worktree; `cd && pwd`
+- `<repo-name>` is the main repository name, slugified (lowercase; non-alphanumeric runs collapsed to
+  `-`; leading/trailing `-` trimmed). Worktrees of one repo share the same directory - do not create a
+  per-worktree subdirectory. Resolve the slugified name via
+  `basename "$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9]+#-#g; s#^-+##; s#-+$##'`
+  (the `--git-common-dir` form points at the main repo even inside a linked worktree; `cd && pwd`
   normalises away the trailing `/..`).
-- Outside a git repo: save flat in `~/.ai/plans/` and `~/.ai/specs/`.
+- Outside a git repo: save in `~/.ai/_no-repo/plans/` and `~/.ai/_no-repo/specs/`.
 - Keep the Superpowers filename convention (`YYYY-MM-DD-...`).
 - Create the per-repo subdirectory if missing.
 

@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # Print the docs directory for the current location.
 # All linked worktrees of one repo resolve to the same directory.
-# Outside a git repo: prints ~/.ai/docs.
+# Outside a git repo: prints ~/.ai/_no-repo/docs.
 set -e
+
+slugify() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's#[^a-z0-9]+#-#g; s#^-+##; s#-+$##'
+}
 
 common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
 
 if [ -z "$common_dir" ]; then
-  printf '%s\n' "$HOME/.ai/docs"
+  printf '%s\n' "$HOME/.ai/_no-repo/docs"
   exit 0
 fi
 
@@ -30,4 +35,5 @@ case "$common_dir" in
     ;;
 esac
 
-printf '%s\n' "$HOME/.ai/docs/$repo"
+repo=$(slugify "$repo")
+printf '%s\n' "$HOME/.ai/$repo/docs"

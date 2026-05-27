@@ -12,7 +12,7 @@ Persistent design docs that survive session boundaries. Capture decisions, notes
 **Doc = living design record** (persistent, cross-session, captures knowledge).
 **Claude's plan mode = implementation detail** (ephemeral, session-scoped).
 
-Docs live in `~/.ai/docs/<repo-name>/`, where `<repo-name>` is the *main* repo directory name. All worktrees of one repo share one doc folder. Outside any git repo, docs land flat in `~/.ai/docs/`. Subfolders starting with `_` (e.g. `_legacy/`) are ignored.
+Docs live in `~/.ai/<repo-name>/docs/`, where `<repo-name>` is the *main* repo directory name (slugified). All worktrees of one repo share one doc folder. Outside any git repo, docs land in `~/.ai/_no-repo/docs/`. Subfolders starting with `_` (e.g. `_legacy/`) are ignored.
 
 ## Helpers
 

@@ -9,7 +9,7 @@ description:
 # review-gitlab
 
 Wraps `review-branch` with GitLab merge request context. Same read-only constraints. Output: one
-Markdown report under `~/.ai/reviews/<repo>/<mr-id>-<author>-<branch>.md`.
+Markdown report under `~/.ai/<repo>/reviews/<mr-id>-<author>-<branch>.md`.
 
 Argument hint: `[mr-url | mr-id | branch | <empty>]`. Empty means "MR for current branch".
 
@@ -99,7 +99,7 @@ pure status pings. Summarize each kept thread in one line; do not paste full bod
 
 ## Report
 
-Path: `~/.ai/reviews/<repo>/<mr-id>-<author>-<branch>.md`. Slugify `<repo>`, `<author>`, `<branch>`
+Path: `~/.ai/<repo>/reviews/<mr-id>-<author>-<branch>.md`. Slugify `<repo>`, `<author>`, `<branch>`
 per base skill rules; `<mr-id>` is the numeric iid. Overwrite if exists.
 
 Augment the base report:
