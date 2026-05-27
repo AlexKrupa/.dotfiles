@@ -82,11 +82,13 @@ Empty buckets are fine. Do not invent findings to fill them.
 
 ## Report file
 
-Run the helper next to this SKILL.md to get the destination path. Do not re-implement repo / author / branch resolution inline.
+Run the helper to get the destination path (absolute path, since skill cwd is the user's repo, not this dir). Do not re-implement repo / author / branch resolution inline.
 
-    path="$(./report-path.sh <parent>)"
+    path="$(~/.config/ai/skills/review-branch/report-path.sh <parent>)"
 
-The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of `foo` writes under one directory regardless of the worktree folder's own name), slugification, branch-name `/`→`-` flattening, majority-author detection, and `mkdir -p` of the parent. Prints the absolute path on stdout. Overwrite the file if it exists (re-runs supersede).
+The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of `foo` writes under one directory regardless of the worktree folder's own name), slugification (including diacritic transliteration, e.g. `Józef Mąka` → `jozef-maka`), branch-name `/`→`-` flattening, majority-author detection, and `mkdir -p` of the parent. Prints the absolute path on stdout. Overwrite the file if it exists (re-runs supersede).
+
+Optional second arg `prefix` → `<prefix>-<author>-<branch>.md` (the prefix is slugified too). Callers like `review-gitlab` pass the MR iid this way. Omit it for the plain `<author>-<branch>.md` form.
 
 Do **not** substitute `git rev-parse --show-toplevel` — that returns the worktree root and breaks the main-repo grouping convention.
 
