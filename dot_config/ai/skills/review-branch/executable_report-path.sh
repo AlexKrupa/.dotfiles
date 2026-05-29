@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: report-path.sh <parent-ref> [prefix]
 # Prints absolute path to the review report file under
-# ~/.ai/<repo>/reviews/[<prefix>-]<author>-<branch>.md and ensures the parent dir exists.
+# ~/.ai/<repo>/reviews/[<prefix>-]<branch>-<author>.md and ensures the parent dir exists.
 set -euo pipefail
 
 parent="${1:?parent ref required}"
@@ -64,7 +64,7 @@ author_slug="$(slugify "$author")"
 dir="$HOME/.ai/$repo_slug/reviews"
 mkdir -p "$dir"
 if [ -n "$prefix" ]; then
-  printf '%s/%s-%s-%s.md\n' "$dir" "$(slugify "$prefix")" "$author_slug" "$branch_slug"
+  printf '%s/%s-%s-%s.md\n' "$dir" "$(slugify "$prefix")" "$branch_slug" "$author_slug"
 else
-  printf '%s/%s-%s.md\n' "$dir" "$author_slug" "$branch_slug"
+  printf '%s/%s-%s.md\n' "$dir" "$branch_slug" "$author_slug"
 fi

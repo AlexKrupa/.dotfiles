@@ -9,7 +9,7 @@ description:
 # review-branch
 
 Read-only audit of current branch vs parent. Output: single Markdown report at
-`~/.ai/<repo>/reviews/<author>-<branch>.md`. No fixes, commits, pushes, or PR comments — ever.
+`~/.ai/<repo>/reviews/<branch>-<author>.md`. No fixes, commits, pushes, or PR comments — ever.
 
 ## When to use
 
@@ -88,7 +88,7 @@ Run the helper to get the destination path (absolute path, since skill cwd is th
 
 The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of `foo` writes under one directory regardless of the worktree folder's own name), slugification (including diacritic transliteration, e.g. `Józef Mąka` → `jozef-maka`), branch-name `/`→`-` flattening, majority-author detection, and `mkdir -p` of the parent. Prints the absolute path on stdout. Overwrite the file if it exists (re-runs supersede).
 
-Optional second arg `prefix` → `<prefix>-<author>-<branch>.md` (the prefix is slugified too). Callers like `review-gitlab` pass the MR iid this way. Omit it for the plain `<author>-<branch>.md` form.
+Optional second arg `prefix` → `<prefix>-<branch>-<author>.md` (the prefix is slugified too). Callers like `review-gitlab` pass `mr-<iid>` this way. Omit it for the plain `<branch>-<author>.md` form.
 
 Do **not** substitute `git rev-parse --show-toplevel` — that returns the worktree root and breaks the main-repo grouping convention.
 
