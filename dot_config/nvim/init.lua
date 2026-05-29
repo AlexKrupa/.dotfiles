@@ -1209,13 +1209,10 @@ end, { desc = 'Organize imports' })
 -- When editing a Claude Code prompt (claude-prompt-*.md), typing @ in insert mode
 -- opens a Telescope file picker. Selecting a file inserts @path/to/file.
 -- Cancelling (Escape) inserts a bare @.
+-- Tail-only pattern (no '/') matches claude-prompt-*.md in any directory,
+-- so it survives Claude Code changing TMPDIR (now /tmp/claude-501/...).
 vim.api.nvim_create_autocmd('BufEnter', {
-  pattern = {
-    '/tmp/claude-prompt-*.md',
-    '/private/tmp/claude-prompt-*.md',
-    '/var/folders/*/*/*/claude-prompt-*.md',
-    '/private/var/folders/*/*/*/claude-prompt-*.md',
-  },
+  pattern = 'claude-prompt-*.md',
   callback = function(ev)
     if vim.b[ev.buf].claude_at_mapped then
       return
