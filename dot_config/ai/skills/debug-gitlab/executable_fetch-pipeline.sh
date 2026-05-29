@@ -19,6 +19,17 @@ preflight() {
 
 urlencode_path() { jq -sRr @uri <<<"$1"; }
 
+# glab api wrapper: retries on non-zero exit (transient 5xx/network), prints raw body.
+glab_api_retry() {
+  local path="$1" resp rc
+  for _ in 1 2 3; do
+    resp=$(glab api "$path" 2>&1); rc=$?
+    [[ $rc -eq 0 ]] && { printf '%s' "$resp"; return 0; }
+    sleep 1
+  done
+  die "glab api failed after retries ($path): ${resp:0:200}" "$E_NETWORK"
+}
+
 # Derive the GitLab project_path (group/proj) for the current repo. Order:
 # 1) $DEBUG_GITLAB_PROJECT, 2) `glab repo view`, 3) git remote URL.
 derive_project() {
@@ -53,10 +64,10 @@ resolve_mr_for_branch() {
   local branch="$1" project="${2-}" json count
   if [[ -n "$project" ]]; then
     json=$(glab mr list --source-branch "$branch" --state opened -R "$project" --output json 2>/dev/null) \
-      || die "glab mr list failed for branch '$branch'" "$E_NETWORK"
+      || { echo ""; return 0; }
   else
     json=$(glab mr list --source-branch "$branch" --state opened --output json 2>/dev/null) \
-      || die "glab mr list failed for branch '$branch'" "$E_NETWORK"
+      || { echo ""; return 0; }
   fi
   count=$(jq 'length' <<<"$json")
   case "$count" in
@@ -82,10 +93,13 @@ mr_target_branch() {
 }
 
 emit_context() {
-  local pjson="$1" project="$2"
-  local ref iid target=""
+  local pjson="$1" project="$2" iid="${3-}"
+  local ref target=""
   ref=$(jq -r '.ref // ""' <<<"$pjson")
-  iid=$(resolve_mr_for_branch "$ref" "$project")
+  # Skip branch lookup when caller already knows the iid, or ref is an MR merge ref.
+  if [[ -z "$iid" && "$ref" != refs/merge-requests/* ]]; then
+    iid=$(resolve_mr_for_branch "$ref" "$project")
+  fi
   if [[ -n "$iid" ]]; then
     target=$(mr_target_branch "$iid" "$project")
   fi
@@ -109,7 +123,7 @@ emit_context() {
 
 cmd_resolve() {
   local input="${1-}"
-  local project="" pid="" pjson=""
+  local project="" pid="" pjson="" mr_iid=""
 
   if [[ -z "$input" ]]; then
     local branch
@@ -127,21 +141,21 @@ cmd_resolve() {
     project="${BASH_REMATCH[1]}"
     local jid="${BASH_REMATCH[2]}" enc
     enc=$(urlencode_path "$project")
-    pid=$(glab api "projects/$enc/jobs/$jid" 2>/dev/null | jq -r '.pipeline.id // empty') \
-      || die "glab api jobs/$jid failed" "$E_NETWORK"
+    pid=$(glab_api_retry "projects/$enc/jobs/$jid" | jq -r '.pipeline.id // empty')
     [[ -n "$pid" ]] || die "no pipeline for job $jid" "$E_NOTFOUND"
     pjson=$(glab_pipeline_view "$pid" "$project")
   elif [[ "$input" =~ ^https?://[^/]+/(.+)/-/merge_requests/([0-9]+) ]]; then
     project="${BASH_REMATCH[1]}"
-    local iid="${BASH_REMATCH[2]}" mrjson enc
-    mrjson=$(glab mr view "$iid" -R "$project" --output json 2>/dev/null) \
-      || die "glab mr view failed (iid=$iid repo=$project)" "$E_NETWORK"
+    mr_iid="${BASH_REMATCH[2]}"
+    local mrjson enc
+    mrjson=$(glab mr view "$mr_iid" -R "$project" --output json 2>/dev/null) \
+      || die "glab mr view failed (iid=$mr_iid repo=$project)" "$E_NETWORK"
     pid=$(jq -r '.head_pipeline.id // empty' <<<"$mrjson")
     if [[ -z "$pid" ]]; then
       enc=$(urlencode_path "$project")
-      pid=$(glab api "projects/$enc/merge_requests/$iid/pipelines" 2>/dev/null \
+      pid=$(glab_api_retry "projects/$enc/merge_requests/$mr_iid/pipelines" \
         | jq -r '.[0].id // empty')
-      [[ -n "$pid" ]] || die "no pipeline for MR $iid" "$E_NOTFOUND"
+      [[ -n "$pid" ]] || die "no pipeline for MR $mr_iid" "$E_NOTFOUND"
     fi
     pjson=$(glab_pipeline_view "$pid" "$project")
   elif [[ "$input" =~ ^[0-9]+$ ]]; then
@@ -152,20 +166,21 @@ cmd_resolve() {
       || die "no pipeline for branch '$input'" "$E_NOTFOUND"
   fi
 
-  emit_context "$pjson" "$project"
+  emit_context "$pjson" "$project" "$mr_iid"
 }
 
 cmd_failed_jobs() {
   local pid="${1-}" project="${2-}"
   [[ -n "$pid" ]] || die "usage: failed-jobs <pipeline_id> [project_path]" 1
   [[ -n "$project" ]] || project=$(derive_project)
-  local enc; enc=$(urlencode_path "$project")
-  glab api "projects/$enc/pipelines/$pid/jobs?scope=failed" 2>/dev/null \
-    | jq '[ .[] | {
+  local enc resp; enc=$(urlencode_path "$project")
+  resp=$(glab_api_retry "projects/$enc/pipelines/$pid/jobs?scope[]=failed")
+  jq -e . >/dev/null 2>&1 <<<"$resp" \
+    || die "non-JSON from failed-jobs (pid=$pid): ${resp:0:200}" "$E_NETWORK"
+  jq '[ .[] | {
         id, name, stage, failure_reason, allow_failure, web_url,
         started_at, finished_at, duration: (.duration // 0)
-      } ]' \
-    || die "glab api failed-jobs failed (pid=$pid)" "$E_NETWORK"
+      } ]' <<<"$resp"
 }
 
 cmd_test_failures() {
@@ -174,8 +189,9 @@ cmd_test_failures() {
   [[ -n "$project" ]] || project=$(derive_project)
   local enc out n
   enc=$(urlencode_path "$project")
-  out=$(glab api "projects/$enc/pipelines/$pid/test_report" 2>/dev/null) \
-    || die "glab api test_report failed (pid=$pid)" "$E_NETWORK"
+  out=$(glab_api_retry "projects/$enc/pipelines/$pid/test_report")
+  jq -e . >/dev/null 2>&1 <<<"$out" \
+    || die "non-JSON from test_report (pid=$pid): ${out:0:200}" "$E_NETWORK"
   n=$(jq '[ .test_suites[]?.test_cases[]? | select(.status=="failed") ] | length' <<<"$out")
   if [[ "$n" -eq 0 ]]; then
     exit "$E_NOTFOUND"
@@ -191,11 +207,14 @@ cmd_trace() {
   local jid="${1-}" project="${2-}"
   [[ -n "$jid" ]] || die "usage: trace <job_id> [project_path]" 1
   [[ -n "$project" ]] || project=$(derive_project)
-  local enc path host
+  local enc path host resp
   enc=$(urlencode_path "$project")
   path="/tmp/gl-trace-${jid}.log"
-  if glab api "projects/$enc/jobs/$jid/trace" >"$path" 2>/dev/null && [[ -s "$path" ]]; then
-    :
+  # Trace is raw log text, not JSON. Reject a bare HTTP-code or JSON error body.
+  if resp=$(glab api "projects/$enc/jobs/$jid/trace" 2>&1) \
+       && [[ -n "$resp" && ! "$resp" =~ ^[0-9]{3}$ ]] \
+       && ! jq -e 'objects | has("message")' >/dev/null 2>&1 <<<"$resp"; then
+    printf '%s' "$resp" >"$path"
   elif [[ -n "${GITLAB_API_TOKEN-}" ]]; then
     host=$(glab config get host 2>/dev/null || echo "gitlab.com")
     curl -sfH "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
