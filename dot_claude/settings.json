@@ -36,16 +36,17 @@
       "Bash(git stash list)",
       "Bash(git status *)",
       "Bash(git tag *)",
+      "Bash(git-spice branch:*)",
+      "Bash(git-spice log:*)",
       "Bash(glab mr checkout:*)",
       "Bash(glab mr diff:*)",
       "Bash(glab mr view:*)",
       "Bash(grep *)",
       "Bash(gs branch:*)",
       "Bash(gs log:*)",
-      "Bash(git-spice branch:*)",
-      "Bash(git-spice log:*)",
       "Bash(head *)",
       "Bash(java *)",
+      "Bash(ksrc *)",
       "Bash(ls *)",
       "Bash(pwd)",
       "Bash(rg *)",
@@ -79,16 +80,36 @@
     "ask": [],
     "defaultMode": "default"
   },
-  "model": "opus",
   "hooks": {
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "~/.config/ai/skills/doc/hooks/session-start.sh" }] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/ai/skills/doc/hooks/session-start.sh"
+          }
+        ]
+      }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "~/.config/ai/skills/doc/hooks/stop.sh" }] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/ai/skills/doc/hooks/stop.sh"
+          }
+        ]
+      }
     ],
     "PreCompact": [
-      { "hooks": [{ "type": "command", "command": "~/.config/ai/skills/doc/hooks/precompact.sh" }] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/ai/skills/doc/hooks/precompact.sh"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -97,13 +118,15 @@
   },
   "enabledPlugins": {
     "caveman@caveman": true,
+    "chrisbanes-skills@chrisbanes-skills": false,
     "clangd-lsp@claude-plugins-official": false,
-    "claude-code-setup@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": false,
     "claude-md-management@claude-plugins-official": true,
     "context7@claude-plugins-official": true,
     "gopls-lsp@claude-plugins-official": false,
     "jdtls-lsp@claude-plugins-official": false,
     "kotlin-lsp@claude-plugins-official": false,
+    "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
     "pyright-lsp@claude-plugins-official": false,
     "serena@claude-plugins-official": false,
@@ -118,14 +141,27 @@
         "source": "github",
         "repo": "JuliusBrussee/caveman"
       }
+    },
+    "chrisbanes-skills": {
+      "source": {
+        "source": "github",
+        "repo": "chrisbanes/skills"
+      }
+    },
+    "respawn-tools": {
+      "source": {
+        "source": "github",
+        "repo": "respawn-app/claude-plugin-marketplace"
+      }
     }
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "high",
+  "model": "opus",
   "advisorModel": "opus",
+  "effortLevel": "high",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "preferredNotifChannel": "notifications_disabled",
-  "autoConnectIde": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "autoConnectIde": true
 }
