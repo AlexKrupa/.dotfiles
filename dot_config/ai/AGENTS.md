@@ -42,16 +42,11 @@
 ## General code
 
 - Always check context7 before answering library/framework questions from memory
-- Guard clauses over nested conditionals
 - Every changed line should trace to the request; implement only what was asked, nothing beyond it
 - Validate at system boundaries only; handle only errors that can actually happen
 - No abstractions for single-use code; if a senior engineer would call it overcomplicated, simplify
-- Match existing code style, not your preference
-- Comments explain WHY, not WHAT
 - Use plain, direct language for comments and documentation; follow reply style
-- Include context in logs and error messages
 - Unrelated issues or dead code: mention, don't fix
-- Only clean up things YOUR changes made unused
 
 ## ~/.ai/ work directory
 
@@ -66,12 +61,10 @@ Layout:
 
 `<repo-name>` resolution (applies to all three subdirs):
 
-- Run `bash ~/.config/ai/bin/repo-slug.sh` to get `<repo-name>`. It slugifies the main repo name
-  (lowercase, non-alphanumeric runs collapsed to `-`, trimmed) and handles bare repos, submodules,
-  and linked worktrees (all worktrees of one repo share the same name - do not create a per-worktree
-  subdirectory).
-- Outside a git repo the script prints `_no-repo`; use `~/.ai/_no-repo/` (e.g. `~/.ai/_no-repo/plans/`).
-- Create the subdirectory if missing. The `/doc` skill's `docs-dir.sh` calls this same primitive.
+- Run `bash ~/.config/ai/bin/repo-slug.sh` to get `<repo-name>` (handles bare repos, submodules,
+  worktrees; all worktrees of a repo share one name - no per-worktree subdir).
+- Outside a git repo it prints `_no-repo`; use `~/.ai/_no-repo/`.
+- Create the subdirectory if missing.
 
 Design docs: non-trivial work (anything worth a plan) should have one. Suggest `/doc <name>` before
 planning; run `/doc-sync` after completing a step.
