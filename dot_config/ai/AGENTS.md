@@ -31,13 +31,15 @@
 
 Applies to all prose: replies, docs, code comments, commit messages.
 
-- Plain language, no AI register: no idioms or cliches; no marketing diction ("delve", "leverage",
-  "robust", "tapestry", "ecosystem"); use "is", not "serves as"
+### Plain language
+
+- No AI slop: no idioms or cliches; no marketing diction ("delve", "leverage", "robust", "tapestry",
+  "ecosystem"); use "is", not "serves as"
 - No filler transitions ("It's worth noting", "Importantly"), -ing tails ("...highlighting its
   importance"), pedagogical asides ("let's unpack this"), or signposted summaries ("In conclusion")
 - No fractal restated summaries; no bold-keyword bullet leads
 
-## Formatting
+### Formatting
 
 - Prefer ASCII over Unicode for punctuation and stylistic symbols (no smart quotes, em-dashes, or
   decorative icons). Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical
