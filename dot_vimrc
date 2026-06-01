@@ -50,13 +50,6 @@ set termguicolors
 
 set updatetime=750
 
-" automatically leave insert mode after 'updatetime' milliseconds of inaction
-au CursorHoldI * stopinsert
-
-" set 'updatetime' to 10 seconds when in insert mode
-au InsertEnter * let updaterestore=&updatetime | set updatetime=10000
-au InsertLeave * let &updatetime=updaterestore
-
 " edit .vimrc with \e, reload with \r
 nnoremap \e :e ~/.vimrc<CR>
 nnoremap \r :source ~/.vimrc<CR>
