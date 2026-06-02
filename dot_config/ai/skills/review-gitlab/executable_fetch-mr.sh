@@ -17,7 +17,7 @@ preflight() {
   command -v jq   >/dev/null || die "jq not installed"   "$E_DEP"
 }
 
-urlencode_path() { jq -sRr @uri <<<"$1"; }
+urlencode_path() { jq -nRr --arg s "$1" '$s|@uri'; }
 
 # Pull the canonical MR fields out of `glab mr view --output json`.
 project_mr_view() {

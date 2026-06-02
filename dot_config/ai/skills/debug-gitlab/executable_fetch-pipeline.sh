@@ -17,7 +17,7 @@ preflight() {
   command -v jq   >/dev/null || die "jq not installed"   "$E_DEP"
 }
 
-urlencode_path() { jq -sRr @uri <<<"$1"; }
+urlencode_path() { jq -nRr --arg s "$1" '$s|@uri'; }
 
 # glab api wrapper: retries on non-zero exit (transient 5xx/network), prints raw body.
 glab_api_retry() {
