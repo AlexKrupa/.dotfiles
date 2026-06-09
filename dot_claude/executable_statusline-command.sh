@@ -86,11 +86,39 @@ usage_fmt() {
 
 input=$(cat)
 
-cwd=$(echo "$input" | jq -r '.workspace.current_dir')
+# Single jq pass: emit fields in order, read line by line (values assumed
+# newline-free; cwd/branch never contain newlines in practice).
+{
+  IFS= read -r cwd
+  IFS= read -r model
+  IFS= read -r model_id
+  IFS= read -r pct
+  IFS= read -r win_size
+  IFS= read -r cost
+  IFS= read -r added
+  IFS= read -r removed
+  IFS= read -r vim_mode
+  IFS= read -r u5_pct
+  IFS= read -r u5_reset
+  IFS= read -r u7_pct
+  IFS= read -r u7_reset
+} < <(echo "$input" | jq -r '
+  .workspace.current_dir,
+  .model.display_name,
+  (.model.model_id // ""),
+  (.context_window.used_percentage // ""),
+  (.context_window.context_window_size // ""),
+  (.cost.total_cost_usd // ""),
+  (.cost.total_lines_added // 0),
+  (.cost.total_lines_removed // 0),
+  (.vim.mode // ""),
+  (.rate_limits.five_hour.used_percentage // ""),
+  (.rate_limits.five_hour.resets_at // ""),
+  (.rate_limits.seven_day.used_percentage // ""),
+  (.rate_limits.seven_day.resets_at // "")')
+
 raw_cwd="$cwd"
 cwd="${cwd/#$HOME/\~}"
-model=$(echo "$input" | jq -r '.model.display_name')
-model_id=$(echo "$input" | jq -r '.model.model_id // empty')
 
 # Shorten path: first letter of each component except last
 IFS="/" read -ra parts <<< "$cwd"
@@ -124,7 +152,7 @@ if git -C "$raw_cwd" rev-parse --git-dir &>/dev/null; then
   fi
 fi
 
-m=$(echo "$model" | sed 's/Claude //' | sed 's/ Sonnet//' | sed 's/ ([^)]*context)//')
+m=$(echo "$model" | sed 's/Claude //; s/ Sonnet//; s/ ([^)]*context)//')
 
 # Effort level: prefer live session value, fall back to settings.json, then EFFORT_DEFAULTS
 effort="${CLAUDE_EFFORT:-}"
@@ -141,28 +169,14 @@ case "$model_id" in
   *) effort_suffix=$(echo "${effort:0:1}" | tr '[:lower:]' '[:upper:]') ;;
 esac
 
-# Context window + cost fields
-pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
-win_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
-cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
-added=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
-removed=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
-vim_mode=$(echo "$input" | jq -r '.vim.mode // empty')
-
 pct_display="${pct:-?}"
 [ "$pct_display" != "?" ] && pct_display="${pct_display%.*}"
 win_display=$(fmt_win "$win_size")
 
 # Build utilization segment (5h then 7d)
 usage_seg=""
-seg_5h=$(usage_fmt "5h" \
-  "$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')" \
-  "$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')" \
-  "$USAGE_5H_TIMEFMT")
-seg_7d=$(usage_fmt "7d" \
-  "$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')" \
-  "$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')" \
-  "$USAGE_7D_TIMEFMT")
+seg_5h=$(usage_fmt "5h" "$u5_pct" "$u5_reset" "$USAGE_5H_TIMEFMT")
+seg_7d=$(usage_fmt "7d" "$u7_pct" "$u7_reset" "$USAGE_7D_TIMEFMT")
 [ -n "$seg_5h" ] && usage_seg="$seg_5h"
 [ -n "$seg_7d" ] && usage_seg="${usage_seg:+$usage_seg ${C_DIM}|${C_RESET} }$seg_7d"
 
@@ -173,11 +187,8 @@ seg_7d=$(usage_fmt "7d" \
 # Line 1 (optional): vim mode
 if [ -n "$vim_mode" ]; then
   upper_mode=$(echo "$vim_mode" | tr '[:lower:]' '[:upper:]')
-  if [ "$upper_mode" = "INSERT" ]; then
-    printf '%s-- %s --%s\n' "$C_VIM_INSERT" "$upper_mode" "$C_RESET"
-  else
-    printf '%s-- %s --%s\n' "$C_VIM_NORMAL" "$upper_mode" "$C_RESET"
-  fi
+  [ "$upper_mode" = "INSERT" ] && vc="$C_VIM_INSERT" || vc="$C_VIM_NORMAL"
+  printf '%s-- %s --%s\n' "$vc" "$upper_mode" "$C_RESET"
 fi
 
 # Line 2: path, git
