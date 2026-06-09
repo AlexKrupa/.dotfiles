@@ -5,7 +5,7 @@
 
 # Line 3 segment order. Reorder or drop keys. Available:
 #   model ctx usage cost lines
-SEGMENT_ORDER=(model ctx usage lines cost)
+SEGMENT_ORDER=(model ctx usage)
 
 # Context-window % color (>= value wins; below yellow -> green).
 CTX_RED_AT=50
