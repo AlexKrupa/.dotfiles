@@ -196,7 +196,7 @@
   "showClearContextOnPlanAccept": true,
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
-  "theme": "custom:dracula",
+  "theme": "auto",
   "preferredNotifChannel": "notifications_disabled",
   "skipAutoPermissionPrompt": true,
   "autoConnectIde": false
