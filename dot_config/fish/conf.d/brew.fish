@@ -1,3 +1,14 @@
+function __brew_quit_app --argument-names app_name --description 'Quit an app, force-kill if it ignores the quit'
+    echo "Quitting $app_name..."
+    osascript -e "tell application \"$app_name\" to quit" 2>/dev/null
+    sleep 1
+    if pgrep -xq "$app_name"
+        echo "Force-killing $app_name..."
+        killall "$app_name" 2>/dev/null
+        sleep 1
+    end
+end
+
 function brew-update --description 'Update Homebrew and show outdated'
   brew update -q
   echo && brew outdated --greedy
@@ -72,14 +83,7 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
             continue
         end
 
-        echo "Quitting $app_name..."
-        osascript -e "tell application \"$app_name\" to quit" 2>/dev/null
-        sleep 1
-        if pgrep -xq "$app_name"
-            echo "Force-killing $app_name..."
-            killall "$app_name" 2>/dev/null
-            sleep 1
-        end
+        __brew_quit_app $app_name
 
         HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
 
@@ -87,7 +91,8 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
         open -b "$bundle_id" -g
     end
 
-    # Upgrade prompt-on-upgrade casks, ask before restarting running apps
+    # Upgrade prompt-on-upgrade casks. A cask upgrade force-quits a running app (via the
+    # cask's `uninstall quit:` directive), so for running apps we must ask BEFORE upgrading.
     for entry in $prompt_apps
         set -l cask_name (string split ':' $entry)[1]
 
@@ -97,23 +102,22 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
         set -l app_name (string split ':' $entry)[2]
         set -l bundle_id (string split ':' $entry)[3]
 
-        HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
-
-        if pgrep -xq "$app_name"
-            read -l -P "Restart $app_name? [y/N] " confirm
-            if string match -riq '^y$' -- $confirm
-                echo "Quitting $app_name..."
-                osascript -e "tell application \"$app_name\" to quit" 2>/dev/null
-                sleep 1
-                if pgrep -xq "$app_name"
-                    echo "Force-killing $app_name..."
-                    killall "$app_name" 2>/dev/null
-                    sleep 1
-                end
-                echo "Restarting $app_name..."
-                open -b "$bundle_id" -g
-            end
+        # Not running: upgrade freely, nothing to disturb.
+        if not pgrep -xq "$app_name"
+            HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
+            continue
         end
+
+        read -l -P "$app_name is running; upgrading will close it. Upgrade and restart now? [y/N] " confirm
+        if not string match -riq '^y$' -- $confirm
+            echo "Skipping $cask_name (left outdated)."
+            continue
+        end
+
+        __brew_quit_app $app_name
+        HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
+        echo "Restarting $app_name..."
+        open -b "$bundle_id" -g
     end
 
     brew cleanup
