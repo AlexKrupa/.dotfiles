@@ -42,11 +42,13 @@ fi
 m=$(echo "$model" | sed 's/Claude //' | sed 's/ Sonnet//' | sed 's/ ([^)]*context)//')
 model_id=$(echo "$input" | jq -r '.model.model_id // empty')
 
-# Effort level from settings
-effort=""
-settings="$HOME/.claude/settings.json"
-if [ -f "$settings" ]; then
-  effort=$(jq -r '.effortLevel // empty' "$settings" 2>/dev/null)
+# Effort level: prefer live session value, fall back to configured default
+effort="${CLAUDE_EFFORT:-}"
+if [ -z "$effort" ]; then
+  settings="$HOME/.claude/settings.json"
+  if [ -f "$settings" ]; then
+    effort=$(jq -r '.effortLevel // empty' "$settings" 2>/dev/null)
+  fi
 fi
 if [ -z "$effort" ]; then
   case "$model_id" in
@@ -141,5 +143,8 @@ seg_7d=$(usage_fmt "7d" \
 printf "%s%s \033[2m|\033[0m $(pct_color "$pct")%s%%\033[0m %s \033[2m| \$%s\033[0m" \
   "$m" "${effort_suffix:+ $effort_suffix}" "$pct_display" "$win_display" \
   "$([ -n "$cost" ] && printf '%.2f' "$cost" || echo '?')"
-[ -n "$usage_seg" ] && printf " \033[2m|\033[0m %b" "$usage_seg"
+# Elide usage segment on narrow terminals (COLUMNS passed by Claude Code)
+if [ -n "$usage_seg" ] && { [ -z "$COLUMNS" ] || [ "$COLUMNS" -ge 80 ]; }; then
+  printf " \033[2m|\033[0m %b" "$usage_seg"
+fi
 printf "\n"

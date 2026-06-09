@@ -48,8 +48,8 @@ Applies to all prose: replies, docs, code comments, commit messages.
 - Use single dashes instead of en- or em-dashes
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
+- File paths and URLs: NEVER put a dot directly after, ALWAYS put a space after
 - **Boldface** and emojis: use sparingly
-- Always put a space after file paths or URLs; never put a dot directly after
 
 ## Plan execution
 
