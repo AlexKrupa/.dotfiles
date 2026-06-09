@@ -4,7 +4,7 @@
   "env": {
     "DISABLE_AUTOUPDATER": "1",
     "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "0",
-    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "1",
+    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
     "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
     "CLAUDE_CODE_NO_FLICKER": "0",
@@ -196,7 +196,7 @@
   "showClearContextOnPlanAccept": true,
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
-  "theme": "auto",
+  "theme": "custom:dracula",
   "preferredNotifChannel": "notifications_disabled",
   "skipAutoPermissionPrompt": true,
   "autoConnectIde": false
