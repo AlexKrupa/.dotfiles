@@ -10,6 +10,10 @@
     "CLAUDE_CODE_NO_FLICKER": "0",
     "ENABLE_LSP_TOOL": "1"
   },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "permissions": {
     "allow": [
       "Bash(./fetch-pipeline.sh:*)",
@@ -89,6 +93,11 @@
     "ask": [],
     "defaultMode": "default"
   },
+  "model": "opus",
+  "fallbackModel": [
+    "claude-opus-4-7",
+    "claude-opus-4-6"
+  ],
   "hooks": {
     "PreToolUse": [
       {
@@ -181,18 +190,14 @@
       }
     }
   },
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
+  "syntaxHighlightingDisabled": false,
   "alwaysThinkingEnabled": true,
-  "model": "opus",
-  "fallbackModel": ["claude-opus-4-7", "claude-opus-4-6"],
   "effortLevel": "high",
+  "showClearContextOnPlanAccept": true,
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
+  "theme": "auto",
   "preferredNotifChannel": "notifications_disabled",
   "skipAutoPermissionPrompt": true,
-  "showClearContextOnPlanAccept": true,
   "autoConnectIde": false
 }
