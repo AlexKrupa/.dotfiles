@@ -4,6 +4,7 @@ description:
   Use when reviewing the currently checked-out git branch against its parent. Produces a Markdown
   report under ~/.ai/<repo>/reviews/ without modifying code, committing, or posting comments.
   Platform-agnostic (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
+disable-model-invocation: true
 ---
 
 # review-branch
@@ -41,8 +42,8 @@ this skill only knows "current branch vs its parent".
 
 A caller (typically another skill, e.g. `review-gitlab`) may supply an explicit parent branch to
 diff against. When given, skip steps 3 and 4 of parent detection and use it directly. Validate the
-ref exists locally (`git rev-parse --verify <parent>`); abort with a clear message if not. Note
-the override source in the report's header so the reader knows the parent was not auto-detected.
+ref exists locally (`git rev-parse --verify <parent>`); abort with a clear message if not. Note the
+override source in the report's header so the reader knows the parent was not auto-detected.
 
 ## Scope
 
@@ -82,15 +83,23 @@ Empty buckets are fine. Do not invent findings to fill them.
 
 ## Report file
 
-Run the helper to get the destination path (absolute path, since skill cwd is the user's repo, not this dir). Do not re-implement repo / author / branch resolution inline.
+Run the helper to get the destination path (absolute path, since skill cwd is the user's repo, not
+this dir). Do not re-implement repo / author / branch resolution inline.
 
     path="$(~/.config/ai/skills/review-branch/report-path.sh <parent>)"
 
-The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of `foo` writes under one directory regardless of the worktree folder's own name), slugification (including diacritic transliteration, e.g. `Józef Mąka` → `jozef-maka`), branch-name `/`→`-` flattening, majority-author detection, and `mkdir -p` of the parent. Prints the absolute path on stdout. Overwrite the file if it exists (re-runs supersede).
+The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of
+`foo` writes under one directory regardless of the worktree folder's own name), slugification
+(including diacritic transliteration, e.g. `Józef Mąka` → `jozef-maka`), branch-name `/`→`-`
+flattening, majority-author detection, and `mkdir -p` of the parent. Prints the absolute path on
+stdout. Overwrite the file if it exists (re-runs supersede).
 
-Optional second arg `prefix` → `<prefix>-<branch>-<author>.md` (the prefix is slugified too). Callers like `review-gitlab` pass `mr-<iid>` this way. Omit it for the plain `<branch>-<author>.md` form.
+Optional second arg `prefix` → `<prefix>-<branch>-<author>.md` (the prefix is slugified too).
+Callers like `review-gitlab` pass `mr-<iid>` this way. Omit it for the plain `<branch>-<author>.md`
+form.
 
-Do **not** substitute `git rev-parse --show-toplevel` — that returns the worktree root and breaks the main-repo grouping convention.
+Do **not** substitute `git rev-parse --show-toplevel` — that returns the worktree root and breaks
+the main-repo grouping convention.
 
 ## Report structure (BLUF)
 

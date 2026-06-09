@@ -14,7 +14,7 @@
       "Bash(./fetch-pipeline.sh:*)",
       "Bash(./gradlew *)",
       "Bash(adb *)",
-      "Bash(bash ~/.config/ai/*)",
+      "Bash(bash ~/.ai/*)",
       "Bash(brew list:*)",
       "Bash(cat *)",
       "Bash(diff *)",
@@ -58,14 +58,13 @@
       "Bash(unzip * ~/.gradle/caches/*)",
       "Bash(wc *)",
       "Bash(which *)",
-      "Bash(~/.config/ai/*)",
-      "Edit(~/.config/ai/docs/*)",
+      "Bash(~/.ai/*)",
+      "Edit(~/.ai/*)",
       "LSP",
-      "Read(~/.config/ai/docs/*)",
+      "Read(~/.ai/*)",
       "TaskUpdate(~/.config/ai/docs/*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Write(~/.config/ai/docs/*)",
       "mcp__context7__query-docs",
       "mcp__context7__resolve-library-id",
       "mcp__plugin_context7_context7__query-docs",
@@ -78,12 +77,29 @@
       "Bash(git push --force *)",
       "Bash(git push -f *)",
       "Bash(git reset --hard *)",
-      "Bash(rm -rf *)"
+      "Bash(rm -rf *)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Edit(**/*.lock)",
+      "Edit(**/gradle.lockfile)",
+      "Edit(**/build/**)",
+      "Edit(**/generated/**)"
     ],
     "ask": [],
     "defaultMode": "default"
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/guard.sh"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -158,13 +174,18 @@
       }
     }
   },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "alwaysThinkingEnabled": true,
   "model": "opus",
-  "advisorModel": "opus",
+  "fallbackModel": ["claude-opus-4-7"],
   "effortLevel": "high",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "preferredNotifChannel": "notifications_disabled",
   "skipAutoPermissionPrompt": true,
-  "autoConnectIde": true
+  "showClearContextOnPlanAccept": true,
+  "autoConnectIde": false
 }

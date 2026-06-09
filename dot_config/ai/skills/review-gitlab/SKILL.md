@@ -3,7 +3,8 @@ name: review-gitlab
 description:
   Use when reviewing a GitLab merge request - by URL, MR id, branch name, or current branch.
   Produces a Markdown report combining the branch audit with MR context (description, discussions,
-  labels, bot findings). Read-only: no fixes, commits, or comments posted.
+  labels, bot findings). Read-only - no fixes, commits, or comments posted.
+disable-model-invocation: true
 ---
 
 # review-gitlab
@@ -78,7 +79,8 @@ informational, not an error.
    `git fetch <remote> <target_branch>:<target_branch>`.
 5. Invoke `review-branch` with `<target_branch>` as the parent override. Compute the report path via
    the helper with the iid prefix (see "Report"), so review-branch writes to
-   `mr-<iid>-<branch>-<author>.md` directly (no rename). Read the generated report before augmenting.
+   `mr-<iid>-<branch>-<author>.md` directly (no rename). Read the generated report before
+   augmenting.
 6. `"$FMR" discussions "$iid" "$project_path"` → substantive-thread judgment (next section).
 7. Optional: `"$FMR" diff-check "$iid" "$target_branch"`; if it exits 1, note the drift in the
    report.

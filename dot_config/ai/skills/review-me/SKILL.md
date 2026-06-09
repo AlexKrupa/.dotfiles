@@ -5,6 +5,7 @@ description:
   dead imports, doc tweaks) applied and folded into branch commits automatically. Triggers on
   "review me", "self-review", "tidy up my branch", "clean up before PR". Pauses for confirmation
   before behavior changes or broad refactors.
+disable-model-invocation: true
 ---
 
 # review-me

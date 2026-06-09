@@ -4,6 +4,7 @@ description:
   Use when a GitLab pipeline, job, or merge request failed and the user wants the root cause - by
   URL, id, or implicitly the current branch. Read-only analysis; an optional fix step is gated on
   explicit user approval. Never pushes, retries, merges, or comments without consent.
+disable-model-invocation: true
 ---
 
 # debug-gitlab
@@ -72,8 +73,8 @@ trace.
 ### 1. `failure_reason` per failing job
 
 `./fetch-pipeline.sh failed-jobs <pipeline_id>` returns a slim array
-`{id, name, stage, failure_reason, allow_failure, web_url, started_at, finished_at, duration}`.
-Map `failure_reason` to the verdict:
+`{id, name, stage, failure_reason, allow_failure, web_url, started_at, finished_at, duration}`. Map
+`failure_reason` to the verdict:
 
 | `failure_reason`             | Verdict               | Action               |
 | ---------------------------- | --------------------- | -------------------- |
