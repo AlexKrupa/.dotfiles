@@ -67,6 +67,8 @@ esac
 pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 win_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
 cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
+added=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
+removed=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
 vim_mode=$(echo "$input" | jq -r '.vim.mode // empty')
 
 # Format window size: 1000000 -> 1M, otherwise Nk
@@ -139,12 +141,31 @@ seg_7d=$(usage_fmt "7d" \
 [ -n "$seg_5h" ] && usage_seg="$seg_5h"
 [ -n "$seg_7d" ] && usage_seg="${usage_seg:+$usage_seg \033[2m|\033[0m }$seg_7d"
 
-# Line 3: Model E | PCT% WINk | $COST [| 5h:N% | 7d:N%]
-printf "%s%s \033[2m|\033[0m $(pct_color "$pct")%s%%\033[0m %s \033[2m| \$%s\033[0m" \
-  "$m" "${effort_suffix:+ $effort_suffix}" "$pct_display" "$win_display" \
-  "$([ -n "$cost" ] && printf '%.2f' "$cost" || echo '?')"
-# Elide usage segment on narrow terminals (COLUMNS passed by Claude Code)
+# Line 3 segments. Each `seg_<key>` is a self-contained, ANSI-ready string
+# (empty = skipped). Reorder the `order` list below to rearrange the line;
+# segments are joined with a dim `|` separator.
+reset=$'\033[0m'
+sep=$'\033[2m|'"$reset"
+
+seg_model="${m}${effort_suffix:+ $effort_suffix}"
+seg_ctx="$(pct_color "$pct")${pct_display}%${reset} ${win_display}"
+# Usage (5h/7d); elided on narrow terminals (COLUMNS passed by Claude Code)
+seg_usage=""
 if [ -n "$usage_seg" ] && { [ -z "$COLUMNS" ] || [ "$COLUMNS" -ge 80 ]; }; then
-  printf " \033[2m|\033[0m %b" "$usage_seg"
+  seg_usage=$(printf '%b' "$usage_seg")
 fi
-printf "\n"
+seg_cost=$'\033[2m'"\$$([ -n "$cost" ] && printf '%.2f' "$cost" || echo '?')${reset}"
+# Lines changed (only when non-zero)
+seg_lines=""
+if [ "$added" -gt 0 ] || [ "$removed" -gt 0 ]; then
+  seg_lines=$'\033[32m'"+${added}${reset}/"$'\033[31m'"-${removed}${reset}"
+fi
+
+order=(model ctx usage cost lines)
+line=""
+for key in "${order[@]}"; do
+  val="seg_$key"; val="${!val}"
+  [ -z "$val" ] && continue
+  line="${line:+$line $sep }$val"
+done
+printf '%s\n' "$line"
