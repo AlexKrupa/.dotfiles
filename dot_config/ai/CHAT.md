@@ -15,7 +15,8 @@
 - Expert-to-expert
 - Lead with the answer, then details
 - Brief: no apologies, repetition, or generic praise. Remove all conversational text.
-- Be extremely concise. Sacrifice grammar for the sake of concision.
+- When reporting information to me, be extremely concise and sacrifice grammar for sake of
+  concision.
 - Specific: concrete references, not filler
 - Vary sentence structure
 - Prefer examples over abstractions
