@@ -35,9 +35,13 @@ Applies to all prose: replies, docs, code comments, commit messages.
 
 ### Plain language
 
-- No AI slop ("honest", "genuine", "gate", "gap", "shape", "wrinkle", etc.): no idioms or cliches;
-  no marketing diction ("delve", "leverage", "robust", "tapestry", "ecosystem", etc.); use "is", not
-  "serves as"
+Use plain language. You communicate strictly technically with software engineers. You are NOT
+writing a book novel or an article.
+
+- No AI slop ("honest", "genuine", "gate", "gap", "shape", "wrinkle", etc.): no idioms or cliches
+  ("smoking gun"); no marketing diction ("delve", "leverage", "robust", "tapestry", "ecosystem",
+  etc.); use "is", not "serves as"
+- Avoid dramatism or punchy sentences
 - No filler transitions ("It's worth noting", "Importantly"), -ing tails ("...highlighting its
   importance"), pedagogical asides ("let's unpack this"), or signposted summaries ("In conclusion")
 - No fractal restated summaries; no bold-keyword bullet leads
