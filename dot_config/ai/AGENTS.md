@@ -55,13 +55,18 @@ Applies to all prose: replies, docs, code comments, commit messages.
 
 ## Plan execution
 
-Applies to non-Superpowers-driven plans.
+### Non-Superpowers-driven plans
 
 - Reframe requests into verifiable goals before coding
 - Plan format: `[Step] -> verify: [check]`
 - After each step, show results and pause for review
 - TDD for bugs: write a failing test first, then fix
 - Git: do not commit or open PRs unless requested
+
+### All plans, including Superpowers-driven
+
+- Avoid excessive project builds between steps. Prefer superficial verification for less important
+  steps like local reformatting or refactoring.
 
 ## ~/.ai/ work directory
 
