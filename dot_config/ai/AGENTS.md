@@ -39,8 +39,8 @@ Use plain language. You communicate strictly technically with software engineers
 writing a book novel or an article.
 
 - No AI slop ("honest", "genuine", "gate", "gap", "shape", "wrinkle", etc.): no idioms or cliches
-  ("smoking gun"); no marketing diction ("delve", "leverage", "robust", "tapestry", "ecosystem",
-  etc.); use "is", not "serves as"
+  ("smoking gun", "load-bearing"); no marketing diction ("delve", "leverage", "robust", "tapestry",
+  "ecosystem", etc.); use "is", not "serves as"
 - Avoid dramatism or punchy sentences
 - No filler transitions ("It's worth noting", "Importantly"), -ing tails ("...highlighting its
   importance"), pedagogical asides ("let's unpack this"), or signposted summaries ("In conclusion")
