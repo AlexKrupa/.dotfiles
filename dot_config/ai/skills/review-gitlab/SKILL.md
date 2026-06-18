@@ -32,14 +32,13 @@ with MR context (sections below).
 
 ## Prerequisites
 
-Fail-fast order: local/cheap first, network last. On any failure, print one line and stop.
+Run `"$FMR" preflight` (bind `FMR` first, see "Helper script"). It performs all deterministic checks
+in fail-fast order - git repo, clean worktree (no auto-stash), `glab`/`jq` present, `glab` authed -
+and prints `ok` or aborts with one line and a non-zero exit code. On non-zero, surface the line and
+stop.
 
-1. `git rev-parse --is-inside-work-tree` — abort "not in a git repo".
-2. `git status --porcelain` — if non-empty, abort: "uncommitted changes present, commit/stash and
-   re-run". Do not auto-stash.
-3. `command -v glab` and `command -v jq` — abort with the missing tool name.
-4. `glab auth status` — abort "glab not authenticated, run `glab auth login`".
-5. `GITLAB_API_TOKEN` — note only; the script's API fallback uses it when present.
+`GITLAB_API_TOKEN` is not checked: it is informational only; the script's API fallback uses it when
+present.
 
 ## Helper script
 
@@ -53,11 +52,13 @@ FMR=~/.config/ai/skills/review-gitlab/fetch-mr.sh
 
 Do not re-derive the script's behavior inline. Subcommands:
 
-| Call                                 | Output                                                                                                                                                                                                               |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `"$FMR" resolve "<input>"`           | JSON: `iid`, `project_path`, `source_branch`, `target_branch`, `web_url`, `state`, `draft`, `labels`, `author`, `pipeline_status`, `description`. Input: URL, numeric iid, branch name, or empty (= current branch). |
-| `"$FMR" discussions <iid> [project]` | JSON array of normalized threads. System-only discussions are already dropped. Fields per element: `id`, `individual_note`, `resolvable`, `resolved`, `note_count`, `authors`, `first_body` (≤280 chars), `files`.   |
-| `"$FMR" diff-check <iid> [target]`   | Exits 0 if local `target...HEAD` file set matches the MR's; exits 1 with the file diff on stderr otherwise. Pass the resolved `target_branch` to skip an extra `glab mr view` round-trip.                            |
+| Call                                                | Output                                                                                                                                                                                                               |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"$FMR" preflight`                                  | Prints `ok`, or aborts with one line + non-zero exit. Runs the deterministic prereq checks (see "Prerequisites").                                                                                                   |
+| `"$FMR" resolve "<input>"`                          | JSON: `iid`, `project_path`, `source_branch`, `target_branch`, `web_url`, `state`, `draft`, `labels`, `author`, `pipeline_status`, `description`. Input: URL, numeric iid, branch name, or empty (= current branch). |
+| `"$FMR" checkout <source> <target> [project]`       | Fetches+checks out `<source>`, ensures `<target>` exists locally. JSON: `remote`, `previous_branch`, `moved`, `source_branch`, `target_branch`. Picks the remote whose URL matches `project` when several exist.    |
+| `"$FMR" discussions <iid> [project]`                | JSON array of normalized threads. System-only discussions are already dropped. Fields per element: `id`, `individual_note`, `resolvable`, `resolved`, `note_count`, `authors`, `first_body` (≤280 chars), `files`.   |
+| `"$FMR" diff-check <iid> [target]`                  | Exits 0 if local `target...HEAD` file set matches the MR's; exits 1 with the file diff on stderr otherwise. Pass the resolved `target_branch` to skip an extra `glab mr view` round-trip.                            |
 
 Exit codes: `0` ok, `1` usage/parse error, `2` not found, `3` ambiguous (multiple open MRs for the
 branch — script lists candidate iids on stderr; surface them and ask the user to pick), `4` missing
@@ -68,23 +69,21 @@ informational, not an error.
 
 ## Workflow
 
-1. Run prerequisites above and bind `FMR` as shown.
+1. Bind `FMR` (see "Helper script") and run `"$FMR" preflight`.
 2. `"$FMR" resolve "<input>"` → parse the JSON with `jq` and bind `iid`, `source_branch`,
    `target_branch`, `project_path`, etc. as shell vars (or read them on demand).
-3. `git fetch <remote> <source_branch>` then `git checkout <source_branch>`. `<remote>` defaults to
-   `origin`; if multiple remotes exist, prefer the one whose URL matches `project_path`. If the user
-   was on a different branch before, tell them explicitly that the worktree is now on the MR's
-   source branch.
-4. Ensure `<target_branch>` exists locally: `git rev-parse --verify <target_branch>` ||
-   `git fetch <remote> <target_branch>:<target_branch>`.
-5. Invoke `review-branch` with `<target_branch>` as the parent override. Compute the report path via
+3. `"$FMR" checkout "$source_branch" "$target_branch" "$project_path"` → fetches+checks out the
+   source branch, picks the right remote, and ensures the target exists locally. Parse the JSON; if
+   `moved == true`, tell the user explicitly that the worktree is now on the MR's source branch (was
+   on `previous_branch`).
+4. Invoke `review-branch` with `<target_branch>` as the parent override. Compute the report path via
    the helper with the iid prefix (see "Report"), so review-branch writes to
    `mr-<iid>-<branch>-<author>.md` directly (no rename). Read the generated report before
    augmenting.
-6. `"$FMR" discussions "$iid" "$project_path"` → substantive-thread judgment (next section).
-7. Optional: `"$FMR" diff-check "$iid" "$target_branch"`; if it exits 1, note the drift in the
+5. `"$FMR" discussions "$iid" "$project_path"` → substantive-thread judgment (next section).
+6. Optional: `"$FMR" diff-check "$iid" "$target_branch"`; if it exits 1, note the drift in the
    report.
-8. Augment the report (see "Report" section).
+7. Augment the report (see "Report" section).
 
 ## Discussion filtering
 

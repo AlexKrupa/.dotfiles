@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Read-only GitLab MR fetcher for the review-gitlab skill.
-# Subcommands: resolve | discussions | diff-check
+# Subcommands: preflight | resolve | discussions | diff-check | checkout
 # Exit codes: 0 ok · 1 usage/other · 2 not found · 3 ambiguous · 4 missing dep / auth · 5 network
 
 set -euo pipefail
@@ -18,6 +18,67 @@ preflight() {
 }
 
 urlencode_path() { jq -nRr --arg s "$1" '$s|@uri'; }
+
+# preflight: deterministic prereqs in fail-fast order (cheap local -> network).
+# glab/jq presence already verified by top-level preflight().
+cmd_preflight() {
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || die "not in a git repo" 1
+  [[ -z "$(git status --porcelain)" ]] \
+    || die "uncommitted changes present, commit/stash and re-run" 1
+  glab auth status >/dev/null 2>&1 \
+    || die "glab not authenticated, run: glab auth login" "$E_DEP"
+  echo "ok"
+}
+
+# pick_remote [project_path]: single remote -> use it; multiple -> the one whose
+# URL contains project_path; else origin; else first listed.
+pick_remote() {
+  local project="${1-}" remotes count r url
+  remotes=$(git remote)
+  [[ -n "$remotes" ]] || die "no git remotes configured" 1
+  count=$(grep -c . <<<"$remotes")
+  if [[ "$count" -eq 1 ]]; then echo "$remotes"; return; fi
+  if [[ -n "$project" ]]; then
+    while IFS= read -r r; do
+      url=$(git remote get-url "$r" 2>/dev/null || echo "")
+      [[ "$url" == *"$project"* ]] && { echo "$r"; return; }
+    done <<<"$remotes"
+  fi
+  git remote get-url origin >/dev/null 2>&1 && { echo origin; return; }
+  head -n1 <<<"$remotes"
+}
+
+# checkout <source_branch> <target_branch> [project_path]
+# Fetches and checks out the MR source branch, ensures the target exists locally.
+# Emits JSON: remote, previous_branch, moved, source_branch, target_branch.
+cmd_checkout() {
+  local source="${1-}" target="${2-}" project="${3-}"
+  [[ -n "$source" && -n "$target" ]] \
+    || die "usage: checkout <source_branch> <target_branch> [project_path]" 1
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not in a git repo" 1
+
+  local remote prev moved=false
+  remote=$(pick_remote "$project")
+  prev=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+  git fetch "$remote" "$source" >/dev/null 2>&1 \
+    || die "git fetch $remote $source failed" "$E_NETWORK"
+  if [[ "$prev" != "$source" ]]; then
+    git checkout "$source" >/dev/null 2>&1 \
+      || die "git checkout $source failed" 1
+    moved=true
+  fi
+  git rev-parse --verify "$target" >/dev/null 2>&1 \
+    || git fetch "$remote" "$target:$target" >/dev/null 2>&1 \
+    || die "could not fetch target branch $target" "$E_NETWORK"
+
+  jq -n \
+    --arg remote "$remote" --arg prev "$prev" --argjson moved "$moved" \
+    --arg source "$source" --arg target "$target" \
+    '{remote:$remote, previous_branch:$prev, moved:$moved,
+      source_branch:$source, target_branch:$target}'
+}
 
 # Pull the canonical MR fields out of `glab mr view --output json`.
 project_mr_view() {
@@ -160,9 +221,11 @@ usage() {
 fetch-mr.sh - read-only GitLab MR fetcher for the review-gitlab skill.
 
 Usage:
+  fetch-mr.sh preflight
   fetch-mr.sh resolve     <URL | iid | branch | "">
   fetch-mr.sh discussions <iid> [project_path]      # or REVIEW_GITLAB_PROJECT
   fetch-mr.sh diff-check  <iid> [target_branch]
+  fetch-mr.sh checkout    <source_branch> <target_branch> [project_path]
 
 Exit codes: 0 ok · 1 usage/other · 2 not found · 3 ambiguous · 4 dep/auth · 5 network
 USAGE
@@ -170,9 +233,11 @@ USAGE
 
 preflight
 case "${1-}" in
+  preflight)    cmd_preflight ;;
   resolve)      shift; cmd_resolve "${1-}" ;;
   discussions)  shift; cmd_discussions "$@" ;;
-  diff-check)   shift; cmd_diff_check "${1-}" ;;
+  diff-check)   shift; cmd_diff_check "$@" ;;
+  checkout)     shift; cmd_checkout "$@" ;;
   ""|-h|--help) usage ;;
   *)            die "unknown subcommand: $1" 1 ;;
 esac
