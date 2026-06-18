@@ -79,18 +79,23 @@ Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
    `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, etc. If none found, say so — don't invent
    commands.
 6. **Absorb pass.** Only if validation passed (or none was found) and at least one fix was applied
-   this iteration. Resolve parent as `git merge-base HEAD origin/HEAD` (fall back to the parent ref
-   `review-branch` used). Then:
-   1. Stage only the files the skill modified this pass: `git add -- <files>`. Never `git add -A`.
-   2. Run `git absorb --base <parent>`. It commits what it can match, leaves the rest staged.
-   3. For each file still showing in `git diff --cached --name-only` (the orphans), resolve one file
-      at a time:
-      - `git blame -L` the changed line ranges in that file. Pick the dominant SHA.
-      - If that SHA is reachable in `<parent>..HEAD` (`git merge-base --is-ancestor <parent> <sha>`
-        and `git merge-base --is-ancestor <sha> HEAD`): `git commit --fixup=<sha> -- <file>`.
-      - Otherwise: `git commit -m "<conventional one-liner>" -- <file>` and note it as a new commit
-        in the summary.
-   4. Surface counts to the user: matched by absorb, fixup-by-blame, new commits.
+   this iteration. The git mechanics are deterministic - delegate them to the helper script, do not
+   hand-run absorb/blame/fixup:
+
+   ```
+   skills/review-me/absorb-fixes.sh <parent> <file>...
+   ```
+
+   - `<parent>`: the `parent:` value from `review-branch`'s context. Do not recompute it.
+   - `<file>...`: only the files the skill modified this pass. The script stages exactly these
+     (never `git add -A`), runs `git absorb`, and for each orphan it leaves, fixes up to the
+     dominant in-range commit via blame.
+   - It prints a keyed block: `absorb-fixups`, `blame-fixups` (with `<sha> <file>` lines),
+     `needs-message` (files left staged because no in-range blame target exists), `staged-remaining`.
+   - For each `needs-message` file: write a conventional one-liner and
+     `git commit -m "<msg>" -- <file>`. This is the only orphan case the script defers, because the
+     message is a judgment call. Note each as a new commit in the summary.
+   - Surface the counts to the user.
 7. Re-invoke `review-branch` to regenerate the report against the post-fix state.
 8. Stop when no auto-fixable findings remain, or after **3 passes** (avoid loops). If still looping,
    surface why.
