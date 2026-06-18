@@ -1,10 +1,11 @@
 ---
 name: review-branch
 description:
-  Use when reviewing the currently checked-out git branch against its parent. Produces a Markdown
-  report under ~/.ai/<repo>/reviews/ without modifying code, committing, or posting comments.
-  Platform-agnostic (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
-disable-model-invocation: true
+  Diffs the current git branch against its parent and writes a read-only Markdown report under
+  ~/.ai/<repo>/reviews/. Called as a sub-skill by review-me (self-review + fixes) and review-gitlab
+  (MR context); run directly only when the user names it. Do not pick it for a plain "review my
+  branch" request - use review-me or review-gitlab, which call it themselves. Platform-agnostic
+  (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
 ---
 
 # review-branch
@@ -14,9 +15,13 @@ Read-only audit of current branch vs parent. Output: single Markdown report at
 
 ## When to use
 
-- User asks to review the current branch, this branch, the diff, "my changes", or a teammate's
-  checked-out branch.
-- Pre-merge gut check; second-pair-of-eyes pass before opening a PR.
+Shared audit step, not a standalone entry point. Run it when:
+
+- `review-me` or `review-gitlab` invoke it as their REQUIRED SUB-SKILL.
+- The user names it directly (slash command or "run review-branch").
+
+Do not pick it on your own for a "review my branch" or "review the diff" request. Those go through
+`review-me` (self-review) or `review-gitlab` (MR), which call this skill themselves.
 
 **Do not use** for reviewing arbitrary commits, the working tree alone, or a specific PR number —
 this skill only knows "current branch vs its parent".
