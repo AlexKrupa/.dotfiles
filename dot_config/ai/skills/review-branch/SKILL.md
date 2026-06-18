@@ -26,29 +26,30 @@ Do not pick it on your own for a "review my branch" or "review the diff" request
 **Do not use** for reviewing arbitrary commits, the working tree alone, or a specific PR number —
 this skill only knows "current branch vs its parent".
 
-## Prerequisites (run in parallel)
+## Gather context
 
-1. `git rev-parse --is-inside-work-tree` — abort with a clear message if not in a repo.
-2. `git rev-parse --abbrev-ref HEAD` — current branch name. If it equals the resolved parent (e.g.
-   on `main`), abort: "No parent diff to review."
-3. Parent detection, in order:
-   - `git rev-parse --abbrev-ref --symbolic-full-name @{u}` — upstream tracking branch (strip remote
-     prefix).
-   - Else first existing of `main`, `master`, `develop` via
-     `git show-ref --verify --quiet refs/heads/<name>`.
-   - Else abort: "Could not resolve parent branch."
-4. `git status --porcelain` — if non-empty, note "Uncommitted changes present — not part of audit
-   scope" in the report and list the files.
-5. `git diff <parent>...HEAD --stat` and `git diff <parent>...HEAD` (three-dot — branch changes
-   only, not parent drift).
-6. `git log <parent>..HEAD --oneline` and `git shortlog -sn <parent>..HEAD`.
+Run the helper. It resolves branch/parent deterministically and prints a keyed metadata block. Use
+an absolute path (skill cwd is the user's repo):
 
-## Parent override
+    ~/.config/ai/skills/review-branch/branch-context.sh [parent-override]
 
-A caller (typically another skill, e.g. `review-gitlab`) may supply an explicit parent branch to
-diff against. When given, skip steps 3 and 4 of parent detection and use it directly. Validate the
-ref exists locally (`git rev-parse --verify <parent>`); abort with a clear message if not. Note the
-override source in the report's header so the reader knows the parent was not auto-detected.
+It handles, fail-fast (cheap guards before any diff): repo check; branch name; parent detection
+(upstream tracking branch -> first existing of `main`/`master`/`develop` -> abort); the
+branch-equals-parent guard (compares SHAs, so a same-commit upstream still aborts); `git status`;
+diffstat, commit log, and author shortlog. It aborts (exit 1, message on stderr) when not in a repo,
+when there is no diff vs parent, or when parent is unresolved — relay that message and stop.
+
+Output keys: `branch`, `parent`, `parent-source` (`upstream` | `default-branch` | `override`),
+`uncommitted` (`yes`/`no`), `diff-command`, then `## Diffstat`, `## Commits`,
+`## Authors (shortlog)`, `## Uncommitted (not in audit scope)`.
+
+The script does **not** print the full diff (unbounded). Run the emitted `diff-command`
+(`git diff <parent>...HEAD`, three-dot — branch changes only, not parent drift) yourself to get the
+reviewable content. Surface `parent-source` in the report header when it is `override`, so the
+reader knows the parent was not auto-detected.
+
+**Parent override:** pass the parent branch as the first arg (callers like `review-gitlab` do this).
+The script validates the ref exists locally and reports `parent-source: override`.
 
 ## Scope
 

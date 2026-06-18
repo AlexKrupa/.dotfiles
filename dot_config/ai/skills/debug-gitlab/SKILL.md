@@ -27,21 +27,23 @@ CI, reviewing an MR before merge (use `review-gitlab`), cleaning up a branch (us
 
 ## Prerequisites
 
-Fail-fast order: local checks first, network last. On any failure, print one line and stop.
+Run `./gitlab.sh check`. It runs the fail-fast chain (local checks first, network last) and
+prints one line per check:
 
-1. `git rev-parse --is-inside-work-tree` - abort "not in a git repo" (needed for current-branch
-   resolution and the optional checkout step).
-2. `command -v glab` - abort "glab not installed".
-3. `command -v jq` - abort "jq not installed" (the helper script uses it for field projection).
-4. `glab auth status` - abort "glab not authenticated, run `glab auth login`".
-5. `GITLAB_API_TOKEN` - note presence only. Used by `fetch-pipeline.sh trace` as a `curl` fallback
-   when `glab api` cannot reach the project.
-6. `git status --porcelain` - record but do not block. Only blocks at the optional checkout and fix
-   steps.
+- `git-repo` - hard-fails "not in a git repo" (needed for current-branch resolution and the optional
+  checkout step).
+- `glab` / `jq` - hard-fail if missing (the helper uses `jq` for field projection).
+- `glab-auth` - hard-fails "glab not authenticated, run `glab auth login`".
+- `GITLAB_API_TOKEN: present|absent` - note only. Used by `trace`/`signals` as a `curl` fallback when
+  `glab api` cannot reach the project.
+- `worktree: clean|dirty` - recorded, never blocks here. Only the optional checkout and fix steps
+  block on a dirty tree.
+
+Exit code 4 = a hard prerequisite failed (see the printed line). Stop and surface it.
 
 ## Input resolution
 
-Run `./fetch-pipeline.sh resolve <input>` (script lives next to this SKILL.md). It accepts:
+Run `./gitlab.sh resolve <input>` (script lives next to this SKILL.md). It accepts:
 
 - empty -> current branch's failed pipeline
 - pipeline URL (`.../-/pipelines/<id>`)
@@ -72,51 +74,50 @@ trace.
 
 ### 1. `failure_reason` per failing job
 
-`./fetch-pipeline.sh failed-jobs <pipeline_id>` returns a slim array
-`{id, name, stage, failure_reason, allow_failure, web_url, started_at, finished_at, duration}`. Map
-`failure_reason` to the verdict:
+`./gitlab.sh failed-jobs <pipeline_id>` returns a slim array
+`{id, name, stage, failure_reason, allow_failure, web_url, started_at, finished_at, duration,
+verdict, action}`. The script maps `failure_reason` to `verdict`/`action` deterministically (table
+below, for reference - you do not apply it by hand):
 
-| `failure_reason`             | Verdict               | Action               |
-| ---------------------------- | --------------------- | -------------------- |
-| `script_failure`             | needs deeper analysis | go to step 2 / 3     |
-| `stuck_or_timeout_failure`   | infra / runner stall  | retry                |
-| `runner_system_failure`      | infra                 | retry                |
-| `job_execution_timeout`      | hit the timeout       | retry or raise limit |
-| `api_failure`                | GitLab API hiccup     | retry                |
-| `missing_dependency_failure` | upstream stage failed | fix the upstream     |
-| `scheduler_failure`          | infra                 | retry                |
-| `archived_failure`           | infra                 | retry                |
+| `failure_reason`             | `verdict`        | `action`             |
+| ---------------------------- | ---------------- | -------------------- |
+| `script_failure`             | `needs-analysis` | `analyze`            |
+| `stuck_or_timeout_failure`   | `infra-stall`    | `retry`              |
+| `runner_system_failure`      | `infra`          | `retry`              |
+| `job_execution_timeout`      | `hit-timeout`    | `retry-or-raise-limit` |
+| `api_failure`                | `api-hiccup`     | `retry`              |
+| `missing_dependency_failure` | `upstream-failed`| `fix-upstream`       |
+| `scheduler_failure`          | `infra`          | `retry`              |
+| `archived_failure`           | `infra`          | `retry`              |
+| null / unknown               | `unknown`        | `analyze`            |
 
-For anything other than `script_failure`, this is usually enough to write the verdict and skip the
-trace.
+Only `verdict: needs-analysis` (and `unknown`) need step 2 / 3. Every other verdict is enough to
+write the report and skip the trace.
 
 ### 2. Pipeline test report (for jobs that ran tests)
 
-`./fetch-pipeline.sh test-failures <pipeline_id>` returns only the failed JUnit cases as
+`./gitlab.sh test-failures <pipeline_id>` returns only the failed JUnit cases as
 `{name, classname, file, execution_time, system_output, stack_trace}` with `system_output` and
 `stack_trace` each capped at 800 chars. Structured, small, no raw log needed. Exit code `2` means
 the pipeline has no test report - fall through to step 3.
 
 ### 3. Raw trace - only if 1 and 2 do not pinpoint the cause
 
-`./fetch-pipeline.sh trace <job_id>` downloads to `/tmp/gl-trace-<job_id>.log` and prints the path
-(falls back to `curl` with `GITLAB_API_TOKEN` if `glab api` cannot reach the project). Keep the
-trace on disk; never pull the full file into context.
+`./gitlab.sh signals <job_id>` downloads the trace to `/tmp/gl-trace-<job_id>.log` (falls
+back to `curl` with `GITLAB_API_TOKEN` if `glab api` cannot reach the project) and prints the
+pinpointing slices in one shot: the trace path, `tail` (last 200), hot lines with line numbers
+(error/fail/exception/fatal/panic/traceback/killed/non-zero exit, last 60), and step boundaries
+(`$ <command>`, ANSI-reset aware). The full log stays on disk; only these slices enter context.
 
-Then read only slices:
+For a specific line N from the hot-line list, get surrounding context with
+`sed -n '<N-15>,<N+5>p' /tmp/gl-trace-<jid>.log`.
 
-- `tail -n 200 /tmp/gl-trace-<jid>.log` - bottom of the log, where most failures land.
-- `grep -nE -i '(^|\s)(error|fail(ed|ure)?|exception|fatal|panic|traceback|killed|exited with code [^0])' /tmp/gl-trace-<jid>.log | tail -n 60` -
-  hot lines with line numbers.
-- `sed -n '<N-15>,<N+5>p' /tmp/gl-trace-<jid>.log` - context around a specific line N.
-- `grep -n '^[\x1b\[0K]*\$ ' /tmp/gl-trace-<jid>.log` - step boundaries (GitLab marks each shell
-  command with `$ <command>`, sometimes preceded by an ANSI reset).
+Use `./gitlab.sh trace <job_id>` (path only, no slices) if you need the raw file for some
+other reason. Never `cat` or `Read` the whole file. Never use `glab ci trace` for analysis - it
+streams the full log into the conversation. Reserve `glab ci trace` for the case where the user
+explicitly wants to watch a running job.
 
-Never `cat` or `Read` the whole file. Never use `glab ci trace` for analysis - it streams the full
-log into the conversation. Reserve `glab ci trace` for the case where the user explicitly wants to
-watch a running job.
-
-For pipelines with multiple failing jobs, fan out the per-job `fetch-pipeline.sh trace` calls in
+For pipelines with multiple failing jobs, fan out the per-job `gitlab.sh signals` calls in
 parallel (one Bash message, multiple calls). Each trace still stays on disk; only slices enter
 context.
 
