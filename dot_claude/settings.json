@@ -20,6 +20,7 @@
       "Bash(./gradlew *)",
       "Bash(adb *)",
       "Bash(bash ~/.ai/*)",
+      "Bash(bash ~/.config/ai/bin/*)",
       "Bash(brew list:*)",
       "Bash(cat *)",
       "Bash(diff *)",
