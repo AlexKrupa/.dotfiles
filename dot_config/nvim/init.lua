@@ -1,4 +1,4 @@
-vim.cmd 'source ~/.vimrc'
+vim.cmd 'source ~/.config/vim/vimrc'
 
 -- Set <space> as the leader key
 -- See `:help mapleader`
