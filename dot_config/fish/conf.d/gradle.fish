@@ -9,9 +9,9 @@ function gw --wraps=gradle --description 'Run Gradle via wrapper with profiling'
   end
 end
 
-alias grp "$EDITOR ~/.gradle/gradle.properties"
-alias gri "$EDITOR ~/.gradle/init.gradle.kts"
-alias grccc "rm -rf ~/.gradle/configuration-cache"
+alias grp "$EDITOR $GRADLE_USER_HOME/gradle.properties"
+alias gri "$EDITOR $GRADLE_USER_HOME/init.gradle.kts"
+alias grccc "rm -rf $GRADLE_USER_HOME/configuration-cache"
 alias gws "gw --stop"
 alias gwad "gw assembleDebug"
 alias gwtd "gw testDebugUnitTest"

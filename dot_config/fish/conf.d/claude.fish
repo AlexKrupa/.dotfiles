@@ -1,3 +1,6 @@
+# XDG: relocate ~/.claude
+set -gx CLAUDE_CONFIG_DIR $XDG_CONFIG_HOME/claude
+
 function claude --description 'Run Claude Code after navigating to git root'
     if git rev-parse --git-dir >/dev/null 2>&1
         set git_root (git rev-parse --show-toplevel)

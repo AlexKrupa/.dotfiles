@@ -8,6 +8,10 @@ set -gx ANDROID_HOME $HOME/Library/Android/sdk
 set -gx ANDROID_SDK $ANDROID_HOME
 set -gx ANDROID_SDK_ROOT $ANDROID_HOME
 
+# XDG: relocate ~/.android user dir
+set -gx ANDROID_USER_HOME $XDG_DATA_HOME/android
+set -gx ANDROID_AVD_HOME $XDG_DATA_HOME/android/avd
+
 set -g ANDROID_MEDIA_PATH ~/Downloads/android-
 set -g ADB_STATIC_PORT 4444
 
