@@ -1,0 +1,9 @@
+.DS_Store
+.ai*
+.claude*
+.maestro*
+.idea*
+.npm*
+.serena*
+CLAUDE.local.md
+node_modules*
