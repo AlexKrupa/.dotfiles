@@ -109,6 +109,9 @@
   fsckObjects = true
 [receive]
   fsckObjects = true
+# Don't sign commits in Claude Code's plugin marketplace repos (avoids 1Password popups).
+[includeIf "gitdir:~/.config/claude/plugins/"]
+  path = ~/.config/claude/.gitconfig-noplugin-sign
 [alias]
   # Rebase, cherry-pick, merge
   cp = cherry-pick
