@@ -36,7 +36,7 @@ C_RESET=$'\033[0m'
 C_VIM_INSERT=$'\033[33m'
 C_VIM_NORMAL=$'\033[32m'
 
-sep="${C_DIM}|${C_RESET}"
+sep="${C_DIM}·${C_RESET}"
 
 # ============================================================
 # Helpers
@@ -178,7 +178,7 @@ usage_seg=""
 seg_5h=$(usage_fmt "5h" "$u5_pct" "$u5_reset" "$USAGE_5H_TIMEFMT")
 seg_7d=$(usage_fmt "7d" "$u7_pct" "$u7_reset" "$USAGE_7D_TIMEFMT")
 [ -n "$seg_5h" ] && usage_seg="$seg_5h"
-[ -n "$seg_7d" ] && usage_seg="${usage_seg:+$usage_seg ${C_DIM}|${C_RESET} }$seg_7d"
+[ -n "$seg_7d" ] && usage_seg="${usage_seg:+$usage_seg $sep }$seg_7d"
 
 # ============================================================
 # Output

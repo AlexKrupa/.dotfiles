@@ -27,7 +27,9 @@ fmt_elapsed() {
 echo "$input" | jq -c '.tasks[]?' | while IFS= read -r task; do
   id=$(echo "$task" | jq -r '.id // empty')
   [ -z "$id" ] && continue
+  desc=$(echo "$task" | jq -r '.description // empty')
   name=$(echo "$task" | jq -r '.name // empty')
+  primary="${desc:-$name}"          # description preferred; name as fallback
   type=$(echo "$task" | jq -r '.type // empty')
   status=$(echo "$task" | jq -r '.status // empty')
   start=$(echo "$task" | jq -r '.startTime // empty')
@@ -43,8 +45,8 @@ echo "$input" | jq -c '.tasks[]?' | while IFS= read -r task; do
   elapsed=$(fmt_elapsed "$start")
   tok=$(fmt_tokens "$tokens")
 
-  # <dot> <name> [<type>] <elapsed> · <tokens>
-  content="$dot $name"
+  # <dot> <description> [<type>] <elapsed> · <tokens>
+  content="$dot $primary"
   [ -n "$type" ] && content="$content \033[2m[$type]\033[0m"
   [ -n "$elapsed" ] && content="$content $elapsed"
   content="$content \033[2m·\033[0m ${tok}"
