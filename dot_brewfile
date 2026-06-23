@@ -115,9 +115,8 @@ brew "rbenv"
 # cask "1password" # restart-on-upgrade: 1Password:com.1password.1password
 # cask "1password-cli" # required for Raycast/Alfred integration
 cask "nikitabobko/tap/aerospace" # restart-on-upgrade: AeroSpace:bobko.aerospace
-cask "alt-tab" # restart-on-upgrade: AltTab:com.lwouis.alt-tab-macos
-# cask "appcleaner" # app uninstaller
 cask "battery" # stop charge at 80%
+cask "bettercmdtab" # alt-tab alternative, no paywall
 # cask "betterdisplay" # display manager
 cask "bettertouchtool" # restart-on-upgrade: BetterTouchTool:com.hegenberg.BetterTouchTool
 # cask "bruno" # API-client, Postman alternative
@@ -151,7 +150,6 @@ cask "notunes" # disable iTunes on media button press
 cask "omnidisksweeper" # disk space visualizer and cleaner
 # cask "onyx" # system maintenance
 cask "pearcleaner" # app uninstaller/cleaner, probably better than appcleaner
-# cask "postman" # API client
 # cask "proxyman" # for debugging network requests
 # cask "qbittorrent" # torrent client
 # cask "rapidapi" # API client (Postman alternative)
