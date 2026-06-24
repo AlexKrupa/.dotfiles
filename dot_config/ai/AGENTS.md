@@ -27,7 +27,7 @@
   concision.
 - Specific: actual tools, versions, error messages - no filler
 - Prefer concrete examples over abstractions
-- Reply in user's prompt language, do not switch language based on other context
+- Reply in user's prompt or skill language, do not switch language automatically
 
 ## Writing
 
@@ -52,6 +52,7 @@ writing a book novel or an article.
   decorative icons). Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical
   notation, tables, diagrams, and code.
 - Use single dashes instead of en- or em-dashes
+- Avoid excessive semicolons
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
 - File paths and URLs: NEVER put a dot directly after, ALWAYS put a space after
@@ -89,6 +90,7 @@ Layout:
   worktrees; all worktrees of a repo share one name - no per-worktree subdir).
 - Outside a git repo it prints `_no-repo`; use `~/.ai/_no-repo/`.
 - Create the subdirectory if missing.
+- Do not mention the work directory in conversations
 
 Design docs: non-trivial work (anything worth a plan) should have one. Suggest `/doc <name>` before
 planning; run `/doc-sync` after completing a step.
