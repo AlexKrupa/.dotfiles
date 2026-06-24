@@ -27,7 +27,14 @@ CI, reviewing an MR before merge (use `review-gitlab`), cleaning up a branch (us
 
 ## Prerequisites
 
-Run `./gitlab.sh check`. It runs the fail-fast chain (local checks first, network last) and
+The working directory at skill-invocation time is the user's repo, not the skill directory, so always
+invoke the helper by absolute path. Bind it once:
+
+```sh
+GL=~/.config/ai/skills/debug-gitlab/gitlab.sh
+```
+
+Run `"$GL" check`. It runs the fail-fast chain (local checks first, network last) and
 prints one line per check:
 
 - `git-repo` - hard-fails "not in a git repo" (needed for current-branch resolution and the optional
@@ -43,7 +50,7 @@ Exit code 4 = a hard prerequisite failed (see the printed line). Stop and surfac
 
 ## Input resolution
 
-Run `./gitlab.sh resolve <input>` (script lives next to this SKILL.md). It accepts:
+Run `"$GL" resolve <input>`. It accepts:
 
 - empty -> current branch's failed pipeline
 - pipeline URL (`.../-/pipelines/<id>`)
@@ -74,7 +81,7 @@ trace.
 
 ### 1. `failure_reason` per failing job
 
-`./gitlab.sh failed-jobs <pipeline_id>` returns a slim array
+`"$GL" failed-jobs <pipeline_id>` returns a slim array
 `{id, name, stage, failure_reason, allow_failure, web_url, started_at, finished_at, duration,
 verdict, action}`. The script maps `failure_reason` to `verdict`/`action` deterministically (table
 below, for reference - you do not apply it by hand):
@@ -96,14 +103,14 @@ write the report and skip the trace.
 
 ### 2. Pipeline test report (for jobs that ran tests)
 
-`./gitlab.sh test-failures <pipeline_id>` returns only the failed JUnit cases as
+`"$GL" test-failures <pipeline_id>` returns only the failed JUnit cases as
 `{name, classname, file, execution_time, system_output, stack_trace}` with `system_output` and
 `stack_trace` each capped at 800 chars. Structured, small, no raw log needed. Exit code `2` means
 the pipeline has no test report - fall through to step 3.
 
 ### 3. Raw trace - only if 1 and 2 do not pinpoint the cause
 
-`./gitlab.sh signals <job_id>` downloads the trace to `/tmp/gl-trace-<job_id>.log` (falls
+`"$GL" signals <job_id>` downloads the trace to `/tmp/gl-trace-<job_id>.log` (falls
 back to `curl` with `GITLAB_API_TOKEN` if `glab api` cannot reach the project) and prints the
 pinpointing slices in one shot: the trace path, `tail` (last 200), hot lines with line numbers
 (error/fail/exception/fatal/panic/traceback/killed/non-zero exit, last 60), and step boundaries
@@ -112,12 +119,12 @@ pinpointing slices in one shot: the trace path, `tail` (last 200), hot lines wit
 For a specific line N from the hot-line list, get surrounding context with
 `sed -n '<N-15>,<N+5>p' /tmp/gl-trace-<jid>.log`.
 
-Use `./gitlab.sh trace <job_id>` (path only, no slices) if you need the raw file for some
+Use `"$GL" trace <job_id>` (path only, no slices) if you need the raw file for some
 other reason. Never `cat` or `Read` the whole file. Never use `glab ci trace` for analysis - it
 streams the full log into the conversation. Reserve `glab ci trace` for the case where the user
 explicitly wants to watch a running job.
 
-For pipelines with multiple failing jobs, fan out the per-job `gitlab.sh signals` calls in
+For pipelines with multiple failing jobs, fan out the per-job `"$GL" signals` calls in
 parallel (one Bash message, multiple calls). Each trace still stays on disk; only slices enter
 context.
 
