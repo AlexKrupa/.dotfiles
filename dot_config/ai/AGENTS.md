@@ -48,6 +48,7 @@ writing a book novel or an article.
 
 ### Formatting
 
+- In Markdown put longer sentences on separate lines.
 - Prefer ASCII over Unicode for punctuation and stylistic symbols (no smart quotes, em-dashes, or
   decorative icons). Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical
   notation, tables, diagrams, and code.
