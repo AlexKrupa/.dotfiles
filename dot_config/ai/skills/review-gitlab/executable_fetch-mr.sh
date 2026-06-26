@@ -50,8 +50,10 @@ pick_remote() {
 }
 
 # checkout <source_branch> <target_branch> [project_path]
-# Fetches and checks out the MR source branch, ensures the target exists locally.
-# Emits JSON: remote, previous_branch, moved, source_branch, target_branch.
+# Fetches and checks out the MR source branch, refreshes the target's remote-tracking
+# ref (does NOT touch the user's local target branch), and reports it as target_ref so
+# review-branch diffs against a fresh base, not a stale local mainline.
+# Emits JSON: remote, previous_branch, moved, source_branch, target_branch, target_ref.
 cmd_checkout() {
   local source="${1-}" target="${2-}" project="${3-}"
   [[ -n "$source" && -n "$target" ]] \
@@ -69,15 +71,15 @@ cmd_checkout() {
       || die "git checkout $source failed" 1
     moved=true
   fi
-  git rev-parse --verify "$target" >/dev/null 2>&1 \
-    || git fetch "$remote" "$target:$target" >/dev/null 2>&1 \
+  # Refresh refs/remotes/$remote/$target without writing the local $target branch.
+  git fetch "$remote" "$target" >/dev/null 2>&1 \
     || die "could not fetch target branch $target" "$E_NETWORK"
 
   jq -n \
     --arg remote "$remote" --arg prev "$prev" --argjson moved "$moved" \
-    --arg source "$source" --arg target "$target" \
+    --arg source "$source" --arg target "$target" --arg target_ref "$remote/$target" \
     '{remote:$remote, previous_branch:$prev, moved:$moved,
-      source_branch:$source, target_branch:$target}'
+      source_branch:$source, target_branch:$target, target_ref:$target_ref}'
 }
 
 # Pull the canonical MR fields out of `glab mr view --output json`.

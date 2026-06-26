@@ -33,20 +33,28 @@ an absolute path (skill cwd is the user's repo):
 
     ~/.config/ai/skills/review-branch/branch-context.sh [parent-override]
 
-It handles, fail-fast (cheap guards before any diff): repo check; branch name; parent detection
-(upstream tracking branch -> first existing of `main`/`master`/`develop` -> abort); the
-branch-equals-parent guard (compares SHAs, so a same-commit upstream still aborts); `git status`;
-diffstat, commit log, and author shortlog. It aborts (exit 1, message on stderr) when not in a repo,
-when there is no diff vs parent, or when parent is unresolved — relay that message and stop.
+It handles, fail-fast (cheap guards before any diff): repo check; branch name; parent detection by
+git topology; the branch-equals-parent guard (compares SHAs); `git status`; diffstat, commit log,
+and author shortlog. It aborts (exit 1, message on stderr) when not in a repo, when there is no diff
+vs parent, or when parent is unresolved — relay that message and stop.
 
-Output keys: `branch`, `parent`, `parent-source` (`upstream` | `default-branch` | `override`),
-`uncommitted` (`yes`/`no`), `diff-command`, then `## Diffstat`, `## Commits`,
-`## Authors (shortlog)`, `## Uncommitted (not in audit scope)`.
+Parent detection (auto, no override arg): the nearest local branch that is a strict ancestor of HEAD
+is the immediate stack parent. If that branch is mainline (`main`/`master`/`develop` or a remote
+default branch), the base is mainline: the script fetches the remote copy (best-effort) and anchors
+on the remote-tracking ref (e.g. `origin/main`), so a stale local mainline does not pollute the diff
+with other people's commits. If fetch fails (offline) or there is no remote, it warns on stderr and
+falls back to the local mainline ref. An intermediate stack parent stays anchored on its local tip
+(its split point is your local tip), no fetch.
+
+Output keys: `branch`, `parent`, `parent-source` (`ancestor-branch` | `default-branch` |
+`override`), `parent-fetched` (`yes`/`no`), `uncommitted` (`yes`/`no`), `diff-command`, then
+`## Diffstat`, `## Commits`, `## Authors (shortlog)`, `## Uncommitted (not in audit scope)`.
 
 The script does **not** print the full diff (unbounded). Run the emitted `diff-command`
 (`git diff <parent>...HEAD`, three-dot — branch changes only, not parent drift) yourself to get the
-reviewable content. Surface `parent-source` in the report header when it is `override`, so the
-reader knows the parent was not auto-detected.
+reviewable content. Surface `parent` and `parent-source` in the report header for all auto-detected
+cases (plus a stale-base note when `parent-fetched: no`), so the reader knows what the diff was
+anchored against and whether the mainline base may be outdated.
 
 **Parent override:** pass the parent branch as the first arg (callers like `review-gitlab` do this).
 The script validates the ref exists locally and reports `parent-source: override`.
@@ -120,6 +128,7 @@ risk.>
 ---
 
 - Author: <name>
+- Base: <parent> (<parent-source><, stale: local mainline not fetched — when parent-fetched: no>)
 - Commits: <n> Files: <n> +<add>/-<del>
 - Uncommitted: <no | yes — file1, file2>
 - Generated: <ISO date>

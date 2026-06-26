@@ -25,10 +25,11 @@ audit with no MR context — use `review-branch` directly.
 
 ## REQUIRED SUB-SKILL
 
-Invoke `review-branch` for the audit and report scaffolding. Pass the MR's `target_branch` as the
-explicit parent override (see review-branch's "Parent override" section). Do not re-implement its
-git discovery, severity buckets, or finding format. After it writes the report, augment that file
-with MR context (sections below).
+Invoke `review-branch` for the audit and report scaffolding. Pass the `target_ref` from `checkout`
+(the fresh `<remote>/<target>` remote-tracking ref) as the explicit parent override (see
+review-branch's "Parent override" section) — not the bare local `target_branch`, which can be stale.
+Do not re-implement its git discovery, severity buckets, or finding format. After it writes the
+report, augment that file with MR context (sections below).
 
 ## Prerequisites
 
@@ -56,7 +57,7 @@ Do not re-derive the script's behavior inline. Subcommands:
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `"$FMR" preflight`                                  | Prints `ok`, or aborts with one line + non-zero exit. Runs the deterministic prereq checks (see "Prerequisites").                                                                                                   |
 | `"$FMR" resolve "<input>"`                          | JSON: `iid`, `project_path`, `source_branch`, `target_branch`, `web_url`, `state`, `draft`, `labels`, `author`, `pipeline_status`, `description`. Input: URL, numeric iid, branch name, or empty (= current branch). |
-| `"$FMR" checkout <source> <target> [project]`       | Fetches+checks out `<source>`, ensures `<target>` exists locally. JSON: `remote`, `previous_branch`, `moved`, `source_branch`, `target_branch`. Picks the remote whose URL matches `project` when several exist.    |
+| `"$FMR" checkout <source> <target> [project]`       | Fetches+checks out `<source>`, always refreshes the target's remote-tracking ref (`refs/remotes/<remote>/<target>`; does not write local `<target>`). JSON: `remote`, `previous_branch`, `moved`, `source_branch`, `target_branch`, `target_ref` (= `<remote>/<target>`). Picks the remote whose URL matches `project` when several exist. |
 | `"$FMR" discussions <iid> [project]`                | JSON array of normalized threads. System-only discussions are already dropped. Fields per element: `id`, `individual_note`, `resolvable`, `resolved`, `note_count`, `authors`, `first_body` (≤280 chars), `files`.   |
 | `"$FMR" diff-check <iid> [target]`                  | Exits 0 if local `target...HEAD` file set matches the MR's; exits 1 with the file diff on stderr otherwise. Pass the resolved `target_branch` to skip an extra `glab mr view` round-trip.                            |
 
@@ -73,13 +74,14 @@ informational, not an error.
 2. `"$FMR" resolve "<input>"` → parse the JSON with `jq` and bind `iid`, `source_branch`,
    `target_branch`, `project_path`, etc. as shell vars (or read them on demand).
 3. `"$FMR" checkout "$source_branch" "$target_branch" "$project_path"` → fetches+checks out the
-   source branch, picks the right remote, and ensures the target exists locally. Parse the JSON; if
-   `moved == true`, tell the user explicitly that the worktree is now on the MR's source branch (was
-   on `previous_branch`).
-4. Invoke `review-branch` with `<target_branch>` as the parent override. Compute the report path via
-   the helper with the iid prefix (see "Report"), so review-branch writes to
-   `mr-<iid>-<branch>-<author>.md` directly (no rename). Read the generated report before
-   augmenting.
+   source branch, picks the right remote, and refreshes the target's remote-tracking ref. Parse the
+   JSON; bind `target_ref` (e.g. `origin/main`) for the parent override below. If `moved == true`,
+   tell the user explicitly that the worktree is now on the MR's source branch (was on
+   `previous_branch`).
+4. Invoke `review-branch` with `$target_ref` (the fresh remote-tracking ref, not the bare local
+   `target_branch`) as the parent override. Compute the report path via the helper with the iid
+   prefix (see "Report"), so review-branch writes to `mr-<iid>-<branch>-<author>.md` directly (no
+   rename). Read the generated report before augmenting.
 5. `"$FMR" discussions "$iid" "$project_path"` → substantive-thread judgment (next section).
 6. Optional: `"$FMR" diff-check "$iid" "$target_branch"`; if it exits 1, note the drift in the
    report.
@@ -105,7 +107,7 @@ Path: `~/.ai/<repo>/reviews/mr-<iid>-<branch>-<author>.md`. Compute it with revi
 passing `mr-<iid>` as the prefix; do not slugify inline:
 
 ```sh
-path="$(~/.config/ai/skills/review-branch/report-path.sh "<target_branch>" "mr-<iid>")"
+path="$(~/.config/ai/skills/review-branch/report-path.sh "$target_ref" "mr-<iid>")"
 ```
 
 `<author>` is the **majority git-commit author** the helper resolves (not the GitLab MR username),
@@ -139,8 +141,9 @@ Inherited from `review-branch` plus:
 
 ## Red flags — stop and reconsider
 
-- About to invoke `review-branch` without passing the MR's `target_branch` as parent override.
-  Default parent detection would diff against `main` and produce wrong findings for stacked MRs.
+- About to invoke `review-branch` without passing the MR's `target_ref` as parent override.
+  Default parent detection would pick the nearest local ancestor branch and produce wrong findings
+  for stacked MRs.
 - About to call `glab mr` with `-m`, `--message`, `approve`, `merge`, `update`, or `note create`.
   This skill is read-only.
 - Pasting full discussion text into the report. Summarize.
