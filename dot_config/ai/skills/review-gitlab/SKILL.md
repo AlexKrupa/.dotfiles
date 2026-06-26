@@ -48,7 +48,7 @@ working directory at skill-invocation time is the user's repo, not the skill dir
 invoke the script by absolute path. Bind it once:
 
 ```sh
-FMR=~/.config/ai/skills/review-gitlab/fetch-mr.sh
+FMR=~/.claude/skills/review-gitlab/fetch-mr.sh
 ```
 
 Do not re-derive the script's behavior inline. Subcommands:
@@ -107,7 +107,7 @@ Path: `~/.ai/<repo>/reviews/mr-<iid>-<branch>-<author>.md`. Compute it with revi
 passing `mr-<iid>` as the prefix; do not slugify inline:
 
 ```sh
-path="$(~/.config/ai/skills/review-branch/report-path.sh "$target_ref" "mr-<iid>")"
+path="$(~/.claude/skills/review-branch/report-path.sh "$target_ref" "mr-<iid>")"
 ```
 
 `<author>` is the **majority git-commit author** the helper resolves (not the GitLab MR username),

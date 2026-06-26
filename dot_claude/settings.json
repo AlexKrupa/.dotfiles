@@ -16,11 +16,8 @@
   },
   "permissions": {
     "allow": [
-      "Bash(./fetch-pipeline.sh:*)",
       "Bash(./gradlew *)",
       "Bash(adb *)",
-      "Bash(bash ~/.ai/*)",
-      "Bash(bash ~/.config/ai/bin/*)",
       "Bash(brew list:*)",
       "Bash(cat *)",
       "Bash(diff *)",
@@ -64,7 +61,6 @@
       "Bash(unzip * ~/.gradle/caches/*)",
       "Bash(wc *)",
       "Bash(which *)",
-      "Bash(~/.ai/*)",
       "Edit(~/.ai/*)",
       "LSP",
       "Read(~/.ai/*)",
@@ -73,7 +69,15 @@
       "mcp__context7__query-docs",
       "mcp__context7__resolve-library-id",
       "mcp__plugin_context7_context7__query-docs",
-      "mcp__plugin_context7_context7__resolve-library-id"
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "Bash(~/.claude/skills/doc/bin/find-active-doc.sh:*)",
+      "Bash(~/.claude/skills/doc/bin/docs-dir.sh:*)",
+      "Bash(~/.claude/skills/review-branch/branch-context.sh:*)",
+      "Bash(~/.claude/skills/review-branch/report-path.sh:*)",
+      "Bash(~/.claude/skills/review-me/absorb-fixes.sh:*)",
+      "Bash(~/.claude/skills/debug-gitlab/*)",
+      "Bash(~/.claude/skills/review-gitlab/*)",
+      "Bash(~/.config/ai/bin/*)"
     ],
     "deny": [
       "Bash(git branch -D *)",

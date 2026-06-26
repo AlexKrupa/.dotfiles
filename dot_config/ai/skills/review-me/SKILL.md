@@ -83,7 +83,7 @@ Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
    hand-run absorb/blame/fixup:
 
    ```
-   ~/.config/ai/skills/review-me/absorb-fixes.sh <parent> <file>...
+   ~/.claude/skills/review-me/absorb-fixes.sh <parent> <file>...
    ```
 
    - `<parent>`: the `parent:` value from `review-branch`'s context. Do not recompute it.

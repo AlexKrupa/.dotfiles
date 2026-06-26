@@ -18,13 +18,13 @@ Current branch: !`git branch --show-current`
 1. Find the active doc. Use the bundled helper - do not infer from `$PWD`, branch, or basename (those break in linked worktrees):
 
    ```bash
-   doc=$(bash ~/.config/ai/skills/doc/bin/find-active-doc.sh)
+   doc=$(~/.claude/skills/doc/bin/find-active-doc.sh)
    ```
 
    If the user explicitly named a doc this session, prefer it:
 
    ```bash
-   doc=$(bash ~/.config/ai/skills/doc/bin/find-active-doc.sh "<name>")
+   doc=$(~/.claude/skills/doc/bin/find-active-doc.sh "<name>")
    ```
 
 2. If `$doc` is empty, do nothing silently. Stop.

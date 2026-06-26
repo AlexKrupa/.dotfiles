@@ -87,7 +87,7 @@ Layout:
 
 `<repo-name>` resolution (applies to all three subdirs):
 
-- Run `bash ~/.config/ai/bin/repo-slug.sh` to get `<repo-name>` (handles bare repos, submodules,
+- Run `~/.config/ai/bin/repo-slug.sh` to get `<repo-name>` (handles bare repos, submodules,
   worktrees; all worktrees of a repo share one name - no per-worktree subdir).
 - Outside a git repo it prints `_no-repo`; use `~/.ai/_no-repo/`.
 - Create the subdirectory if missing.

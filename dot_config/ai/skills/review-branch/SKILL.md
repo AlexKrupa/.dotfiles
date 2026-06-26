@@ -31,7 +31,7 @@ this skill only knows "current branch vs its parent".
 Run the helper. It resolves branch/parent deterministically and prints a keyed metadata block. Use
 an absolute path (skill cwd is the user's repo):
 
-    ~/.config/ai/skills/review-branch/branch-context.sh [parent-override]
+    ~/.claude/skills/review-branch/branch-context.sh [parent-override]
 
 It handles, fail-fast (cheap guards before any diff): repo check; branch name; parent detection by
 git topology; the branch-equals-parent guard (compares SHAs); `git status`; diffstat, commit log,
@@ -107,7 +107,7 @@ Empty buckets are fine. Do not invent findings to fill them.
 Run the helper to get the destination path (absolute path, since skill cwd is the user's repo, not
 this dir). Do not re-implement repo / author / branch resolution inline.
 
-    path="$(~/.config/ai/skills/review-branch/report-path.sh <parent>)"
+    path="$(~/.claude/skills/review-branch/report-path.sh <parent>)"
 
 The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of
 `foo` writes under one directory regardless of the worktree folder's own name), slugification

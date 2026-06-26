@@ -20,13 +20,13 @@ Two bundled scripts. Use them instead of re-implementing path / lookup logic - b
 
 ```bash
 # Path of the docs dir (handles worktrees, bare repos, submodules, non-git):
-docs_dir=$(bash ~/.config/ai/skills/doc/bin/docs-dir.sh)
+docs_dir=$(~/.claude/skills/doc/bin/docs-dir.sh)
 
 # Path of the currently active doc, or empty:
-doc=$(bash ~/.config/ai/skills/doc/bin/find-active-doc.sh)
+doc=$(~/.claude/skills/doc/bin/find-active-doc.sh)
 
 # Lookup by name (substring on filename or `title:` frontmatter):
-doc=$(bash ~/.config/ai/skills/doc/bin/find-active-doc.sh some-name)
+doc=$(~/.claude/skills/doc/bin/find-active-doc.sh some-name)
 ```
 
 `find-active-doc.sh` auto-detect order: branch-name file with `status: active`, else single active doc in `$docs_dir`. Multiple active docs with no branch match -> empty (ask the user).

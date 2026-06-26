@@ -31,7 +31,7 @@ The working directory at skill-invocation time is the user's repo, not the skill
 invoke the helper by absolute path. Bind it once:
 
 ```sh
-GL=~/.config/ai/skills/debug-gitlab/gitlab.sh
+GL=~/.claude/skills/debug-gitlab/gitlab.sh
 ```
 
 Run `"$GL" check`. It runs the fail-fast chain (local checks first, network last) and
