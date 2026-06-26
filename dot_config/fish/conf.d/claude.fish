@@ -78,24 +78,22 @@ function claude-upgrade --description 'Quit all interactive tmux claude sessions
             end
         end
 
+        set -l cwd_disp (string replace -- $HOME '~' $cwd)
         if test -z "$target"
-            set -a skipped "$name ($cwd): not in tmux, skipped"
+            set -a skipped "$name ($cwd_disp): not in tmux"
             continue
         end
 
         # Never quit the controlling pane.
         set -l this_pane (tmux display-message -p -t $target '#{pane_id}')
         if test "$this_pane" = "$TMUX_PANE"
-            set -a skipped "$name ($cwd): controlling pane, skipped"
+            set -a skipped "$name ($cwd_disp): controlling pane"
             continue
         end
 
-        set -l status_disp $sess_status
-        test -n "$waitingfor"; and set status_disp "$sess_status/$waitingfor"
-
         set -a rec_pid $pid
         set -a rec_pane $target
-        set -a rec_status $status_disp
+        set -a rec_status $sess_status
         set -a rec_name $name
         set -a rec_cwd $cwd
         set -a rec_sid $sid
@@ -110,20 +108,40 @@ function claude-upgrade --description 'Quit all interactive tmux claude sessions
         return 0
     end
 
-    # List table.
+    # List sessions: location line, then claude-info line with colored status.
+    set -l sep ' • '
     echo "Discovered $n interactive claude session(s):"
-    printf '%-20s %-26s %-34s %s\n' PANE STATUS NAME CWD
     for i in (seq $n)
-        set -l warn ""
-        if string match -rq '^(busy|waiting)' -- $rec_status[$i]
-            set warn ' !'
+        set -l parts (string split -m 1 ':' -- $rec_pane[$i])  # session name has no colon
+        set -l sess $parts[1]
+        set -l winpane (string replace '.' ':' -- $parts[2])
+        set -l cwd (string replace -- $HOME '~' $rec_cwd[$i])
+        set -l name $rec_name[$i]
+        test -n "$name"; or set name '(unnamed)'
+
+        set -l label
+        set -l color
+        switch $rec_status[$i]
+            case idle
+                set label IDLE
+                set color green
+            case busy
+                set label BUSY
+                set color red
+            case waiting
+                set label PROMPT
+                set color red
+            case '*'
+                set label (string upper $rec_status[$i])
+                set color yellow
         end
-        printf '%-20s %-26s %-34s %s%s\n' $rec_pane[$i] $rec_status[$i] $rec_name[$i] $rec_cwd[$i] "$warn"
+
+        echo "- $sess$sep$winpane"
+        echo "  $name$sep$cwd$sep"(set_color $color)$label(set_color normal)
     end
     for s in $skipped
-        echo "  skip: $s"
+        echo "- skip: $s"
     end
-    echo "  (! = busy/waiting, will be interrupted)"
 
     if test $dry_run -eq 1
         return 0

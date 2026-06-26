@@ -21,13 +21,13 @@ Argument hint: `[mr-url | mr-id | branch | <empty>]`. Empty means "MR for curren
   not just the diff.
 
 **Do not use** for GitHub PRs, arbitrary commit ranges, or when the user only wants the raw branch
-audit with no MR context — use `review-branch` directly.
+audit with no MR context - use `review-branch` directly.
 
 ## REQUIRED SUB-SKILL
 
 Invoke `review-branch` for the audit and report scaffolding. Pass the `target_ref` from `checkout`
 (the fresh `<remote>/<target>` remote-tracking ref) as the explicit parent override (see
-review-branch's "Parent override" section) — not the bare local `target_branch`, which can be stale.
+review-branch's "Parent override" section) - not the bare local `target_branch`, which can be stale.
 Do not re-implement its git discovery, severity buckets, or finding format. After it writes the
 report, augment that file with MR context (sections below).
 
@@ -62,10 +62,10 @@ Do not re-derive the script's behavior inline. Subcommands:
 | `"$FMR" diff-check <iid> [target]`                  | Exits 0 if local `target...HEAD` file set matches the MR's; exits 1 with the file diff on stderr otherwise. Pass the resolved `target_branch` to skip an extra `glab mr view` round-trip.                            |
 
 Exit codes: `0` ok, `1` usage/parse error, `2` not found, `3` ambiguous (multiple open MRs for the
-branch — script lists candidate iids on stderr; surface them and ask the user to pick), `4` missing
+branch - script lists candidate iids on stderr; surface them and ask the user to pick), `4` missing
 dep / auth, `5` network. On any non-zero, abort with one line; do not retry.
 
-`pipeline_status` is `"n/a"` when the MR has no head pipeline (draft / freshly pushed) — that is
+`pipeline_status` is `"n/a"` when the MR has no head pipeline (draft / freshly pushed) - that is
 informational, not an error.
 
 ## Workflow
@@ -98,7 +98,7 @@ when:
 - `files` overlaps with a file flagged by the audit's findings.
 
 Otherwise omit. For bot-authored threads (`authors` contains the SAST / coverage / CI bot), include
-only when the `first_body` names a specific file/function or contains a real failure message — not
+only when the `first_body` names a specific file/function or contains a real failure message - not
 pure status pings. Summarize each kept thread in one line; do not paste full bodies.
 
 ## Report
@@ -116,17 +116,17 @@ exists.
 
 Augment the base report:
 
-1. **Header** — append MR URL, target branch, labels, state, draft flag, pipeline status.
+1. **Header** - append MR URL, target branch, labels, state, draft flag, pipeline status.
 2. **Context** (new, between header and Findings):
    - Distill the MR description in one paragraph. If empty, flag "no description provided".
    - Coverage check: does the description match what the diff actually changes? Note gaps.
-3. **Findings** (from base skill) — for each finding that matches an existing discussion or bot
+3. **Findings** (from base skill) - for each finding that matches an existing discussion or bot
    note, add `(see thread by @<reviewer>)` or `(SAST flagged this)` inline.
 4. **Discussions** (new, after Findings):
    - One bullet per substantive thread: reviewer, gist, resolution state, and your own opinion when
      the thread is unresolved or in conflict with the audit.
    - One bullet per substantive bot finding.
-5. **Out of scope / mentions** — unchanged from base skill.
+5. **Out of scope / mentions** - unchanged from base skill.
 
 ## Hard constraints
 
@@ -139,7 +139,7 @@ Inherited from `review-branch` plus:
 - Local checkout is allowed; if the user was on a different branch before the skill ran, tell them
   explicitly that the worktree is now on the MR's source branch.
 
-## Red flags — stop and reconsider
+## Red flags - stop and reconsider
 
 - About to invoke `review-branch` without passing the MR's `target_ref` as parent override.
   Default parent detection would pick the nearest local ancestor branch and produce wrong findings

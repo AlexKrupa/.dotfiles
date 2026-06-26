@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 # review-me
 
-Extends `review-branch` with a fix loop. The audit + report logic is delegated — this skill only
+Extends `review-branch` with a fix loop. The audit + report logic is delegated - this skill only
 adds **what to do about findings**, including folding fixes into their originating commits via
 `git absorb`. Never pushes or rewrites history.
 
@@ -19,7 +19,7 @@ adds **what to do about findings**, including folding fixes into their originati
 - User asks to review their own branch and clean it up, or says "review me", "self-review", "tidy up
   my branch before PR".
 
-**Do not use** when reviewing a teammate's branch or when the user only wants a report — use
+**Do not use** when reviewing a teammate's branch or when the user only wants a report - use
 `review-branch` directly.
 
 ## REQUIRED SUB-SKILL
@@ -30,7 +30,7 @@ proceeding.
 
 ## Fix policy
 
-### Auto-apply — no prompt
+### Auto-apply - no prompt
 
 - Typos in comments, strings, docs.
 - Lint / format issues, applied via the repo's configured tool (e.g. `eslint --fix`, `ruff format`,
@@ -40,7 +40,7 @@ proceeding.
 - Comment-only edits clarifying _why_ (not _what_).
 - Stale doc strings whose described behavior changed in this branch.
 
-### Ask first — one grouped prompt per category
+### Ask first - one grouped prompt per category
 
 - Any behavior change, however small (including "obvious" bug fixes).
 - Refactors that touch call sites or change public signatures.
@@ -48,7 +48,7 @@ proceeding.
 - Snapshot / golden-file regeneration.
 - Dependency add / upgrade / remove.
 - Any change to code **not introduced by this branch** (out-of-scope cleanup).
-- Adding concurrency changes — flag and ask; concurrency is rarely "low risk".
+- Adding concurrency changes - flag and ask; concurrency is rarely "low risk".
 
 ### Git writes allowed
 
@@ -56,7 +56,7 @@ Only these three. Anything else is forbidden.
 
 - `git absorb --base <parent>` (no `--and-rebase`).
 - `git commit --fixup=<sha>` where `<sha>` is in `<parent>..HEAD`. Fixup against a SHA outside that
-  range would corrupt parent history on autosquash — fall back to a normal commit instead.
+  range would corrupt parent history on autosquash - fall back to a normal commit instead.
 - `git commit -m <msg>` for the no-fixup-target fallback only.
 
 Plus the obvious read/stage helpers (`git add`, `git status`, `git diff`, `git blame`).
@@ -67,7 +67,7 @@ Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
 ## Loop
 
 0. **Precondition:** Run `git status --porcelain`. If non-empty, abort. Show the dirty paths and
-   tell the user to stash or commit before retrying. Do not auto-stash — keeps user work and skill
+   tell the user to stash or commit before retrying. Do not auto-stash - keeps user work and skill
    work separate.
 1. Invoke `review-branch`. Read the resulting report.
 2. Partition findings: auto-apply vs ask-first.
@@ -76,7 +76,7 @@ Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
    - Title, severity, files affected, proposed change in ≤3 lines each.
    - User picks per-item: apply / skip / defer.
 5. Run repo's validation if discoverable: tests, typecheck, lint. Look in `package.json` scripts,
-   `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, etc. If none found, say so — don't invent
+   `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, etc. If none found, say so - don't invent
    commands.
 6. **Absorb pass.** Only if validation passed (or none was found) and at least one fix was applied
    this iteration. The git mechanics are deterministic - delegate them to the helper script, do not
@@ -115,11 +115,11 @@ Short, scannable:
 - Remaining findings by severity: critical/major/minor/nit counts
 - Next step for user: `git rebase -i --autosquash <parent>`, then push.
 
-## Red flags — stop and reconsider
+## Red flags - stop and reconsider
 
 - About to auto-apply a behavior change because it "feels safe". It's not auto-applicable. Ask.
 - Editing files outside `<parent>...HEAD`. Out of scope.
-- Skipping the re-review pass after fixes — the report on disk would lie.
+- Skipping the re-review pass after fixes - the report on disk would lie.
 - Running any git write outside "Git writes allowed".
 - Proceeding to the next pass with a non-clean working tree. Stop and surface the leftover.
 - Looping past 3 passes. Stop and ask the user.
