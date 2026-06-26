@@ -72,16 +72,23 @@ Group findings under these. Each finding cites `file:line` from the diff.
   vs `<=`).
 - **Error handling & edge cases** — only what can actually happen; flag overcautious validation as a
   finding too.
-- **Tests** — coverage of new behavior, missing edges, brittle assertions, flaky patterns.
+- **Tests** — coverage of new behavior, missing edges, brittle assertions, flaky patterns; excessive
+  mocking (mocking what you own / value objects); asserting implementation detail over behavior.
 - **Security** — input validation at trust boundaries, injection, secrets in code, authz checks.
 - **Performance** — N+1, accidental quadratics, blocking I/O on hot paths, unbounded allocations.
 - **Dead code** — unused imports/exports/vars, unreachable branches, leftover
   `console.log`/`print`/debug.
+- **Simplicity** — avoidable complexity in code that works (YAGNI): single-use methods/vars/consts
+  clearer inlined; wrappers/indirection/file splits with one caller; single-impl interface within
+  the same module (cross-module `api`/`impl` splits can be fine); speculative params/config/hooks
+  for futures that don't exist; flag-argument functions; deep nesting that collapses to guard
+  clauses; reinventing stdlib or an existing util instead of reusing it. Flag only when the simpler
+  form is clearly better, not preference.
 - **Public API / contracts** — breaking signature or schema changes, missing migration notes.
 - **Style & consistency** — matches surrounding code (not personal preference; not lint-fixable
   trivia unless it actually breaks CI).
 - **Docs & comments** — comments explain _why_ not _what_; stale docs; missing context on
-  non-obvious code.
+  non-obvious code; verbose or grandiose comment language (per `documenting.md`).
 - **Dependencies** — new deps justified, version pinned, license acceptable.
 
 ## Severity
@@ -176,3 +183,5 @@ when prose is unclear.
   first.
 - Filling buckets with manufactured findings. Empty bucket > fake bucket.
 - Touching any file other than the report.
+- Recommending an inline/simplification that loses clarity or reuse — simpler must be genuinely
+  clearer, not just fewer lines.
