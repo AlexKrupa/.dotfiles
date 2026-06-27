@@ -121,7 +121,7 @@ vnoremap <leader>D "_D
 " Paste without yanking selection to register (default visual p behavior)
 vnoremap p "_dP
 " Yank selection to register when pasting with leader-p
-vnoremap <leader>p p
+" vnoremap <leader>p p
 
 "------------------
 "----- MACROS -----
