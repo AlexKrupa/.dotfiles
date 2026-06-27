@@ -1,7 +1,8 @@
 alias g "git"
 alias lg "lazygit"
 alias gs "git-spice"
-alias gitc "$EDITOR ~/.gitconfig-base"
+alias gitc "$EDITOR $XDG_CONFIG_HOME/git/config-base"
+alias giti "$EDITOR $XDG_CONFIG_HOME/git/ignore"
 
 # git-spice completions (branch stacking)
 eval "$(gs shell completion fish)"
