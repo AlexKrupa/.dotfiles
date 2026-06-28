@@ -1198,6 +1198,30 @@ require('lazy').setup({
     },
   },
 
+  -- Render Markdown: in-editor rendered view (headings, code blocks, tables,
+  -- checkboxes, etc.)
+  --
+  -- Toggle: <leader>mr  (or :RenderMarkdown toggle)
+  {
+    'MeanderingProgrammer/render-markdown.nvim',
+    -- treesitter already loaded; nvim-web-devicons (via neo-tree) supplies icons.
+    dependencies = { 'nvim-treesitter/nvim-treesitter' },
+    ft = { 'markdown' },
+    keys = {
+      { '<leader>mr', '<cmd>RenderMarkdown toggle<cr>', desc = 'Toggle [m]arkdown [r]endering' },
+    },
+    ---@module 'render-markdown'
+    ---@type render.md.UserConfig
+    opts = {
+      enabled = true,
+      -- Style preset. Options: 'none', 'obsidian', 'lazy'.
+      preset = 'none',
+      -- Modes showing the rendered view. true = all modes (renders even while
+      -- editing in insert/visual). Use a list like { 'n', 'c', 't' } to limit.
+      render_modes = true,
+    },
+  },
+
   -- QMK keymap.c file formatter
   {
     'codethread/qmk.nvim',
