@@ -40,3 +40,7 @@ customCommands:
     context: "global"
     command: "git pomr"
     description: "Rebase main"
+  - key: "<c-w>"
+    context: "global"
+    command: "git wip"
+    description: "WIP"
