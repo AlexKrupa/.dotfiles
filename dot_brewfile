@@ -116,7 +116,7 @@ brew "rbenv"
 # cask "1password-cli" # required for Raycast/Alfred integration
 cask "nikitabobko/tap/aerospace" # restart-on-upgrade: AeroSpace:bobko.aerospace
 cask "battery" # stop charge at 80%
-cask "bettercmdtab" # alt-tab alternative, no paywall
+cask "bettercmdtab" # restart-on-upgrade: BetterCmdTab:pro.bettercmdtab.BetterCmdTab
 # cask "betterdisplay" # display manager
 cask "bettertouchtool" # restart-on-upgrade: BetterTouchTool:com.hegenberg.BetterTouchTool
 # cask "bruno" # API-client, Postman alternative
@@ -130,7 +130,7 @@ cask "ghostty"
 # cask "google-drive"
 cask "google-chrome" # prompt-on-upgrade: Google Chrome:com.google.Chrome
 cask "grandperspective" # disk space visualizer
-cask "finetune" # audio volume control
+# cask "finetune" # audio volume control
 cask "firefox" # prompt-on-upgrade: firefox:org.mozilla.firefox
 # cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
@@ -141,9 +141,9 @@ cask "latest" # update all apps
 cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
 cask "lulu" # connection blocker
 # cask "marta" # file manager
-# cask "microsoft-edge" # restart-on-upgrade: Google Chrome:com.google.Chrome
+# cask "microsoft-edge" # restart-on-upgrade: Microsoft Edge:com.google.Chrome
 # cask "middleclick" # trackpad middle-click with 3 fingers
-cask "mitmproxy" # for debugging network requests
+cask "mitmproxy" # network proxy / request debugging
 # cask "mullvadvpn"
 cask "notunes" # disable iTunes on media button press
 # cask "obsidian" # note taking, Markdown

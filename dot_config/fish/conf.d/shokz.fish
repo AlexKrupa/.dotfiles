@@ -29,6 +29,7 @@ function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
 
   set -l tempo "1.5"
   set -l segment_length_s 60
+  set -l loudness "-14" # Target integrated loudness (LUFS, EBU R128). Lower = quieter.
 
   set -l name (basename (string split -r -m1 . $source_file)[1]) # Basename without extension.
   # Optional 2nd arg: destination subdirectory (relative). Segments are staged locally and
@@ -44,7 +45,7 @@ function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
   set -l subdir $outbase/$name
   set -l segment $subdir/$name$suffix
 
-  echo "source_file=$source_file, name=$name, outbase=$outbase, destrel=$destrel, subdir=$subdir, segment=$segment, tempo=$tempo, segment_length_s=$segment_length_s"
+  echo "source_file=$source_file, name=$name, outbase=$outbase, destrel=$destrel, subdir=$subdir, segment=$segment, tempo=$tempo, segment_length_s=$segment_length_s, loudness=$loudness"
 
   # Create a subdirectory to keep segments in, instead of polluting the output directory.
   mkdir -p $subdir
@@ -52,7 +53,8 @@ function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
   # Change tempo and split into equal-length segments in one pass.
   # Note that tempo is not the same as speed, as it doesn't affect pitch.
   # This keeps the sound normal instead of "chipmunking" it.
-  ffmpeg -y -i $source_file -map 0:a -filter:a "atempo=$tempo" -f segment -segment_time $segment_length_s -segment_start_number 1 -c:a libmp3lame -q:a 4 $segment
+  # loudnorm evens out volume so every file is equally loud at $loudness LUFS.
+  ffmpeg -y -i $source_file -map 0:a -filter:a "atempo=$tempo,loudnorm=I=$loudness:TP=-1.5" -f segment -segment_time $segment_length_s -segment_start_number 1 -c:a libmp3lame -q:a 4 $segment
   or return 1
 
   # Tag each segment for tag-sorting players (harmless on OpenSwim, see copy step below).

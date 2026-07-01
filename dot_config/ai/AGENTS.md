@@ -56,7 +56,9 @@ writing a book novel or an article.
 - Avoid excessive semicolons
 - Code: backticks for inline (`Class.method()`), blocks for multi-line
 - Headings: sentence case (`## This format`), except proper names or code
-- File paths and URLs: NEVER put a dot directly after, ALWAYS put a space after
+- File paths and URLs: never put a period/comma/paren directly after. Reword so the path isn't
+  sentence-final, or add a space before the period. Bad: `See src/main.kt.` Good:
+  `See src/main.kt .`
 - **Boldface** and emojis: use sparingly
 
 ## Plan execution
