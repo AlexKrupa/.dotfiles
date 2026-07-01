@@ -92,6 +92,8 @@
   commit = false
 [spice "branchCreate"]
   trackUntracker = true
+[spice "experiment"]
+  merge = true
 [spice "log"]
   all = true
   crFormat = url
