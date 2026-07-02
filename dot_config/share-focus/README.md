@@ -8,10 +8,10 @@ Requires **Aerospace** (tiling WM) and **BetterDisplay** (virtual display). Firs
 
 Two components, no build system:
 
-- `share-focus.swift` - Swift binary. Default mode: reads focused window bounds via Accessibility APIs, converts to relative coordinates, calls BetterDisplay CLI to update the crop. With `--watch`: daemon that syncs on window drag completion (CGEventTap on mouse events, 50ms debounce). Compiled to `share-focus` by `service` on first run. PID stored in `.cache/watcher.pid`.
+- `share-focus.swift` - Swift binary. Default mode: reads focused window bounds via Accessibility APIs, converts to relative coordinates, calls BetterDisplay CLI to update the crop. With `--watch`: daemon that syncs on window drag completion (CGEventTap on mouse events, 50ms debounce). Compiled to `share-focus` by `service` on first run. PID stored in `.cache/watcher.pid`. The subscribe daemon's PID is in `.cache/subscribe.pid`.
 - `service` - Bash script managing the sharing lifecycle: finds the main display, creates a BetterDisplay virtual display "Sharing", writes config to `.cache/sharing-enabled`, starts the watcher.
 
-Data flow: `service start` writes `DisplayName|width height` to `.cache/sharing-enabled`. `share-focus` reads it, gets window bounds via `kAXFocusedWindowAttribute`, converts to 0.0-1.0 coordinates, and calls `BetterDisplay set -stream -partialOriginX/Y/Width/Height`. Sync triggers: Aerospace hooks (focus changes, keyboard moves) and the watch daemon (mouse drags).
+Data flow: `service start` writes `DisplayName|width height` to `.cache/sharing-enabled`. `share-focus` reads it, gets window bounds via `kAXFocusedWindowAttribute`, converts to 0.0-1.0 coordinates, and calls `BetterDisplay set -stream -partialOriginX/Y/Width/Height`. Sync triggers: an `aerospace subscribe` daemon (focus-changed + binding-triggered events, started by `service start`) and the watch daemon (mouse drags).
 
 ## Usage
 
@@ -49,10 +49,10 @@ swiftc share-focus.swift -o share-focus
 
 ## Aerospace integration
 
-Hooks in `aerospace.toml`:
-
-- `on-focus-changed` calls `share-focus` on every focus change
-- `exec-and-forget` calls `share-focus` for window-moving bindings
+`service start` runs an `aerospace subscribe --no-send-initial focus-changed binding-triggered`
+daemon (PID in `.cache/subscribe.pid`) that calls `share-focus` on every focus change and every
+keyboard binding. A reconnect loop re-subscribes if aerospace restarts. `aerospace.toml` needs no
+`share-focus` exec calls.
 
 ## Design decisions
 

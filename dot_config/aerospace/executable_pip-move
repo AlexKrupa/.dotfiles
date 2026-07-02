@@ -2,7 +2,7 @@
 # https://github.com/nikitabobko/AeroSpace/issues/2#issuecomment-3023036984
 # Changed slightly to support multiple PIP windows by assigning them to a variable first.
 
-current_workspace=$(aerospace list-workspaces --focused)
+current_workspace="${AEROSPACE_FOCUSED_WORKSPACE:-$(aerospace list-workspaces --focused)}"
 pip_windows=($(aerospace list-windows --all | grep -E "(Picture-in-Picture|Picture in Picture)" | awk '{print $1}'))
 
 for window_id in "${pip_windows[@]}"; do

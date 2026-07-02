@@ -146,7 +146,8 @@ start() {
     # Write source display info for sync
     echo "$MAIN_DISPLAY|$(echo "$src_resolution" | sed 's/x/ /')" > "$ENABLED_FILE"
 
-    # Initial run
+    # Initial run (clear stale dedup cache: reconnected display has no crop yet)
+    rm -f "$CACHE_DIR/last-crop"
     ~/.config/share-focus/share-focus --delay "$DELAY"
 
     # Start drag watcher (kill stale instance first)
@@ -156,6 +157,9 @@ start() {
     fi
     ~/.config/share-focus/share-focus --watch --delay "$DELAY" &
     echo "Watcher started"
+
+    start_subscribe_daemon
+    echo "Subscribe daemon started"
 
     # Open preview window (BetterDisplay PiP)
     if [ "$PREVIEW" -eq 1 ]; then
@@ -182,6 +186,8 @@ stop() {
         rm -f "$CACHE_DIR/watcher.pid"
     fi
 
+    stop_subscribe_daemon
+
     # Close preview window if open
     $BD set -name="$VIRTUAL_DISPLAY" -pip=off 2>/dev/null
 
@@ -189,8 +195,31 @@ stop() {
     echo "Disconnecting virtual display: $VIRTUAL_DISPLAY"
     $BD set -name="$VIRTUAL_DISPLAY" -connected=off
 
-    rm -f "$ENABLED_FILE"
+    rm -f "$ENABLED_FILE" "$CACHE_DIR/last-crop"
     echo "Sharing disabled"
+}
+
+# Reconnect loop survives aerospace app restarts (socket closes -> re-subscribe).
+start_subscribe_daemon() {
+    stop_subscribe_daemon
+    ( while [ -f "$ENABLED_FILE" ]; do
+        aerospace subscribe --no-send-initial focus-changed binding-triggered \
+          | while read -r _; do "$HOME/.config/share-focus/share-focus" --delay "$DELAY"; done
+        sleep 1
+      done ) &
+    echo $! > "$CACHE_DIR/subscribe.pid"
+}
+
+# pkill -P reaps the pipeline children (aerospace subscribe + while-read) before the subshell;
+# killing only the subshell would orphan `aerospace subscribe` and leak the socket.
+stop_subscribe_daemon() {
+    if [ -f "$CACHE_DIR/subscribe.pid" ]; then
+        local pid
+        pid=$(cat "$CACHE_DIR/subscribe.pid")
+        pkill -P "$pid" 2>/dev/null
+        kill "$pid" 2>/dev/null
+        rm -f "$CACHE_DIR/subscribe.pid"
+    fi
 }
 
 mkdir -p "$CACHE_DIR"

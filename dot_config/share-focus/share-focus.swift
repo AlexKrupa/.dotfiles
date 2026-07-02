@@ -110,6 +110,15 @@ func runSync() {
     let relW = String(format: "%.3f", clampedW / displayWidth)
     let relH = String(format: "%.3f", clampedH / displayHeight)
 
+    // Re-posting an unchanged crop still makes BetterDisplay re-apply the stream, which flickers.
+    // The subscribe daemon fires focus-changed + binding-triggered for one keypress, so skip the dup.
+    let cropKey = "\(relX) \(relY) \(relW) \(relH)"
+    let lastCropFile = "\(cacheDir)/last-crop"
+    if (try? String(contentsOfFile: lastCropFile, encoding: .utf8)) == cropKey {
+        return
+    }
+    try? cropKey.write(toFile: lastCropFile, atomically: true, encoding: .utf8)
+
     // Post directly to BetterDisplay via distributed notification instead of spawning
     // the CLI process. Same protocol the CLI uses internally, but ~65ms faster per call
     // (CLI ~67ms, HTTP API ~10ms, notification ~0ms in benchmarks).
@@ -123,7 +132,9 @@ func runSync() {
         commands: ["set"],
         parameters: [
             "name": displayName,
-            "stream": "on",
+            // Valueless specifier, not "on": re-asserting "on" restarts the stream and flashes
+            // the shared screen black on every crop change. Bare specifier moves the crop in place.
+            "stream": "",
             "partial": "on",
             "partialOriginX": relX,
             "partialOriginY": relY,

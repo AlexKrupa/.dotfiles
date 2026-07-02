@@ -2,6 +2,8 @@ config-version = 2
 
 start-at-login = true
 
+auto-reload-config = true
+
 exec-on-workspace-change = [
     '/bin/bash', '-c', '~/.config/aerospace/pip-move',
 ]
@@ -15,11 +17,44 @@ default-root-container-orientation = 'horizontal'
 automatically-unhide-macos-hidden-apps = true
 
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
-on-focus-changed = ['move-mouse window-lazy-center', 'exec-and-forget ~/.config/share-focus/share-focus']
+on-focus-changed = ['move-mouse window-lazy-center']
 
 accordion-padding = 20
 
 persistent-workspaces = ["Y", "U", "I", "O", "P"]
+
+# Avoid 'layout tiling' in apps that show popups/dialogs.
+# 'layout tiling' also breaks Preview, so browsers/Finder omit it.
+on-window-detected = [
+    {
+        if = 'test %{app-bundle-id} = com.mitchellh.ghostty',
+        run = ['move-node-to-workspace U --focus-follows-window', 'layout tiling'],
+    },
+    {
+        if = 'test %{app-bundle-id} = com.google.android.studio || test %{app-bundle-id} = com.google.android.studio-EAP || test %{app-bundle-id} = com.jetbrains.intellij.ce',
+        run = 'move-node-to-workspace I --focus-follows-window',
+    },
+    {
+        if = 'test %{app-bundle-id} = com.google.Chrome || test %{app-bundle-id} = com.microsoft.edgemac || test %{app-bundle-id} = org.mozilla.firefox || test %{app-bundle-id} = com.apple.finder',
+        run = 'move-node-to-workspace O --focus-follows-window',
+    },
+    {
+        if = 'test %{app-bundle-id} = com.apple.iCal || test %{app-bundle-id} = com.apple.Notes || test %{app-bundle-id} = md.obsidian || test %{app-bundle-id} = com.tinyspeck.slackmacgap || test %{app-bundle-id} = com.spotify.client',
+        run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling'],
+    },
+    {
+        if = 'test %{app-bundle-id} = io.zsa.keymapp',
+        run = 'move-node-to-workspace P --focus-follows-window',
+    },
+    {
+        if = 'test %{window-title} ~= Picture-in-Picture',
+        run = 'layout floating',
+    },
+    {
+        check-further-callbacks = true,
+        run = 'layout floating',
+    },
+]
 
 [gaps]
     inner.horizontal = 0
@@ -37,25 +72,23 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
 
 [mode.main.binding]
 
-    # share-focus: exec for commands that don't change window focus
-
     # Layout
-    alt-ctrl-shift-e = ['layout accordion horizontal vertical', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-r = ['layout tiles horizontal vertical', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-f = ['fullscreen', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-f = ['layout floating tiling ', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-m = ['exec-and-forget ~/.config/share-focus/share-focus', 'macos-native-minimize']
+    alt-ctrl-shift-e = 'layout accordion horizontal vertical'
+    alt-ctrl-shift-r = 'layout tiles horizontal vertical'
+    alt-ctrl-shift-f = 'fullscreen'
+    alt-ctrl-shift-cmd-f = 'layout floating tiling'
+    alt-ctrl-shift-cmd-m = 'macos-native-minimize'
 
     alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
-    alt-ctrl-shift-cmd-tab = ['move-workspace-to-monitor --wrap-around next', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
 
     cmd-h = [] # Disable "hide application"
     cmd-alt-h = [] # Disable "hide others"
     cmd-m = [] # Disable "minimize application"
 
     # Resizing
-    alt-ctrl-shift-minus = ['resize smart -200', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-equal = ['resize smart +200', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-minus = 'resize smart -200'
+    alt-ctrl-shift-equal = 'resize smart +200'
 
     # Focus
     alt-ctrl-shift-h = 'focus left'
@@ -68,10 +101,10 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     alt-ctrl-shift-space = 'exec-and-forget ~/.config/aerospace/focus-app "Ghostty"'
 
     # Move window direction
-    alt-ctrl-shift-cmd-h = ['move left', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-j = ['move down', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-k = ['move up', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-l = ['move right', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-h = 'move left'
+    alt-ctrl-shift-cmd-j = 'move down'
+    alt-ctrl-shift-cmd-k = 'move up'
+    alt-ctrl-shift-cmd-l = 'move right'
 
     # Workspace
     alt-ctrl-shift-y = 'workspace Y'
@@ -81,11 +114,11 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     alt-ctrl-shift-p = 'workspace P'
 
     # Move to workspace
-    alt-ctrl-shift-cmd-y = ['move-node-to-workspace --focus-follows-window Y', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-u = ['move-node-to-workspace --focus-follows-window U', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-i = ['move-node-to-workspace --focus-follows-window I', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-o = ['move-node-to-workspace --focus-follows-window O', 'exec-and-forget ~/.config/share-focus/share-focus']
-    alt-ctrl-shift-cmd-p = ['move-node-to-workspace --focus-follows-window P', 'exec-and-forget ~/.config/share-focus/share-focus']
+    alt-ctrl-shift-cmd-y = 'move-node-to-workspace --focus-follows-window Y'
+    alt-ctrl-shift-cmd-u = 'move-node-to-workspace --focus-follows-window U'
+    alt-ctrl-shift-cmd-i = 'move-node-to-workspace --focus-follows-window I'
+    alt-ctrl-shift-cmd-o = 'move-node-to-workspace --focus-follows-window O'
+    alt-ctrl-shift-cmd-p = 'move-node-to-workspace --focus-follows-window P'
 
     alt-ctrl-shift-cmd-quote = 'mode service'
 
@@ -93,10 +126,10 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     esc = ['reload-config', 'mode main']
     r = ['flatten-workspace-tree', 'mode main'] # reset layout
 
-    alt-ctrl-shift-cmd-h = ['join-with left', 'exec-and-forget ~/.config/share-focus/share-focus', 'mode main']
-    alt-ctrl-shift-cmd-j = ['join-with down', 'exec-and-forget ~/.config/share-focus/share-focus', 'mode main']
-    alt-ctrl-shift-cmd-k = ['join-with up', 'exec-and-forget ~/.config/share-focus/share-focus', 'mode main']
-    alt-ctrl-shift-cmd-l = ['join-with right', 'exec-and-forget ~/.config/share-focus/share-focus', 'mode main']
+    alt-ctrl-shift-cmd-h = ['join-with left', 'mode main']
+    alt-ctrl-shift-cmd-j = ['join-with down', 'mode main']
+    alt-ctrl-shift-cmd-k = ['join-with up', 'mode main']
+    alt-ctrl-shift-cmd-l = ['join-with right', 'mode main']
 
 [workspace-to-monitor-force-assignment]
     Y = ['built-in', 'DELL']
@@ -104,71 +137,4 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
     I = ['DELL', 'built-in']
     O = ['DELL', 'built-in']
     P = ['built-in', 'DELL']
-
-[[on-window-detected]]
-    if.app-id = 'com.mitchellh.ghostty'
-    run = ['move-node-to-workspace U --focus-follows-window', 'layout tiling']
-
-# Avoid 'layout tiling' in apps that show popups/dialogs.
-
-[[on-window-detected]]
-    if.app-id = 'com.google.android.studio'
-    run = ['move-node-to-workspace I --focus-follows-window']
-
-[[on-window-detected]]
-    if.app-id = 'com.google.android.studio-EAP'
-    run = ['move-node-to-workspace I --focus-follows-window']
-
-[[on-window-detected]]
-    if.app-id = 'com.jetbrains.intellij.ce'
-    run = ['move-node-to-workspace I --focus-follows-window']
-
-[[on-window-detected]]
-    if.app-id = 'com.google.Chrome'
-    run = ['move-node-to-workspace O --focus-follows-window']
-
-[[on-window-detected]]
-    if.app-id = 'com.microsoft.edgemac'
-    run = ['move-node-to-workspace O --focus-follows-window']
-
-[[on-window-detected]]
-    if.app-id = 'org.mozilla.firefox'
-    run = ['move-node-to-workspace O --focus-follows-window']
-
-# `layout tiling` breaks Preview
-[[on-window-detected]]
-    if.app-id = 'com.apple.finder'
-    run = ['move-node-to-workspace O --focus-follows-window']
-
-[[on-window-detected]]
-    if.app-id = 'com.apple.iCal'
-    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
-
-[[on-window-detected]]
-    if.app-id = 'com.apple.Notes'
-    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
-
-[[on-window-detected]]
-    if.app-id = 'md.obsidian'
-    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
-
-[[on-window-detected]]
-    if.app-id = 'com.tinyspeck.slackmacgap'
-    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
-
-[[on-window-detected]]
-    if.app-id = 'com.spotify.client'
-    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling']
-
-[[on-window-detected]]
-    if.app-id = 'io.zsa.keymapp'
-    run = ['move-node-to-workspace P --focus-follows-window']
-
-[[on-window-detected]]
-    if.window-title-regex-substring = 'Picture-in-Picture'
-    run = 'layout floating'
-
-[[on-window-detected]]
-    check-further-callbacks = true
-    run = ['layout floating']
 
