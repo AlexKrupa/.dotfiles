@@ -1,13 +1,10 @@
 # prettier config
 
-Prettier does not support any global configuration by design; config resolves
-only from the formatted file's directory upward. See
-https://github.com/prettier/prettier/blob/main/docs/configuration.md
+[Prettier does not support any global configuration by design](https://github.com/prettier/prettier/blob/main/docs/configuration.md).
+Config resolves only from the formatted file's directory upward.
 
-Pass this file explicitly:
+Pass the config file explicitly:
 
 ```sh
 prettier --config ~/.config/prettier/config.json --write FILE.md
 ```
-
-Neovim (conform) references it the same way in `init.lua`.

@@ -722,19 +722,9 @@ require('lazy').setup({
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
       },
       formatters = {
+        -- Shared with CLI; prettier has no global config, so pass it explicitly.
         prettier = {
-          prepend_args = {
-            '--parser',
-            'markdown',
-            '--print-width',
-            '100',
-            '--prose-wrap',
-            'always',
-            '--tab-width',
-            '2',
-            '--end-of-line',
-            'lf',
-          },
+          prepend_args = { '--config', vim.fn.expand '~/.config/prettier/config.json', '--parser', 'markdown' },
         },
       },
     },
