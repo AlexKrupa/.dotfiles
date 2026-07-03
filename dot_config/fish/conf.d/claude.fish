@@ -105,6 +105,14 @@ function claude-upgrade --description 'Quit all interactive tmux claude sessions
         for s in $skipped
             echo "  skip: $s"
         end
+        if test $dry_run -eq 1
+            return 0
+        end
+        echo "Upgrading claude-code cask..."
+        if not brew upgrade --cask claude-code@latest
+            echo "claude-upgrade: brew upgrade failed" >&2
+            return 1
+        end
         return 0
     end
 
