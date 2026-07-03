@@ -30,11 +30,11 @@ if test -f ~/.config/fish/local.fish
 end
 
 function fish --wraps fish --description "Replace shell inside tmux, subshell otherwise"
-    if test (count $argv) -eq 0; and set -q TMUX
-        set -l fish_bin (command -s fish)
-        exec $fish_bin
-    end
-    command fish $argv
+  if test (count $argv) -eq 0; and set -q TMUX
+    set -l fish_bin (command -s fish)
+    exec $fish_bin
+  end
+  command fish $argv
 end
 
 alias fishc "$EDITOR ~/.config/fish/config.fish"
@@ -42,10 +42,10 @@ alias fishl "$EDITOR ~/.config/fish/local.fish"
 alias fishr "exec fish"
 alias aerospacec "$EDITOR ~/.config/aerospace/aerospace.toml"
 alias ghosttyc "$EDITOR ~/.config/ghostty/config"
-alias ideavimc "$EDITOR ~/.ideavimrc"
+alias ideavimc "$EDITOR ~/.config/ideavim/ideavimrc"
 alias nvimc "$EDITOR ~/.config/nvim/init.lua"
 alias skhdc "$EDITOR ~/.config/skhd/skhdrc"
-alias vimc "$EDITOR ~/.vimrc"
+alias vimc "$EDITOR ~/.config/vim/vimrc"
 
 alias cd "z" # zoxide
 alias ls "lsd -a --long"
