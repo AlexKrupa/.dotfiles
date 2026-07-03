@@ -11,9 +11,25 @@
 #    The headphones can only do previous/next.
 #    Now imagine doing it accidentally on a several-hours long audiobook.
 #    That's why I wrote this script.
+
+function __shokz_cut_times --description 'Segment cut times snapped to silence midpoints'
+  awk 'function abs(x){return x<0?-x:x} BEGIN{
+    duration=ARGV[1]+0; seglen=ARGV[2]+0; window=ARGV[3]+0; n=0;
+    for(i=4;i<ARGC;i++) mids[++n]=ARGV[i]+0;
+    last=0; target=last+seglen; out="";
+    while(target<duration){
+      lo=target-window; hi=target+window; best=""; bestdist="";
+      for(i=1;i<=n;i++){ m=mids[i];
+        if(m>last && m>=lo && m<=hi){ d=abs(m-target);
+          if(bestdist=="" || d<bestdist){best=m; bestdist=d} } }
+      if(best!="") cut=best; else cut=target;
+      out=(out==""?cut:out","cut); last=cut; target=last+seglen; }
+    print out; exit }' $argv
+end
+
 function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
   if test (count $argv) -lt 1
-    echo "Usage: shokz <file> [outbase-dir] [device-volume]" >&2
+    echo "Usage: shokz <file> [device-volume]" >&2
     return 1
   end
 
@@ -27,61 +43,75 @@ function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
     return 1
   end
 
-  set -l tempo "1.5"
+  # --- Config (all knobs here) ---
+  set -l tempo 1.5
   set -l segment_length_s 60
-  set -l loudness "-14" # Target integrated loudness (LUFS, EBU R128). Lower = quieter.
+  set -l segment_window_pct 0.25   # silence-snap drift = segment_length_s * this
+  set -l do_clear true             # wipe entire device before copy
+  set -l do_eject true             # diskutil eject when done
 
-  set -l name (basename (string split -r -m1 . $source_file)[1]) # Basename without extension.
-  # Optional 2nd arg: destination subdirectory (relative). Segments are staged locally and
-  # mirrored on the device under <arg2>/<name>/<name>-NNN.mp3. Default: <name>/ alongside source.
-  set -l outbase $argv[2]
-  set -l destrel $name # Path under the device root.
-  if test -n "$outbase"
-    set destrel $outbase/$name
+  set -l name (basename (string split -r -m1 . $source_file)[1]) # basename without extension
+  set -l ff -hide_banner -loglevel warning -stats -nostdin -y
+
+  set -l staging (mktemp -d)
+  set -l processed $staging/processed.mp3
+  set -l meta $staging/silences.txt
+  set -l segment $staging/$name-%03d.mp3
+
+  echo "shokz: $name -> tempo=$tempo seglen=$segment_length_s staging=$staging"
+
+  # --- Pass 1: process + detect silences ---
+  set -l af "highpass=f=80,silenceremove=stop_periods=-1:stop_duration=2:stop_threshold=-40dB,speechnorm=p=0.95:e=6.25:l=1,aresample=44100,atempo=$tempo,silencedetect=n=-30dB:d=0.3,ametadata=mode=print:file=$meta"
+  ffmpeg $ff -i $source_file -map 0:a -filter:a $af -c:a libmp3lame -q:a 4 $processed
+  or begin
+    rm -rf $staging
+    return 1
+  end
+
+  # --- Parse silence intervals -> midpoints ---
+  set -l starts
+  set -l ends
+  for line in (cat $meta)
+    set -l s (string match -rg 'lavfi\.silence_start=(.+)' -- $line)
+    and set -a starts $s
+    set -l e (string match -rg 'lavfi\.silence_end=(.+)' -- $line)
+    and set -a ends $e
+  end
+  set -l mids
+  for i in (seq (count $ends))
+    set -a mids (math "($starts[$i] + $ends[$i]) / 2")
+  end
+
+  set -l duration (ffprobe -v error -show_entries format=duration -of csv=p=0 $processed)
+  set -l window (math "$segment_length_s * $segment_window_pct")
+  set -l cut_list (__shokz_cut_times $duration $segment_length_s $window $mids)
+
+  # --- Pass 2: split (copy, no re-encode) ---
+  if test -n "$cut_list"
+    ffmpeg $ff -i $processed -map 0:a -c:a copy -f segment -segment_times $cut_list -segment_start_number 1 $segment
+    or begin
+      rm -rf $staging
+      return 1
+    end
   else
-    set outbase (dirname $source_file)
+    cp $processed (string replace '%03d' 001 $segment)
   end
-  set -l suffix -%03d.mp3 # 000, 001, 002, etc.
-  set -l subdir $outbase/$name
-  set -l segment $subdir/$name$suffix
+  rm $processed $meta
 
-  echo "source_file=$source_file, name=$name, outbase=$outbase, destrel=$destrel, subdir=$subdir, segment=$segment, tempo=$tempo, segment_length_s=$segment_length_s, loudness=$loudness"
-
-  # Create a subdirectory to keep segments in, instead of polluting the output directory.
-  mkdir -p $subdir
-
-  # Change tempo and split into equal-length segments in one pass.
-  # Note that tempo is not the same as speed, as it doesn't affect pitch.
-  # This keeps the sound normal instead of "chipmunking" it.
-  # loudnorm evens out volume so every file is equally loud at $loudness LUFS.
-  ffmpeg -y -i $source_file -map 0:a -filter:a "atempo=$tempo,loudnorm=I=$loudness:TP=-1.5" -f segment -segment_time $segment_length_s -segment_start_number 1 -c:a libmp3lame -q:a 4 $segment
-  or return 1
-
-  # Tag each segment for tag-sorting players (harmless on OpenSwim, see copy step below).
-  # The index goes to the front of the title so the ID3v1 30-char truncation still keeps
-  # each segment distinct; track is a real number, which also writes a valid ID3v1.1 byte.
+  # --- Tag each segment ---
   set -l orig $PWD
-  cd $subdir
+  cd $staging
   set -l total (count *.mp3)
-  set -l tmp_prefix tmp-
   for file in *.mp3
-    set -l index (string replace -r '^.*-(\d+)\.mp3$' '$1' $file) # 001, 002, ...
-
-    # Stream-copy to rewrite tags only - no re-encode, no quality loss.
-    # New temp file has 'tmp-' prefix.
-    ffmpeg -y -i $file -c copy -metadata title="$index - $name" -metadata track=$index/$total -id3v2_version 3 -write_id3v1 1 $tmp_prefix$file
-
-    rm $file # Remove original segment.
-    mv $tmp_prefix$file $file # Rename tagged segment to original name.
+    set -l index (string replace -r '^.*-(\d+)\.mp3$' '$1' $file)
+    ffmpeg $ff -i $file -c copy -metadata title="$index - $name" -metadata track=$index/$total -id3v2_version 3 -write_id3v1 1 tmp-$file
+    rm $file
+    mv tmp-$file $file
   end
-
   cd $orig
 
-  # Copy to the OpenSwim. The device plays files in transmission-completion order, not by
-  # name or tag (https://help.shokz.com/s/article/How-to-switch-the-MP3-playback-order-on-OpenSwim-Pro),
-  # so copy one file at a time in numeric order with a sync between each. This is the only
-  # thing that actually fixes playback order; dragging the whole folder does not.
-  set -l device $argv[3]
+  # --- Locate device ---
+  set -l device $argv[2]
   if test -z "$device"
     for vol in /Volumes/*
       if string match -qi '*openswim*' (basename $vol)
@@ -90,11 +120,8 @@ function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
       end
     end
   end
-
   if test -z "$device"
-    echo "shokz: no OpenSwim volume found under /Volumes; skipping copy." >&2
-    echo "shokz: segments are in '$subdir'. To order correctly, pass the device:" >&2
-    echo "shokz:   shokz <file> <dest-subdir> /Volumes/<OpenSwim>" >&2
+    echo "shokz: no OpenSwim volume found; segments left in $staging" >&2
     return 0
   end
   if not test -d $device
@@ -102,19 +129,27 @@ function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
     return 1
   end
 
-  set -l dest $device/$destrel
+  # --- Wipe device (visible entries only; dotfiles/system left) ---
+  if $do_clear
+    rm -rf $device/*
+  end
+
+  # --- Copy segments to Media/ sequentially ---
+  set -l dest $device/Media
   mkdir -p $dest
   echo "Copying segments to $dest sequentially..."
-  for file in $subdir/*.mp3
+  for file in $staging/*.mp3
     echo "  -> "(basename $file)
     cp $file $dest/
     or return 1
     sync
   end
 
-  # Copy succeeded; the device now holds the segments, so drop the local staging.
-  rm -rf $subdir
-  rmdir -p (dirname $subdir) 2>/dev/null # Remove now-empty parent dirs, ignore if not empty.
-  echo "Removed local staging: $subdir"
-  echo "Done. Eject once the OpenSwim LED stops flashing."
+  rm -rf $staging
+
+  if $do_eject
+    diskutil eject $device
+  else
+    echo "Done. Eject once the OpenSwim LED stops flashing."
+  end
 end
