@@ -23,6 +23,8 @@ $line_break\
 $jobs\
 $character"""
 
+palette = "dracula"
+
 [cmd_duration]
 min_time = 0
 show_milliseconds = true
@@ -35,10 +37,10 @@ symbol = '─'
 style = "white"
 
 [git_commit]
-only_detached = false
+only_detached = true
 tag_disabled = false
 tag_max_candidates = 0
-tag_symbol = '/'
+tag_symbol = ' 🏷 '
 
 [git_metrics]
 disabled = false
@@ -48,6 +50,19 @@ disabled = true
 
 [localip]
 disabled = false
+
+[palettes.dracula]
+background = "#282a36"
+current_line = "#44475a"
+foreground = "#f8f8f2"
+comment = "#6272a4"
+cyan = "#8be9fd"
+green = "#50fa7b"
+orange = "#ffb86c"
+pink = "#ff79c6"
+purple = "#bd93f9"
+red = "#ff5555"
+yellow = "#f1fa8c"
 
 [shlvl]
 disabled = false
