@@ -462,7 +462,30 @@ function and-screenrecord --description 'Record and compress device video'
   echo Recording a video of $ANDROID_SERIAL
   echo Press Ctrl-C to finish
 
-  adbe screenrecord $video &>/dev/null
+  # Capture adbe output for debugging instead of discarding it. adbe pulls the
+  # recording from the device on Ctrl-C; direct invocation (no command
+  # substitution) keeps that signal handling intact.
+  set -l rec_log (mktemp -t android-screenrecord.XXXXXX.log)
+  adbe -s $ANDROID_SERIAL screenrecord $video &>$rec_log
+  set -l rec_status $status
+
+  # adbe often exits non-zero on the Ctrl-C used to stop recording, so treat a
+  # produced file as success and only report the exit code for debugging.
+  if not test -s "$video"
+    echo "Screen recording failed: no file produced at $video" >&2
+    echo "adbe -s $ANDROID_SERIAL screenrecord exit status: $rec_status" >&2
+    if test -s "$rec_log"
+      echo "adbe output:" >&2
+      cat $rec_log >&2
+    else
+      echo "adbe produced no output" >&2
+    end
+    rm -f $rec_log
+    return 1
+  end
+  rm -f $rec_log
+
+  echo Compressing recording...
 
   # -f mp4: output format (can't infer from .tmp extension)
   # -vcodec h264: broad compatibility
@@ -481,6 +504,11 @@ function and-screenrecord --description 'Record and compress device video'
     -hide_banner \
     -loglevel error \
     $compressed
+  if test $status -ne 0
+    echo "Compression failed, keeping uncompressed recording at $video" >&2
+    rm -f $compressed
+    return 1
+  end
 
   rm $video
   mv $compressed $video

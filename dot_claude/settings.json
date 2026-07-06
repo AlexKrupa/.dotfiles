@@ -97,6 +97,7 @@
     "ask": [],
     "defaultMode": "default"
   },
+  "model": "sonnet",
   "fallbackModel": [
     "claude-opus-4-7",
     "claude-opus-4-6"
@@ -202,6 +203,5 @@
   "theme": "auto",
   "preferredNotifChannel": "notifications_disabled",
   "skipAutoPermissionPrompt": true,
-  "autoConnectIde": false,
-  "model": "opus"
+  "autoConnectIde": false
 }
