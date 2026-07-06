@@ -35,11 +35,11 @@ Applies to all prose: replies, docs, code comments, commit messages.
 
 ### Plain language
 
-Use plain language. You communicate strictly technically with software engineers. You are NOT
-writing a book novel or an article.
+**Use plain language.** You communicate strictly technically with software engineers. You are NOT
+writing a novel.
 
-- No AI slop ("honest", "genuine", "gate", "gap", "shape", "wrinkle", "latent" etc.): no idioms or
-  cliches ("smoking gun", "load-bearing"); no marketing diction ("delve", "leverage", "robust",
+- **No AI slop** ("honest", "genuine", "gate", "gap", "shape", "wrinkle", "latent" etc.): no idioms
+  or cliches ("smoking gun", "load-bearing"); no marketing diction ("delve", "leverage", "robust",
   "tapestry", "ecosystem", etc.); use "is", not "serves as"
 - Avoid dramatism or punchy sentences
 - No filler transitions ("It's worth noting", "Importantly"), -ing tails ("...highlighting its
