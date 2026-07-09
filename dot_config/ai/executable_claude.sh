@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLAUDE_DIR="$CLAUDE_CONFIG_DIR"
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 mkdir -p "$CLAUDE_DIR"
 
