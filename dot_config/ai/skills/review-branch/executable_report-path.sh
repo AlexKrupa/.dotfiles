@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: report-path.sh <parent-ref> [prefix]
 # Prints absolute path to the review report file under
-# ~/.ai/<repo>/reviews/[<prefix>-]<branch>-<author>.md and ensures the parent dir exists.
+# ~/.ai/<repo>/reviews/<date>-[<prefix>-]<branch>-<author>.md and ensures the parent dir exists.
 set -euo pipefail
 
 parent="${1:?parent ref required}"
@@ -61,10 +61,12 @@ branch_slug="$(slugify "${branch//\//-}")"
 author="$(git shortlog -sn "$parent..HEAD" | head -1 | sed -E 's/^ *[0-9]+\t//')"
 author_slug="$(slugify "$author")"
 
+date_prefix="$(date +%F)"
+
 dir="$HOME/.ai/$repo_slug/reviews"
 mkdir -p "$dir"
 if [ -n "$prefix" ]; then
-  printf '%s/%s-%s-%s.md\n' "$dir" "$(slugify "$prefix")" "$branch_slug" "$author_slug"
+  printf '%s/%s-%s-%s-%s.md\n' "$dir" "$date_prefix" "$(slugify "$prefix")" "$branch_slug" "$author_slug"
 else
-  printf '%s/%s-%s.md\n' "$dir" "$branch_slug" "$author_slug"
+  printf '%s/%s-%s-%s.md\n' "$dir" "$date_prefix" "$branch_slug" "$author_slug"
 fi

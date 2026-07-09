@@ -75,7 +75,7 @@ If still no match: create a new doc.
 **Creating a new doc:**
 
 1. Ask for the goal/problem if not obvious from context
-2. Generate filename: `{descriptive-name}.md` (kebab-case)
+2. Generate filename: `{YYYY-MM-DD}-{descriptive-name}.md` (kebab-case), where the date is the creation date (today, ISO), so the prefix equals the `created:` frontmatter value. The branch-named auto-detect convention is likewise dated: `<date>-<branch>.md`.
 3. `mkdir -p "$docs_dir"`, then create the file in `$docs_dir/` using [templates/active.md](templates/active.md) verbatim, filling in title and dates
 4. TODO steps follow `[Step] -> verify: [check]` format per CLAUDE.md
 
@@ -121,3 +121,4 @@ If a doc exists for the current work, the plan should account for keeping it up 
 | Wordy entries | One line per decision/note. Terse. |
 | Running `/doc done` with unanswered open questions | Refuse - answer first or `--force` |
 | Quoting `updated:` or `created:` dates | Unquoted ISO; trailing HTML comments fine |
+| Filename date prefix not matching `created:` | Both are the creation date - keep them equal |

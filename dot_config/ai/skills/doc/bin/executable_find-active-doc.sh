@@ -45,8 +45,33 @@ match_substring() {
   done
 }
 
+# Dated filenames are `YYYY-MM-DD-<name>.md`. Glob the date prefix, newest first
+# (reverse-lexical sort on the ISO date), preferring an active match.
+date_glob='[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-'
+
+named_dated_match() {
+  # $1 = name. Print first active dated match (newest date), else empty.
+  # $date_glob is unquoted so its bracket classes glob; "$docs_dir"/"$1" stay quoted for safety.
+  shopt -s nullglob
+  local matches=("$docs_dir"/$date_glob"$1".md)
+  shopt -u nullglob
+  [ ${#matches[@]} -eq 0 ] && return
+  local f
+  for f in $(printf '%s\n' "${matches[@]}" | sort -r); do
+    if is_active "$f"; then
+      printf '%s\n' "$f"
+      return
+    fi
+  done
+}
+
 if [ -n "${1:-}" ]; then
   # Named lookup: return any active match; prefer exact filename hit.
+  dated=$(named_dated_match "$1")
+  if [ -n "$dated" ]; then
+    printf '%s\n' "$dated"
+    exit 0
+  fi
   exact="$docs_dir/$1.md"
   if [ -f "$exact" ] && is_active "$exact"; then
     printf '%s\n' "$exact"
@@ -64,6 +89,11 @@ fi
 # Auto-detect.
 branch=$(git branch --show-current 2>/dev/null || true)
 if [ -n "$branch" ]; then
+  dated=$(named_dated_match "$branch")
+  if [ -n "$dated" ]; then
+    printf '%s\n' "$dated"
+    exit 0
+  fi
   candidate="$docs_dir/$branch.md"
   if [ -f "$candidate" ] && is_active "$candidate"; then
     printf '%s\n' "$candidate"

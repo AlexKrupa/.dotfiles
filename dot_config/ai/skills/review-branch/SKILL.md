@@ -11,7 +11,8 @@ description:
 # review-branch
 
 Read-only audit of current branch vs parent. Output: single Markdown report at
-`~/.ai/<repo>/reviews/<branch>-<author>.md`. No fixes, commits, pushes, or PR comments - ever.
+`~/.ai/<repo>/reviews/<date>-<branch>-<author>.md`. No fixes, commits, pushes, or PR comments -
+ever.
 
 ## When to use
 
@@ -112,12 +113,13 @@ this dir). Do not re-implement repo / author / branch resolution inline.
 The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of
 `foo` writes under one directory regardless of the worktree folder's own name), slugification
 (including diacritic transliteration, e.g. `Józef Mąka` → `jozef-maka`), branch-name `/`→`-`
-flattening, majority-author detection, and `mkdir -p` of the parent. Prints the absolute path on
-stdout. Overwrite the file if it exists (re-runs supersede).
+flattening, majority-author detection, a leading `<date>` prefix (today, ISO), and `mkdir -p` of the
+parent. Prints the absolute path on stdout. A cross-day re-run gets a new dated file; a same-day
+re-run resolves to the identical path and overwrites (re-runs supersede within a day).
 
-Optional second arg `prefix` → `<prefix>-<branch>-<author>.md` (the prefix is slugified too).
-Callers like `review-gitlab` pass `mr-<iid>` this way. Omit it for the plain `<branch>-<author>.md`
-form.
+Optional second arg `prefix` → `<date>-<prefix>-<branch>-<author>.md` (the prefix is slugified too).
+Callers like `review-gitlab` pass `mr-<iid>` this way. Omit it for the plain
+`<date>-<branch>-<author>.md` form.
 
 Do **not** substitute `git rev-parse --show-toplevel` - that returns the worktree root and breaks
 the main-repo grouping convention.

@@ -10,7 +10,7 @@ disable-model-invocation: true
 # review-gitlab
 
 Wraps `review-branch` with GitLab merge request context. Same read-only constraints. Output: one
-Markdown report under `~/.ai/<repo>/reviews/mr-<iid>-<branch>-<author>.md`.
+Markdown report under `~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`.
 
 Argument hint: `[mr-url | mr-id | branch | <empty>]`. Empty means "MR for current branch".
 
@@ -80,8 +80,8 @@ informational, not an error.
    `previous_branch`).
 4. Invoke `review-branch` with `$target_ref` (the fresh remote-tracking ref, not the bare local
    `target_branch`) as the parent override. Compute the report path via the helper with the iid
-   prefix (see "Report"), so review-branch writes to `mr-<iid>-<branch>-<author>.md` directly (no
-   rename). Read the generated report before augmenting.
+   prefix (see "Report"), so review-branch writes to `<date>-mr-<iid>-<branch>-<author>.md`
+   directly (no rename). Read the generated report before augmenting.
 5. `"$FMR" discussions "$iid" "$project_path"` → substantive-thread judgment (next section).
 6. Optional: `"$FMR" diff-check "$iid" "$target_branch"`; if it exits 1, note the drift in the
    report.
@@ -103,8 +103,8 @@ pure status pings. Summarize each kept thread in one line; do not paste full bod
 
 ## Report
 
-Path: `~/.ai/<repo>/reviews/mr-<iid>-<branch>-<author>.md`. Compute it with review-branch's helper,
-passing `mr-<iid>` as the prefix; do not slugify inline:
+Path: `~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`. Compute it with review-branch's
+helper, passing `mr-<iid>` as the prefix; do not slugify inline:
 
 ```sh
 path="$(~/.claude/skills/review-branch/report-path.sh "$target_ref" "mr-<iid>")"

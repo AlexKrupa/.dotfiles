@@ -53,7 +53,7 @@ Banned in regular conversation, unless it's the simplest or only way to communic
 
 ```
 honest, genuine, latent, robust,
-honestly, quietly, deeply, fundamentally, remarkably, arguably,
+honestly, genuinely, quietly, deeply, fundamentally, remarkably, arguably,
 gate, gap, shape, wrinkle,
 delve, leverage, streamline,
 "smoking gun", load-bearing, "full stop"
@@ -67,7 +67,7 @@ delve, leverage, streamline,
   - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,
     diagrams, and code.
 - Use single dashes instead of en- or em-dashes
-- Avoid excessive semicolons
+- Avoid semicolon abuse - use a dash or a separate sentence instead
 - Code: backticks for inline (`Class.method()`), blocks for multi-line, including in commit messages
 - Headings: sentence case (`## This format`), except proper names or code
 - **Boldface** and emojis: use sparingly
@@ -100,8 +100,8 @@ Superpowers (overrides the Superpowers `docs/superpowers/{plans,specs}/...` defa
 
 Layout:
 
-- `docs/` - design docs, via `/doc` commands
-- `reviews/` - code reviews
+- `docs/` - design docs, via `/doc` commands (`YYYY-MM-DD-<name>.md`)
+- `reviews/` - code reviews (`YYYY-MM-DD-<...>.md`)
 - `plans/` - `YYYY-MM-DD-<feature-name>.md` (Superpowers)
 - `specs/` - `YYYY-MM-DD-<topic>-design.md` (Superpowers)
 
