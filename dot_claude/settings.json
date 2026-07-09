@@ -71,8 +71,6 @@
       "mcp__context7__resolve-library-id",
       "mcp__plugin_context7_context7__query-docs",
       "mcp__plugin_context7_context7__resolve-library-id",
-      "Bash(~/.claude/skills/doc/bin/find-active-doc.sh:*)",
-      "Bash(~/.claude/skills/doc/bin/docs-dir.sh:*)",
       "Bash(~/.claude/skills/review-branch/branch-context.sh:*)",
       "Bash(~/.claude/skills/review-branch/report-path.sh:*)",
       "Bash(~/.claude/skills/review-me/absorb-fixes.sh:*)",
@@ -111,36 +109,6 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/guard.sh"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.config/ai/skills/doc/hooks/session-start.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.config/ai/skills/doc/hooks/stop.sh"
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.config/ai/skills/doc/hooks/precompact.sh"
           }
         ]
       }

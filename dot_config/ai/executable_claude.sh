@@ -47,6 +47,7 @@ link_entries() {
   for src in $SCRIPT_DIR/$glob; do
     [ -e "$src" ] || continue
     local base="$(basename "$src")"
+    [ "$base" = "deprecated" ] && continue
     local display="$base"
     [ -n "$strip_ext" ] && display="$(basename "$src" "$strip_ext")"
     local target="$target_dir/$base"
@@ -85,8 +86,26 @@ link_entries() {
   done
 }
 
+# --- Un-symlink skills that have been moved under skills/deprecated/ ---
+unlink_deprecated() {
+  local label="$1" glob="$2"
+  local target_dir="$CLAUDE_DIR/$label"
+  for src in $SCRIPT_DIR/$glob; do
+    [ -e "$src" ] || continue
+    local base="$(basename "$src")"
+    local target="$target_dir/$base"
+    [ -L "$target" ] || continue
+    local link_target="$(readlink "$target")"
+    if [[ "$link_target" == "$SCRIPT_DIR/$label/"* ]]; then
+      rm "$target"
+      add_entry "$label/$base" "removed" "deprecated"
+    fi
+  done
+}
+
 link_entries rules  "rules/*.md" .md
-link_entries skills "skills/*/"
+unlink_deprecated skills "skills/deprecated/*/"
+link_entries      skills "skills/*/"
 
 # --- Print aligned output ---
 

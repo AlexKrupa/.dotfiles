@@ -91,16 +91,15 @@ delve, leverage, streamline,
 
 - Planning: prefer vertical slices for tasks within an architectural boundary: a small E2E
   functional capability is better than a non-functional layer
-- Git: make commits (vertical slices), do not even suggest opening PRs
+- Git: make commits (vertical slices), do not suggest opening PRs
 
 ## ~/.ai/ work directory
 
-Persistent AI work for a repo lives under `~/.ai/<repo-name>/`. Shared by the `/doc` skill and
-Superpowers (overrides the Superpowers `docs/superpowers/{plans,specs}/...` defaults).
+Persistent AI work for a repo lives under `~/.ai/<repo-name>/`. Used by Superpowers (overrides the
+Superpowers `docs/superpowers/{plans,specs}/...` defaults).
 
 Layout:
 
-- `docs/` - design docs, via `/doc` commands (`YYYY-MM-DD-<name>.md`)
 - `reviews/` - code reviews (`YYYY-MM-DD-<...>.md`)
 - `plans/` - `YYYY-MM-DD-<feature-name>.md` (Superpowers)
 - `specs/` - `YYYY-MM-DD-<topic>-design.md` (Superpowers)
@@ -112,9 +111,6 @@ Layout:
 - Outside a git repo it prints `_no-repo` - use `~/.ai/_no-repo/`
 - Create the subdirectory if missing
 - Do not mention the work directory in conversations
-
-Design docs: non-trivial work (anything worth a plan) should have one. Suggest `/doc <name>` before
-planning; run `/doc-sync` after completing a step.
 
 ## Environment
 
