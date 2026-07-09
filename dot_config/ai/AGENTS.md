@@ -26,40 +26,58 @@
 - When reporting information to me, be extremely concise and sacrifice grammar for sake of
   concision.
 - Specific: actual tools, versions, error messages - no filler
-- Prefer concrete examples over abstractions
+- Concrete examples over abstractions
 - Reply in user's prompt or skill language, do not switch language automatically
 
-## Writing
+## Writing style
 
-Applies to all prose: replies, docs, code comments, commit messages.
+Applies to all communication: replies, docs, code comments, commit messages, PR descriptions, ticket
+descriptions.
 
 ### Plain language
 
-**Use plain language.** You communicate strictly technically with software engineers. You are NOT
-writing a novel.
+**You must use plain language.** You communicate strictly technically with a software engineer. You
+are NOT writing a novel.
 
-- **No AI slop** ("honest", "genuine", "gate", "gap", "shape", "wrinkle", "latent" etc.): no idioms
-  or cliches ("smoking gun", "load-bearing"); no marketing diction ("delve", "leverage", "robust",
-  "tapestry", "ecosystem", etc.); use "is", not "serves as"
-- No attempts at impersonating a human - you're a machine
-- No dramatism or punchy sentences
-- No filler transitions ("It's worth noting", "Importantly"), -ing tails ("...highlighting its
-  importance"), pedagogical asides ("let's unpack this"), or signposted summaries ("In conclusion")
-- No fractal restated summaries; no bold-keyword bullet leads
+- No AI slop: no idioms or cliches, no marketing diction,
+  - Use "is", not "serves as", not "utilizes"
+- No attempts at impersonating a human - you're a machine; you're never "honest", you never "think"
+- No dramatism, no punchy sentences, no buildup
+- No filler transitions ("It's worth noting", "Importantly", "Truth is"), no -ing tails
+  ("...highlighting its importance"), no pedagogical asides ("let's unpack this"), or no signposted
+  summaries ("In conclusion")
+
+### List of soft-banned words
+
+Banned in regular conversation, unless it's the simplest or only way to communicate their meaning:
+
+```
+honest, genuine, latent, robust,
+honestly, quietly, deeply, fundamentally, remarkably, arguably,
+gate, gap, shape, wrinkle,
+delve, leverage, streamline,
+"smoking gun", load-bearing, "full stop"
+```
 
 ### Formatting
 
-- In Markdown put longer sentences on separate lines.
+- Reply and Markdown line length limit: 100 characters
 - Prefer ASCII over Unicode for punctuation and stylistic symbols (no smart quotes, em-dashes, or
-  decorative icons). Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical
-  notation, tables, diagrams, and code.
+  decorative icons).
+  - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,
+    diagrams, and code.
 - Use single dashes instead of en- or em-dashes
 - Avoid excessive semicolons
-- Code: backticks for inline (`Class.method()`), blocks for multi-line
+- Code: backticks for inline (`Class.method()`), blocks for multi-line, including in commit messages
 - Headings: sentence case (`## This format`), except proper names or code
 - **Boldface** and emojis: use sparingly
 
 ## Plan execution
+
+### All plans, including Superpowers-driven
+
+- Avoid excessive project builds between steps. Prefer superficial verification for less important
+  steps like local reformatting or refactoring.
 
 ### Non-Superpowers-driven plans
 
@@ -69,10 +87,11 @@ writing a novel.
 - TDD for bugs: write a failing test first, then fix
 - Git: do not commit or open PRs unless requested
 
-### All plans, including Superpowers-driven
+### Superpowers
 
-- Avoid excessive project builds between steps. Prefer superficial verification for less important
-  steps like local reformatting or refactoring.
+- Planning: prefer vertical slices for tasks within an architectural boundary: a small E2E
+  functional capability is better than a non-functional layer
+- Git: make commits (vertical slices), do not even suggest opening PRs
 
 ## ~/.ai/ work directory
 
@@ -82,15 +101,16 @@ Superpowers (overrides the Superpowers `docs/superpowers/{plans,specs}/...` defa
 Layout:
 
 - `docs/` - design docs, via `/doc` commands
-- `plans/` - `YYYY-MM-DD-<feature-name>.md`
-- `specs/` - `YYYY-MM-DD-<topic>-design.md`
+- `reviews/` - code reviews
+- `plans/` - `YYYY-MM-DD-<feature-name>.md` (Superpowers)
+- `specs/` - `YYYY-MM-DD-<topic>-design.md` (Superpowers)
 
 `<repo-name>` resolution (applies to all three subdirs):
 
 - Run `~/.config/ai/bin/repo-slug.sh` to get `<repo-name>` (handles bare repos, submodules,
-  worktrees; all worktrees of a repo share one name - no per-worktree subdir).
-- Outside a git repo it prints `_no-repo`; use `~/.ai/_no-repo/`.
-- Create the subdirectory if missing.
+  worktrees; all worktrees of a repo share one name - no per-worktree subdir)
+- Outside a git repo it prints `_no-repo` - use `~/.ai/_no-repo/`
+- Create the subdirectory if missing
 - Do not mention the work directory in conversations
 
 Design docs: non-trivial work (anything worth a plan) should have one. Suggest `/doc <name>` before
@@ -100,8 +120,3 @@ planning; run `/doc-sync` after completing a step.
 
 - MacOS, Fish shell, Ghostty terminal, tmux
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.
-
-## Context management
-
-- When compacting, preserve: modified file paths, test commands used, current plan step, and key
-  decisions made

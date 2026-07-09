@@ -26,8 +26,13 @@ USAGE_5H_TIMEFMT='%H:%M'
 USAGE_7D_TIMEFMT='%a %H:%M'
 
 # Colors (actual ESC chars so they embed directly in strings).
-C_PATH=$'\033[36m'   # cyan: shortened cwd
-C_GIT=$'\033[35m'    # magenta: git branch
+# Starship default named colors (no palette) -> ANSI, bold:
+C_CYAN=$'\033[1;36m'      # ANSI cyan, bold: starship directory, no palette
+C_MAGENTA=$'\033[1;35m'   # ANSI magenta, bold: starship git_branch, no palette
+# Dracula palette equivalents -> truecolor, no bold (Claude Code statusline
+# over-brightens bold; plain matches the live starship prompt visually):
+C_DRACULA_CYAN=$'\033[38;2;139;233;253m'    # #8be9fd
+C_DRACULA_PURPLE=$'\033[38;2;189;147;249m'  # #bd93f9
 C_RED=$'\033[31m'
 C_YELLOW=$'\033[33m'
 C_GREEN=$'\033[32m'
@@ -35,6 +40,10 @@ C_DIM=$'\033[2m'
 C_RESET=$'\033[0m'
 C_VIM_INSERT=$'\033[33m'
 C_VIM_NORMAL=$'\033[32m'
+
+# Role -> color delegation (palette=dracula active)
+C_PATH="$C_DRACULA_CYAN"    # starship directory
+C_GIT="$C_DRACULA_PURPLE"   # starship git_branch
 
 sep="${C_DIM}·${C_RESET}"
 

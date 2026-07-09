@@ -8,7 +8,7 @@ paths:
 - Formatting follows the "rectangle rule": "each subtree gets its own bounding rectangle, containing
   all of that subtree’s text and none of any other subtree’s"
 - Guard clauses over nested conditionals
-- Code comments:
+- Code comments (inline and documentation):
   - Explain WHY, not WHAT
   - Exist only when the WHY is not obvious
   - Are BRIEF and only provide relevant information, not transient conversation context
