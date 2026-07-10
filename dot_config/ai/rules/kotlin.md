@@ -16,3 +16,4 @@ paths:
 - If catching generic `Exception` in a coroutines `suspend` function, handle `CancellationException`
   by calling `currentCoroutineContext().ensureActive()`
 - Inline references in KDoc comments with `[foo.bar.Baz]` syntax
+- Use `TimeSource` for time measurements like metrics, instead of wall clock (`Clock`)
