@@ -8,3 +8,4 @@ paths:
 - Test body: visually separate setup/action/assertion in longer tests, but without section comments
 - Test class/spec structure: read top-to-bottom - put setup and relevant context (private methods)
   before the tests
+- Avoid change-detector tests
