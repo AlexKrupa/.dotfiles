@@ -57,6 +57,30 @@ reviewable content. Surface `parent` and `parent-source` in the report header fo
 cases (plus a stale-base note when `parent-fetched: no`), so the reader knows what the diff was
 anchored against and whether the mainline base may be outdated.
 
+### Project docs / conventions
+
+After resolving the diff, gather the project's own documented conventions so findings can be checked
+against them. Run the docs helper (absolute path; skill cwd is the user's repo):
+
+    ~/.claude/skills/review-branch/docs-index.sh
+
+It enumerates tracked docs via `git ls-files` (so gitignored `build/`, `.gradle/`, `node_modules/`,
+and generated doc output are excluded automatically - no hardcoded skip list) across three groups:
+doc dirs (`docs/`, `documentation/`, `doc/`), root convention files (`CONTRIBUTING*`, `README*`,
+`ARCHITECTURE*`, `STYLE*`, `docs/adr/**`), and agent instruction files (`CLAUDE.md`, `AGENTS.md`,
+`GEMINI.md`, `.cursorrules`). It emits a cheap index - a `docs-found: N` count, then per doc a
+`file:` line with that file's headings indented beneath it. It reads no file bodies and is
+read-only.
+
+Then **select, don't read everything**: match the index headings and paths against the branch's
+changed files and diff topics. Open in full only the docs that plausibly govern what the branch
+touched (e.g. skip a snapshot-testing doc when the branch has no snapshot tests). `docs-found: 0`
+means the repo has no discoverable conventions - skip the docs-alignment check entirely and produce
+no docs-related findings.
+
+Record which docs you actually opened in the report's required `Convention docs consulted:` header
+line (see "Report structure"). Use `none found` only when the helper reported `docs-found: 0`.
+
 **Parent override:** pass the parent branch as the first arg (callers like `review-gitlab` do this).
 The script validates the ref exists locally and reports `parent-source: override`.
 
@@ -71,6 +95,12 @@ Group findings under these. Each finding cites `file:line` from the diff.
 
 - **Correctness** - off-by-one, wrong conditions, null/undefined, async races, wrong operator (`<`
   vs `<=`).
+- **Conventions & docs alignment** - check the branch against the docs selected in "Gather context":
+  (1) code contradicts a documented convention (naming, layering, error-handling pattern, "always
+  use util X"); (2) the branch changes behavior a doc describes without updating that doc; (3) the
+  branch adds a pattern or public API the docs say must be documented, but no doc was added. Cite the
+  doc source in the finding, e.g. `violates docs/testing.md:L20`. Only when docs were found; never
+  invent a convention the docs do not state.
 - **Error handling & edge cases** - only what can actually happen; flag overcautious validation as a
   finding too.
 - **Tests** - coverage of new behavior, missing edges, brittle assertions, flaky patterns; excessive
@@ -141,8 +171,12 @@ risk.>
 - Commits: <n> Files: <n> +<add>/-<del>
 - Uncommitted: <no | yes - file1, file2>
 - Generated: <ISO date>
+- Convention docs consulted: <comma-separated paths | none found>
 
 ## Findings
+
+Conventions & docs findings cite the doc they derive from inline, e.g.
+`(violates docs/testing.md:L20)` appended to the What/Fix text.
 
 ### Critical
 
