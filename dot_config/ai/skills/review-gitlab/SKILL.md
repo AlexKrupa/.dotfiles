@@ -121,10 +121,11 @@ Augment the base report:
    - Distill the MR description in one paragraph. If empty, flag "no description provided".
    - Coverage check: does the description match what the diff actually changes? Note gaps.
 3. **Findings** (from base skill) - for each finding that matches an existing discussion or bot
-   note, add `(see thread by @<reviewer>)` or `(SAST flagged this)` inline.
+   note, add `(see thread by @<reviewer>)` or `(SAST flagged this)` inline after the finding's id.
 4. **Discussions** (new, after Findings):
    - One bullet per substantive thread: reviewer, gist, resolution state, and your own opinion when
-     the thread is unresolved or in conflict with the audit.
+     the thread is unresolved or in conflict with the audit. Cite the related finding id when one
+     exists.
    - One bullet per substantive bot finding.
 5. **Out of scope / mentions** - unchanged from base skill.
 

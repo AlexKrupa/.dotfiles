@@ -48,7 +48,9 @@ proceeding.
 - Snapshot / golden-file regeneration.
 - Dependency add / upgrade / remove.
 - Any change to code **not introduced by this branch** (out-of-scope cleanup).
-- Adding concurrency changes - flag and ask; concurrency is rarely "low risk".
+- Adding concurrency changes - flag and ask; concurrency is rarely "low risk". (This is a fix-risk
+  gate - whether to auto-edit. Detection of concurrency issues is review-branch's "Concurrency &
+  data races" bucket, a separate axis.)
 
 ### Git writes allowed
 
@@ -73,8 +75,8 @@ Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
 2. Partition findings: auto-apply vs ask-first.
 3. Apply auto-fixes, grouped by file. Use parallel edits when files are independent.
 4. For ask-first findings, present **one** consolidated prompt:
-   - Title, severity, files affected, proposed change in ≤3 lines each.
-   - User picks per-item: apply / skip / defer.
+   - Finding id, title, severity, files affected, proposed change in ≤3 lines each.
+   - User picks per-item by id: apply / skip / defer.
 5. Run repo's validation if discoverable: tests, typecheck, lint. Look in `package.json` scripts,
    `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, etc. If none found, say so - don't invent
    commands.
@@ -112,7 +114,7 @@ Short, scannable:
 - Orphan hunks resolved by blame-based fixup: N (against: `<sha-short> <subject>`, ...)
 - New commits added (no in-range fixup target): N (subjects: ...)
 - Working tree: clean / dirty paths listed if not
-- Remaining findings by severity: critical/major/minor/nit counts
+- Remaining findings: counts by severity, listing the ids left unresolved (e.g. `B2`, `C1`)
 - Next step for user: `git rebase -i --autosquash <parent>`, then push.
 
 ## Red flags - stop and reconsider

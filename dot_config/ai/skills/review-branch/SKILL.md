@@ -91,10 +91,17 @@ suggest the user commit or stash and re-run.
 
 ## Audit checklist
 
-Group findings under these. Each finding cites `file:line` from the diff.
+Group findings under these. Each finding cites `file:line` from the diff. Before writing any
+finding, verify it against the actual diff/code: the cited `file:line` exists, the operator or
+condition is really as claimed, and the code is introduced by this branch (pre-existing code goes to
+"Out of scope"). Drop any finding you cannot confirm.
 
-- **Correctness** - off-by-one, wrong conditions, null/undefined, async races, wrong operator (`<`
-  vs `<=`).
+- **Correctness** - off-by-one, wrong conditions, null/undefined, wrong operator (`<` vs `<=`).
+- **Concurrency & data races** - shared mutable state without sync, lock ordering / deadlock,
+  check-then-act atomicity, missing memory visibility, blocking call inside an async/coroutine
+  context, unbounded parallelism. Always checked; go deeper when the diff touches serious
+  concurrency surface (lock primitives, coroutine/async infrastructure, low-level shared utilities,
+  caches, channels). Only real races that can actually happen - do not manufacture findings.
 - **Conventions & docs alignment** - check the branch against the docs selected in "Gather context":
   (1) code contradicts a documented convention (naming, layering, error-handling pattern, "always
   use util X"); (2) the branch changes behavior a doc describes without updating that doc; (3) the
@@ -160,9 +167,9 @@ the main-repo grouping convention.
 # Review: <branch> (vs <parent>)
 
 **TL;DR:** <1-2 sentence verdict - ship / fix-then-ship / major rework, plus the single biggest
-risk.>
+risk, naming that risk's finding id, e.g. `A1`.>
 
-**Counts:** critical: N, major: N, minor: N, nit: N
+**Counts:** <N> critical · <N> major · <N> minor · <N> nit
 
 ---
 
@@ -175,24 +182,30 @@ risk.>
 
 ## Findings
 
+Each finding has an id: severity letter (`A` critical, `B` major, `C` minor, `D` nit) + ordinal
+within its section, e.g. `A1`, `B2`. Ordinals reset per section; an omitted section does not shift
+later letters (Major always starts at `B1`). Callers cite these ids.
+
 Conventions & docs findings cite the doc they derive from inline, e.g.
 `(violates docs/testing.md:L20)` appended to the What/Fix text.
 
 ### Critical
 
-- **<file>:<line> - <short title>** What: <1-2 sentences> Fix: <prose, or ≤3-line snippet>
+- **A1** `<file>:<line>` - <short title>
+  What: <1-2 sentences> Fix: <prose, or ≤3-line snippet>
 
 ### Major
 
-...
+- **B1** `<file>:<line>` - <short title>
+  What: ... Fix: ...
 
 ### Minor
 
-...
+- **C1** `<file>:<line>` - <short title>
 
 ### Nit
 
-...
+- **D1** `<file>:<line>` - <short title>
 
 ## Out of scope / mentions
 
@@ -218,6 +231,8 @@ when prose is unclear.
 - Long code blocks in the report. Keep it scannable - the reader's eye should land on TL;DR + Counts
   first.
 - Filling buckets with manufactured findings. Empty bucket > fake bucket.
+- Writing a finding without confirming its `file:line` and claim against the actual diff. Unverified
+  findings are fabrications - drop them.
 - Touching any file other than the report.
 - Recommending an inline/simplification that loses clarity or reuse - simpler must be genuinely
   clearer, not just fewer lines.
