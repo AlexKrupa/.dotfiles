@@ -125,8 +125,17 @@ condition is really as claimed, and the code is introduced by this branch (pre-e
 - **Public API / contracts** - breaking signature or schema changes, missing migration notes.
 - **Style & consistency** - matches surrounding code (not personal preference; not lint-fixable
   trivia unless it actually breaks CI).
-- **Docs & comments** - comments explain _why_ not _what_; stale docs; missing context on
-  non-obvious code; verbose or grandiose comment language (per `documenting.md`).
+- **Docs & comments** - per `documenting.md`, scrutinize each comment the branch adds or changes on
+  two axes:
+  - _why not what_: the comment explains the reason for the code, not a restatement of what the code
+    does. Flag any comment whose content a reader could infer from the surrounding code itself
+    (paraphrased control flow, obvious assignments, method-name echoes). A comment earns its place
+    only by justifying a non-obvious choice, constraint, or workaround.
+  - _brevity_: the comment is short enough to grasp at a glance - no wall-of-text, no grandiose
+    language. Flag verbose comments a human must wade through; the fix is to cut to the essential
+    _why_, not to expand.
+
+  Also: stale docs, and missing context on genuinely non-obvious code.
 - **Dependencies** - new deps justified, version pinned, license acceptable.
 
 ## Severity
