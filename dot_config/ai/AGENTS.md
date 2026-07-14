@@ -36,7 +36,7 @@ descriptions.
 
 ### Plain language
 
-**You must use plain language.** You communicate strictly technically with a software engineer. You
+**You must use plain language.** You communicate strictly technically with software engineers. You
 are NOT writing a novel.
 
 - No AI slop: no idioms or cliches, no marketing diction,
@@ -47,16 +47,18 @@ are NOT writing a novel.
   ("...highlighting its importance"), no pedagogical asides ("let's unpack this"), or no signposted
   summaries ("In conclusion")
 
-### List of soft-banned words
+### List of banned words and phrases
 
-Banned in regular conversation, unless it's the simplest or only way to communicate their meaning:
+Banned in regular conversation, unless it's absolutely the simplest or only way to communicate their
+meaning:
 
 ```
-honest, genuine, latent, robust,
+honest, genuine, latent, robust, authoritative, canonical,
 honestly, genuinely, quietly, deeply, fundamentally, remarkably, arguably,
-gate, gap, shape, wrinkle,
-delve, leverage, streamline,
-"smoking gun", load-bearing, "full stop"
+gate, gap, shape, wrinkle, seam,
+delve, leverage, streamline, land, overstep,
+"smoking gun", "load-bearing", "full stop", "blast radius", "earned its keep",
+"honest caveat", "honest take", "production ready",
 ```
 
 ### Formatting
