@@ -11,6 +11,13 @@
     "DISABLE_AUTOUPDATER": "1",
     "ENABLE_LSP_TOOL": "1"
   },
+  "model": "opus",
+  "fallbackModel": [
+    "claude-opus-4-7",
+    "claude-opus-4-6"
+  ],
+  "effortLevel": "high",
+  "alwaysThinkingEnabled": true,
   "attribution": {
     "commit": "",
     "pr": ""
@@ -96,11 +103,53 @@
     "ask": [],
     "defaultMode": "default"
   },
-  "model": "opus",
-  "fallbackModel": [
-    "claude-opus-4-7",
-    "claude-opus-4-6"
-  ],
+  "sandbox": {
+    "enabled": false,
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedDomains": [
+        "*.githubusercontent.com",
+        "*.gradle.org",
+        "*.maven.org",
+        "*.npmjs.org",
+        "api.github.com",
+        "crates.io",
+        "dl.google.com",
+        "github.com",
+        "gitlab.com",
+        "index.crates.io",
+        "jitpack.io",
+        "registry.npmjs.org",
+        "repo.maven.apache.org",
+        "services.gradle.org",
+        "static.crates.io"
+      ]
+    },
+    "filesystem": {
+      "allowWrite": [
+        "~/.ai",
+        "~/.android",
+        "~/.cache",
+        "~/.cargo",
+        "~/.emulator_console_auth_token",
+        "~/.gradle",
+        "~/.m2",
+        "~/.npm"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.mitmproxy",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.ssh",
+          "mode": "deny"
+        }
+      ]
+    }
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -163,14 +212,12 @@
       }
     }
   },
+  "theme": "auto",
   "syntaxHighlightingDisabled": false,
-  "alwaysThinkingEnabled": true,
-  "effortLevel": "high",
-  "showClearContextOnPlanAccept": true,
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
-  "theme": "auto",
   "preferredNotifChannel": "notifications_disabled",
+  "showClearContextOnPlanAccept": true,
   "skipAutoPermissionPrompt": true,
   "autoConnectIde": false
 }
