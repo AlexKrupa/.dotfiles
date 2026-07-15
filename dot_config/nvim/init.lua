@@ -840,13 +840,6 @@ require('lazy').setup({
       --  - ci'  - [C]hange [I]nside [']quote
       require('mini.ai').setup { n_lines = 500 }
 
-      -- Add/delete/replace surroundings (brackets, quotes, etc.)
-      --
-      -- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
-      -- - sd'   - [S]urround [D]elete [']quotes
-      -- - sr)'  - [S]urround [R]eplace [)] [']
-      require('mini.surround').setup()
-
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
       --  and try some other statusline plugin
@@ -1022,8 +1015,9 @@ require('lazy').setup({
         desc = 'Flash',
       },
       {
+        -- Visual S left to nvim-surround (tpope grammar), matching ideavim.
         'S',
-        mode = { 'n', 'x', 'o' },
+        mode = { 'n', 'o' },
         function()
           require('flash').treesitter()
         end,
@@ -1079,6 +1073,16 @@ require('lazy').setup({
   {
     'tommcdo/vim-exchange',
     event = 'VeryLazy',
+  },
+
+  -- Surround: add/change/delete surrounding pairs.
+  -- Defaults match ideavim's tpope/vim-surround: ys{motion}{char}, yss,
+  -- ds{char}, cs{target}{replacement}, visual S{char}.
+  {
+    'kylechui/nvim-surround',
+    version = '*',
+    event = 'VeryLazy',
+    opts = {},
   },
 
   -- Neo-tree: File explorer
