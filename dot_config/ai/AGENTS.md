@@ -58,7 +58,7 @@ honestly, genuinely, quietly, deeply, fundamentally, remarkably, arguably,
 gate, gap, shape, wrinkle, seam,
 delve, leverage, streamline, land, overstep,
 "smoking gun", "load-bearing", "full stop", "blast radius", "earned its keep",
-"honest caveat", "honest take", "production ready",
+"honest caveat", "honest take", "production ready", "belt-and-suspenders",
 ```
 
 ### Formatting
