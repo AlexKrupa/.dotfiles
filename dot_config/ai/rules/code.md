@@ -19,6 +19,7 @@ paths:
   - Explain WHY, not WHAT
   - Exist only when the WHY is not obvious
   - Are BRIEF and only provide relevant information, not transient conversation context
+  - A comment to generic code must not reference specific code
 - Include context in logs and error messages
 - Only clean up things your changes made unused
 - Avoid abbreviations, unless very local or obvious from domain context and they aid readability
