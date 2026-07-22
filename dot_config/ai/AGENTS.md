@@ -69,7 +69,8 @@ delve, leverage, streamline, land, overstep,
   - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,
     diagrams, and code.
 - Use single dashes instead of en- or em-dashes
-- Avoid semicolon abuse - use a dash or a separate sentence instead
+- Semicolons: default to splitting into two sentences or using a dash. Keep one only when the
+  clauses are inseparable.
 - Code: backticks for inline (`Class.method()`), blocks for multi-line, including in commit messages
 - Headings: sentence case (`## This format`), except proper names or code
 - **Boldface** and emojis: use sparingly
@@ -87,13 +88,13 @@ delve, leverage, streamline, land, overstep,
 - Plan format: `[Step] -> verify: [check]`
 - After each step, show results and pause for review
 - TDD for bugs: write a failing test first, then fix
-- Git: do not commit or open PRs unless requested
+- Git: do not commit, push or open PRs unless requested
 
 ### Superpowers
 
 - Planning: prefer vertical slices for tasks within an architectural boundary: a small E2E
   functional capability is better than a non-functional layer
-- Git: make commits (vertical slices), do not suggest opening PRs
+- Git: make commits (vertical slices), do not suggest pushing or opening PRs
 
 ## ~/.ai/ work directory
 
@@ -112,7 +113,7 @@ Layout:
   worktrees; all worktrees of a repo share one name - no per-worktree subdir)
 - Outside a git repo it prints `_no-repo` - use `~/.ai/_no-repo/`
 - Create the subdirectory if missing
-- Do not mention the work directory in conversations
+- Never talk about the work directory in conversations other than referencing file paths
 
 ## Environment
 
