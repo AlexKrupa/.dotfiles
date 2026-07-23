@@ -1,11 +1,10 @@
 config-version = 2
 
 start-at-login = true
-
 auto-reload-config = true
 
 exec-on-workspace-change = [
-    '/bin/bash', '-c', '~/.config/aerospace/pip-move',
+  '/bin/bash', '-c', '~/.config/aerospace/pip-move',
 ]
 
 enable-normalization-flatten-containers = true
@@ -17,7 +16,11 @@ default-root-container-orientation = 'horizontal'
 automatically-unhide-macos-hidden-apps = true
 
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
-on-focus-changed = ['move-mouse window-lazy-center']
+on-focus-changed = [
+  'move-mouse window-lazy-center',
+  # Ghost window workaround: https://github.com/nikitabobko/AeroSpace/issues/1615#issuecomment-4948929400
+  'exec-and-forget /opt/homebrew/bin/aerospace list-windows --all'
+]
 
 accordion-padding = 20
 
@@ -26,43 +29,43 @@ persistent-workspaces = ["Y", "U", "I", "O", "P"]
 # Avoid 'layout tiling' in apps that show popups/dialogs.
 # 'layout tiling' also breaks Preview, so browsers/Finder omit it.
 on-window-detected = [
-    {
-        if = 'test %{app-bundle-id} = com.mitchellh.ghostty',
-        run = ['move-node-to-workspace U --focus-follows-window', 'layout tiling'],
-    },
-    {
-        if = 'test %{app-bundle-id} = com.google.android.studio || test %{app-bundle-id} = com.google.android.studio-EAP || test %{app-bundle-id} = com.jetbrains.intellij.ce',
-        run = 'move-node-to-workspace I --focus-follows-window',
-    },
-    {
-        if = 'test %{app-bundle-id} = com.google.Chrome || test %{app-bundle-id} = com.microsoft.edgemac || test %{app-bundle-id} = org.mozilla.firefox || test %{app-bundle-id} = com.apple.finder',
-        run = 'move-node-to-workspace O --focus-follows-window',
-    },
-    {
-        if = 'test %{app-bundle-id} = com.apple.iCal || test %{app-bundle-id} = com.apple.Notes || test %{app-bundle-id} = md.obsidian || test %{app-bundle-id} = com.tinyspeck.slackmacgap || test %{app-bundle-id} = com.spotify.client',
-        run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling'],
-    },
-    {
-        if = 'test %{app-bundle-id} = io.zsa.keymapp',
-        run = 'move-node-to-workspace P --focus-follows-window',
-    },
-    {
-        if = 'test %{window-title} ~= Picture-in-Picture',
-        run = 'layout floating',
-    },
-    {
-        check-further-callbacks = true,
-        run = 'layout floating',
-    },
+  {
+    if = 'test %{app-bundle-id} = com.mitchellh.ghostty',
+    run = ['move-node-to-workspace U --focus-follows-window', 'layout tiling'],
+  },
+  {
+    if = 'test %{app-bundle-id} = com.google.android.studio || test %{app-bundle-id} = com.google.android.studio-EAP || test %{app-bundle-id} = com.jetbrains.intellij.ce',
+    run = 'move-node-to-workspace I --focus-follows-window',
+  },
+  {
+    if = 'test %{app-bundle-id} = com.google.Chrome || test %{app-bundle-id} = com.microsoft.edgemac || test %{app-bundle-id} = org.mozilla.firefox || test %{app-bundle-id} = com.apple.finder',
+    run = 'move-node-to-workspace O --focus-follows-window',
+  },
+  {
+    if = 'test %{app-bundle-id} = com.apple.iCal || test %{app-bundle-id} = com.apple.Notes || test %{app-bundle-id} = md.obsidian || test %{app-bundle-id} = com.tinyspeck.slackmacgap || test %{app-bundle-id} = com.spotify.client',
+    run = ['move-node-to-workspace P --focus-follows-window', 'layout tiling'],
+  },
+  {
+    if = 'test %{app-bundle-id} = io.zsa.keymapp',
+    run = 'move-node-to-workspace P --focus-follows-window',
+  },
+  {
+    if = 'test %{window-title} ~= Picture-in-Picture',
+    run = 'layout floating',
+  },
+  {
+    check-further-callbacks = true,
+    run = 'layout floating',
+  },
 ]
 
 [gaps]
-    inner.horizontal = 0
-    inner.vertical =   0
-    outer.bottom =     0
-    outer.top =        0
-    outer.right =      0
-    outer.left =       0
+  inner.horizontal = 0
+  inner.vertical =   0
+  outer.bottom =     0
+  outer.top =        0
+  outer.right =      0
+  outer.left =       0
 
 # General binding rules:
 # - Meh key to focus (alt-ctrl-shift)
@@ -72,69 +75,69 @@ on-window-detected = [
 
 [mode.main.binding]
 
-    # Layout
-    alt-ctrl-shift-e = 'layout accordion horizontal vertical'
-    alt-ctrl-shift-r = 'layout tiles horizontal vertical'
-    alt-ctrl-shift-f = 'fullscreen'
-    alt-ctrl-shift-cmd-f = 'layout floating tiling'
-    alt-ctrl-shift-cmd-m = 'macos-native-minimize'
+  # Layout
+  alt-ctrl-shift-e = 'layout accordion horizontal vertical'
+  alt-ctrl-shift-r = 'layout tiles horizontal vertical'
+  alt-ctrl-shift-f = 'fullscreen'
+  alt-ctrl-shift-cmd-f = 'layout floating tiling'
+  alt-ctrl-shift-cmd-m = 'macos-native-minimize'
 
-    alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
-    alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
+  alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
+  alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
 
-    cmd-h = [] # Disable "hide application"
-    cmd-alt-h = [] # Disable "hide others"
-    cmd-m = [] # Disable "minimize application"
+  cmd-h = [] # Disable "hide application"
+  cmd-alt-h = [] # Disable "hide others"
+  cmd-m = [] # Disable "minimize application"
 
-    # Resizing
-    alt-ctrl-shift-minus = 'resize smart -200'
-    alt-ctrl-shift-equal = 'resize smart +200'
+  # Resizing
+  alt-ctrl-shift-minus = 'resize smart -200'
+  alt-ctrl-shift-equal = 'resize smart +200'
 
-    # Focus
-    alt-ctrl-shift-h = 'focus left'
-    alt-ctrl-shift-j = 'focus down'
-    alt-ctrl-shift-k = 'focus up'
-    alt-ctrl-shift-l = 'focus right'
+  # Focus
+  alt-ctrl-shift-h = 'focus left'
+  alt-ctrl-shift-j = 'focus down'
+  alt-ctrl-shift-k = 'focus up'
+  alt-ctrl-shift-l = 'focus right'
 
-    # Focus specific windows
-    alt-ctrl-shift-enter = 'exec-and-forget ~/.config/aerospace/focus-app "Android Studio"'
-    alt-ctrl-shift-space = 'exec-and-forget ~/.config/aerospace/focus-app "Ghostty"'
+  # Focus specific windows
+  alt-ctrl-shift-enter = 'exec-and-forget ~/.config/aerospace/focus-app "Android Studio"'
+  alt-ctrl-shift-space = 'exec-and-forget ~/.config/aerospace/focus-app "Ghostty"'
 
-    # Move window direction
-    alt-ctrl-shift-cmd-h = 'move left'
-    alt-ctrl-shift-cmd-j = 'move down'
-    alt-ctrl-shift-cmd-k = 'move up'
-    alt-ctrl-shift-cmd-l = 'move right'
+  # Move window direction
+  alt-ctrl-shift-cmd-h = 'move left'
+  alt-ctrl-shift-cmd-j = 'move down'
+  alt-ctrl-shift-cmd-k = 'move up'
+  alt-ctrl-shift-cmd-l = 'move right'
 
-    # Workspace
-    alt-ctrl-shift-y = 'workspace Y'
-    alt-ctrl-shift-u = 'workspace U'
-    alt-ctrl-shift-i = 'workspace I'
-    alt-ctrl-shift-o = 'workspace O'
-    alt-ctrl-shift-p = 'workspace P'
+  # Workspace
+  alt-ctrl-shift-y = 'workspace Y'
+  alt-ctrl-shift-u = 'workspace U'
+  alt-ctrl-shift-i = 'workspace I'
+  alt-ctrl-shift-o = 'workspace O'
+  alt-ctrl-shift-p = 'workspace P'
 
-    # Move to workspace
-    alt-ctrl-shift-cmd-y = 'move-node-to-workspace --focus-follows-window Y'
-    alt-ctrl-shift-cmd-u = 'move-node-to-workspace --focus-follows-window U'
-    alt-ctrl-shift-cmd-i = 'move-node-to-workspace --focus-follows-window I'
-    alt-ctrl-shift-cmd-o = 'move-node-to-workspace --focus-follows-window O'
-    alt-ctrl-shift-cmd-p = 'move-node-to-workspace --focus-follows-window P'
+  # Move to workspace
+  alt-ctrl-shift-cmd-y = 'move-node-to-workspace --focus-follows-window Y'
+  alt-ctrl-shift-cmd-u = 'move-node-to-workspace --focus-follows-window U'
+  alt-ctrl-shift-cmd-i = 'move-node-to-workspace --focus-follows-window I'
+  alt-ctrl-shift-cmd-o = 'move-node-to-workspace --focus-follows-window O'
+  alt-ctrl-shift-cmd-p = 'move-node-to-workspace --focus-follows-window P'
 
-    alt-ctrl-shift-cmd-quote = 'mode service'
+  alt-ctrl-shift-cmd-quote = 'mode service'
 
 [mode.service.binding]
-    esc = ['reload-config', 'mode main']
-    r = ['flatten-workspace-tree', 'mode main'] # reset layout
+  esc = ['reload-config', 'mode main']
+  r = ['flatten-workspace-tree', 'mode main'] # reset layout
 
-    alt-ctrl-shift-cmd-h = ['join-with left', 'mode main']
-    alt-ctrl-shift-cmd-j = ['join-with down', 'mode main']
-    alt-ctrl-shift-cmd-k = ['join-with up', 'mode main']
-    alt-ctrl-shift-cmd-l = ['join-with right', 'mode main']
+  alt-ctrl-shift-cmd-h = ['join-with left', 'mode main']
+  alt-ctrl-shift-cmd-j = ['join-with down', 'mode main']
+  alt-ctrl-shift-cmd-k = ['join-with up', 'mode main']
+  alt-ctrl-shift-cmd-l = ['join-with right', 'mode main']
 
 [workspace-to-monitor-force-assignment]
-    Y = ['built-in', 'DELL']
-    U = ['DELL', 'built-in']
-    I = ['DELL', 'built-in']
-    O = ['DELL', 'built-in']
-    P = ['built-in', 'DELL']
+  Y = ['DELL', 'built-in']
+  U = ['DELL', 'built-in']
+  I = ['DELL', 'built-in']
+  O = ['DELL', 'built-in']
+  P = ['built-in', 'DELL']
 
