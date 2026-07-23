@@ -12,7 +12,6 @@ set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx GOPATH $XDG_DATA_HOME/go
 set -gx RBENV_ROOT $XDG_DATA_HOME/rbenv
 set -gx PYENV_ROOT $XDG_DATA_HOME/pyenv
-set -gx GRADLE_USER_HOME $XDG_DATA_HOME/gradle
 set -gx NPM_CONFIG_CACHE $XDG_CACHE_HOME/npm
 set -gx NPM_CONFIG_INIT_MODULE $XDG_CONFIG_HOME/npm/config/npm-init.js
 set -gx LESSHISTFILE $XDG_STATE_HOME/lesshst
