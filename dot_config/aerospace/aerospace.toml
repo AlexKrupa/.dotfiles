@@ -16,11 +16,7 @@ default-root-container-orientation = 'horizontal'
 automatically-unhide-macos-hidden-apps = true
 
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
-on-focus-changed = [
-  'move-mouse window-lazy-center',
-  # Ghost window workaround: https://github.com/nikitabobko/AeroSpace/issues/1615#issuecomment-4948929400
-  'exec-and-forget /opt/homebrew/bin/aerospace list-windows --all'
-]
+on-focus-changed = ['move-mouse window-lazy-center']
 
 accordion-padding = 20
 
