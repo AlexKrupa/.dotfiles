@@ -12,6 +12,14 @@ function claude --description 'Run Claude Code after navigating to git root'
     command claude $argv
 end
 
+function __claude_upgrade_cask
+    echo "Upgrading claude-code cask..."
+    if not brew upgrade --cask claude-code@latest
+        echo "claude-upgrade: brew upgrade failed" >&2
+        return 1
+    end
+end
+
 function claude-upgrade --description 'Quit all interactive tmux claude sessions, upgrade the cask, relaunch each resuming its conversation'
     set -l dry_run 0
     for arg in $argv
@@ -101,19 +109,15 @@ function claude-upgrade --description 'Quit all interactive tmux claude sessions
 
     set -l n (count $rec_pid)
     if test $n -eq 0
-        echo "claude-upgrade: no quittable interactive claude sessions found"
+        echo "No claude sessions to quit; upgrading only."
         for s in $skipped
             echo "  skip: $s"
         end
         if test $dry_run -eq 1
             return 0
         end
-        echo "Upgrading claude-code cask..."
-        if not brew upgrade --cask claude-code@latest
-            echo "claude-upgrade: brew upgrade failed" >&2
-            return 1
-        end
-        return 0
+        __claude_upgrade_cask
+        return
     end
 
     # List sessions: location line, then claude-info line with colored status.
@@ -186,9 +190,8 @@ function claude-upgrade --description 'Quit all interactive tmux claude sessions
     end
 
     # Upgrade. Abort relaunch on failure.
-    echo "Upgrading claude-code cask..."
-    if not brew upgrade --cask claude-code@latest
-        echo "claude-upgrade: brew upgrade failed; not relaunching" >&2
+    if not __claude_upgrade_cask
+        echo "claude-upgrade: not relaunching" >&2
         return 1
     end
 
