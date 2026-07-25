@@ -2,6 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "respectGitignore": true,
   "env": {
+    "CAVEMAN_DEFAULT_MODE": "lite",
     "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "0",
     "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
     "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
@@ -50,7 +51,6 @@
       "Bash(gs branch:*)",
       "Bash(gs log:*)",
       "Bash(head *)",
-      "Bash(java *)",
       "Bash(ksrc *)",
       "Bash(ls *)",
       "Bash(pwd)",
@@ -66,16 +66,16 @@
       "Read(~/.ai/*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__claude_ai_Context7__query-docs",
+      "mcp__claude_ai_Context7__resolve-library-id",
       "mcp__context7__query-docs",
       "mcp__context7__resolve-library-id",
-      "mcp__plugin_context7_context7__query-docs",
-      "mcp__plugin_context7_context7__resolve-library-id",
       "Bash(~/.claude/skills/review-branch/branch-context.sh:*)",
       "Bash(~/.claude/skills/review-branch/report-path.sh:*)",
       "Bash(~/.claude/skills/review-me/absorb-fixes.sh:*)",
-      "Bash(~/.claude/skills/debug-gitlab/*)",
-      "Bash(~/.claude/skills/review-gitlab/*)",
-      "Bash(~/.config/ai/bin/*)"
+      "Bash(~/.claude/skills/debug-gitlab/gitlab.sh:*)",
+      "Bash(~/.claude/skills/review-gitlab/fetch-mr.sh:*)",
+      "Bash(~/.config/ai/bin/repo-slug.sh)"
     ],
     "deny": [
       "Bash(git branch -D *)",
@@ -95,8 +95,15 @@
     "ask": [],
     "defaultMode": "default"
   },
+  "skillOverrides": {
+    "caveman:cavecrew": "off",
+    "caveman:caveman-commit": "off",
+    "caveman:caveman-compress": "off",
+    "caveman:caveman-stats": "off"
+  },
   "model": "opus[1m]",
   "fallbackModel": [
+    "claude-opus-4-8",
     "claude-opus-4-7",
     "claude-opus-4-6"
   ],
@@ -128,16 +135,14 @@
     "chrisbanes-skills@chrisbanes-skills": false,
     "clangd-lsp@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": false,
-    "claude-md-management@claude-plugins-official": true,
-    "context7@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": false,
     "gopls-lsp@claude-plugins-official": false,
     "jdtls-lsp@claude-plugins-official": false,
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
     "pyright-lsp@claude-plugins-official": false,
-    "serena@claude-plugins-official": false,
-    "skill-creator@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false
