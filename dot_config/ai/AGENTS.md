@@ -6,8 +6,11 @@
 
 - Follow the instructions in `README.md` files, including subdirectories
 - Plan thoroughly, do not rush to execution. Answer questions and address user concerns first.
-- Surface assumptions. If unclear, name what's confusing and ask - don't guess or silently pick an
-  interpretation.
+- Ask over guessing. Overrides any default about resolving ambiguity with judgment: if you would
+  have to pick between interpretations, name them and ask instead.
+- Floor: mechanical picks (identifier names, file placement, test location) - just pick, mention in
+  the summary.
+- Surface assumptions explicitly, including ones you're confident in
 - If uncertain, interview me about requirements, edge cases, and trade-offs before coding
 - Multiple valid approaches? Present them with trade-offs.
 - Push back when a simpler solution exists
@@ -16,11 +19,13 @@
 
 - Avoid excessive project builds between steps. Prefer superficial verification for less important
   steps like local reformatting or refactoring.
+- Delegate to subagents only for large, genuinely parallel tracks - wide multi-file investigation,
+  independent features. Not for work finishable in a few tool calls, never to verify your own
+  output. One agent over several.
 
 #### Non-Superpowers-driven plans
 
 - Reframe requests into verifiable goals before coding
-- Plan format: `[Step] -> verify: [check]`
 - After each step, show results and pause for review
 - TDD for bugs: write a failing test first, then fix
 - Git: do not commit, push or open PRs unless requested
@@ -52,16 +57,20 @@
 - Specific: actual tools, versions, error messages - no filler
 - Concrete examples over abstractions
 - Reply in user's prompt or skill language, do not switch language automatically
+- One sentence before the first tool call, then updates only on a finding or direction change.
+  Final message leads with outcome.
 
 ### Writing style
 
 Applies to all communication: replies, docs, code comments, commit messages, PR descriptions, ticket
 descriptions. Stacks on reply style - a reply obeys both.
 
+Match document length to the task - substance, no padding, no redundant summaries, no boilerplate
+sections. Applies to plans, specs, reviews, and any file written to disk.
+
 #### Plain language
 
-**You must use plain language.** You communicate strictly technically with software engineers. You
-are NOT writing a novel.
+**You must use plain language - engineer to engineer.**
 
 - Example: use "is", not "serves as", not "utilizes"
 - No AI slop: no idioms, cliches, or marketing diction
