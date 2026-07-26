@@ -13,18 +13,35 @@
 #    That's why I wrote this script.
 
 function __shokz_cut_times --description 'Segment cut times snapped to silence midpoints'
-  awk 'function abs(x){return x<0?-x:x} BEGIN{
-    duration=ARGV[1]+0; seglen=ARGV[2]+0; window=ARGV[3]+0; n=0;
-    for(i=4;i<ARGC;i++) mids[++n]=ARGV[i]+0;
-    last=0; target=last+seglen; out="";
-    while(target<duration){
-      lo=target-window; hi=target+window; best=""; bestdist="";
-      for(i=1;i<=n;i++){ m=mids[i];
-        if(m>last && m>=lo && m<=hi){ d=abs(m-target);
-          if(bestdist=="" || d<bestdist){best=m; bestdist=d} } }
-      if(best!="") cut=best; else cut=target;
-      out=(out==""?cut:out","cut); last=cut; target=last+seglen; }
-    print out; exit }' $argv
+  set -l duration $argv[1]
+  set -l seglen $argv[2]
+  set -l window $argv[3]
+  set -l mids $argv[4..-1]
+
+  set -l cuts
+  set -l last 0
+  while true
+    set -l target (math "$last + $seglen")
+    test $target -lt $duration
+    or break
+
+    # Seeding with the window makes out-of-range midpoints lose on distance alone.
+    set -l cut $target
+    set -l best_distance $window
+    for mid in $mids
+      test $mid -gt $last
+      or continue
+      set -l distance (math "abs($mid - $target)")
+      test $distance -le $best_distance
+      or continue
+      set best_distance $distance
+      set cut $mid
+    end
+
+    set -a cuts $cut
+    set last $cut
+  end
+  string join , $cuts
 end
 
 function shokz --description 'Prepare audio for Shokz OpenSwim headphones'
