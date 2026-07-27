@@ -70,6 +70,8 @@
       "mcp__claude_ai_Context7__resolve-library-id",
       "mcp__context7__query-docs",
       "mcp__context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "mcp__plugin_context7_context7__resolve-library-id",
       "Bash(~/.claude/skills/review-branch/branch-context.sh:*)",
       "Bash(~/.claude/skills/review-branch/report-path.sh:*)",
       "Bash(~/.claude/skills/review-me/absorb-fixes.sh:*)",
