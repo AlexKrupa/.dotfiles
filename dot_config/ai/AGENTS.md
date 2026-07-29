@@ -57,8 +57,8 @@
 - Specific: actual tools, versions, error messages - no filler
 - Concrete examples over abstractions
 - Reply in user's prompt or skill language, do not switch language automatically
-- One sentence before the first tool call, then updates only on a finding or direction change.
-  Final message leads with outcome.
+- One sentence before the first tool call, then updates only on a finding or direction change. Final
+  message leads with outcome.
 
 ### Writing style
 
@@ -82,8 +82,7 @@ sections. Applies to plans, specs, reviews, and any file written to disk.
 
 #### List of banned words and phrases
 
-Forbidden in conversation, unless it's absolutely the simplest or only way to communicate their
-meaning:
+Forbidden in conversation, unless it's absolutely the only way to communicate their meaning:
 
 ```
 honest, genuine, latent, robust, authoritative, canonical,
@@ -92,6 +91,7 @@ gate, gap, shape, wrinkle, seam,
 delve, leverage, streamline, land, overstep,
 "smoking gun", "load-bearing", "full stop", "blast radius", "earned its keep",
 "honest caveat", "honest take", "production ready", "belt-and-suspenders",
+"worth flagging",
 ```
 
 #### Formatting
@@ -106,7 +106,6 @@ delve, leverage, streamline, land, overstep,
   clauses are inseparable.
 - Code: backticks for inline (`Class.method()`), blocks for multi-line, including in commit messages
 - Headings: sentence case (`## This format`), except proper names or code
-- **Boldface** and emojis: use sparingly
 
 ## ~/.ai/ work directory
 
@@ -125,7 +124,6 @@ Layout:
   repo across worktrees)
 - `_no-repo` outside git
 - Create subdirectory if missing
-- Never discuss the work directory except to reference paths
 
 ## Environment
 
