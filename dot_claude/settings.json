@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "respectGitignore": true,
   "env": {
-    "CAVEMAN_DEFAULT_MODE": "lite",
+    "CAVEMAN_DEFAULT_MODE": "full",
     "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "0",
     "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
     "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
@@ -97,18 +97,18 @@
     "ask": [],
     "defaultMode": "default"
   },
-  "skillOverrides": {
-    "caveman:cavecrew": "off",
-    "caveman:caveman-commit": "off",
-    "caveman:caveman-compress": "off",
-    "caveman:caveman-stats": "off"
-  },
   "model": "opus[1m]",
   "fallbackModel": [
     "claude-opus-4-8",
     "claude-opus-4-7",
     "claude-opus-4-6"
   ],
+  "skillOverrides": {
+    "caveman:cavecrew": "off",
+    "caveman:caveman-commit": "off",
+    "caveman:caveman-compress": "off",
+    "caveman:caveman-stats": "off"
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -143,11 +143,12 @@
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
+    "ponytail@ponytail": true,
     "pyright-lsp@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false
+    "typescript-lsp@claude-plugins-official": false,
   },
   "extraKnownMarketplaces": {
     "caveman": {
@@ -160,6 +161,12 @@
       "source": {
         "source": "github",
         "repo": "chrisbanes/skills"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
       }
     },
     "respawn-tools": {
