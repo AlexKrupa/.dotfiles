@@ -112,7 +112,7 @@ glab_mr_view_json() {
 
 resolve_branch_to_iid() {
   local branch="$1" json count
-  json=$(glab mr list --source-branch "$branch" --state opened --output json 2>/dev/null) \
+  json=$(glab mr list --source-branch "$branch" --output json 2>/dev/null) \
     || die "glab mr list failed for branch '$branch'" "$E_NETWORK"
   count=$(jq 'length' <<<"$json")
   case "$count" in
