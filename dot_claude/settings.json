@@ -148,7 +148,7 @@
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false,
+    "typescript-lsp@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "caveman": {
