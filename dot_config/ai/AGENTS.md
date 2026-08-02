@@ -52,8 +52,8 @@
 
 - Expert-to-expert
 - Lead with solution, then details
+- Extremely concise - sacrifice grammar for the sake of concision
 - Brief: no apologies, repetition, or generic praise. Remove all conversational text.
-- When reporting to me, be extremely concise - sacrifice grammar for it.
 - Specific: actual tools, versions, error messages - no filler
 - Concrete examples over abstractions
 - Reply in user's prompt or skill language, do not switch language automatically

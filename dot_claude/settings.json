@@ -139,6 +139,7 @@
     "claude-code-setup@claude-plugins-official": false,
     "claude-md-management@claude-plugins-official": false,
     "gopls-lsp@claude-plugins-official": false,
+    "i-have-adhd@i-have-adhd": true,
     "jdtls-lsp@claude-plugins-official": false,
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
@@ -173,6 +174,12 @@
       "source": {
         "source": "github",
         "repo": "respawn-app/claude-plugin-marketplace"
+      }
+    },
+    "i-have-adhd": {
+      "source": {
+        "source": "github",
+        "repo": "ayghri/i-have-adhd"
       }
     }
   },
