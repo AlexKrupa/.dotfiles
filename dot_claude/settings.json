@@ -1,6 +1,31 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "respectGitignore": true,
+  "alwaysThinkingEnabled": true,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "autoConnectIde": false,
+  "effortLevel": "high",
+  "enabledPlugins": {
+    "caveman@caveman": true,
+    "chrisbanes-skills@chrisbanes-skills": false,
+    "clangd-lsp@claude-plugins-official": false,
+    "claude-code-setup@claude-plugins-official": false,
+    "claude-md-management@claude-plugins-official": false,
+    "gopls-lsp@claude-plugins-official": false,
+    "i-have-adhd@i-have-adhd": true,
+    "jdtls-lsp@claude-plugins-official": false,
+    "kotlin-lsp@claude-plugins-official": false,
+    "ksrc@respawn-tools": false,
+    "lua-lsp@claude-plugins-official": false,
+    "ponytail@ponytail": true,
+    "pyright-lsp@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": false,
+    "typescript-lsp@claude-plugins-official": false
+  },
   "env": {
     "CAVEMAN_DEFAULT_MODE": "full",
     "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "0",
@@ -12,10 +37,57 @@
     "DISABLE_AUTOUPDATER": "1",
     "ENABLE_LSP_TOOL": "1"
   },
-  "attribution": {
-    "commit": "",
-    "pr": ""
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "repo": "JuliusBrussee/caveman",
+        "source": "github"
+      }
+    },
+    "chrisbanes-skills": {
+      "source": {
+        "repo": "chrisbanes/skills",
+        "source": "github"
+      }
+    },
+    "i-have-adhd": {
+      "source": {
+        "repo": "ayghri/i-have-adhd",
+        "source": "github"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "repo": "DietrichGebert/ponytail",
+        "source": "github"
+      }
+    },
+    "respawn-tools": {
+      "source": {
+        "repo": "respawn-app/claude-plugin-marketplace",
+        "source": "github"
+      }
+    }
   },
+  "fallbackModel": [
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/guard.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "model": "opus[1m]",
   "permissions": {
     "allow": [
       "Bash(./gradlew *)",
@@ -79,6 +151,8 @@
       "Bash(~/.claude/skills/review-gitlab/fetch-mr.sh:*)",
       "Bash(~/.config/ai/bin/repo-slug.sh)"
     ],
+    "ask": [],
+    "defaultMode": "default",
     "deny": [
       "Bash(git branch -D *)",
       "Bash(git checkout -- *)",
@@ -93,99 +167,38 @@
       "Edit(**/gradle.lockfile)",
       "Edit(**/build/**)",
       "Edit(**/generated/**)"
-    ],
-    "ask": [],
-    "defaultMode": "default"
-  },
-  "model": "opus[1m]",
-  "fallbackModel": [
-    "claude-opus-4-8",
-    "claude-opus-4-7",
-    "claude-opus-4-6"
-  ],
-  "skillOverrides": {
-    "caveman:cavecrew": "off",
-    "caveman:caveman-commit": "off",
-    "caveman:caveman-compress": "off",
-    "caveman:caveman-stats": "off"
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/guard.sh"
-          }
-        ]
-      }
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/statusline-command.sh",
-    "refreshInterval": 5,
-    "hideVimModeIndicator": true
-  },
-  "subagentStatusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/subagent-statusline.sh"
-  },
-  "enabledPlugins": {
-    "caveman@caveman": true,
-    "chrisbanes-skills@chrisbanes-skills": false,
-    "clangd-lsp@claude-plugins-official": false,
-    "claude-code-setup@claude-plugins-official": false,
-    "claude-md-management@claude-plugins-official": false,
-    "gopls-lsp@claude-plugins-official": false,
-    "i-have-adhd@i-have-adhd": true,
-    "jdtls-lsp@claude-plugins-official": false,
-    "kotlin-lsp@claude-plugins-official": false,
-    "ksrc@respawn-tools": false,
-    "lua-lsp@claude-plugins-official": false,
-    "ponytail@ponytail": true,
-    "pyright-lsp@claude-plugins-official": false,
-    "skill-creator@claude-plugins-official": false,
-    "superpowers@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false
-  },
-  "extraKnownMarketplaces": {
-    "caveman": {
-      "source": {
-        "source": "github",
-        "repo": "JuliusBrussee/caveman"
-      }
-    },
-    "chrisbanes-skills": {
-      "source": {
-        "source": "github",
-        "repo": "chrisbanes/skills"
-      }
-    },
-    "ponytail": {
-      "source": {
-        "source": "github",
-        "repo": "DietrichGebert/ponytail"
-      }
-    },
-    "respawn-tools": {
-      "source": {
-        "source": "github",
-        "repo": "respawn-app/claude-plugin-marketplace"
-      }
-    },
-    "i-have-adhd": {
-      "source": {
-        "source": "github",
-        "repo": "ayghri/i-have-adhd"
-      }
-    }
-  },
+  "preferredNotifChannel": "notifications_disabled",
+  "prefersReducedMotion": false,
+  "respectGitignore": true,
   "sandbox": {
-    "enabled": false,
     "autoAllowBashIfSandboxed": true,
+    "credentials": {
+      "files": [
+        {
+          "mode": "deny",
+          "path": "~/.mitmproxy"
+        },
+        {
+          "mode": "deny",
+          "path": "~/.ssh"
+        }
+      ]
+    },
+    "enabled": false,
+    "filesystem": {
+      "allowWrite": [
+        "~/.ai",
+        "~/.android",
+        "~/.cache",
+        "~/.cargo",
+        "~/.emulator_console_auth_token",
+        "~/.gradle",
+        "~/.m2",
+        "~/.npm"
+      ]
+    },
     "network": {
       "allowedDomains": [
         "*.githubusercontent.com",
@@ -204,40 +217,27 @@
         "services.gradle.org",
         "static.crates.io"
       ]
-    },
-    "filesystem": {
-      "allowWrite": [
-        "~/.ai",
-        "~/.android",
-        "~/.cache",
-        "~/.cargo",
-        "~/.emulator_console_auth_token",
-        "~/.gradle",
-        "~/.m2",
-        "~/.npm"
-      ]
-    },
-    "credentials": {
-      "files": [
-        {
-          "path": "~/.mitmproxy",
-          "mode": "deny"
-        },
-        {
-          "path": "~/.ssh",
-          "mode": "deny"
-        }
-      ]
     }
   },
-  "syntaxHighlightingDisabled": false,
-  "alwaysThinkingEnabled": true,
-  "effortLevel": "high",
   "showClearContextOnPlanAccept": true,
-  "prefersReducedMotion": false,
   "showThinkingSummaries": true,
-  "theme": "auto",
-  "preferredNotifChannel": "notifications_disabled",
+  "skillOverrides": {
+    "caveman:cavecrew": "off",
+    "caveman:caveman-commit": "off",
+    "caveman:caveman-compress": "off",
+    "caveman:caveman-stats": "off"
+  },
   "skipAutoPermissionPrompt": true,
-  "autoConnectIde": false
+  "statusLine": {
+    "command": "bash ~/.claude/statusline-command.sh",
+    "hideVimModeIndicator": true,
+    "refreshInterval": 5,
+    "type": "command"
+  },
+  "subagentStatusLine": {
+    "command": "bash ~/.claude/subagent-statusline.sh",
+    "type": "command"
+  },
+  "syntaxHighlightingDisabled": false,
+  "theme": "auto"
 }

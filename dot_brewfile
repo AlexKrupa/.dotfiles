@@ -122,10 +122,12 @@ cask "bettercmdtab" # restart-on-upgrade: BetterCmdTab:pro.bettercmdtab.BetterCm
 cask "bettertouchtool" # restart-on-upgrade: BetterTouchTool:com.hegenberg.BetterTouchTool
 # cask "bruno" # API-client, Postman alternative
 # cask "calibre" # ebook manager
+# cask "cyberduck" # FTP client
 # cask "discord"
+cask "espanso" # text expander
 cask "free-ruler" # screen ruler for measuring pixel distances
 # cask "handbrake" # video converter / compressor
-cask "handy" # speech-to-text
+cask "handy" # speech-to-text # restart-on-upgrade: Handy:com.pais.handy
 # cask "homerow" # keyboard shortcuts for every button on the screen, paid, alt: shortcat
 cask "ghostty"
 # cask "google-drive"
@@ -141,8 +143,9 @@ cask "keyboardcleantool" # disable keyboard for cleaning
 cask "latest" # update all apps
 cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
 cask "lulu" # connection blocker
+cask "macshot" # screenshot tool
 # cask "marta" # file manager
-# cask "microsoft-edge" # restart-on-upgrade: Microsoft Edge:com.google.Chrome
+# cask "microsoft-edge" # prompt-on-upgrade: Microsoft Edge:com.microsoft.edgemac
 # cask "middleclick" # trackpad middle-click with 3 fingers
 cask "mitmproxy" # network proxy / request debugging
 # cask "mullvadvpn"
@@ -154,14 +157,15 @@ cask "pearcleaner" # app uninstaller/cleaner, probably better than appcleaner
 # cask "proxyman" # for debugging network requests
 # cask "qbittorrent" # torrent client
 # cask "rapidapi" # API client (Postman alternative)
-cask "raycast" # productivity tool, Spotlight replacement
-cask "shortcat" # click anything on the screen, alt: homerow
+cask "raycast" # productivity tool, Spotlight replacement # restart-on-upgrade: Raycast:com.raycast.macos
+cask "shortcat" # click anything on the screen, alt: homerow # restart-on-upgrade: Shortcat:com.sproutcube.Shortcat
 cask "shottr" # screenshot tool
 # cask "slack"
 # cask "spotify"
+cask "stats" # system monitor in the menu bar
 cask "sublime-text" # text editor
 # cask "table-tool" # CSV editor
-cask "thaw" # hide menu bar icons
+cask "thaw" # hide menu bar icons # restart-on-upgrade: Thaw:com.stonerl.Thaw
 cask "the-unarchiver" # unzip
 # cask "via" # keyboard configurator (e.g. Keychron)
 # cask "visual-studio-code"
