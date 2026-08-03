@@ -32,8 +32,8 @@
 
 #### Superpowers
 
-- Planning: prefer vertical slices for tasks within an architectural boundary: a small E2E
-  functional capability is better than a non-functional layer
+- Planning: vertical slices for tasks within an architectural boundary - a small E2E functional
+  capability is better than a non-functional layer
 - Git: make commits (vertical slices), do not suggest pushing or opening PRs
 
 ## Code
@@ -56,7 +56,6 @@
 - Brief: no apologies, repetition, or generic praise. Remove all conversational text.
 - Specific: actual tools, versions, error messages - no filler
 - Concrete examples over abstractions
-- Reply in user's prompt or skill language, do not switch language automatically
 - One sentence before the first tool call, then updates only on a finding or direction change. Final
   message leads with outcome.
 
@@ -70,12 +69,13 @@ sections. Applies to plans, specs, reviews, and any file written to disk.
 
 #### Plain language
 
-**You must use plain language - engineer to engineer.**
+**You must use plain language.**
 
 - Example: use "is", not "serves as", not "utilizes"
-- No AI slop: no idioms, cliches, or marketing diction
-- No impersonating a human - you're a machine, never "honest", never "think"
-- No dramatism, no punchy sentences, no buildup
+- No AI slop:
+  - No jargon, idioms, cliches, or marketing diction
+  - No impersonating a human - you're a machine, never "honest", never "think"
+  - No dramatism, no punchy sentences, no buildup
 - No filler transitions ("It's worth noting", "Importantly", "Truth is"), no -ing tails
   ("...highlighting its importance"), no pedagogical asides ("let's unpack this"), or signposted
   summaries ("In conclusion")
@@ -115,8 +115,8 @@ Persistent AI work per repo: `~/.ai/<repo-name>/`. Overrides Superpowers default
 Layout:
 
 - `reviews/` - code reviews (`YYYY-MM-DD-<...>.md`)
-- `plans/` - `YYYY-MM-DD-<feature-name>.md`
-- `specs/` - `YYYY-MM-DD-<topic>-design.md`
+- `plans/` - `YYYY-MM-DD-<optional-ticket-id>-<feature-name>.md`
+- `specs/` - `YYYY-MM-DD-<optional-ticket-id>-<topic>-design.md`
 
 `<repo-name>`:
 
@@ -124,6 +124,8 @@ Layout:
   repo across worktrees)
 - `_no-repo` outside git
 - Create subdirectory if missing
+
+<optional-ticket-id> - infer from conversation context or branch name.
 
 ## Environment
 
