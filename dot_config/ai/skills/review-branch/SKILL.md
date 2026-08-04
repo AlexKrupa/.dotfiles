@@ -42,10 +42,10 @@ vs parent, or when parent is unresolved - relay that message and stop.
 Parent detection (auto, no override arg): the nearest local branch that is a strict ancestor of HEAD
 is the immediate stack parent. If that branch is mainline (`main`/`master`/`develop` or a remote
 default branch), the base is mainline: the script fetches the remote copy (best-effort) and anchors
-on the remote-tracking ref (e.g. `origin/main`), so a stale local mainline does not pollute the diff
-with other people's commits. If fetch fails (offline) or there is no remote, it warns on stderr and
-falls back to the local mainline ref. An intermediate stack parent stays anchored on its local tip
-(its split point is your local tip), no fetch.
+on the remote-tracking ref (e.g. `origin/main`), so a stale local mainline does not pollute the
+diff with other people's commits. If fetch fails (offline) or there is no remote, it warns on stderr
+and falls back to the local mainline ref. An intermediate stack parent stays anchored on its local
+tip (its split point is your local tip), no fetch.
 
 Output keys: `branch`, `parent`, `parent-source` (`ancestor-branch` | `default-branch` |
 `override`), `parent-fetched` (`yes`/`no`), `uncommitted` (`yes`/`no`), `diff-command`, then
@@ -80,6 +80,14 @@ no docs-related findings.
 
 Record which docs you actually opened in the report's required `Convention docs consulted:` header
 line (see "Report structure"). Use `none found` only when the helper reported `docs-found: 0`.
+
+### Existing implementations
+
+Only when the diff adds something meant for reuse (shared helper, extension function, base class,
+interface, generic wrapper): search the repo for equivalent behavior before treating it as new - by
+name, by signature, and in the module where such a thing would already live. A duplication finding
+requires the existing symbol's `file:line`; if you did not find one, there is no finding. Skip this
+step entirely when the diff adds no reusable symbol.
 
 **Parent override:** pass the parent branch as the first arg (callers like `review-gitlab` do this).
 The script validates the ref exists locally and reports `parent-source: override`.
@@ -120,8 +128,9 @@ condition is really as claimed, and the code is introduced by this branch (pre-e
   clearer inlined; wrappers/indirection/file splits with one caller; single-impl interface within
   the same module (cross-module `api`/`impl` splits can be fine); speculative params/config/hooks
   for futures that don't exist; flag-argument functions; deep nesting that collapses to guard
-  clauses; reinventing stdlib or an existing util instead of reusing it. Flag only when the simpler
-  form is clearly better, not preference.
+  clauses; reinventing stdlib or an existing util instead of reusing it (cite the existing symbol's
+  `file:line` - no citation, no finding); a new shared or public utility with one caller that
+  belongs private to it. Flag only when the simpler form is clearly better, not preference.
 - **Public API / contracts** - breaking signature or schema changes, missing migration notes.
 - **Style & consistency** - matches surrounding code (not personal preference; not lint-fixable
   trivia unless it actually breaks CI).
@@ -129,10 +138,10 @@ condition is really as claimed, and the code is introduced by this branch (pre-e
   two axes:
   - _why not what_: the comment explains the reason for the code, not a restatement of what the code
     does. Flag any comment whose content a reader could infer from the surrounding code itself
-    (paraphrased control flow, obvious assignments, method-name echoes). A comment earns its place
-    only by justifying a non-obvious choice, constraint, or workaround.
-  - _brevity_: the comment is short enough to grasp at a glance - no wall-of-text, no grandiose
-    language. Flag verbose comments a human must wade through; the fix is to cut to the essential
+    (paraphrased control flow, obvious assignments, method-name echoes). A comment is justified only
+    by a non-obvious choice, constraint, or workaround.
+  - _brevity_: the comment is short enough to grasp at a glance - no wall-of-text, no inflated
+    language. Flag verbose comments a human must read through; the fix is to cut to the essential
     _why_, not to expand.
 
   Also: stale docs, and missing context on genuinely non-obvious code.
@@ -145,7 +154,7 @@ condition is really as claimed, and the code is introduced by this branch (pre-e
   without migration.
 - `minor` - worth fixing: small bug in unlikely edge case, mild duplication, unclear naming on a
   public symbol.
-- `nit` - optional: bikeshed-grade polish.
+- `nit` - optional polish.
 
 Empty buckets are fine. Do not invent findings to fill them.
 
@@ -237,8 +246,7 @@ when prose is unclear.
 - Diffing the working tree instead of `<parent>...HEAD`.
 - Flagging pre-existing code outside the branch's diff under a severity bucket (it belongs in "Out
   of scope").
-- Long code blocks in the report. Keep it scannable - the reader's eye should land on TL;DR + Counts
-  first.
+- Long code blocks in the report. Keep it scannable - TL;DR + Counts come first.
 - Filling buckets with manufactured findings. Empty bucket > fake bucket.
 - Writing a finding without confirming its `file:line` and claim against the actual diff. Unverified
   findings are fabrications - drop them.

@@ -8,18 +8,18 @@
   "autoConnectIde": false,
   "effortLevel": "high",
   "enabledPlugins": {
-    "caveman@caveman": true,
+    "caveman@caveman": false,
     "chrisbanes-skills@chrisbanes-skills": false,
     "clangd-lsp@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": false,
     "claude-md-management@claude-plugins-official": false,
     "gopls-lsp@claude-plugins-official": false,
-    "i-have-adhd@i-have-adhd": true,
+    "i-have-adhd@i-have-adhd": false,
     "jdtls-lsp@claude-plugins-official": false,
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
-    "ponytail@ponytail": true,
+    "ponytail@ponytail": false,
     "pyright-lsp@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
@@ -27,7 +27,7 @@
     "typescript-lsp@claude-plugins-official": false
   },
   "env": {
-    "CAVEMAN_DEFAULT_MODE": "full",
+    "CAVEMAN_DEFAULT_MODE": "lite",
     "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "0",
     "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
     "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
@@ -221,12 +221,6 @@
   },
   "showClearContextOnPlanAccept": true,
   "showThinkingSummaries": true,
-  "skillOverrides": {
-    "caveman:cavecrew": "off",
-    "caveman:caveman-commit": "off",
-    "caveman:caveman-compress": "off",
-    "caveman:caveman-stats": "off"
-  },
   "skipAutoPermissionPrompt": true,
   "statusLine": {
     "command": "bash ~/.claude/statusline-command.sh",

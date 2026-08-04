@@ -48,9 +48,9 @@ proceeding.
 - Snapshot / golden-file regeneration.
 - Dependency add / upgrade / remove.
 - Any change to code **not introduced by this branch** (out-of-scope cleanup).
-- Adding concurrency changes - flag and ask; concurrency is rarely "low risk". (This is a fix-risk
-  gate - whether to auto-edit. Detection of concurrency issues is review-branch's "Concurrency &
-  data races" bucket, a separate axis.)
+- Adding concurrency changes - flag and ask; concurrency is rarely "low risk". (This decides whether
+  to auto-edit. Detection of concurrency issues is review-branch's "Concurrency & data races"
+  bucket, a separate axis.)
 
 ### Git writes allowed
 
@@ -121,7 +121,7 @@ Short, scannable:
 
 - About to auto-apply a behavior change because it "feels safe". It's not auto-applicable. Ask.
 - Editing files outside `<parent>...HEAD`. Out of scope.
-- Skipping the re-review pass after fixes - the report on disk would lie.
+- Skipping the re-review pass after fixes - the report on disk would be wrong.
 - Running any git write outside "Git writes allowed".
 - Proceeding to the next pass with a non-clean working tree. Stop and surface the leftover.
 - Looping past 3 passes. Stop and ask the user.

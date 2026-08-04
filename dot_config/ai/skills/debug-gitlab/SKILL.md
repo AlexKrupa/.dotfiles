@@ -2,7 +2,7 @@
 name: debug-gitlab
 description:
   Use when a GitLab pipeline, job, or merge request failed and the user wants the root cause - by
-  URL, id, or implicitly the current branch. Read-only analysis; an optional fix step is gated on
+  URL, id, or implicitly the current branch. Read-only analysis; an optional fix step requires
   explicit user approval. Never pushes, retries, merges, or comments without consent.
 disable-model-invocation: true
 ---
@@ -67,8 +67,8 @@ header.
 
 Helper exit codes the skill must handle:
 
-- `2` not found (no pipeline / no test report / empty trace) - state the gap in the report; do not
-  retry blindly.
+- `2` not found (no pipeline / no test report / empty trace) - state what is missing in the report;
+  do not retry blindly.
 - `3` ambiguous (>1 open MR for the same branch) - the script prints the candidates on stderr; ask
   the user to pick by iid.
 - `4` missing `glab` / `jq` / auth - covered by Prerequisites.
@@ -124,7 +124,7 @@ other reason. Never `cat` or `Read` the whole file. Never use `glab ci trace` fo
 streams the full log into the conversation. Reserve `glab ci trace` for the case where the user
 explicitly wants to watch a running job.
 
-For pipelines with multiple failing jobs, fan out the per-job `"$GL" signals` calls in
+For pipelines with multiple failing jobs, run the per-job `"$GL" signals` calls in
 parallel (one Bash message, multiple calls). Each trace still stays on disk; only slices enter
 context.
 
@@ -217,7 +217,7 @@ Trigger only after the user explicitly confirms a checkout.
 ## Hard constraints
 
 - No `git push`, commits, amends, rebases. The only allowed checkouts are the failing pipeline's
-  source branch (repo-context step) and a new `fix/<short-cause>` branch (fix flow), both gated on
+  source branch (repo-context step) and a new `fix/<short-cause>` branch (fix flow), both requiring
   explicit consent.
 - No `glab ci retry`, `glab ci cancel`, `glab mr create / update / merge / approve / note`, or
   `glab issue` write subcommands.
@@ -227,7 +227,7 @@ Trigger only after the user explicitly confirms a checkout.
 
 ## Red flags - stop and reconsider
 
-- About to run `glab ci retry` because the log "looks like a flake". Recommend the retry in the
+- About to run `glab ci retry` because the log "looks like a flaky test". Recommend the retry in the
   report; let the user run it.
 - Reading a downloaded trace with `Read` or `cat`. Slice with `tail` / `grep` / `sed` first.
 - Skipping `failure_reason` or `test_report` and going straight to the raw trace. Cheap signals

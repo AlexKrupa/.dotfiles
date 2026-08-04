@@ -69,7 +69,8 @@ sections. Applies to plans, specs, reviews, and any file written to disk.
 
 #### Plain language
 
-**You must use plain language.**
+Use ASD-STE100 Simplified Technical English, never at the cost of concision - fragments and
+compression stay.
 
 - Example: use "is", not "serves as", not "utilizes"
 - No AI slop:

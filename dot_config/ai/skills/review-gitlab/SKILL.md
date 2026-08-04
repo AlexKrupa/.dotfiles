@@ -119,7 +119,7 @@ Augment the base report:
 1. **Header** - append MR URL, target branch, labels, state, draft flag, pipeline status.
 2. **Context** (new, between header and Findings):
    - Distill the MR description in one paragraph. If empty, flag "no description provided".
-   - Coverage check: does the description match what the diff actually changes? Note gaps.
+   - Coverage check: does the description match what the diff actually changes? Note omissions.
 3. **Findings** (from base skill) - for each finding that matches an existing discussion or bot
    note, add `(see thread by @<reviewer>)` or `(SAST flagged this)` inline after the finding's id.
 4. **Discussions** (new, after Findings):
@@ -152,4 +152,4 @@ Inherited from `review-branch` plus:
   file context, not just patch hunks.
 - Multiple open MRs for the same branch and you picked one silently. Ask the user.
 - Calling `glab mr view`, `glab api .../discussions`, or `glab mr list` directly instead of going
-  through `$FMR`. The script owns the JSON shape; ad-hoc calls drift from it.
+  through `$FMR`. The script owns the JSON shape; ad-hoc calls diverge from it.
