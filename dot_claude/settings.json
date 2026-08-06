@@ -82,6 +82,11 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/build-brief.sh",
+            "statusMessage": "Routing Gradle through build-brief"
           }
         ]
       }
@@ -90,9 +95,16 @@
   "model": "opus[1m]",
   "permissions": {
     "allow": [
+      "Bash(~/.claude/skills/review-branch/branch-context.sh:*)",
+      "Bash(~/.claude/skills/review-branch/report-path.sh:*)",
+      "Bash(~/.claude/skills/review-me/absorb-fixes.sh:*)",
+      "Bash(~/.claude/skills/debug-gitlab/gitlab.sh:*)",
+      "Bash(~/.claude/skills/review-gitlab/fetch-mr.sh:*)",
+      "Bash(~/.config/ai/bin/repo-slug.sh)",
       "Bash(./gradlew *)",
       "Bash(adb *)",
       "Bash(brew list:*)",
+      "Bash(build-brief *)",
       "Bash(cat *)",
       "Bash(diff *)",
       "Bash(echo *)",
@@ -143,13 +155,7 @@
       "mcp__context7__query-docs",
       "mcp__context7__resolve-library-id",
       "mcp__plugin_context7_context7__query-docs",
-      "mcp__plugin_context7_context7__resolve-library-id",
-      "Bash(~/.claude/skills/review-branch/branch-context.sh:*)",
-      "Bash(~/.claude/skills/review-branch/report-path.sh:*)",
-      "Bash(~/.claude/skills/review-me/absorb-fixes.sh:*)",
-      "Bash(~/.claude/skills/debug-gitlab/gitlab.sh:*)",
-      "Bash(~/.claude/skills/review-gitlab/fetch-mr.sh:*)",
-      "Bash(~/.config/ai/bin/repo-slug.sh)"
+      "mcp__plugin_context7_context7__resolve-library-id"
     ],
     "ask": [],
     "defaultMode": "default",
