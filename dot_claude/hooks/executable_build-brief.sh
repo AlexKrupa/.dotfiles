@@ -50,4 +50,4 @@ if [ "$rewritten" = "$cmd" ]; then
 fi
 
 jq -nc --arg c "$rewritten" \
-  '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"defer",updatedInput:{command:$c}}}'
+  '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"allow",updatedInput:{command:$c}}}'
