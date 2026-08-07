@@ -23,6 +23,28 @@ case "$cmd" in
 esac
 
 rewritten=$(build-brief rewrite "$cmd" 2>/dev/null) || exit 0
+
+# build-brief only matches a gradle runner at the start of a shell segment, so any exec wrapper
+# (timeout, nice, env, stdbuf, caffeinate, ...) hides it. Insert build-brief after the wrapper.
+# Wrappers are not enumerated: anything is treated as one unless it is a command known to take the
+# runner as a data argument instead of executing it.
+if [ "$rewritten" = "$cmd" ]; then
+  rewritten=$(perl -pe '
+    my $data = qr/cat|bat|less|more|head|tail|wc|od|xxd|file|stat|touch|chmod|chown|ln|cp|mv|rm|
+                  ls|git|diff|patch|grep|rg|ag|find|fd|sed|awk|vi|vim|nvim|nano|emacs|code|open|
+                  realpath|readlink|dirname|basename|shasum|cksum|source|echo|printf|which|type|
+                  brew|apt|apt-get|port|sdk/x;
+    s{
+      (^|[;&|]\s*)                          # segment start
+      ((?:\w+=\S+\s+)*)                     # env assignments
+      ((?!(?:$data)\b)                      # first word must not consume the path as data
+       [^\s;&|]+(?:\s+[^\s;&|]+)*?\s+)      # the wrapper and its own args
+      ([^\s;&|]*/gradlew(?:\.bat)?|gradle)  # the gradle runner
+      (?=\s|$)
+    }{$1$2$3build-brief $4}gx
+  ' <<<"$cmd")
+fi
+
 if [ "$rewritten" = "$cmd" ]; then
   exit 0
 fi

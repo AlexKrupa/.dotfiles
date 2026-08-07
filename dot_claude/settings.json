@@ -192,7 +192,7 @@
         }
       ]
     },
-    "enabled": false,
+    "enabled": true,
     "filesystem": {
       "allowWrite": [
         "~/.ai",
@@ -206,6 +206,10 @@
       ]
     },
     "network": {
+      "allowLocalBinding": true,
+      "allowMachLookup": [
+        "com.apple.trustd.agent"
+      ],
       "allowedDomains": [
         "*.githubusercontent.com",
         "*.gradle.org",
