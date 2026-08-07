@@ -1,31 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "alwaysThinkingEnabled": true,
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
-  "autoConnectIde": false,
-  "effortLevel": "high",
-  "enabledPlugins": {
-    "caveman@caveman": false,
-    "chrisbanes-skills@chrisbanes-skills": false,
-    "clangd-lsp@claude-plugins-official": false,
-    "claude-code-setup@claude-plugins-official": false,
-    "claude-md-management@claude-plugins-official": false,
-    "gopls-lsp@claude-plugins-official": false,
-    "i-have-adhd@i-have-adhd": true,
-    "jdtls-lsp@claude-plugins-official": false,
-    "kotlin-lsp@claude-plugins-official": false,
-    "ksrc@respawn-tools": false,
-    "lua-lsp@claude-plugins-official": false,
-    "ponytail@ponytail": true,
-    "pyright-lsp@claude-plugins-official": false,
-    "skill-creator@claude-plugins-official": false,
-    "superpowers@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false
-  },
+  "respectGitignore": true,
   "env": {
     "CAVEMAN_DEFAULT_MODE": "lite",
     "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "0",
@@ -37,62 +12,10 @@
     "DISABLE_AUTOUPDATER": "1",
     "ENABLE_LSP_TOOL": "1"
   },
-  "extraKnownMarketplaces": {
-    "caveman": {
-      "source": {
-        "repo": "JuliusBrussee/caveman",
-        "source": "github"
-      }
-    },
-    "chrisbanes-skills": {
-      "source": {
-        "repo": "chrisbanes/skills",
-        "source": "github"
-      }
-    },
-    "i-have-adhd": {
-      "source": {
-        "repo": "ayghri/i-have-adhd",
-        "source": "github"
-      }
-    },
-    "ponytail": {
-      "source": {
-        "repo": "DietrichGebert/ponytail",
-        "source": "github"
-      }
-    },
-    "respawn-tools": {
-      "source": {
-        "repo": "respawn-app/claude-plugin-marketplace",
-        "source": "github"
-      }
-    }
+  "attribution": {
+    "commit": "",
+    "pr": ""
   },
-  "fallbackModel": [
-    "claude-opus-4-8",
-    "claude-opus-4-7",
-    "claude-opus-4-6"
-  ],
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/build-brief.sh",
-            "statusMessage": "Routing Gradle through build-brief"
-          }
-        ]
-      }
-    ]
-  },
-  "model": "opus[1m]",
   "permissions": {
     "allow": [
       "Bash(~/.claude/skills/review-branch/branch-context.sh:*)",
@@ -157,8 +80,6 @@
       "mcp__plugin_context7_context7__query-docs",
       "mcp__plugin_context7_context7__resolve-library-id"
     ],
-    "ask": [],
-    "defaultMode": "default",
     "deny": [
       "Bash(git branch -D *)",
       "Bash(git checkout -- *)",
@@ -171,26 +92,136 @@
       "Read(**/.env.*)",
       "Edit(**/build/**)",
       "Edit(**/generated/**)"
+    ],
+    "ask": [],
+    "defaultMode": "default"
+  },
+  "model": "opus",
+  "fallbackModel": [
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/guard.sh"
+          }
+        ]
+      }
     ]
   },
-  "preferredNotifChannel": "notifications_disabled",
-  "prefersReducedMotion": false,
-  "respectGitignore": true,
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh",
+    "refreshInterval": 5,
+    "hideVimModeIndicator": true
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/subagent-statusline.sh"
+  },
+  "enabledPlugins": {
+    "build-brief@build-brief-local": false,
+    "caveman@caveman": false,
+    "chrisbanes-skills@chrisbanes-skills": false,
+    "clangd-lsp@claude-plugins-official": false,
+    "claude-code-setup@claude-plugins-official": false,
+    "claude-md-management@claude-plugins-official": false,
+    "gopls-lsp@claude-plugins-official": false,
+    "i-have-adhd@i-have-adhd": true,
+    "jdtls-lsp@claude-plugins-official": false,
+    "kotlin-lsp@claude-plugins-official": false,
+    "ksrc@respawn-tools": false,
+    "lua-lsp@claude-plugins-official": false,
+    "ponytail@ponytail": true,
+    "pyright-lsp@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": false,
+    "typescript-lsp@claude-plugins-official": false
+  },
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    },
+    "chrisbanes-skills": {
+      "source": {
+        "source": "github",
+        "repo": "chrisbanes/skills"
+      }
+    },
+    "i-have-adhd": {
+      "source": {
+        "source": "github",
+        "repo": "ayghri/i-have-adhd"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    },
+    "respawn-tools": {
+      "source": {
+        "source": "github",
+        "repo": "respawn-app/claude-plugin-marketplace"
+      }
+    },
+    "build-brief-local": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/alexkrupa/.claude/marketplaces/build-brief"
+      }
+    }
+  },
   "sandbox": {
+    "enabled": true,
     "autoAllowBashIfSandboxed": true,
-    "credentials": {
-      "files": [
-        {
-          "mode": "deny",
-          "path": "~/.mitmproxy"
-        },
-        {
-          "mode": "deny",
-          "path": "~/.ssh"
-        }
+    "network": {
+      "allowedDomains": [
+        "*.gradle.com",
+        "*.githubusercontent.com",
+        "*.gradle.org",
+        "*.maven.org",
+        "*.npmjs.org",
+        "*.sonatype.org",
+        "api.adoptium.net",
+        "api.foojay.io",
+        "api.github.com",
+        "central.sonatype.com",
+        "crates.io",
+        "dl.google.com",
+        "download.jetbrains.com",
+        "github.com",
+        "gitlab.com",
+        "index.crates.io",
+        "jitpack.io",
+        "maven.google.com",
+        "registry.npmjs.org",
+        "repo.maven.apache.org",
+        "services.gradle.org",
+        "static.crates.io"
+      ],
+      "strictAllowlist": true,
+      "allowLocalBinding": true,
+      "allowUnixSockets": [
+        "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock",
+        "/private/tmp/tmux-501/default"
+      ],
+      "allowMachLookup": [
+        "com.apple.trustd.agent",
+        "com.apple.FSEvents"
       ]
     },
-    "enabled": true,
     "filesystem": {
       "allowWrite": [
         "~/.ai",
@@ -200,47 +231,31 @@
         "~/.emulator_console_auth_token",
         "~/.gradle",
         "~/.m2",
-        "~/.npm"
+        "~/.npm",
+        "~/Library/Android/sdk"
       ]
     },
-    "network": {
-      "allowLocalBinding": true,
-      "allowMachLookup": [
-        "com.apple.trustd.agent",
-        "com.apple.FSEvents"
-      ],
-      "allowedDomains": [
-        "*.githubusercontent.com",
-        "*.gradle.org",
-        "*.maven.org",
-        "*.npmjs.org",
-        "api.github.com",
-        "crates.io",
-        "dl.google.com",
-        "github.com",
-        "gitlab.com",
-        "index.crates.io",
-        "jitpack.io",
-        "registry.npmjs.org",
-        "repo.maven.apache.org",
-        "services.gradle.org",
-        "static.crates.io"
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.mitmproxy",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.ssh",
+          "mode": "deny"
+        }
       ]
     }
   },
-  "showClearContextOnPlanAccept": true,
-  "showThinkingSummaries": true,
-  "skipAutoPermissionPrompt": true,
-  "statusLine": {
-    "command": "bash ~/.claude/statusline-command.sh",
-    "hideVimModeIndicator": true,
-    "refreshInterval": 5,
-    "type": "command"
-  },
-  "subagentStatusLine": {
-    "command": "bash ~/.claude/subagent-statusline.sh",
-    "type": "command"
-  },
   "syntaxHighlightingDisabled": false,
-  "theme": "auto"
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "high",
+  "showClearContextOnPlanAccept": true,
+  "prefersReducedMotion": false,
+  "showThinkingSummaries": true,
+  "theme": "auto",
+  "preferredNotifChannel": "notifications_disabled",
+  "skipAutoPermissionPrompt": true,
+  "autoConnectIde": false
 }
