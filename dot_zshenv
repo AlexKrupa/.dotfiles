@@ -1,0 +1,32 @@
+# Route JVM tools through the Claude Code sandbox proxy. The JVM ignores HTTP_PROXY, and the port and
+# token change every session, so the values are read at run time. Outside the sandbox HTTPS_PROXY is
+# unset and this block does nothing.
+#
+# Known limit: the Gradle daemon copies JAVA_TOOL_OPTIONS when it starts and keeps it. A daemon started
+# in one session points at a closed port in the next. Run `gw --stop` if a build reports a connection
+# failure on a port you did not configure.
+if [[ -n "$HTTPS_PROXY" ]]; then
+  _url=${HTTPS_PROXY#*://}
+  if [[ "$_url" == *@* ]]; then
+    _user=${_url%%:*}
+    _pass=${${_url%@*}#*:}
+    _hostport=${_url##*@}
+  else
+    _user=""
+    _pass=""
+    _hostport=$_url
+  fi
+
+  _opts="-Dhttp.proxyHost=${_hostport%:*} -Dhttp.proxyPort=${_hostport##*:}"
+  _opts+=" -Dhttps.proxyHost=${_hostport%:*} -Dhttps.proxyPort=${_hostport##*:}"
+  _opts+=" -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1"
+  if [[ -n "$_user" ]]; then
+    _opts+=" -Dhttp.proxyUser=$_user -Dhttp.proxyPassword=$_pass"
+    _opts+=" -Dhttps.proxyUser=$_user -Dhttps.proxyPassword=$_pass"
+    # The JDK refuses Basic authentication through a CONNECT tunnel until these are cleared.
+    _opts+=" -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes="
+  fi
+
+  export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }$_opts"
+  unset _url _user _pass _hostport _opts
+fi
