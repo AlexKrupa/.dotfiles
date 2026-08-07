@@ -169,8 +169,6 @@
       "Bash(rm -rf *)",
       "Read(**/.env)",
       "Read(**/.env.*)",
-      "Edit(**/*.lock)",
-      "Edit(**/gradle.lockfile)",
       "Edit(**/build/**)",
       "Edit(**/generated/**)"
     ]
