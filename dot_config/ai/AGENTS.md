@@ -58,6 +58,7 @@
 - Concrete examples over abstractions
 - One sentence before the first tool call, then updates only on a finding or direction change. Final
   message leads with outcome.
+- Put questions on separate lines, marked with a leading ❓
 
 ### Writing style
 
