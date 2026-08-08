@@ -96,9 +96,8 @@
     "ask": [],
     "defaultMode": "default"
   },
-  "model": "opus",
+  "model": "claude-opus-4-8",
   "fallbackModel": [
-    "claude-opus-4-8",
     "claude-opus-4-7",
     "claude-opus-4-6"
   ],
@@ -126,9 +125,10 @@
     "command": "bash ~/.claude/subagent-statusline.sh"
   },
   "enabledPlugins": {
+    "android-skills@android": false,
     "build-brief@build-brief-local": false,
     "caveman@caveman": false,
-    "chrisbanes-skills@chrisbanes-skills": false,
+    "chrisbanes-skills@chrisbanes": false,
     "clangd-lsp@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": false,
     "claude-md-management@claude-plugins-official": false,
@@ -138,6 +138,7 @@
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
+    "mattpocock-skills@mattpocock": true,
     "ponytail@ponytail": true,
     "pyright-lsp@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
@@ -146,13 +147,25 @@
     "typescript-lsp@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
+    "android": {
+      "source": {
+        "source": "github",
+        "repo": "android/skills"
+      }
+    },
+    "build-brief-local": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/alexkrupa/.claude/marketplaces/build-brief"
+      }
+    },
     "caveman": {
       "source": {
         "source": "github",
         "repo": "JuliusBrussee/caveman"
       }
     },
-    "chrisbanes-skills": {
+    "chrisbanes": {
       "source": {
         "source": "github",
         "repo": "chrisbanes/skills"
@@ -162,6 +175,12 @@
       "source": {
         "source": "github",
         "repo": "ayghri/i-have-adhd"
+      }
+    },
+    "mattpocock": {
+      "source": {
+        "source": "github",
+        "repo": "mattpocock/skills"
       }
     },
     "ponytail": {
@@ -174,12 +193,6 @@
       "source": {
         "source": "github",
         "repo": "respawn-app/claude-plugin-marketplace"
-      }
-    },
-    "build-brief-local": {
-      "source": {
-        "source": "directory",
-        "path": "/Users/alexkrupa/.claude/marketplaces/build-brief"
       }
     }
   },
@@ -212,10 +225,10 @@
         "static.crates.io"
       ],
       "strictAllowlist": true,
-      "allowLocalBinding": true,
       "allowUnixSockets": [
         "/private/tmp/tmux-501/default"
       ],
+      "allowLocalBinding": true,
       "allowMachLookup": [
         "com.apple.trustd.agent",
         "com.apple.FSEvents"
@@ -256,5 +269,6 @@
   "theme": "auto",
   "preferredNotifChannel": "notifications_disabled",
   "skipAutoPermissionPrompt": true,
-  "autoConnectIde": false
+  "autoConnectIde": false,
+  "agentPushNotifEnabled": true
 }
