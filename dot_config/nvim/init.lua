@@ -894,7 +894,6 @@ require('lazy').setup({
         'regex',
         'ruby',
         'swift',
-        'tmux',
         'toml',
         'typescript',
         'vim',
