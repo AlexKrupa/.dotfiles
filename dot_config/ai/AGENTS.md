@@ -5,6 +5,7 @@
 ### Before coding
 
 - Follow the instructions in `README.md` files, including subdirectories
+- Look at `docs/` or similar documentation directories
 - Plan thoroughly, do not rush to execution. Answer questions and address user concerns first.
 - Ask over guessing. Overrides any default about resolving ambiguity with judgment: if you would
   have to pick between interpretations, name them and ask instead.
@@ -15,18 +16,16 @@
 - Multiple valid approaches? Present them with trade-offs.
 - Push back when a simpler solution exists
 
-### Executing plans
+### Plans
 
-- Avoid excessive project builds between steps. Prefer superficial verification for less important
-  steps like local reformatting or refactoring.
+- Avoid excessive project builds between steps. Prefer superficial verification for safer or less
+  important steps like local reformatting or refactoring.
 - Delegate to subagents only for large, genuinely parallel tracks - wide multi-file investigation,
   independent features. Not for work finishable in a few tool calls, never to verify your own
   output. One agent over several.
 
 #### Non-Superpowers-driven plans
 
-- Reframe requests into verifiable goals before coding
-- After each step, show results and pause for review
 - TDD for bugs: write a failing test first, then fix
 - Git: do not commit, push or open PRs unless requested
 
@@ -39,6 +38,7 @@
 ## Code
 
 - Always check context7 before answering library/framework questions from memory
+- Prefer the MCP of an IDE or LSP over tool calls
 - Every changed line should trace to the request. Implement only what was asked, nothing beyond.
 - Validate at system boundaries only. Handle only errors that can actually happen.
 - No abstractions for single-use code. If a senior engineer would call it overcomplicated -
@@ -48,27 +48,13 @@
 
 ## Communication
 
-### Reply style
-
-- Expert-to-expert
-- Lead with solution, then details
-- Extremely concise - sacrifice grammar for the sake of concision
-- Brief: no apologies, repetition, or generic praise. Remove all conversational text.
-- Specific: actual tools, versions, error messages - no filler
-- Concrete examples over abstractions
-- One sentence before the first tool call, then updates only on a finding or direction change. Final
-  message leads with outcome.
-- Put questions on separate lines, marked with a leading ❓
-
-### Writing style
-
 Applies to all communication: replies, docs, code comments, commit messages, PR descriptions, ticket
 descriptions.
 
 Match document length to the task - substance, no padding, no redundant summaries, no boilerplate
 sections. Applies to plans, specs, reviews, and any file written to disk.
 
-#### Plain language
+### Plain language
 
 Use ASD-STE100 Simplified Technical English, never at the cost of concision - fragments and
 compression stay.
@@ -84,7 +70,7 @@ compression stay.
   ("...highlighting its importance"), no pedagogical asides ("let's unpack this"), or signposted
   summaries ("In conclusion")
 
-#### List of banned words and phrases
+### List of banned words and phrases
 
 Strictly forbidden in conversation, unless I use them or there's absolutely no alternative.
 
@@ -98,7 +84,7 @@ delve, leverage, streamline, land, overstep,
 "worth flagging",
 ```
 
-#### Formatting
+### Formatting
 
 - Reply and Markdown line length limit: 100 characters
 - Prefer ASCII over Unicode for punctuation and stylistic symbols (no smart quotes, em-dashes, or
@@ -110,6 +96,19 @@ delve, leverage, streamline, land, overstep,
   clauses are inseparable.
 - Code: backticks for inline (`Class.method()`), blocks for multi-line, including in commit messages
 - Headings: sentence case (`## This format`), except proper names or code
+
+### Reply style
+
+- Follow previous communication rules
+- Expert-to-expert
+- Lead with solution, then details
+- Extremely concise - sacrifice grammar for the sake of concision
+- Brief: no apologies, repetition, or generic praise. Remove all conversational text.
+- Specific: actual tools, versions, error messages - no filler
+- Concrete examples over abstractions
+- One sentence before the first tool call, then updates only on a finding or direction change. Final
+  message leads with outcome.
+- Put questions on separate lines, marked with a leading ❓
 
 ## ~/.ai/ work directory
 
