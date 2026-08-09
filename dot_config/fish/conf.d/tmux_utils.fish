@@ -29,7 +29,7 @@ function tmux-split --description 'Run a command in a new tmux pane'
 end
 
 status is-interactive; and begin
-    set fish_tmux_autostart true
+    set fish_tmux_autostart false
 end
 
 alias tmuxc "$EDITOR ~/.config/tmux/tmux.conf"

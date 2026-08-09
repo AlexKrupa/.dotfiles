@@ -1,0 +1,35 @@
+#!/usr/bin/env fish
+# project <n>
+# Focus the workspace for line <n> of ~/.config/herdr/projects.local, or create it.
+# Silent no-op when the file or the line is missing, so alt+u/i/o do nothing
+# until the machine-local file is filled in.
+#
+# Matches through `herdr pane list`, not `herdr workspace list`. WorkspaceInfo has
+# no cwd. PaneInfo has both cwd and workspace_id. The recursive jq keeps this
+# independent of the response envelope.
+
+set -l n $argv[1]
+set -l list ~/.config/herdr/projects.local
+
+string match -qr '^[1-9][0-9]*$' -- "$n"; or exit 0
+test -f $list; or exit 0
+command -v jq >/dev/null; or exit 0
+
+set -l dir (sed -n "$n"p $list | string trim)
+test -n "$dir"; or exit 0
+string match -q '#*' -- $dir; and exit 0
+set dir (string replace -r '^~' $HOME -- $dir)
+test -d $dir; or exit 0
+# herdr reports physical paths, so resolve symlinks before comparing. Without
+# this, any project under a symlinked path creates a new workspace every press.
+set dir (path resolve $dir)
+
+set -l id (herdr pane list 2>/dev/null | jq -r --arg d "$dir" '
+  [.. | objects | select(.cwd? == $d) | .workspace_id?]
+  | map(select(. != null)) | first // empty')
+
+if test -n "$id"
+  herdr workspace focus $id
+else
+  herdr workspace create --cwd $dir --label (basename $dir) --focus
+end

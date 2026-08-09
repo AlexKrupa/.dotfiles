@@ -1,0 +1,179 @@
+onboarding = false
+# herdr config. Ported from ~/.config/tmux/tmux.conf on 2026-08-09.
+# Comments mark herdr's own default so an override is a one-line edit.
+# herdr defines no alt or alt+shift default on any action.
+
+[terminal]
+default_shell = "/opt/homebrew/bin/fish"
+shell_mode = "login"
+new_cwd = "follow"                 # default, matches -c '#{pane_current_path}'
+
+[theme]
+name = "dracula"
+
+[ui]
+mouse_capture = true               # default, was `set -g mouse on`
+copy_on_select = true              # default, replaces tmux-yank
+mouse_scroll_lines = 1             # default 3, matches the `-N 1` wheel bindings
+prompt_new_tab_name = false        # default true - number the tab, rename later with alt+n
+show_agent_labels_on_pane_borders = false
+
+[ui.toast]
+delivery = "herdr"                 # required for tiny-fingers' copy toast
+
+[experimental]
+kitty_graphics = true              # replaces allow-passthrough for Yazi image preview
+pane_history = true                # replaces @resurrect-capture-pane-contents
+
+[session]
+resume_agents_on_restore = true    # default, resumes Claude Code conversations after a restart
+
+# [advanced] scrollback_limit_bytes defaults to 10 MB per pane, the rough
+# equivalent of `history-limit 50000`. Left at the default.
+
+[keys]
+prefix = "ctrl+space"                                    # herdr default: ctrl+b
+
+# Help and settings
+help                     = "prefix+?"                    # default
+settings                 = "prefix+s"                    # default
+
+# Workspaces
+new_workspace            = "prefix+shift+n"              # default
+new_worktree             = ["prefix+shift+g", "alt+G"]   # default + added
+rename_workspace         = "prefix+shift+w"              # default
+close_workspace          = "prefix+shift+d"              # default
+workspace_picker         = "prefix+w"                    # default
+goto                     = "prefix+g"                    # default
+previous_workspace       = "alt+E"                       # default: unset
+next_workspace           = "alt+R"                       # default: unset
+switch_workspace         = "alt+shift+1..9"              # default: unset
+# open_worktree                                          # default: unset
+# remove_worktree                                        # default: unset
+# previous_agent                                         # default: unset
+# next_agent                                             # default: unset
+focus_agent              = "ctrl+alt+1..9"               # default: unset
+
+# Tabs
+new_tab                  = ["prefix+c", "alt+t"]         # default + added
+rename_tab               = ["prefix+shift+t", "alt+n"]   # default + added
+previous_tab             = ["prefix+p", "alt+e"]         # default + added
+next_tab                 = ["prefix+n", "alt+r"]         # default + added
+switch_tab               = ["prefix+1..9", "alt+1..9"]   # default + added
+close_tab                = ["prefix+shift+x", "alt+W"]   # default + added
+
+# Panes
+focus_pane_left          = ["prefix+h", "alt+h"]         # default + added
+focus_pane_down          = ["prefix+j", "alt+j"]         # default + added
+focus_pane_up            = ["prefix+k", "alt+k"]         # default + added
+focus_pane_right         = ["prefix+l", "alt+l"]         # default + added
+swap_pane_left           = ["prefix+shift+h", "alt+H"]   # default + added
+swap_pane_down           = ["prefix+shift+j", "alt+J"]   # default + added
+swap_pane_up             = ["prefix+shift+k", "alt+K"]   # default + added
+swap_pane_right          = ["prefix+shift+l", "alt+L"]   # default + added
+split_vertical           = ["prefix+v", "alt+slash"]     # default + added, side by side
+split_horizontal         = ["prefix+minus", "alt+minus"] # default + added, stacked
+close_pane               = ["prefix+x", "alt+w"]         # default + added
+zoom                     = ["prefix+z", "alt+z"]         # default + added
+copy_mode                = ["prefix+[", "alt+v"]         # default + added
+rename_pane              = "prefix+shift+p"              # default
+edit_scrollback          = "prefix+e"                    # default
+resize_mode              = "prefix+r"                    # default
+cycle_pane_next          = "prefix+tab"                  # default
+cycle_pane_previous      = "prefix+shift+tab"            # default
+# last_pane                                              # default: unset
+
+# Session and UI
+detach                   = "prefix+q"                    # default
+reload_config            = "prefix+shift+r"              # default
+toggle_sidebar           = "prefix+b"                    # default
+open_notification_target = "prefix+o"                    # default
+remote_image_paste       = "ctrl+v"                      # default, remote attach only
+
+# Navigate mode: unmodified keys, active only inside navigate mode
+navigate_workspace_up    = "up"                          # default
+navigate_workspace_down  = "down"                        # default
+navigate_pane_left       = "h"                           # default
+navigate_pane_down       = "j"                           # default
+navigate_pane_up         = "k"                           # default
+navigate_pane_right      = "l"                           # default
+
+# --- Custom commands: scripts ---
+
+[[keys.command]]
+key = "alt+T"
+type = "shell"
+command = "~/.config/herdr/bin/break-pane"
+description = "pane to new tab"
+
+# alt+u/i/o read one absolute path per line from ~/.config/herdr/projects.local:
+# line 1 is alt+u, line 2 alt+i, line 3 alt+o. A missing file, blank line or
+# comment makes the key do nothing. That file is machine-local, never committed.
+
+[[keys.command]]
+key = "alt+u"
+type = "shell"
+command = "~/.config/herdr/bin/project 1"
+description = "project 1"
+
+[[keys.command]]
+key = "alt+i"
+type = "shell"
+command = "~/.config/herdr/bin/project 2"
+description = "project 2"
+
+[[keys.command]]
+key = "alt+o"
+type = "shell"
+command = "~/.config/herdr/bin/project 3"
+description = "project 3"
+
+[[keys.command]]
+key = "alt+="
+type = "shell"
+command = "~/.config/herdr/bin/equalize-panes"
+description = "even out splits"
+
+# --- Custom commands: plugin actions ---
+
+[[keys.command]]
+key = "alt+q"
+type = "plugin_action"
+command = "termscope.open"
+description = "open a visible file"
+
+[[keys.command]]
+key = "alt+s"
+type = "plugin_action"
+command = "fullerzz.sesh.open-picker"
+description = "session picker"
+
+[[keys.command]]
+key = "alt+a"
+type = "plugin_action"
+command = "herdr-navigator.open"
+description = "jump to anything"
+
+[[keys.command]]
+key = "alt+d"
+type = "plugin_action"
+command = "fullerzz.sesh.last"
+description = "previous workspace"
+
+[[keys.command]]
+key = "alt+c"
+type = "plugin_action"
+command = "rmarganti.herdr-pluck.pluck"
+description = "copy with hints"
+
+[[keys.command]]
+key = "alt+C"
+type = "plugin_action"
+command = "hotchpotch.herdr-tiny-fingers.open"
+description = "copy with hints (trial)"
+
+[[keys.command]]
+key = "alt+x"
+type = "plugin_action"
+command = "rmarganti.herdr-pluck.open-url"
+description = "open a link with hints"

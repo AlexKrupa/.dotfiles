@@ -1,0 +1,21 @@
+# Ported from tmux.conf @fingers-pattern-0..2.
+# Rust regex has no lookbehind. The named `match` capture does the same job, because
+# pluck copies only that capture when one is present.
+# Lower priority wins, and a custom pattern beats a built-in at equal priority. So
+# url-trimmed and path-trimmed override pluck's own URL and path matchers on purpose.
+# If those built-ins already trim trailing punctuation, drop both and keep gradle.
+
+[[patterns]]
+name = "gradle"
+regex = ':(?:[a-zA-Z0-9_.-]+:)+[a-zA-Z0-9_.-]+'
+priority = 20
+
+[[patterns]]
+name = "path-trimmed"
+regex = '(?<match>([.\w\-~$@]+)?(/[.\w\-@]+)+/?)[.,;:]?'
+priority = 25
+
+[[patterns]]
+name = "url-trimmed"
+regex = '''(?<match>(https?://|git@|git://|ssh://|ftp://|file:///)[^\s()"']+)[.,;:]?'''
+priority = 20

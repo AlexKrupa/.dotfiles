@@ -1,0 +1,3 @@
+# Needs [ui.toast] delivery = "herdr" in ~/.config/herdr/config.toml.
+copy_toast = true
+direct_paste = false

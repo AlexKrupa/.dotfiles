@@ -1,0 +1,11 @@
+#!/usr/bin/env fish
+# herdr-rpc <method> [params-json]
+# One JSON-RPC call to the herdr socket. Prints the response object.
+set -l method $argv[1]
+set -l params $argv[2]
+test -n "$method"; or exit 2
+test -n "$params"; or set params '{}'
+test -S "$HERDR_SOCKET_PATH"; or exit 2
+# The server does not close the connection after it replies. Without -w 3 a bare
+# `nc -U` waits for ever and stalls the server.
+printf '{"id":"rpc","method":"%s","params":%s}\n' $method $params | nc -U -w 3 "$HERDR_SOCKET_PATH"
