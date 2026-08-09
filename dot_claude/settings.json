@@ -113,6 +113,18 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/alexkrupa/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -227,7 +239,8 @@
       ],
       "strictAllowlist": true,
       "allowUnixSockets": [
-        "/private/tmp/tmux-501/default"
+        "/private/tmp/tmux-501/default",
+        "~/.config/herdr/herdr.sock"
       ],
       "allowLocalBinding": true,
       "allowMachLookup": [
@@ -245,7 +258,11 @@
         "~/.gradle",
         "~/.m2",
         "~/.npm",
-        "~/Library/Android/sdk"
+        "~/Library/Android/sdk",
+        "/dev/ptmx",
+        "/dev/ttys*",
+        "~/.config/herdr",
+        "~/.local/state/herdr"
       ]
     },
     "credentials": {
