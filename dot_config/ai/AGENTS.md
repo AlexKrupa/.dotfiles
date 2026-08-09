@@ -90,6 +90,7 @@ delve, leverage, streamline, land, carry, overstep,
 - Code: backticks for inline (`Class.method()`), fences for multi-line. Including in commit message
   title and body.
 - Headings: sentence case (`## This format`), except proper names or code
+- Replace OSC-8 hyperlinks with Markdown-style links so that the URL is visible
 
 ### Reply style
 

@@ -18,6 +18,7 @@ mouse_scroll_lines = 1             # default 3, matches the `-N 1` wheel binding
 prompt_new_tab_name = false        # default true - number the tab, rename later with alt+n
 show_agent_labels_on_pane_borders = false
 
+agent_panel_sort = "spaces"
 [experimental]
 kitty_graphics = true              # replaces allow-passthrough for Yazi image preview
 pane_history = true                # replaces @resurrect-capture-pane-contents
@@ -134,7 +135,7 @@ description = "even out splits"
 # --- Custom commands: plugin actions ---
 
 [[keys.command]]
-key = "alt+q"
+key = "alt+x"
 type = "plugin_action"
 command = "termscope.open"
 description = "open a visible file"
@@ -164,7 +165,7 @@ command = "rmarganti.herdr-pluck.pluck"
 description = "copy with hints"
 
 [[keys.command]]
-key = "alt+x"
+key = "alt+C"
 type = "plugin_action"
 command = "rmarganti.herdr-pluck.open-url"
 description = "open a link with hints"
