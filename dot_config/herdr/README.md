@@ -16,7 +16,7 @@ Prefix is `ctrl+space`, same as the old tmux prefix. Every default binding is wr
 | `bin/equalize-panes` | Give every pane in the tab an equal share |
 | `bin/herdr-rpc` | One JSON-RPC call to the herdr socket, for API calls the CLI does not expose |
 | `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees |
-| `plugins/config/` | Config for two installed plugins, pluck and tiny-fingers |
+| `plugins/config/` | Config for installed plugins |
 | `projects.local` | Machine-local project paths for `alt+u/i/o`, not in the dotfiles |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files.
@@ -66,11 +66,8 @@ agents. Every direct key also has a prefix form.
 | `alt+d` | Previous workspace | `fullerzz.sesh` |
 | `alt+a` | Jump to anything | `herdr-navigator` |
 | `alt+c` | Copy with hints | `rmarganti.herdr-pluck` |
-| `alt+C` | Copy with hints, second option on trial | `hotchpotch.herdr-tiny-fingers` |
 | `alt+x` | Open a link with hints | `rmarganti.herdr-pluck` |
 | `alt+q` | Open a visible file | `termscope` |
-
-`alt+c` and `alt+C` are two hint plugins running side by side. Pick one and uninstall the other.
 
 ### Other
 
@@ -102,7 +99,6 @@ brew install herdr jq fish fd neovim sesh yazi television go chafa
 herdr plugin install fullerzz/herdr-plugin-sesh
 herdr plugin install thanhdat77/herdr-navigator --ref v0.3.3
 herdr plugin install rmarganti/herdr-pluck
-herdr plugin install hotchpotch/herdr-tiny-fingers
 herdr plugin install iurysza/termscope
 
 chmod +x ~/.config/herdr/bin/* ~/.config/herdr/plugins/worktree-links/link.sh

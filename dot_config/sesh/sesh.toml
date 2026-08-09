@@ -63,6 +63,11 @@ path = "~/.config/ghostty"
 startup_command = "nvim config"
 
 [[session]]
+name = "herdr config"
+path = "~/.config/herdr"
+startup_command = "nvim config.toml"
+
+[[session]]
 name = "kanata config"
 path = "~/.config/kanata"
 startup_command = "nvim kanata.kbd"
