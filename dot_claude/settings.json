@@ -259,10 +259,6 @@
         "~/.m2",
         "~/.npm",
         "~/Library/Android/sdk",
-        "/dev/ptmx",
-        "/dev/ttys*",
-        "~/.config/herdr",
-        "~/.local/state/herdr"
       ]
     },
     "credentials": {
