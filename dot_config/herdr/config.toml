@@ -104,27 +104,40 @@ type = "shell"
 command = "~/.config/herdr/bin/break-pane"
 description = "pane to new tab"
 
-# alt+u/i/o read one absolute path per line from ~/.config/herdr/projects.local:
-# line 1 is alt+u, line 2 alt+i, line 3 alt+o. A missing file, blank line or
-# comment makes the key do nothing. That file is machine-local, never committed.
+# alt+y/u/i/o/p read one absolute path per line from ~/.config/herdr/projects.local:
+# line 1 is alt+y, line 2 alt+u, and so on through line 5 for alt+p. A missing file,
+# blank line or comment makes the key do nothing. That file is machine-local, never
+# committed.
 
 [[keys.command]]
-key = "alt+u"
+key = "alt+y"
 type = "shell"
 command = "~/.config/herdr/bin/project 1"
 description = "project 1"
 
 [[keys.command]]
-key = "alt+i"
+key = "alt+u"
 type = "shell"
 command = "~/.config/herdr/bin/project 2"
 description = "project 2"
 
 [[keys.command]]
-key = "alt+o"
+key = "alt+i"
 type = "shell"
 command = "~/.config/herdr/bin/project 3"
 description = "project 3"
+
+[[keys.command]]
+key = "alt+o"
+type = "shell"
+command = "~/.config/herdr/bin/project 4"
+description = "project 4"
+
+[[keys.command]]
+key = "alt+p"
+type = "shell"
+command = "~/.config/herdr/bin/project 5"
+description = "project 5"
 
 [[keys.command]]
 key = "alt+="

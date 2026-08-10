@@ -11,13 +11,13 @@ Prefix is `ctrl+space`, same as the old tmux prefix. Every default binding is wr
 | Path | Purpose |
 | --- | --- |
 | `config.toml` | All settings and keybindings |
-| `bin/project` | Focus or create a project workspace, for `alt+u/i/o` |
+| `bin/project` | Focus or create a project workspace, for `alt+y/u/i/o/p` |
 | `bin/break-pane` | Move the focused pane to a new tab |
 | `bin/equalize-panes` | Give every pane in the tab an equal share |
 | `bin/herdr-rpc` | One JSON-RPC call to the herdr socket, for API calls the CLI does not expose |
 | `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees |
 | `plugins/config/` | Config for installed plugins |
-| `projects.local` | Machine-local project paths for `alt+u/i/o`, not in the dotfiles |
+| `projects.local` | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files.
 Leave those alone.
@@ -53,7 +53,7 @@ agents. Every direct key also has a prefix form.
 | `alt+shift+1..9` | Switch to workspace N | - |
 | `alt+E` / `alt+R` | Previous / next workspace | - |
 | `alt+G` | New git worktree | `prefix+shift+g` |
-| `alt+u` / `alt+i` / `alt+o` | Project 1 / 2 / 3 from `projects.local` | - |
+| `alt+y/u/i/o/p` | Project 1 to 5 from `projects.local` | - |
 | `ctrl+alt+1..9` | Focus agent N in the sidebar | - |
 | - | Workspace picker | `prefix+w` |
 | - | Go to anything | `prefix+g` |
@@ -66,8 +66,8 @@ agents. Every direct key also has a prefix form.
 | `alt+d` | Previous workspace | `fullerzz.sesh` |
 | `alt+a` | Jump to anything | `herdr-navigator` |
 | `alt+c` | Copy with hints | `rmarganti.herdr-pluck` |
-| `alt+x` | Open a link with hints | `rmarganti.herdr-pluck` |
-| `alt+q` | Open a visible file | `termscope` |
+| `alt+C` | Open a link with hints | `rmarganti.herdr-pluck` |
+| `alt+x` | Open a visible file | `termscope` |
 
 ### Other
 
@@ -76,10 +76,10 @@ resize mode, `prefix+e` opens the scrollback in an editor, `prefix+shift+r` relo
 
 ## Project keys
 
-`alt+u`, `alt+i` and `alt+o` read one absolute path per line from `projects.local`. Line 1 is
-`alt+u`, line 2 `alt+i`, line 3 `alt+o`. The key focuses that workspace if it is open, and
-creates it if not. A missing file, blank line or comment makes the key do nothing, so the keys
-stay quiet until the file is filled in. That file is machine-local and stays out of the dotfiles.
+`alt+y`, `alt+u`, `alt+i`, `alt+o` and `alt+p` read one absolute path per line from
+`projects.local`. Line 1 is `alt+y`, line 2 `alt+u`, and so on through line 5 for `alt+p`. The key
+focuses that workspace if it is open, and creates it if not. A missing file, blank line or comment
+makes the key do nothing, so the keys stay quiet until the file is filled in. That file is machine-local and stays out of the dotfiles.
 
 ## Worktree links
 
