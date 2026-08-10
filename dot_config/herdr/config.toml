@@ -23,7 +23,7 @@ pane_borders = true
 pane_scrollbars = true
 pane_gaps = true
 hide_tab_bar_when_single_tab = false
-tab_bar_position = top
+tab_bar_position = "top"
 
 [ui.sound]
 enabled = true
