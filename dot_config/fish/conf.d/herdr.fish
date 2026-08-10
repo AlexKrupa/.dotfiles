@@ -1,3 +1,18 @@
+# Reinstall every GitHub-managed plugin at its latest commit. herdr has no
+# `plugin update` in v1, so refreshing a plugin means reinstalling it. Pinned
+# plugins keep their --ref, so this never silently unpins one.
+function herdr-upgrade --description "Update all installed herdr plugins"
+    for line in (herdr plugin list --json | jq -r '
+            .result.plugins[]
+            | select(.source.kind == "github")
+            | [ ([.source.owner, .source.repo, (.source.subdir // empty)] | join("/")),
+                (if .source.requested_ref then "--ref " + .source.requested_ref else empty end) ]
+            | join(" ")')
+        echo "==> $line"
+        herdr plugin install (string split " " -- $line) --yes; or return 1
+    end
+end
+
 # Start herdr in interactive shells, replacing this shell.
 #
 # tmux autostart is off in tmux_utils.fish. To go back to tmux, set
