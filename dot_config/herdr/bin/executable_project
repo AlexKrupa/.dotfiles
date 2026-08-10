@@ -1,0 +1,38 @@
+#!/bin/sh
+# project <n>
+# Focus the workspace for line <n> of ~/.config/herdr/projects.local, or create it.
+# Silent no-op when the file or the line is missing, so alt+u/i/o do nothing
+# until the machine-local file is filled in.
+#
+# POSIX sh, not fish: this runs on every alt+y/u/i/o/p press and fish spends
+# ~110ms sourcing config.fish before the first line of the script runs.
+#
+# Matches through `herdr pane list`, not `herdr workspace list`. WorkspaceInfo has
+# no cwd. PaneInfo has both cwd and workspace_id. The recursive jq keeps this
+# independent of the response envelope.
+
+n=$1
+list=$HOME/.config/herdr/projects.local
+
+case "$n" in '' | *[!0-9]*) exit 0 ;; esac
+[ -f "$list" ] || exit 0
+command -v jq >/dev/null || exit 0
+
+dir=$(sed -n "${n}{s/^[[:space:]]*//;s/[[:space:]]*\$//;p;}" "$list")
+[ -n "$dir" ] || exit 0
+case "$dir" in \#*) exit 0 ;; esac
+case "$dir" in '~'*) dir=$HOME${dir#\~} ;; esac
+[ -d "$dir" ] || exit 0
+# herdr reports physical paths, so resolve symlinks before comparing. Without
+# this, any project under a symlinked path creates a new workspace every press.
+dir=$(cd "$dir" && pwd -P) || exit 0
+
+id=$(herdr pane list 2>/dev/null | jq -r --arg d "$dir" '
+  [.. | objects | select(.cwd? == $d) | .workspace_id?]
+  | map(select(. != null)) | first // empty')
+
+if [ -n "$id" ]; then
+  herdr workspace focus "$id"
+else
+  herdr workspace create --cwd "$dir" --label "$(basename "$dir")" --focus
+fi
