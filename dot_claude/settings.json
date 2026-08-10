@@ -212,6 +212,7 @@
   "sandbox": {
     "enabled": true,
     "autoAllowBashIfSandboxed": true,
+    "failIfUnavailable": true,
     "network": {
       "allowedDomains": [
         "*.gradle.com",
@@ -249,7 +250,11 @@
       ]
     },
     "filesystem": {
+      "allowRead": [
+        "."
+      ],
       "allowWrite": [
+        ".",
         "~/.ai",
         "~/.android",
         "~/.cache",
@@ -258,7 +263,7 @@
         "~/.gradle",
         "~/.m2",
         "~/.npm",
-        "~/Library/Android/sdk",
+        "~/Library/Android/sdk"
       ]
     },
     "credentials": {
