@@ -1,4 +1,0 @@
-#!/usr/bin/env fish
-# Move the focused pane into a new tab. Replaces tmux `break-pane`.
-test -n "$HERDR_ACTIVE_PANE_ID"; or exit 0
-herdr pane move $HERDR_ACTIVE_PANE_ID --new-tab --focus
