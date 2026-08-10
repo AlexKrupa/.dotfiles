@@ -1,4 +1,4 @@
-command = "/opt/homebrew/bin/fish --login"
+command = "direct:/opt/homebrew/bin/fish --login"
 shell-integration = fish
 shell-integration-features = "no-cursor,sudo"
 
