@@ -1,0 +1,4 @@
+#!/bin/sh
+# Move the focused pane into a new tab. Replaces tmux `break-pane`.
+[ -n "$HERDR_ACTIVE_PANE_ID" ] || exit 0
+herdr pane move "$HERDR_ACTIVE_PANE_ID" --new-tab --focus
