@@ -90,7 +90,6 @@ delve, leverage, streamline, land, carry, overstep,
 - Code: backticks for inline (`Class.method()`), fences for multi-line. Including in commit message
   title and body.
 - Headings: sentence case (`## This format`), except proper names or code
-- Replace OSC-8 hyperlinks with Markdown-style links so that the URL is visible
 
 ### Reply style
 
@@ -103,6 +102,8 @@ delve, leverage, streamline, land, carry, overstep,
 - Concrete examples over abstractions
 - One sentence before the first tool call, then updates only on a finding or direction change. Final
   message leads with outcome.
+- Never output OSC-8 hyperlinks in replies - put the plain-text URL between parentheses after the
+  text
 - Put questions on separate lines, marked with a leading ❓
 
 ## ~/.ai/ work directory
