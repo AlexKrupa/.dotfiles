@@ -129,6 +129,17 @@ Three files in `~/.config/fish/conf.d/`:
 `fish_tmux_autoquit` defaults to `fish_tmux_autostart`, so with autostart off, detaching herdr
 leaves you at a shell instead of closing the window.
 
+## Agent skill
+
+Coding agents control herdr from inside a pane via the `herdr` skill: inspect workspaces, split
+panes, run commands, read output, spawn helper agents. Installed globally with:
+
+```bash
+npx skills add herdrdev/herdr --skill herdr -g
+```
+
+Needs `HERDR_ENV=1`, which herdr sets in its panes. Docs: https://herdr.dev/docs/agent-skill/
+
 ## Known issue: yazi image preview
 
 Yazi asks the terminal whether it supports Kitty graphics, and wraps that question for tmux and
