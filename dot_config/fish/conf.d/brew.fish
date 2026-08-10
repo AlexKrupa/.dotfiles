@@ -121,4 +121,4 @@ function brew-kill --description 'Remove Homebrew lock files'
   rm -rf $(brew --prefix)/var/homebrew/locks
 end
 
-eval "$(/opt/homebrew/bin/brew shellenv)"
+/opt/homebrew/bin/brew shellenv fish | source
