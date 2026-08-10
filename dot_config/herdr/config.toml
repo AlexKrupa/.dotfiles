@@ -184,6 +184,12 @@ command = "termscope.open"
 description = "open a visible file"
 
 [[keys.command]]
+key = "alt+X"
+type = "plugin_action"
+command = "termscope.open-links"
+description = "open a visible link"
+
+[[keys.command]]
 key = "alt+s"
 type = "plugin_action"
 command = "fullerzz.sesh.open-picker"

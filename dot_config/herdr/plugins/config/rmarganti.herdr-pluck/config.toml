@@ -13,9 +13,9 @@ priority = 20
 [[patterns]]
 name = "path-trimmed"
 regex = '(?<match>([.\w\-~$@]+)?(/[.\w\-@]+)+/?)[.,;:]?'
-priority = 25
+priority = 19 # built-in 20
 
 [[patterns]]
 name = "url-trimmed"
 regex = '''(?<match>(https?://|git@|git://|ssh://|ftp://|file:///)[^\s()"']+)[.,;:]?'''
-priority = 20
+priority = 1 # built-in unknown?

@@ -1,16 +1,41 @@
 # Reinstall every GitHub-managed plugin at its latest commit. herdr has no
 # `plugin update` in v1, so refreshing a plugin means reinstalling it. Pinned
-# plugins keep their --ref, so this never silently unpins one.
+# plugins keep their --ref, so this never silently unpins one. Afterwards it
+# reports what moved, with links to the commits and the releases page.
 function herdr-upgrade --description "Update all installed herdr plugins"
-    for line in (herdr plugin list --json | jq -r '
+    set -l before (mktemp)
+    herdr plugin list --json >$before; or return 1
+
+    for line in (jq -r '
             .result.plugins[]
             | select(.source.kind == "github")
             | [ ([.source.owner, .source.repo, (.source.subdir // empty)] | join("/")),
                 (if .source.requested_ref then "--ref " + .source.requested_ref else empty end) ]
-            | join(" ")')
+            | join(" ")' $before)
         echo "==> $line"
-        herdr plugin install (string split " " -- $line) --yes; or return 1
+        herdr plugin install (string split " " -- $line) --yes
+        or begin
+            rm -f $before
+            return 1
+        end
     end
+
+    echo
+    herdr plugin list --json | jq -r --slurpfile old $before '
+        ($old[0].result.plugins | map({key: .plugin_id, value: .}) | from_entries) as $o
+        | .result.plugins[]
+        | select(.source.kind == "github")
+        | . as $n
+        | $o[$n.plugin_id] as $b
+        | "https://github.com/\($n.source.owner)/\($n.source.repo)" as $repo
+        | if $b.source.resolved_commit == $n.source.resolved_commit then
+            "  \($n.plugin_id) \($n.version) unchanged"
+          else
+            "  \($n.plugin_id) \($b.version // "none") -> \($n.version)",
+            "    changes:  \($repo)/compare/\($b.source.resolved_commit)...\($n.source.resolved_commit)",
+            "    releases: \($repo)/releases"
+          end'
+    rm -f $before
 end
 
 # Start herdr in interactive shells, replacing this shell.
