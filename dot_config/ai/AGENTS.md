@@ -65,7 +65,7 @@ compression stay.
 
 ### List of banned words and phrases
 
-Strictly forbidden in conversation, unless I use them or there's absolutely no alternative.
+Strictly forbidden in conversation, unless I use them or there's absolutely no alternative:
 
 ```
 honest, genuine, latent, robust, authoritative, canonical, sharp,
