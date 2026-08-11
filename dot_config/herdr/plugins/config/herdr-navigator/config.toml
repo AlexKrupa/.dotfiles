@@ -43,7 +43,7 @@ detailed_rows = true
 check_updates = false
 
 # Vim-style normal mode: j/k move, source keys filter, and / starts searching.
-vim_mode = true
+vim_mode = false
 
 # Start searching immediately after a Vim source-filter key.
 vim_filter_search = false

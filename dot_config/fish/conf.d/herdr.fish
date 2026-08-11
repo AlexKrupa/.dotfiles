@@ -38,6 +38,11 @@ function herdr-upgrade --description "Update all installed herdr plugins"
     rm -f $before
 end
 
+if status is-interactive
+    and command -v herdr >/dev/null
+    herdr completion fish | source
+end
+
 # Start herdr in interactive shells, replacing this shell.
 #
 # tmux autostart is off in tmux_utils.fish. To go back to tmux, set

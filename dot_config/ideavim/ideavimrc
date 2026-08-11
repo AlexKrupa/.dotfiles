@@ -141,9 +141,9 @@ Plug 'kana/vim-textobj-entire'
 Plug 'vim-scripts/argtextobj.vim'
 let g:argtextobj_pairs="[:],(:),<:>"
 
-set anyobject
+"set anyobject
 " Prefer argtextobj for args - supports custom brackets
-let g:anyobject_excluded = "anyArgument,anyArgOrItem"
+"let g:anyobject_excluded = "anyArgument,anyArgOrItem"
 
 " In normal mode: Press " to see registers before using them in commands
 " In insert mode: Press Ctrl-R to see registers before pasting their contents
@@ -179,7 +179,6 @@ let g:dial_custom = [
   \ ['normalizedCaseWords', ['start', 'end']],
   \ ['normalizedCaseWords', ['left', 'right']],
   \ ['normalizedCaseWords', ['width', 'height']],
-  \ ['normalizedCaseWords', ['light', 'dark']],
   \ ['normalizedCaseWords', ['first', 'last']],
   \ ['normalizedCaseWords', ['min', 'max']],
   \ ['normalizedCaseWords', ['success', 'failure']],
