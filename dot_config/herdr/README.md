@@ -16,6 +16,7 @@ Prefix is `ctrl+space`, same as the old tmux prefix. Every default binding is wr
 | `bin/equalize-panes` | Give every pane in the tab an equal share |
 | `bin/herdr-rpc` | One JSON-RPC call to the herdr socket, for API calls the CLI does not expose |
 | `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees |
+| `plugins/tab-name/` | Local plugin: name each tab after its focused pane |
 | `plugins/config/` | Config for installed plugins |
 | `projects.local` | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles |
 
@@ -91,6 +92,21 @@ Paths are relative to the repo root. Absolute paths and anything containing `..`
 a file that does not exist or one the worktree already has. Git-tracked files arrive from
 `git worktree add`, so in practice only gitignored files get linked.
 
+## Tab names
+
+`plugins/tab-name/` labels every tab `N • name`, where `N` is the tab's position in its workspace
+and `name` describes the focused pane: the running command, the directory at an idle prompt, or
+the agent name in an agent pane. `watch.sh` holds one `events.subscribe` connection to the herdr
+socket and sweeps once per burst of events; `policy.jq` makes every decision and is covered by
+`tests/test.sh`.
+
+A tab renamed by hand keeps its name and only gets its number maintained. Renaming it back to a bare
+number, such as `2`, hands it back to automatic naming. Ownership lives in
+`~/.local/state/herdr-tab-name/state.json`.
+
+`watch.sh` needs homebrew bash 5 for fractional `read -t` timeouts, unlike `worktree-links/link.sh`,
+which is written for the bash 3.2 that macOS ships.
+
 ## New machine
 
 ```bash
@@ -101,8 +117,9 @@ herdr plugin install thanhdat77/herdr-navigator --ref v0.3.3
 herdr plugin install rmarganti/herdr-pluck
 herdr plugin install iurysza/termscope
 
-chmod +x ~/.config/herdr/bin/* ~/.config/herdr/plugins/worktree-links/link.sh
+chmod +x ~/.config/herdr/bin/* ~/.config/herdr/plugins/*/*.sh ~/.config/herdr/plugins/*/tests/*.sh
 herdr plugin link ~/.config/herdr/plugins/worktree-links
+herdr plugin link ~/.config/herdr/plugins/tab-name
 herdr config check          # config: ok
 herdr server reload-config  # status: applied, diagnostics: []
 ```
@@ -110,6 +127,8 @@ herdr server reload-config  # status: applied, diagnostics: []
 `jq` is needed by `bin/project`, `bin/equalize-panes`, the worktree plugin and `claude-upgrade`.
 `fd`, `neovim` and `television` are for termscope, whose binary is `tv`. `go` 1.26.4+ builds the
 sesh plugin. `nc` and `bash` ship with macOS, and termscope also wants python 3.10+.
+`bash` 5 from homebrew runs the tab-name plugin, which needs fractional `read` timeouts that macOS
+bash 3.2 rejects.
 
 Plugins run with full user permissions. Two build from source, and termscope installs Television
 through Homebrew.
