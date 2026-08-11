@@ -1,8 +1,60 @@
+# Rebase maintained forks of herdr plugins onto their upstreams.
+# Reads forks.conf: fork, upstream, upstream ref, local clone.
+# A conflict is only reported and skipped, never resolved automatically.
+function herdr-forks-sync --description "Rebase forked herdr plugins onto upstream"
+    set -l conf ~/.config/herdr/forks.conf
+    test -f $conf; or return 0
+
+    for raw in (cat $conf)
+        set -l line (string trim -- $raw)
+        test -z "$line"; and continue
+        string match -q '#*' -- $line; and continue
+
+        set -l cols (string split -n ' ' -- $line)
+        test (count $cols) -eq 4
+        or begin
+            echo "==> skipping malformed line: $line"
+            continue
+        end
+        set -l fork $cols[1]
+        set -l upstream $cols[2]
+        set -l ref $cols[3]
+        set -l clone (string replace -r '^~' $HOME -- $cols[4])
+
+        echo "==> $fork"
+        if not test -d $clone/.git
+            echo "    skipped: no clone at $clone"
+            continue
+        end
+        if not git -C $clone remote get-url upstream >/dev/null 2>&1
+            git -C $clone remote add upstream https://github.com/$upstream.git
+        end
+        set -l dirty (git -C $clone status --porcelain)
+        if test -n "$dirty"
+            echo "    skipped: $clone has uncommitted changes"
+            continue
+        end
+        if not git -C $clone fetch --quiet upstream
+            echo "    skipped: fetch from $upstream failed"
+            continue
+        end
+        if git -C $clone rebase upstream/$ref
+            git -C $clone push --quiet --force-with-lease
+            or echo "    rebased, but push failed - push $clone by hand"
+        else
+            git -C $clone rebase --abort
+            echo "    CONFLICT: rebase $clone onto upstream/$ref by hand, then push"
+        end
+    end
+end
+
 # Reinstall every GitHub-managed plugin at its latest commit. herdr has no
 # `plugin update` in v1, so refreshing a plugin means reinstalling it. Pinned
 # plugins keep their --ref, so this never silently unpins one. Afterwards it
 # reports what moved, with links to the commits and the releases page.
 function herdr-upgrade --description "Update all installed herdr plugins"
+    herdr-forks-sync
+
     set -l before (mktemp)
     herdr plugin list --json >$before; or return 1
 

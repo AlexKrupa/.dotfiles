@@ -13,6 +13,8 @@
 | `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                           |
 | `plugins/config/`         | Config for installed plugins                                                 |
 | `projects.local`          | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles         |
+| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`                    |
+| `bin/pluck-open`          | Open handler for herdr-pluck's uppercase hints                               |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files. Leave
 those alone.
@@ -59,6 +61,23 @@ number, such as `2`, hands it back to automatic naming. Ownership lives in
 
 `watch.sh` needs homebrew bash 5 for fractional `read -t` timeouts.
 
+### Forked plugins
+
+`herdr-pluck` runs from [AlexKrupa/herdr-pluck](https://github.com/AlexKrupa/herdr-pluck). The fork
+adds one thing: an uppercase hint runs `bin/pluck-open` on the match instead of copying it, so
+`alt+c` covers both. `alt` cannot be used for this - herdr keybindings are global and take almost
+every letter before a pane sees it. The plugin id stays `rmarganti.herdr-pluck`, so nothing else
+moves.
+
+`bin/pluck-open` splits the source pane for a text file (`$EDITOR`, pane closes on quit) or a
+directory (`y`, pane stays in the directory yazi ended in), and falls back to `open` for everything
+else. The split names `$HERDR_PLUCK_PANE_ID` explicitly because the picker's temporary tab is still
+focused while the handler runs.
+
+`herdr-upgrade` runs `herdr-forks-sync` first, which reads `forks.conf` and rebases each fork's
+clone onto its upstream, then force-pushes. A conflict is reported and skipped, leaving the plugin
+on its old commit until the rebase is finished by hand.
+
 ## Setup
 
 ```bash
@@ -66,7 +85,7 @@ brew install herdr jq fish fd neovim sesh television go bash
 
 herdr plugin install fullerzz/herdr-plugin-sesh
 herdr plugin install thanhdat77/herdr-navigator
-herdr plugin install rmarganti/herdr-pluck
+herdr plugin install AlexKrupa/herdr-pluck
 herdr plugin install iurysza/termscope
 
 chmod +x ~/.config/herdr/bin/* ~/.config/herdr/plugins/*/*.sh ~/.config/herdr/plugins/*/tests/*.sh
@@ -82,6 +101,7 @@ Dependencies:
 - `bash` 5 - worktree-links, tab-name (macOS bash 3.2 has no fractional `read -t`)
 - `go` 1.26.4+ - sesh plugin, built from source
 - `fd`, `neovim`, `television` (`tv`), python 3.10+ - termscope, built from source
+- `cargo` - herdr-navigator and the herdr-pluck fork, both built from source
 
 Plugins run with full user permissions.
 
