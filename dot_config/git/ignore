@@ -5,3 +5,5 @@
 .npm*
 CLAUDE.local.md
 node_modules*
+
+**/.claude/.cc-writes/

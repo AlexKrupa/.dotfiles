@@ -74,7 +74,7 @@ on-window-detected = [
   # Layout
   alt-ctrl-shift-e = 'layout accordion horizontal vertical'
   alt-ctrl-shift-r = 'layout tiles horizontal vertical'
-  alt-ctrl-shift-f = 'fullscreen'
+  alt-ctrl-shift-z = 'fullscreen' # Mnemonic: zoom, matches tmux/herdr bindings
   alt-ctrl-shift-cmd-f = 'layout floating tiling'
   alt-ctrl-shift-cmd-m = 'macos-native-minimize'
 

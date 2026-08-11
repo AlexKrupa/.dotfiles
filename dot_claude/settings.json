@@ -94,7 +94,7 @@
       "Edit(**/generated/**)"
     ],
     "ask": [],
-    "defaultMode": "default"
+    "defaultMode": "auto"
   },
   "model": "opus",
   "fallbackModel": [
