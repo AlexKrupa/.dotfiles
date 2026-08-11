@@ -212,9 +212,3 @@ key = "alt+c"
 type = "plugin_action"
 command = "rmarganti.herdr-pluck.pluck"
 description = "copy with hints"
-
-[[keys.command]]
-key = "alt+C"
-type = "plugin_action"
-command = "rmarganti.herdr-pluck.open-url"
-description = "open a link with hints"

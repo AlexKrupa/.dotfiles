@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# herdr-pluck open action. Text file -> split running $EDITOR, directory -> split running yazi.
+# Everything else -> macOS `open`.
+# pluck pipes the match on stdin and runs us in the source pane's cwd, so relative paths resolve.
+
+set -euo pipefail
+
+editor="${EDITOR:-nvim}"
+
+# Splits the source pane and runs a command there. The source pane is named explicitly
+# because the picker tab is still focused at this point.
+split_run() {
+  local pane
+  pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$1" \
+    --focus | jq -r .result.pane.pane_id)
+  exec herdr pane run "$pane" "$2"
+}
+
+match=$(cat)
+[ -z "$match" ] && exit 0
+
+case "$match" in
+  "~"|"~/"*) match="$HOME${match#\~}" ;;
+esac
+
+# Resolve: as-is (pane cwd or absolute), then fall back to $HOME-relative.
+path=""
+if [ -f "$match" ]; then
+  path="$match"
+elif [ -f "$HOME/$match" ]; then
+  path="$HOME/$match"
+fi
+
+if [ -n "$path" ]; then
+  # SVG is XML (text) but usually wanted as a preview, not an edit.
+  case "$path" in
+    *.svg|*.SVG) exec open "$path" ;;
+  esac
+  enc=$(file -b --mime-encoding -- "$path" 2>/dev/null || echo binary)
+  if [ "$enc" != "binary" ]; then
+    printf -v quoted '%q' "$path"
+    # Trailing `exit` ends the pane shell with the editor, so herdr closes the split.
+    split_run "$PWD" "$editor $quoted; exit"
+  fi
+  exec open "$path"
+fi
+
+# Directories browse in yazi rather than Finder. `y` is the fish wrapper from
+# conf.d/yazi.fish: on quit the pane shell stays in the directory yazi ended in.
+dir=""
+if [ -d "$match" ]; then
+  dir="$match"
+elif [ -d "$HOME/$match" ]; then
+  dir="$HOME/$match"
+fi
+
+if [ -n "$dir" ]; then
+  split_run "$dir" y
+fi
+
+exec open "$match"

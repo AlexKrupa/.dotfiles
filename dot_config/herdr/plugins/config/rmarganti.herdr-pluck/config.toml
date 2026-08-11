@@ -18,3 +18,8 @@ priority = 20
 name = "path-trimmed"
 regex = '(?<match>([.\w\-~$@]+)?(/[.\w\-@]*[\w\-@])+/?)'
 priority = 19
+
+# Uppercase hint runs this with the match on stdin, in the source pane's cwd.
+# Fork feature: AlexKrupa/herdr-pluck.
+[open]
+command = ["bash", "/Users/alexkrupa/.config/herdr/bin/pluck-open"]
