@@ -1,21 +1,20 @@
 # Ported from tmux.conf @fingers-pattern-0..2.
 # Rust regex has no lookbehind. The named `match` capture does the same job, because
 # pluck copies only that capture when one is present.
-# Lower priority wins, and a custom pattern beats a built-in at equal priority. So
-# url-trimmed and path-trimmed override pluck's own URL and path matchers on purpose.
-# If those built-ins already trim trailing punctuation, drop both and keep gradle.
+# Lower priority wins, and a custom pattern beats a built-in at equal priority.
+# The built-in `url` pattern already trims trailing punctuation, so there is no custom URL entry.
 
+# Leading `(?:^|\s)` keeps timestamps (`10:30:45`), compiler columns (`Foo.kt:12:5`) and
+# `host:8080:x` out. The final class excludes `.`/`-` so prose punctuation is not yanked.
 [[patterns]]
 name = "gradle"
-regex = ':(?:[a-zA-Z0-9_.-]+:)+[a-zA-Z0-9_.-]+'
+regex = '(?:^|\s)(?<match>:(?:[a-zA-Z0-9_.-]+:)+[a-zA-Z0-9_.-]*[a-zA-Z0-9_])'
 priority = 20
 
+# Same as built-in `path` (priority 20), except the last segment cannot end with `.`.
+# A trailing `[.,;:]?` does not work: `.` is inside the segment class, so the greedy
+# segment eats it and the optional group matches empty.
 [[patterns]]
 name = "path-trimmed"
-regex = '(?<match>([.\w\-~$@]+)?(/[.\w\-@]+)+/?)[.,;:]?'
-priority = 19 # built-in 20
-
-[[patterns]]
-name = "url-trimmed"
-regex = '''(?<match>(https?://|git@|git://|ssh://|ftp://|file:///)[^\s()"']+)[.,;:]?'''
-priority = 1 # built-in unknown?
+regex = '(?<match>([.\w\-~$@]+)?(/[.\w\-@]*[\w\-@])+/?)'
+priority = 19
