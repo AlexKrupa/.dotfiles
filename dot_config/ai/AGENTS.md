@@ -102,8 +102,9 @@ delve, leverage, streamline, land, carry, overstep,
 - Concrete examples over abstractions
 - One sentence before the first tool call, then updates only on a finding or direction change. Final
   message leads with outcome.
-- Never output OSC-8 hyperlinks in replies - put the plain-text URL between parentheses after the
-  text
+- Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
+  after the text
+  - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
 - Put questions on separate lines, marked with a leading ❓
 
 ## ~/.ai/ work directory
