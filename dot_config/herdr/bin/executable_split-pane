@@ -1,0 +1,16 @@
+#!/bin/sh
+# Split the active pane and even out the row or column group the new pane joins.
+# Replaces the built-in split actions, which are unset in config.toml. herdr
+# fires nothing after a split, and a keybinding runs one command, so the two
+# steps are paired here instead of in config.toml.
+case ${1:-} in
+  right | down) ;;
+  *) echo "usage: split-pane right|down" >&2; exit 2 ;;
+esac
+
+# --focus matches the built-in actions; `herdr pane split` does not focus the
+# new pane on its own. equalize-panes reads the same variable from the
+# environment, and the pane it names stays in the group that was just split.
+[ -n "$HERDR_ACTIVE_PANE_ID" ] || exit 0
+herdr pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction "$1" --focus >/dev/null || exit 1
+exec "$(dirname "$0")/equalize-panes" "$1"

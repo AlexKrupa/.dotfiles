@@ -8,7 +8,10 @@
 | `bin/project`             | Focus or create a project workspace, for `alt+y/u/i/o/p`                     |
 | `bin/break-pane`          | Move the focused pane to a new tab                                           |
 | `bin/split-pane`          | Split the active pane, then even out the group the new pane joins            |
+| `bin/close-pane`          | Close the active pane, then even out the group it leaves behind              |
 | `bin/equalize-panes`      | Even out the whole tab, or one row or column group with `right` or `down`    |
+| `bin/layout.jq`           | Tree walks over a tab's layout, shared by the three above                    |
+| `bin/tests/test.sh`       | Fixtures for `bin/layout.jq`                                                 |
 | `bin/herdr-rpc`           | One JSON-RPC call to the herdr socket, for API calls the CLI does not expose |
 | `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees                    |
 | `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                           |
@@ -28,11 +31,16 @@ Three direct layers, no prefix needed (but every direct key also has a prefix fo
 - `alt+shift` for workspaces,
 - `ctrl+alt` for agents.
 
-The split keys are custom commands, not the built-in split actions: they run `bin/split-pane`, which
-splits over the CLI and then runs `bin/equalize-panes right` or `down`. That evens only the group
-the new pane joined - the unbroken run of same-direction splits around it. Nesting elsewhere in the
-tab, and the other axis of the same nest, keep whatever they were resized to. `alt+=` still evens
-the whole tab. A split made by the CLI, a plugin or an agent is left alone.
+The split and close keys are custom commands, not the built-in actions: they run `bin/split-pane`
+and `bin/close-pane`, which act over the CLI and then run `bin/equalize-panes right` or `down`. That
+evens only the group the pane joined or left - the unbroken run of same-direction splits around it.
+Nesting elsewhere in the tab, and the other axis of the same nest, keep whatever they were resized
+to. Closing the middle of three columns evens the two that are left; closing a row out of a column
+leaves that column's width alone. `alt+=` still evens the whole tab. A split or close made by the
+CLI, a plugin or an agent is left alone.
+
+`bin/layout.jq` holds the tree walks all three scripts share, and picks the splits and ratios.
+`bin/tests/test.sh` covers it with fixture trees, no server needed.
 
 ## Custom plugins
 
@@ -95,7 +103,8 @@ herdr plugin install thanhdat77/herdr-navigator
 herdr plugin install AlexKrupa/herdr-pluck
 herdr plugin install iurysza/termscope
 
-chmod +x ~/.config/herdr/bin/* ~/.config/herdr/plugins/*/*.sh ~/.config/herdr/plugins/*/tests/*.sh
+chmod +x ~/.config/herdr/bin/* ~/.config/herdr/bin/tests/*.sh \
+  ~/.config/herdr/plugins/*/*.sh ~/.config/herdr/plugins/*/tests/*.sh
 herdr plugin link ~/.config/herdr/plugins/worktree-links
 herdr plugin link ~/.config/herdr/plugins/tab-name
 herdr config check          # config: ok
@@ -104,7 +113,8 @@ herdr server reload-config  # status: applied, diagnostics: []
 
 Dependencies:
 
-- `jq` - `bin/project`, `bin/equalize-panes`, worktree-links, `claude-upgrade`
+- `jq` - `bin/project`, `bin/equalize-panes` and the split and close keys, worktree-links,
+  `claude-upgrade`
 - `bash` 5 - worktree-links, tab-name (macOS bash 3.2 has no fractional `read -t`)
 - `go` 1.26.4+ - sesh plugin, built from source
 - `fd`, `neovim`, `television` (`tv`), python 3.10+ - termscope, built from source

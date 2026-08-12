@@ -91,9 +91,9 @@ swap_pane_left           = ["prefix+shift+h", "alt+H"]   # default + added
 swap_pane_down           = ["prefix+shift+j", "alt+J"]   # default + added
 swap_pane_up             = ["prefix+shift+k", "alt+K"]   # default + added
 swap_pane_right          = ["prefix+shift+l", "alt+L"]   # default + added
-split_vertical           = ""                            # unset, see the split commands below
-split_horizontal         = ""                            # unset, see the split commands below
-close_pane               = ["prefix+x", "alt+w"]         # default + added
+split_vertical           = ""                            # unset, see the pane commands below
+split_horizontal         = ""                            # unset, see the pane commands below
+close_pane               = ""                            # unset, see the pane commands below
 zoom                     = ["prefix+z", "alt+z"]         # default + added
 copy_mode                = ["prefix+[", "alt+v"]         # default + added
 rename_pane              = "prefix+shift+p"
@@ -142,10 +142,10 @@ type = "shell"
 command = "~/.config/herdr/bin/equalize-panes"
 description = "even out splits"
 
-# --- Custom commands: splits ---
-# The built-in split actions are unset above; bin/split-pane splits over the CLI
-# and then evens out the row or column group the new pane joined, leaving every
-# other split in the tab alone.
+# --- Custom commands: splits and closes ---
+# The built-in split and close actions are unset above. bin/split-pane and
+# bin/close-pane do the same over the CLI and then even out the row or column
+# group the pane joined or left, leaving every other split in the tab alone.
 
 [[keys.command]]
 key = ["prefix+v", "alt+slash"]
@@ -158,6 +158,12 @@ key = ["prefix+minus", "alt+minus"]
 type = "shell"
 command = "~/.config/herdr/bin/split-pane down"
 description = "split stacked, even that row group"
+
+[[keys.command]]
+key = ["prefix+x", "alt+w"]
+type = "shell"
+command = "~/.config/herdr/bin/close-pane"
+description = "close pane, even what is left"
 
 # --- Custom commands: pane resize ---
 # Herdr has no direct resize actions, only resize_mode (prefix+r). These call the

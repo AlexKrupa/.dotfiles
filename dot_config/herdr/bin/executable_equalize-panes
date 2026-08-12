@@ -1,45 +1,25 @@
 #!/bin/sh
-# Give every pane in the current tab an equal share. The herdr CLI exposes no
-# layout subcommand, so this goes over the socket.
+# Give every pane in the current tab an equal share, or with `right` or `down`
+# only the row or column group the active pane sits in - what the split and
+# close keys use. bin/layout.jq picks the splits and works out the ratios.
+#
+# The herdr CLI exposes no layout subcommand, so this goes over the socket.
+# layout.apply would set every ratio in one call but takes a whole tree and can
+# recreate panes, which would kill running agents. set_split_ratio only changes
+# a ratio.
 #
 # POSIX sh, not fish: this is key-bound, and fish spends ~110ms sourcing
 # config.fish per process - once here plus once per herdr-rpc call.
 #
-# A split ratio of 0.5 everywhere does not equalize panes. For `a | (b | c)` it
-# gives 50/25/25. Each split is weighted by how many slots sit on each side
-# *along its own axis*, so the root above becomes 1/3 and the inner one 1/2.
-# That gives 33/33/33.
-#
-# Only same-direction splits count toward that weight. In `a | (b / c / d)` the
-# root is a column split whose second side is one column, so it stays at 1/2 and
-# both columns come out equal; the stack inside that column is then equalized on
-# its own, 1/3 each. Counting every leaf pane instead would give the left column
-# 1/4 of the width, since it holds 1 pane of 4.
-#
-# `path` is an array of booleans (API schema: LayoutSetSplitRatioParams):
-# false selects `first`, true selects `second`. The root split is [].
-# layout.apply would do this in one call but takes a whole tree and can
-# recreate panes, which would kill running agents. set_split_ratio only
-# changes a ratio.
-#
-# Every column comes out equal and every stack comes out equal. Pane *areas* are
-# only equal when the whole tab splits one direction; ratios alone cannot do
-# better on a mixed tree without restructuring it.
-#
-# `right` or `down` narrows the work to one group: the unbroken run of splits of
-# that direction that the active pane sits in, found by walking its ancestors
-# and then back down through same-direction splits only. In
-# `(a | b) | (c / d)`, `right` from `a` evens the three columns `a`, `b` and the
-# `c / d` stack, and leaves that stack at whatever it was resized to; `down`
-# from `a` finds no row group there and does nothing. This is what the split
-# keys use, so a split evens its own row or column and disturbs nothing else.
+# Pane *areas* are only equal when the whole tab splits one direction; ratios
+# alone cannot do better on a mixed tree without restructuring it.
 
 case ${1:-} in
   '' | right | down) dir=${1:-} ;;
   *) echo "usage: equalize-panes [right|down]" >&2; exit 2 ;;
 esac
 
-rpc=$(dirname "$0")/herdr-rpc
+bin=$(dirname "$0")
 command -v jq >/dev/null || exit 0
 
 # Target the pressing pane. `--current` ignores HERDR_ACTIVE_PANE_ID and falls
@@ -58,49 +38,10 @@ tab=$(printf '%s' "$layout" |
 pane=${HERDR_ACTIVE_PANE_ID:-$(printf '%s' "$layout" |
   jq -r '[.. | objects | .focused_pane_id? // empty] | first // empty')}
 
-# One `<path> <ratio>` line per split to change, ratio = same-axis slots on the
-# first side / slots in total. Compact json has no spaces, so a space splits the
-# fields.
-"$rpc" layout.export "{\"tab_id\":\"$tab\"}" | jq -r --arg dir "$dir" --arg pane "$pane" '
-  def slots($d):
-    if type == "object" and .type == "split" and .direction == $d
-    then (.first | slots($d)) + (.second | slots($d)) else 1 end;
-
-  # Ratios for this node and, when $dir is set, only for the same-direction
-  # splits under it - the rest of the group ends where the direction changes.
-  def ratios($p):
-    if type == "object" and .type == "split" and ($dir == "" or .direction == $dir) then
-      (.direction as $d
-        | (.first | slots($d)) as $a
-        | (.second | slots($d)) as $b
-        | "\($p | tojson) \($a / ($a + $b))"),
-      (.first  | ratios($p + [false])),
-      (.second | ratios($p + [true]))
-    else empty end;
-
-  def node($p): reduce $p[] as $b (.; if $b then .second else .first end);
-  def pathto($id):
-    if .type == "pane" then (if .pane_id == $id then [[]] else [] end)
-    else ((.first | pathto($id)) | map([false] + .))
-       + ((.second | pathto($id)) | map([true] + .)) end;
-
-  ([.. | objects | select(has("root")) | .root] | first) as $root
-  | if $dir == "" then $root | ratios([])
-    else
-      ($root | pathto($pane) | first) as $path
-      | if $path == null then empty else
-          # Directions of the ancestors of the pane, root first.
-          [range(0; $path | length) as $i | ($root | node($path[0:$i]) | .direction)] as $up
-          # Start of the last unbroken run of $dir: the top of the group the
-          # pane is in. A run further up is a different group.
-          | (reduce range(0; $up | length) as $i ({ start: null, top: null };
-              if $up[$i] == $dir
-              then { start: (.start // $i), top: (.start // $i) }
-              else { start: null, top: .top } end) | .top) as $top
-          | if $top == null then empty
-            else $root | node($path[0:$top]) | ratios($path[0:$top]) end
-        end
-    end
-' | while read -r path ratio; do
-  "$rpc" layout.set_split_ratio "{\"tab_id\":\"$tab\",\"path\":$path,\"ratio\":$ratio}" >/dev/null
-done
+# Compact json has no spaces, so a space splits the two fields.
+"$bin/herdr-rpc" layout.export "{\"tab_id\":\"$tab\"}" |
+  jq -r -L "$bin" --arg pane "$pane" --arg dir "$dir" 'include "layout"; equalize($pane; $dir)' |
+  while read -r path ratio; do
+    "$bin/herdr-rpc" layout.set_split_ratio \
+      "{\"tab_id\":\"$tab\",\"path\":$path,\"ratio\":$ratio}" >/dev/null
+  done
