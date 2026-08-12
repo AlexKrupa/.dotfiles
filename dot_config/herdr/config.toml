@@ -9,20 +9,22 @@ new_cwd = "follow"
 name = "dracula"
 
 [update]
-version_check = true
 manifest_check = true
+version_check = true
 
 [ui]
-mouse_capture = true
+agent_panel_sort = "spaces"
 copy_on_select = true
+hide_tab_bar_when_single_tab = false
+mouse_capture = true
 mouse_scroll_lines = 1             # default 3
+pane_borders = true
+pane_gaps = true
+pane_scrollbars = true
 prompt_new_tab_name = false        # default true
 show_agent_labels_on_pane_borders = false
-agent_panel_sort = "spaces"
-pane_borders = true
-pane_scrollbars = true
-pane_gaps = true
-hide_tab_bar_when_single_tab = false
+sidebar_max_width = 48             # default 36
+sidebar_min_width = 18
 tab_bar_position = "top"
 
 [ui.sound]
@@ -123,8 +125,8 @@ key = "alt+g"
 type = "popup"
 command = "lazygit"
 description = "run lazygit"
-width = "80%"
-height = "80%"
+width = "90%"
+height = "90%"
 
 # --- Custom commands: plugin actions ---
 
