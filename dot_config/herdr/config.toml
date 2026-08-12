@@ -60,9 +60,9 @@ workspace_picker         = "prefix+w"
 new_workspace            = "prefix+shift+n"
 rename_workspace         = "prefix+shift+w"
 close_workspace          = "prefix+shift+d"
-previous_workspace       = "alt+E"                       # default: unset
-next_workspace           = "alt+R"                       # default: unset
-switch_workspace         = "alt+shift+1..9"              # default: unset
+previous_workspace       = "alt+e"                       # default: unset
+next_workspace           = "alt+r"                       # default: unset
+switch_workspace         = "alt+1..9"              # default: unset
 
 # Worktrees
 new_worktree             = ["prefix+shift+g", "alt+G"]   # default + added
@@ -77,9 +77,9 @@ focus_agent              = "ctrl+alt+1..9"               # default: unset
 # Tabs
 new_tab                  = ["prefix+c", "alt+t"]         # default + added
 rename_tab               = ["prefix+shift+t", "alt+n"]   # default + added
-previous_tab             = ["prefix+p", "alt+e"]         # default + added
-next_tab                 = ["prefix+n", "alt+r"]         # default + added
-switch_tab               = ["prefix+1..9", "alt+1..9"]   # default + added
+previous_tab             = ["prefix+p", "alt+E"]         # default + added
+next_tab                 = ["prefix+n", "alt+R"]         # default + added
+switch_tab               = ["prefix+shift+1..9", "alt+1..9"]   # default + added
 close_tab                = ["prefix+shift+x", "alt+W"]   # default + added
 
 # Panes
