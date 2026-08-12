@@ -22,11 +22,14 @@ adds **what to do about findings**, including folding fixes into their originati
 **Do not use** when reviewing a teammate's branch or when the user only wants a report - use
 `review-branch` directly.
 
-## REQUIRED SUB-SKILL
+## REQUIRED SUB-SKILLS
 
-Invoke `review-branch` to perform the audit and produce the report. Do not re-implement its git
-discovery, checklist, severity scheme, or report writing. Read the generated report file before
-proceeding.
+- `review-branch` - performs the audit and produces the report. Do not re-implement its git
+  discovery, checklist, severity scheme, or report writing. Read the generated report file before
+  proceeding.
+- `deslop` - the writing pass over prose and commit messages (loop step 7). REQUIRED, not optional:
+  do not hand-edit wording or messages yourself, and do not skip it because the diff "has no docs" -
+  it covers comments and commit messages too.
 
 ## Fix policy
 
@@ -98,8 +101,12 @@ Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
      `git commit -m "<msg>" -- <file>`. This is the only orphan case the script defers, because the
      message is a judgment call. Note each as a new commit in the summary.
    - Surface the counts to the user.
-7. Re-invoke `review-branch` to regenerate the report against the post-fix state.
-8. Stop when no auto-fixable findings remain, or after **3 passes** (avoid loops). If still looping,
+7. **Writing pass (REQUIRED).** First pass only, once the working tree is clean again: invoke
+   `deslop` in branch mode (no args). It reads the writing rules, fixes prose and commit messages,
+   and does its own absorb and `amend!` commits. Its deferred items join this skill's ask-first
+   prompt.
+8. Re-invoke `review-branch` to regenerate the report against the post-fix state.
+9. Stop when no auto-fixable findings remain, or after **3 passes** (avoid loops). If still looping,
    surface why.
 
 ## Final turn-end summary
@@ -110,6 +117,7 @@ Short, scannable:
 - Auto-fixes applied: count + one-line bullets
 - Deferred (awaiting user): count + one-line bullets
 - Validation: pass/fail/none-found, with command used
+- Writing pass: files deslopped, commit messages reworded (or `skipped - <reason>`)
 - Fixups via `git absorb`: N (against: `<sha-short> <subject>`, ...)
 - Orphan hunks resolved by blame-based fixup: N (against: `<sha-short> <subject>`, ...)
 - New commits added (no in-range fixup target): N (subjects: ...)
@@ -125,3 +133,4 @@ Short, scannable:
 - Running any git write outside "Git writes allowed".
 - Proceeding to the next pass with a non-clean working tree. Stop and surface the leftover.
 - Looping past 3 passes. Stop and ask the user.
+- Finishing without the `deslop` pass, or fixing wording by hand instead of invoking it.
