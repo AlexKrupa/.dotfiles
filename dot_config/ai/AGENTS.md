@@ -29,6 +29,8 @@
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
 - Git: make commits (vertical slices), do not suggest pushing or opening PRs
+- Finishing a development branch: dispatch a reviewer subagent than just calls the `/review-me`
+  skill and reports back when it's done
 
 ## Code
 

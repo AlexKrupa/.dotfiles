@@ -62,7 +62,7 @@ rename_workspace         = "prefix+shift+w"
 close_workspace          = "prefix+shift+d"
 previous_workspace       = "alt+e"                       # default: unset
 next_workspace           = "alt+r"                       # default: unset
-switch_workspace         = "alt+1..9"              # default: unset
+switch_workspace         = "alt+1..9"                    # default: unset
 
 # Worktrees
 new_worktree             = ["prefix+shift+g", "alt+G"]   # default + added
@@ -79,7 +79,7 @@ new_tab                  = ["prefix+c", "alt+t"]         # default + added
 rename_tab               = ["prefix+shift+t", "alt+n"]   # default + added
 previous_tab             = ["prefix+p", "alt+E"]         # default + added
 next_tab                 = ["prefix+n", "alt+R"]         # default + added
-switch_tab               = ["prefix+shift+1..9", "alt+1..9"]   # default + added
+switch_tab               = ["prefix+1..9", "alt+shift+1..9"]   # default + added
 close_tab                = ["prefix+shift+x", "alt+W"]   # default + added
 
 # Panes
@@ -141,6 +141,35 @@ key = "alt+="
 type = "shell"
 command = "~/.config/herdr/bin/equalize-panes"
 description = "even out splits"
+
+# --- Custom commands: pane resize ---
+# Herdr has no direct resize actions, only resize_mode (prefix+r). These call the
+# CLI instead. HERDR_ACTIVE_PANE_ID, not --current: --current falls back to the
+# UI-focused pane, which is the wrong tab once a second client is attached.
+
+[[keys.command]]
+key = "ctrl+alt+h"
+type = "shell"
+command = 'herdr pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction left --amount 0.05'
+description = "resize pane left"
+
+[[keys.command]]
+key = "ctrl+alt+j"
+type = "shell"
+command = 'herdr pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction down --amount 0.05'
+description = "resize pane down"
+
+[[keys.command]]
+key = "ctrl+alt+k"
+type = "shell"
+command = 'herdr pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction up --amount 0.05'
+description = "resize pane up"
+
+[[keys.command]]
+key = "ctrl+alt+l"
+type = "shell"
+command = 'herdr pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction right --amount 0.05'
+description = "resize pane right"
 
 # alt+y/u/i/o/p read one absolute path per line from ~/.config/herdr/projects.local:
 # line 1 is alt+y, line 2 alt+u, and so on through line 5 for alt+p. A missing file,
