@@ -22,21 +22,13 @@ esac
 bin=$(dirname "$0")
 command -v jq >/dev/null || exit 0
 
-# Target the pressing pane. `--current` ignores HERDR_ACTIVE_PANE_ID and falls
-# back to whichever pane the UI has focused, which is the wrong tab as soon as a
-# second client is attached.
-if [ -n "$HERDR_ACTIVE_PANE_ID" ]; then
-  set -- --pane "$HERDR_ACTIVE_PANE_ID"
-else
-  set -- --current
-fi
-
-layout=$(herdr pane layout "$@" 2>/dev/null)
-tab=$(printf '%s' "$layout" |
-  jq -r '[.. | objects | .tab_id? // empty] | first // empty')
-[ -n "$tab" ] || exit 0
-pane=${HERDR_ACTIVE_PANE_ID:-$(printf '%s' "$layout" |
-  jq -r '[.. | objects | .focused_pane_id? // empty] | first // empty')}
+# The keybinding env names the pressing pane and its tab, so nothing has to be
+# looked up. Asking the server instead would mean `herdr pane layout --current`,
+# which answers for whichever pane the UI has focused - the wrong tab as soon as
+# a second client is attached.
+tab=$HERDR_ACTIVE_TAB_ID
+pane=$HERDR_ACTIVE_PANE_ID
+[ -n "$tab" ] && [ -n "$pane" ] || exit 0
 
 # Compact json has no spaces, so a space splits the two fields.
 "$bin/herdr-rpc" layout.export "{\"tab_id\":\"$tab\"}" |

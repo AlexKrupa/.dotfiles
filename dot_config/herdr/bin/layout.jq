@@ -30,17 +30,24 @@ def slots($d):
   if type == "object" and .type == "split" and .direction == $d
   then (.first | slots($d)) + (.second | slots($d)) else 1 end;
 
-# `<path> <ratio>` per split under this node, ratio = same-axis slots on the
-# first side / slots in total. A split ratio of 0.5 everywhere does not equalize
-# panes: for `a | (b | c)` it gives 50/25/25, while this gives 33/33/33. With a
-# direction, the walk stops where the direction changes, which is where the
-# group ends.
+# `<path> <ratio>` per split under this node that is not already there, ratio =
+# same-axis slots on the first side / slots in total. A split ratio of 0.5
+# everywhere does not equalize panes: for `a | (b | c)` it gives 50/25/25, while
+# this gives 33/33/33. With a direction, the walk stops where the direction
+# changes, which is where the group ends.
+#
+# Splits already at their target are left out, so evening an even tab writes
+# nothing. The server keeps ratios as f32 and hands 1/3 back as 0.33333331, so
+# that comparison needs a tolerance; an exact one would rewrite every split on
+# every press.
 def ratios($p; $dir):
   if type == "object" and .type == "split" and ($dir == "" or .direction == $dir) then
     (.direction as $d
       | (.first | slots($d)) as $a
       | (.second | slots($d)) as $b
-      | "\($p | tojson) \($a / ($a + $b))"),
+      | ($a / ($a + $b)) as $r
+      | select(((.ratio - $r) | fabs) > 0.000001)
+      | "\($p | tojson) \($r)"),
     (.first  | ratios($p + [false]; $dir)),
     (.second | ratios($p + [true]; $dir))
   else empty end;

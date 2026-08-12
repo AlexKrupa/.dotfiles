@@ -13,12 +13,11 @@
 bin=$(dirname "$0")
 command -v jq >/dev/null || exec herdr pane close "$HERDR_ACTIVE_PANE_ID"
 
-tab=$(herdr pane layout --pane "$HERDR_ACTIVE_PANE_ID" 2>/dev/null |
-  jq -r '[.. | objects | .tab_id? // empty] | first // empty')
-
-# `<direction> <pane>`, or nothing when the pane is the whole tab.
-if [ -n "$tab" ]; then
-  set -- $("$bin/herdr-rpc" layout.export "{\"tab_id\":\"$tab\"}" |
+# `<direction> <pane>`, or nothing when the pane is the whole tab. Cleared first
+# so the count below never reads arguments this script was called with.
+set --
+if [ -n "$HERDR_ACTIVE_TAB_ID" ]; then
+  set -- $("$bin/herdr-rpc" layout.export "{\"tab_id\":\"$HERDR_ACTIVE_TAB_ID\"}" |
     jq -r -L "$bin" --arg pane "$HERDR_ACTIVE_PANE_ID" 'include "layout"; close_target($pane)')
 fi
 
