@@ -25,6 +25,19 @@
 # Every column comes out equal and every stack comes out equal. Pane *areas* are
 # only equal when the whole tab splits one direction; ratios alone cannot do
 # better on a mixed tree without restructuring it.
+#
+# `right` or `down` narrows the work to one group: the unbroken run of splits of
+# that direction that the active pane sits in, found by walking its ancestors
+# and then back down through same-direction splits only. In
+# `(a | b) | (c / d)`, `right` from `a` evens the three columns `a`, `b` and the
+# `c / d` stack, and leaves that stack at whatever it was resized to; `down`
+# from `a` finds no row group there and does nothing. This is what the split
+# keys use, so a split evens its own row or column and disturbs nothing else.
+
+case ${1:-} in
+  '' | right | down) dir=${1:-} ;;
+  *) echo "usage: equalize-panes [right|down]" >&2; exit 2 ;;
+esac
 
 rpc=$(dirname "$0")/herdr-rpc
 command -v jq >/dev/null || exit 0
@@ -38,26 +51,56 @@ else
   set -- --current
 fi
 
-tab=$(herdr pane layout "$@" 2>/dev/null |
+layout=$(herdr pane layout "$@" 2>/dev/null)
+tab=$(printf '%s' "$layout" |
   jq -r '[.. | objects | .tab_id? // empty] | first // empty')
 [ -n "$tab" ] || exit 0
+pane=${HERDR_ACTIVE_PANE_ID:-$(printf '%s' "$layout" |
+  jq -r '[.. | objects | .focused_pane_id? // empty] | first // empty')}
 
-# One `<path> <ratio>` line per split, ratio = same-axis slots on the first side
-# / slots in total. Compact json has no spaces, so a space splits the fields.
-"$rpc" layout.export "{\"tab_id\":\"$tab\"}" | jq -r '
+# One `<path> <ratio>` line per split to change, ratio = same-axis slots on the
+# first side / slots in total. Compact json has no spaces, so a space splits the
+# fields.
+"$rpc" layout.export "{\"tab_id\":\"$tab\"}" | jq -r --arg dir "$dir" --arg pane "$pane" '
   def slots($d):
     if type == "object" and .type == "split" and .direction == $d
     then (.first | slots($d)) + (.second | slots($d)) else 1 end;
-  def walk($p):
-    if type == "object" and .type == "split" then
+
+  # Ratios for this node and, when $dir is set, only for the same-direction
+  # splits under it - the rest of the group ends where the direction changes.
+  def ratios($p):
+    if type == "object" and .type == "split" and ($dir == "" or .direction == $dir) then
       (.direction as $d
         | (.first | slots($d)) as $a
         | (.second | slots($d)) as $b
         | "\($p | tojson) \($a / ($a + $b))"),
-      (.first  | walk($p + [false])),
-      (.second | walk($p + [true]))
+      (.first  | ratios($p + [false])),
+      (.second | ratios($p + [true]))
     else empty end;
-  [.. | objects | select(has("root")) | .root] | first | walk([])
+
+  def node($p): reduce $p[] as $b (.; if $b then .second else .first end);
+  def pathto($id):
+    if .type == "pane" then (if .pane_id == $id then [[]] else [] end)
+    else ((.first | pathto($id)) | map([false] + .))
+       + ((.second | pathto($id)) | map([true] + .)) end;
+
+  ([.. | objects | select(has("root")) | .root] | first) as $root
+  | if $dir == "" then $root | ratios([])
+    else
+      ($root | pathto($pane) | first) as $path
+      | if $path == null then empty else
+          # Directions of the ancestors of the pane, root first.
+          [range(0; $path | length) as $i | ($root | node($path[0:$i]) | .direction)] as $up
+          # Start of the last unbroken run of $dir: the top of the group the
+          # pane is in. A run further up is a different group.
+          | (reduce range(0; $up | length) as $i ({ start: null, top: null };
+              if $up[$i] == $dir
+              then { start: (.start // $i), top: (.start // $i) }
+              else { start: null, top: .top } end) | .top) as $top
+          | if $top == null then empty
+            else $root | node($path[0:$top]) | ratios($path[0:$top]) end
+        end
+    end
 ' | while read -r path ratio; do
   "$rpc" layout.set_split_ratio "{\"tab_id\":\"$tab\",\"path\":$path,\"ratio\":$ratio}" >/dev/null
 done

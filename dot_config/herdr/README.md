@@ -7,7 +7,8 @@
 | `config.toml`             | All settings and keybindings                                                 |
 | `bin/project`             | Focus or create a project workspace, for `alt+y/u/i/o/p`                     |
 | `bin/break-pane`          | Move the focused pane to a new tab                                           |
-| `bin/equalize-panes`      | Give every pane in the tab an equal share                                    |
+| `bin/split-pane`          | Split the active pane, then even out the group the new pane joins            |
+| `bin/equalize-panes`      | Even out the whole tab, or one row or column group with `right` or `down`    |
 | `bin/herdr-rpc`           | One JSON-RPC call to the herdr socket, for API calls the CLI does not expose |
 | `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees                    |
 | `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                           |
@@ -26,6 +27,12 @@ Three direct layers, no prefix needed (but every direct key also has a prefix fo
 - `alt` for tabs,
 - `alt+shift` for workspaces,
 - `ctrl+alt` for agents.
+
+The split keys are custom commands, not the built-in split actions: they run `bin/split-pane`, which
+splits over the CLI and then runs `bin/equalize-panes right` or `down`. That evens only the group
+the new pane joined - the unbroken run of same-direction splits around it. Nesting elsewhere in the
+tab, and the other axis of the same nest, keep whatever they were resized to. `alt+=` still evens
+the whole tab. A split made by the CLI, a plugin or an agent is left alone.
 
 ## Custom plugins
 

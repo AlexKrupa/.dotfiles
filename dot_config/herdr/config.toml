@@ -91,8 +91,8 @@ swap_pane_left           = ["prefix+shift+h", "alt+H"]   # default + added
 swap_pane_down           = ["prefix+shift+j", "alt+J"]   # default + added
 swap_pane_up             = ["prefix+shift+k", "alt+K"]   # default + added
 swap_pane_right          = ["prefix+shift+l", "alt+L"]   # default + added
-split_vertical           = ["prefix+v", "alt+slash"]     # default + added, side by side
-split_horizontal         = ["prefix+minus", "alt+minus"] # default + added, stacked
+split_vertical           = ""                            # unset, see the split commands below
+split_horizontal         = ""                            # unset, see the split commands below
 close_pane               = ["prefix+x", "alt+w"]         # default + added
 zoom                     = ["prefix+z", "alt+z"]         # default + added
 copy_mode                = ["prefix+[", "alt+v"]         # default + added
@@ -141,6 +141,23 @@ key = "alt+="
 type = "shell"
 command = "~/.config/herdr/bin/equalize-panes"
 description = "even out splits"
+
+# --- Custom commands: splits ---
+# The built-in split actions are unset above; bin/split-pane splits over the CLI
+# and then evens out the row or column group the new pane joined, leaving every
+# other split in the tab alone.
+
+[[keys.command]]
+key = ["prefix+v", "alt+slash"]
+type = "shell"
+command = "~/.config/herdr/bin/split-pane right"
+description = "split side by side, even that column group"
+
+[[keys.command]]
+key = ["prefix+minus", "alt+minus"]
+type = "shell"
+command = "~/.config/herdr/bin/split-pane down"
+description = "split stacked, even that row group"
 
 # --- Custom commands: pane resize ---
 # Herdr has no direct resize actions, only resize_mode (prefix+r). These call the
