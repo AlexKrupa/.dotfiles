@@ -19,6 +19,7 @@
 | `projects.local`          | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles         |
 | `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`                    |
 | `bin/pluck-open`          | Open handler for herdr-pluck's uppercase hints                               |
+| `bin/pluck-post-close`    | Evens the group a pluck editor pane leaves when it closes itself             |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files. Leave
 those alone.
@@ -37,7 +38,7 @@ evens only the group the pane joined or left - the unbroken run of same-directio
 Nesting elsewhere in the tab, and the other axis of the same nest, keep whatever they were resized
 to. Closing the middle of three columns evens the two that are left; closing a row out of a column
 leaves that column's width alone. `alt+=` still evens the whole tab. A split or close made by the
-CLI, a plugin or an agent is left alone.
+CLI, a plugin or an agent is left alone, apart from the herdr-pluck opens below.
 
 `bin/layout.jq` holds the tree walks all three scripts share, and picks the splits and ratios.
 `bin/tests/test.sh` covers it with fixture trees, no server needed.
@@ -88,6 +89,11 @@ moves.
 directory (`y`, pane stays in the directory yazi ended in), and falls back to `open` for everything
 else. The split names `$HERDR_PLUCK_PANE_ID` explicitly because the picker's temporary tab is still
 focused while the handler runs.
+
+Both splits even out the column group they join, the same as the split keys. The editor pane closes
+itself when the editor quits and no key fires on that, so its command ends with
+`bin/pluck-post-close`: it re-runs itself detached, waits for the pane to go, then evens what is
+left. A yazi pane is closed by key, so `bin/close-pane` already covers it.
 
 `herdr-upgrade` runs `herdr-forks-sync` first, which reads `forks.conf` and rebases each fork's
 clone onto its upstream, then force-pushes. A conflict is reported and skipped, leaving the plugin
