@@ -56,6 +56,7 @@ compression stay.
 
 - If a simpler word exists - use it.
   - Example: use "is", not "serves as", not "utilizes". Use "has", not "carries".
+- Short sentences over conjunctions
 - No AI slop
 - No jargon, idioms, cliches, or marketing diction
 - No impersonating a human - you're a machine, you are never "honest", you never "think"
