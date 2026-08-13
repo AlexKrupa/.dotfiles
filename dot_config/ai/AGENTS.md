@@ -29,7 +29,7 @@
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
 - Git: make commits (vertical slices), do not suggest pushing or opening PRs
-- Finishing a development branch: dispatch a reviewer subagent than just calls the `/review-me`
+- Finishing a development branch: dispatch a reviewer subagent that just calls the `/review-me`
   skill and reports back when it's done
 
 ## Code
@@ -67,7 +67,7 @@ compression stay.
 
 ### List of banned words and phrases
 
-Strictly forbidden in conversation, unless I use them or there's absolutely no alternative:
+Strictly forbidden, unless I use them in conversation or there's absolutely no alternative:
 
 ```
 honest, genuine, latent, robust, authoritative, canonical, sharp,
@@ -111,7 +111,7 @@ Layout:
 - `_no-repo` outside git
 - Create subdirectory if missing
 
-<optional-ticket-id> - infer from conversation context or branch name.
+`<optional-ticket-id>` - infer from conversation context or branch name.
 
 ## Environment
 
