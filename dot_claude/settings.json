@@ -127,6 +127,9 @@
       }
     ]
   },
+  "worktree": {
+    "baseRef": "fresh"
+  },
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh",
@@ -146,7 +149,7 @@
     "claude-code-setup@claude-plugins-official": false,
     "claude-md-management@claude-plugins-official": false,
     "gopls-lsp@claude-plugins-official": false,
-    "i-have-adhd@i-have-adhd": true,
+    "i-have-adhd@i-have-adhd": false,
     "jdtls-lsp@claude-plugins-official": false,
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
@@ -216,6 +219,7 @@
       }
     }
   },
+  "outputStyle": "Plain",
   "sandbox": {
     "enabled": true,
     "failIfUnavailable": true,
@@ -293,7 +297,9 @@
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "theme": "auto",
+  "editorMode": "normal",
   "preferredNotifChannel": "notifications_disabled",
+  "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "autoConnectIde": false

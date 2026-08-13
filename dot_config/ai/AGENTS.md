@@ -42,10 +42,10 @@
   simplify.
 - Unrelated issues or dead code: mention, don't fix
 
-## Communication
+## Written communication
 
-- Apply these rules to all communication: replies, docs, code comments, commit messages, PR and
-  issue descriptions.
+- Apply these rules to all written communication: replies, docs, code comments, commit messages, PR
+  and issue descriptions.
 - Match document length to the task - substance, no padding, no redundant summaries, no boilerplate
   sections. Applies to plans, specs, reviews, and any file written to disk.
 
@@ -92,22 +92,6 @@ delve, leverage, streamline, land, carry, overstep,
 - Code: backticks for inline (`Class.method()`), fences for multi-line. Including in commit message
   title and body.
 - Headings: sentence case (`## This format`), except proper names or code
-
-### Reply style
-
-- Follow previous communication rules
-- Expert-to-expert
-- Lead with solution, then details
-- Extremely concise - sacrifice grammar for the sake of concision
-- Brief: no apologies, repetition, or generic praise. Remove all conversational text.
-- Specific: actual tools, versions, error messages - no filler
-- Concrete examples over abstractions
-- One sentence before the first tool call, then updates only on a finding or direction change. Final
-  message leads with outcome.
-- Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
-  after the text
-  - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
-- Put questions on separate lines, marked with a leading ❓
 
 ## ~/.ai/ work directory
 
