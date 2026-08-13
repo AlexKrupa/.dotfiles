@@ -12,6 +12,11 @@ function claude --description 'Run Claude Code after navigating to git root'
     command claude $argv
 end
 
+function __claude_upgrade_available --description 'Print "current -> new" if a newer claude-code cask exists'
+    # --greedy: the cask may be marked auto_updates, which outdated skips otherwise.
+    brew outdated --cask --greedy --verbose claude-code@latest 2>/dev/null
+end
+
 function __claude_upgrade_cask
     echo "Upgrading claude-code cask..."
     if not brew upgrade --cask claude-code@latest
@@ -109,6 +114,19 @@ function claude-upgrade --description 'Quit interactive claude sessions, upgrade
         echo "claude-upgrade: not inside tmux or herdr" >&2
         return 1
     end
+
+    # Check before touching any session: no new version, nothing to quit.
+    echo "Checking for a new claude-code version..."
+    set -l outdated (__claude_upgrade_available)
+    if test $status -ne 0
+        echo "claude-upgrade: version check failed" >&2
+        return 1
+    end
+    if test -z "$outdated"
+        echo "Already up to date."
+        return 0
+    end
+    echo "New version: $outdated"
 
     # Map pane shell pid -> pane target, once.
     set -l pane_pids
