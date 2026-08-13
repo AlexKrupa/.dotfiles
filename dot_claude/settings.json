@@ -158,7 +158,7 @@
     "ponytail@ponytail": true,
     "pyright-lsp@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
-    "simple-english@simple-english": false,
+    "simple-english@simple-english": true,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false
