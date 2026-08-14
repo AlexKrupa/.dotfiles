@@ -27,7 +27,9 @@ write:
 
 ## Formatting
 
-- Make questions explicit: put them on separate lines - not inline, not hidden in a prose paragraph
+- Make questions explicit:
+  - Put them on separate lines - not inline, not hidden in a prose paragraph
+  - If multiple questions - number as Q1, Q2, Q3, etc.
 - Emojis: use only these leading markers to improve scannability
   - Questions: ❓
 - Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
