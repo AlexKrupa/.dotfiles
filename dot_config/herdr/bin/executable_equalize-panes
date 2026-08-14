@@ -1,7 +1,9 @@
 #!/bin/sh
 # Give every pane in the current tab an equal share, or with `right` or `down`
-# only the row or column group the active pane sits in - what the split and
-# close keys use. bin/layout.jq picks the splits and works out the ratios.
+# only the row or column group the active pane sits in - what the split key
+# uses. A layout path as the second argument names the group by its spot in the
+# tree instead of by a pane, which is what the close key needs: the pane it
+# would name has already gone. bin/layout.jq picks the splits and the ratios.
 #
 # The herdr CLI exposes no layout subcommand, so this goes over the socket.
 # layout.apply would set every ratio in one call but takes a whole tree and can
@@ -16,8 +18,9 @@
 
 case ${1:-} in
   '' | right | down) dir=${1:-} ;;
-  *) echo "usage: equalize-panes [right|down]" >&2; exit 2 ;;
+  *) echo "usage: equalize-panes [right|down [path]]" >&2; exit 2 ;;
 esac
+group=${2:-}
 
 bin=$(dirname "$0")
 command -v jq >/dev/null || exit 0
@@ -28,11 +31,13 @@ command -v jq >/dev/null || exit 0
 # a second client is attached.
 tab=$HERDR_ACTIVE_TAB_ID
 pane=$HERDR_ACTIVE_PANE_ID
-[ -n "$tab" ] && [ -n "$pane" ] || exit 0
+[ -n "$tab" ] || exit 0
+[ -n "$pane" ] || [ -n "$group" ] || exit 0
 
 # Compact json has no spaces, so a space splits the two fields.
 "$bin/herdr-rpc" layout.export "{\"tab_id\":\"$tab\"}" |
-  jq -r -L "$bin" --arg pane "$pane" --arg dir "$dir" 'include "layout"; equalize($pane; $dir)' |
+  jq -r -L "$bin" --arg pane "$pane" --arg dir "$dir" --arg group "$group" 'include "layout";
+    if $group == "" then equalize($pane; $dir) else equalize_at($group | fromjson; $dir) end' |
   while read -r path ratio; do
     "$bin/herdr-rpc" layout.set_split_ratio \
       "{\"tab_id\":\"$tab\",\"path\":$path,\"ratio\":$ratio}" >/dev/null

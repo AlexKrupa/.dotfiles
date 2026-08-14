@@ -45,7 +45,7 @@ check "no direction takes the whole tab" "$stack" 'equalize("a"; "")' \
   "[] 0.5" "[true] 0.5"
 check "the run the pane is in, not the one above" "$nested" 'equalize("a"; "right")' \
   "[false,false] 0.5"
-check "the row between the two runs" "$nested" 'equalize("a"; "down")' "[false] 0.5"
+check "no row group under that pane" "$nested" 'equalize("a"; "down")'
 check "a pane of another tab" "$columns" 'equalize("zz"; "right")'
 check "one pane is no group" "$alone" 'equalize("a"; "right")'
 check "an even group writes nothing" "$even" 'equalize("a"; "right")'
@@ -53,9 +53,27 @@ check "only the split that is off" "$partly" 'equalize("a"; "right")' \
   "[] 0.3333333333333333"
 check "f32 noise counts as even" "$f32" 'equalize("a"; "right")'
 
-check "close takes the collapsing split" "$columns" 'close_target("b")' "right a"
-check "close reaches into the other side" "$columns" 'close_target("c")' "right a"
-check "close inside a stack" "$stack" 'close_target("c")' "down b"
+check "close takes the collapsing split" "$columns" 'close_target("b")' "right [false]"
+check "close at the root" "$columns" 'close_target("c")' "right []"
+check "close inside a stack" "$stack" 'close_target("c")' "down [true]"
 check "closing the whole tab" "$alone" 'close_target("a")'
+
+# The trees the closes above leave behind, which is what equalize_at then reads.
+# a | c, from closing b out of the three columns
+closed_columns=$(tree "$(split right 0.3 "$(pane a)" "$(pane c)")")
+# a | (c / d), from closing b out of a | b | (c / d): the group loses a column
+closed_hoist=$(tree "$(split right 0.3 "$(pane a)" "$(split down 0.5 "$(pane c)" "$(pane d)")")")
+# a | ((c | d) / e), from closing b out of a | ((b | c | d) / e)
+closed_inner=$(tree "$(split right 0.7 "$(pane a)" \
+  "$(split down 0.5 "$(split right 0.9 "$(pane c)" "$(pane d)")" "$(pane e)")")")
+
+check "the group the closed pane left" "$closed_columns" 'equalize_at([]; "right")' "[] 0.5"
+check "the group reaches past the hoisted stack" "$closed_hoist" 'equalize_at([]; "right")' \
+  "[] 0.5"
+check "a column group inside a row leaves the tab alone" "$closed_inner" \
+  'equalize_at([true,false]; "right")' "[true,false] 0.5"
+check "nothing left of that column group" \
+  "$(tree "$(split right 0.7 "$(pane a)" "$(split down 0.5 "$(pane c)" "$(pane e)")")")" \
+  'equalize_at([true,false]; "right")'
 
 exit $fail

@@ -20,8 +20,6 @@ def pathto($id):
   else ((.first | pathto($id)) | map([false] + .))
      + ((.second | pathto($id)) | map([true] + .)) end;
 
-def panes: [.. | objects | .pane_id? // empty];
-
 # Slots on one axis: nested splits of the same direction add up, anything else
 # counts as one. In `a | (b / c / d)` the root's second side is one column, so
 # both columns come out equal and the stack is evened on its own. Counting every
@@ -52,33 +50,33 @@ def ratios($p; $dir):
     (.second | ratios($p + [true]; $dir))
   else empty end;
 
-# Every split to change so the group around $pane comes out even. $dir "" is the
-# whole tab, both axes. Otherwise the group is the unbroken run of $dir splits
-# the pane sits in, found by walking its ancestors and then back down through
-# same-direction splits only; a run further up is a different group.
-def equalize($pane; $dir):
+# Every split to change so the group at $path comes out even. The group is the
+# unbroken run of $dir splits that ends at $path: walk up while the ancestors
+# keep that direction, then back down through same-direction splits only. A run
+# further up is another group, so a node whose own parent splits the other way
+# is in no run and nothing moves. $path is a pane for the split key, and the
+# collapsed split for the close key - both name the spot the group forms around.
+def equalize_at($path; $dir):
   root as $root
-  | if $dir == "" then $root | ratios([]; "")
-    else
-      ($root | pathto($pane) | first) as $path
-      | if $path == null then empty else
-          [range(0; $path | length) as $i | ($root | node($path[0:$i]) | .direction)] as $up
-          | (reduce range(0; $up | length) as $i ({ start: null, top: null };
-              if $up[$i] == $dir
-              then { start: (.start // $i), top: (.start // $i) }
-              else { start: null, top: .top } end) | .top) as $top
-          | if $top == null then empty
-            else $root | node($path[0:$top]) | ratios($path[0:$top]; $dir) end
-        end
-    end;
+  | [range(0; $path | length) as $i | ($root | node($path[0:$i]) | .direction)] as $up
+  | ($up | length) as $n
+  | (first(range($n; 0; -1) | select($up[. - 1] != $dir)) // 0) as $top
+  | $root | node($path[0:$top]) | ratios($path[0:$top]; $dir);
 
-# `<direction> <pane>`: the split that closing $pane collapses, and a pane on the
-# other side of it to even that group around afterwards. Nothing when $pane is
-# the whole tab and the close takes the tab with it.
+# The same around the pane $dir splits it. $dir "" is the whole tab, both axes.
+def equalize($pane; $dir):
+  if $dir == "" then root | ratios([]; "")
+  else (root | pathto($pane) | first) as $path
+    | if $path == null then empty else equalize_at($path; $dir) end
+  end;
+
+# `<direction> <path>`: the split that closing $pane collapses, and its path.
+# Closing hoists the other side into that spot, so the path still leads to the
+# group afterwards. A pane there instead would only name the group when the
+# other side is a single pane. Nothing when $pane is the whole tab and the close
+# takes the tab with it.
 def close_target($pane):
   root as $root
   | ($root | pathto($pane) | first) as $path
   | select($path != null and ($path | length) > 0)
-  | ($root | node($path[0:-1])) as $parent
-  | ($parent | if $path[-1] then .first else .second end) as $sibling
-  | "\($parent.direction) \($sibling | panes | first)";
+  | "\($root | node($path[0:-1]) | .direction) \($path[0:-1] | tojson)";
