@@ -4,8 +4,6 @@ alias gs "git-spice"
 alias gitc "$EDITOR $XDG_CONFIG_HOME/git/config-base"
 alias giti "$EDITOR $XDG_CONFIG_HOME/git/ignore"
 
-# git-spice completions (branch stacking)
-eval "$(gs shell completion fish)"
 set -Ux GIT_SPICE_NO_GS_WARNING 1
 
 # Usage: branch [name...]

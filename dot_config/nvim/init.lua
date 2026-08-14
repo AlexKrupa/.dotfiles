@@ -273,7 +273,9 @@ require('lazy').setup({
   { -- Fuzzy Finder (files, lsp, etc)
     'nvim-telescope/telescope.nvim',
     branch = 'master',
-    event = 'VimEnter',
+    -- VeryLazy fires after the first paint, unlike VimEnter. The keymaps below still register
+    -- on their own.
+    event = 'VeryLazy',
     dependencies = {
       'nvim-lua/plenary.nvim',
       { -- If encountering errors, see telescope-fzf-native README for install instructions
@@ -393,6 +395,10 @@ require('lazy').setup({
   {
     -- Main LSP Configuration
     'neovim/nvim-lspconfig',
+    -- Without a trigger this subtree (mason, fidget, blink.cmp) loads before the first paint.
+    -- vim.lsp.enable() below attaches to open buffers, so a file given on the command line
+    -- still gets its server.
+    event = 'VeryLazy',
     dependencies = {
       -- Automatically install LSPs and related tools to stdpath for Neovim
       -- Mason must be loaded before its dependents so we need to set it up here.

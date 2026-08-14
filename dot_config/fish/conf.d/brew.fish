@@ -121,4 +121,11 @@ function brew-kill --description 'Remove Homebrew lock files'
   rm -rf $(brew --prefix)/var/homebrew/locks
 end
 
-/opt/homebrew/bin/brew shellenv fish | source
+# Verbatim output of `brew shellenv fish` (8 ms), inlined. Every value is a literal.
+# Re-run and re-paste if the brew prefix ever moves off /opt/homebrew.
+set --global --export HOMEBREW_PREFIX "/opt/homebrew";
+set --global --export HOMEBREW_CELLAR "/opt/homebrew/Cellar";
+set --global --export HOMEBREW_REPOSITORY "/opt/homebrew";
+fish_add_path --global --move --path "/opt/homebrew/bin" "/opt/homebrew/sbin";
+if test -n "$MANPATH[1]"; set --global --export MANPATH '' $MANPATH; end;
+if not set --query INFOPATH; set INFOPATH ''; end; if not contains "/opt/homebrew/share/info" $INFOPATH; set --global --export INFOPATH "/opt/homebrew/share/info" $INFOPATH; end;

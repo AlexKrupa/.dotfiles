@@ -11,10 +11,13 @@ bin=$(cd "$(dirname "$0")" && pwd)
 # Splits the source pane, evens the column group the new pane joins, and prints its id.
 # The source pane is named explicitly because the picker tab is still focused here, and
 # equalize-panes takes its tab and pane from the environment, the same as the split key.
+# Extra `herdr pane split` arguments (--env ...) may follow the cwd.
 split_pane() {
+  local cwd=$1
+  shift
   local pane
-  pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$1" \
-    --focus | jq -r .result.pane.pane_id)
+  pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$cwd" \
+    "$@" --focus | jq -r .result.pane.pane_id)
   HERDR_ACTIVE_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_ACTIVE_PANE_ID="$pane" \
     "$bin/equalize-panes" right
   echo "$pane"
@@ -45,9 +48,14 @@ if [ -n "$path" ]; then
     printf -v quoted '%q' "$path"
     # Trailing `exit` ends the pane shell with the editor, so herdr closes the split.
     # No key fires on that close: the pane starts pluck-post-close on its way out.
-    pane=$(split_pane "$PWD")
-    exec herdr pane run "$pane" \
-      "$editor $quoted; $bin/pluck-post-close $HERDR_PLUCK_TAB_ID $HERDR_PLUCK_PANE_ID $pane; exit"
+    #
+    # HERDR_PANE_CMD replaces a `herdr pane run` round-trip: conf.d/00-herdr-fast-pane.fish
+    # runs it at spawn. That skips conf.d/brew.fish too, hence PATH from this pane.
+    # $HERDR_PANE_ID stays unexpanded for the new pane's own shell, since the id is not
+    # known until the split that delivers this command returns.
+    cmd="$editor $quoted; $bin/pluck-post-close $HERDR_PLUCK_TAB_ID $HERDR_PLUCK_PANE_ID \$HERDR_PANE_ID; exit"
+    split_pane "$PWD" --env "PATH=$PATH" --env "HERDR_PANE_CMD=$cmd" >/dev/null
+    exit 0
   fi
   exec open "$path"
 fi
