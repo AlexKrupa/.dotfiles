@@ -266,3 +266,4 @@ key = "alt+c"
 type = "plugin_action"
 command = "rmarganti.herdr-pluck.pluck"
 description = "copy with hints"
+

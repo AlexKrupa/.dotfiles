@@ -44,6 +44,9 @@ matches:
       |-----|-----|-----|-----|
       | $|$ |     |     |     |
 
+  - regex: ":tag-(?P<name>.*?)\\."
+    replace: "<{{name}}>\n$|$\n</{{name}}>"
+
   - trigger: ":aitask"
     force_mode: clipboard
     replace: |
