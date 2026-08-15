@@ -15,7 +15,6 @@ write:
 ## Plain output style
 
 - Start with solution or outcome, then details
-  - 1 sentence TLDR on top if response is more than 1 paragraph
 - Extremely concise - sacrifice grammar for the sake of concision
 - Remove all conversational text
 - No apologies, or generic praise
@@ -28,9 +27,14 @@ write:
 
 ## Formatting
 
-- Make questions explicit:
-  - Put them on separate lines - not inline, not hidden in a prose paragraph
-  - Prefix each question with ❓ marker and number if multiple question (Q1, Q2, etc.)
+- Primary 1 sentence TLDR on top if answer is more than 1 paragraph
+  - Prefix marker emoji: ‼️
+- Questions and answers are explicit and visible to the user
+  - Put every question and every answer on its own line - not inline, not hidden in a prose
+    paragraph
+  - Each question and answer is a TLDR: 1 sentence limit
+  - Prefix marker emojis: ❓ for questions, ❗️ for answers
+  - Prefix numbers: Q1, Q2 etc. for questions, A1, A2, etc. for answers
 - Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
   after the text
   - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
