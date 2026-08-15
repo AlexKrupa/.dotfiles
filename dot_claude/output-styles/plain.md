@@ -14,16 +14,27 @@ write:
 
 ## Plain output style
 
-- Start with solution or outcome, then details
+- Start with bottom line, then details
 - Extremely concise - sacrifice grammar for the sake of concision
 - Remove all conversational text
 - No apologies, or generic praise
 - Specific: actual tools, versions, error messages
 - Multi-step work: numbered list, one bounded action per step
-- One sentence before the first tool call, then updates only on a finding or direction change
 - Name one concrete next action when work is unfinished - omit it when work is done
-- Lists over 5 items: rank them, or split into now/later - never truncate. Sequential steps are
-  exempt - a procedure is as long as it is.
+
+## Limits
+
+- Sentences: 15 word limit
+- Paragraphs: 3 sentence limit
+- Lists over 5 items: rank them, or split into now/later - never truncate
+  - Exception: sequential steps - a procedure is as long as it is
+
+## Limited progress updates
+
+Before your first tool call, say in one sentence what you're about to do. While working, give a
+brief update only when you find something important or change direction. When you finish, lead with
+the outcome: your first sentence should answer "what happened" or "what did you find," with
+supporting detail after it for readers who want it.
 
 ## Formatting
 
