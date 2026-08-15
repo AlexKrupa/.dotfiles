@@ -89,8 +89,7 @@ delve, leverage, streamline, land, carry, overstep,
   - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,
     diagrams, and code.
 - Use single dashes instead of en- or em-dashes
-- Semicolons: default to splitting into two sentences or using a dash. Keep one only when the
-  clauses are inseparable.
+- No semicolons: split into two sentences or use a single dash.
 - Code: backticks for inline (`Class.method()`), fences for multi-line. Including in commit message
   title and body.
 - Headings: sentence case (`## This format`), except proper names or code

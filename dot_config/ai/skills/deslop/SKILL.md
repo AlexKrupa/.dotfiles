@@ -4,7 +4,8 @@ argument-hint: "[reply|<path>...]"
 description:
   Use when prose written by an agent must be cleaned up after the fact - docs, code comments,
   docstrings, and commit messages on the current branch that ignore the writing rules (AI slop,
-  filler, banned words, marketing diction, wall-of-text comments). Also rewrites the assistant's
+  filler, banned words, marketing diction, wall-of-text comments). Deletes every comment the
+  branch touched, then restores only the ones that earn it. Also rewrites the assistant's
   own last reply on request. Triggers on "deslop", "deslop that", "deslop your reply", "clean up
   the writing", "fix the wording on this branch". Also a required sub-skill of review-me.
 ---
@@ -19,8 +20,10 @@ commits. Nothing is pushed, rebased, or amended - the user applies the fixups th
 
 Open these at the start of **every** run, before editing anything:
 
-- `~/.claude/CLAUDE.md` - the `## Communication` section (simple language, banned words,
+- `~/.claude/CLAUDE.md` - the `## Written communication` section (simple language, banned words,
   formatting).
+- `~/.claude/rules/code.md` - the `## Comments (inline and doc)` section. These are the rules the
+  comment pass applies.
 - `~/.claude/rules/documenting.md` - for Markdown and docs.
 - The repo's own style docs, if any (`CONTRIBUTING*`, `docs/style*`). They win over the personal
   rules for files in that repo.
@@ -55,11 +58,43 @@ Test: would a reader lose something they cannot get from the surrounding code or
 | Banned words, filler transitions, marketing diction | Deleting a paragraph or section |
 | Em-dashes, smart quotes, Markdown links -> plain URLs | Dropping a caveat or version note |
 | Same content, shorter sentence | Removing the only example of a thing |
-| Cutting a comment that restates the code | Cutting a comment that states a *why* |
 | Reflowing to 100 chars, heading case, list structure | Merging or deleting a whole doc |
 
 Ask as **one** grouped prompt at the end, per item, never one prompt per finding. Reply mode never
 asks - see below.
+
+Comments do not use this table. They get their own pass, which never asks.
+
+## Comments: delete first, justify back
+
+Reviewing a comment where it sits defends it. Delete it, then make it argue its way back. Two
+passes, in order, no merging them.
+
+**Pass 1 - delete.** In the target files, delete every comment and docstring the branch added or
+changed. All of them, no judgment, no exceptions. Code lines stay untouched. Stage nothing - the
+deletions sit in the working tree, which is how pass 2 reads them back.
+
+**Pass 2 - justify.** Run `git diff -U8 -- <file>...` to list each deleted comment with the code
+around it. Take them one at a time, in diff order. For each, name in one line what a reader loses
+that the adjacent code does not already say. Then pick:
+
+- **stays deleted** - the default. Restates the code, labels the obvious, section banner, history
+  or changelog note, ownerless TODO, or a sentence true of any code.
+- **restore trimmed** - the point holds in fewer words. Write the short version. Do not paste the
+  original back.
+- **restore as is** - only when it is already one minimal line.
+
+A comment comes back only for something the code cannot carry: a why, a constraint invisible at
+this line, a workaround plus its cause, a contract callers depend on, a link to an issue or spec.
+"It explains what the function does" is not a reason - the function does that.
+
+Docstrings the repo requires (public API, a doc linter): trim to one line, do not delete.
+
+Expected result: most comments stay deleted, most survivors come back shorter. If nearly everything
+was restored, pass 2 defended instead of judged. Redo it.
+
+Never prompt the user about a comment. Deletion is the default, and every deletion is visible in
+the fixups they review before rebasing.
 
 ## Reply mode
 
@@ -85,7 +120,9 @@ Skip the git steps entirely - there is no working tree, no `<parent>`, no absorb
 3. Collect targets: `git diff --name-only <parent>...HEAD` filtered to files holding prose, and
    `git log --format='%H %s%n%b' <parent>..HEAD` for the messages.
 4. Edit the prose in place. Prose only - one changed line that alters code means you went too far.
-5. For each message that needs a rewrite, write the full new message (subject, blank line, body) to
+5. Run the comment pass above on the code files in scope: delete all touched comments, then justify
+   each one back. Both passes, in order.
+6. For each message that needs a rewrite, write the full new message (subject, blank line, body) to
    a temp file and run:
 
    ```
@@ -94,7 +131,7 @@ Skip the git steps entirely - there is no working tree, no `<parent>`, no absorb
 
    It builds the `amend!` commit and aborts on an out-of-range sha, a duplicate subject, or a dirty
    index. Do not hand-write `amend!` commits.
-6. Fold the file edits into their commits, passing only the files edited this pass:
+7. Fold the file edits into their commits, passing only the files edited this pass:
 
    ```
    ~/.claude/skills/review-me/absorb-fixes.sh <parent> <file>...
@@ -102,12 +139,13 @@ Skip the git steps entirely - there is no working tree, no `<parent>`, no absorb
 
    Handle its `needs-message` files as `review-me` does: one conventional-commit one-liner each,
    `git commit -m "<msg>" -- <file>`.
-7. If the repo lints prose (markdownlint, vale, a formatter with a comment width), run it on the
+8. If the repo lints prose (markdownlint, vale, a formatter with a comment width), run it on the
    touched files. If there is none, say so - do not invent a command.
 
 ## Summary (git modes)
 
 - Files deslopped: count + one line each
+- Comments: N deleted, N restored trimmed, N restored as is
 - Commit messages reworded: count + `<sha-short> <old subject>` -> `<new subject>`
 - Deferred (would drop information): count + one line each
 - Fixups: N via `git absorb`, N via blame, N new commits
@@ -116,6 +154,8 @@ Skip the git steps entirely - there is no working tree, no `<parent>`, no absorb
 ## Red flags - stop
 
 - Rewriting from memory of the rules instead of the files. That is the defect being fixed.
+- Judging comments where they sit instead of deleting them first. Pass 1 has no exceptions.
+- Restoring a comment because deleting it feels risky. That is not a reason it can carry.
 - Touching git in reply mode. There is nothing to commit.
 - Any edit outside prose: renamed symbol, changed condition, moved code.
 - Deleting a fact to make a sentence shorter. Shorten the sentence instead.
