@@ -33,6 +33,50 @@ function __brew_upgrade_cask --argument-names cask_name app_name bundle_id --des
     open -b "$bundle_id" -g
 end
 
+function __brew_release_notes --description 'Append a release notes URL to each `brew outdated --verbose` line read from stdin'
+    # Homebrew has no repository field, so the URL is inferred from the download and homepage URLs
+    python3 -c '
+import json, re, subprocess, sys
+
+lines = [line for line in sys.stdin.read().splitlines() if line.strip()]
+if not lines:
+    sys.exit()
+
+try:
+    info = json.loads(subprocess.run(
+        ["brew", "info", "--json=v2", sys.argv[1]] + [line.split()[0] for line in lines],
+        capture_output=True, text=True, check=True).stdout)
+except (subprocess.CalledProcessError, json.JSONDecodeError):
+    print("\n".join(lines))
+    sys.exit()
+
+TAGGED = re.compile(r"(https://github\.com/[^/]+/[^/]+)/releases/download/([^/]+)/")
+REPO = re.compile(r"https://github\.com/[^/#?]+/[^/#?]+")
+
+def release_url(pkg):
+    urls = pkg.get("urls") or {}
+    candidates = [url for url in (pkg.get("url"),
+                                  (urls.get("stable") or {}).get("url"),
+                                  (urls.get("head") or {}).get("url"),
+                                  pkg.get("homepage")) if url]
+    for candidate in candidates:
+        tagged = TAGGED.match(candidate)
+        if tagged:
+            return tagged.group(1) + "/releases/tag/" + tagged.group(2)
+    for candidate in candidates:
+        repo = REPO.match(candidate)
+        if repo:
+            return re.sub(r"\.git$", "", repo.group(0)) + "/releases"
+    return pkg.get("homepage") or ""
+
+release_urls = {pkg.get("token") or pkg["name"]: release_url(pkg)
+                for pkg in info["formulae"] + info["casks"]}
+
+for line in lines:
+    print((line + "  " + release_urls.get(line.split()[0], "")).rstrip())
+' $argv
+end
+
 function brew-update --description 'Update Homebrew and show outdated'
   brew update -q
   echo && brew outdated --greedy
@@ -52,12 +96,10 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
     # (firefox, google-chrome) report as outdated on every run until brew reinstalls them.
     # Without a tty the prompts read empty and those casks are left outdated.
 
-    # Upgrade formulae first (no app restart needed)
-    HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --formula
-
+    set -l outdated_formulae (brew outdated --formula --verbose)
     set -l outdated_verbose (brew outdated --cask --greedy --verbose)
     set -l outdated_casks (string split ' ' -f1 -- $outdated_verbose)
-    if test -z "$outdated_casks"
+    if test -z "$outdated_formulae" -a -z "$outdated_casks"
         brew cleanup
         return
     end
@@ -86,11 +128,22 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
     end
 
     echo
-    printf '  %s\n' $outdated_verbose
+    printf '%s\n' $outdated_formulae | __brew_release_notes --formula | sed 's/^/  /'
+    printf '%s\n' $outdated_verbose | __brew_release_notes --cask | sed 's/^/  /'
     test -n "$bulk_casks"; and echo "  bulk:           $bulk_casks"
     test -n "$restart_entries"; and echo "  quit + restart: "(string join ' ' (string replace -r ':.*' '' -- $restart_entries))
     test -n "$prompt_entries"; and echo "  ask first:      "(string join ' ' (string replace -r ':.*' '' -- $prompt_entries))
     echo
+
+    # Formulae need no app restart
+    if test -n "$outdated_formulae"
+        HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --formula
+    end
+
+    if test -z "$outdated_casks"
+        brew cleanup
+        return
+    end
 
     if test -n "$bulk_casks"
         HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $bulk_casks
