@@ -33,7 +33,7 @@ paths:
 - Comment ONLY when absolutely necessary, or when explicitly requested
 - Explain WHY, not WHAT
 - Are extremely concise and only provide relevant information
-- No conversation residue: nothing about what changed, "now handles", "previously"
+- No conversation-specific context: nothing about what changed, "now handles", "previously"
 - A comment to generic code must not reference specific callers or cases
 
 ## Other
