@@ -30,7 +30,8 @@ paths:
 
 ## Comments (inline and doc)
 
-- Explain WHY, not WHAT - exist only when the WHY is not obvious
+- Comment ONLY when absolutely necessary, or when explicitly requested
+- Explain WHY, not WHAT
 - Are extremely concise and only provide relevant information
 - No conversation residue: nothing about what changed, "now handles", "previously"
 - A comment to generic code must not reference specific callers or cases
