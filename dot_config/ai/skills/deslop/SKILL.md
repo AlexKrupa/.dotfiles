@@ -5,16 +5,16 @@ description:
   Use when prose written by an agent must be cleaned up after the fact - docs, code comments,
   docstrings, and commit messages on the current branch that ignore the writing rules (AI slop,
   filler, banned words, marketing diction, wall-of-text comments). Deletes every comment the
-  branch touched, then restores only the ones that earn it. Also rewrites the assistant's
+  branch touched, then restores only the ones that pass. Also rewrites the assistant's
   own last reply on request. Triggers on "deslop", "deslop that", "deslop your reply", "clean up
   the writing", "fix the wording on this branch". Also a required sub-skill of review-me.
 ---
 
 # deslop
 
-Applies the writing rules that are already in the instructions to prose an agent already wrote. File
-edits are folded into their originating commits via `git absorb`; commit messages get `amend!`
-commits. Nothing is pushed, rebased, or amended - the user applies the fixups themselves.
+Applies the writing rules from the instructions to prose an agent already wrote. File edits are
+folded into their originating commits via `git absorb`. Commit messages get `amend!` commits.
+Nothing is pushed, rebased, or amended - the user applies the fixups themselves.
 
 ## Rules source - read, do not recall
 
@@ -67,34 +67,39 @@ Comments do not use this table. They get their own pass, which never asks.
 
 ## Comments: delete first, justify back
 
-Reviewing a comment where it sits defends it. Delete it, then make it argue its way back. Two
-passes, in order, no merging them.
+Reviewing a comment where it sits defends it. Delete it first, then restore only what passes the
+test below. Two passes, in order, never merged.
 
-**Pass 1 - delete.** In the target files, delete every comment and docstring the branch added or
-changed. All of them, no judgment, no exceptions. Code lines stay untouched. Stage nothing - the
-deletions sit in the working tree, which is how pass 2 reads them back.
+**Pass 1 - delete every one.** In the target files, delete every comment and docstring the branch
+added or changed. All of them. No judgment, no exceptions, no reading them first. Code lines stay
+untouched. Stage nothing - the deletions sit in the working tree, which is how pass 2 reads them
+back.
 
-**Pass 2 - justify.** Run `git diff -U8 -- <file>...` to list each deleted comment with the code
-around it. Take them one at a time, in diff order. For each, name in one line what a reader loses
-that the adjacent code does not already say. Then pick:
+**Pass 2 - one at a time.** Run `git diff -U8 -- <file>...` to list each deleted comment with the
+code around it. Take them in diff order, one per step. For each, answer these questions in order
+and stop at the first that decides:
 
-- **stays deleted** - the default. Restates the code, labels the obvious, section banner, history
-  or changelog note, ownerless TODO, or a sentence true of any code.
-- **restore trimmed** - the point holds in fewer words. Write the short version. Do not paste the
-  original back.
-- **restore as is** - only when it is already one minimal line.
+1. **Is it useful?** Does it look unrelated to the code it sits on? Can a reader infer it from that
+   code? Either yes -> **stays deleted**. This is the default outcome.
+2. **Does it fit in one simple sentence?** Yes -> write that sentence. The point restated in one
+   line, not the original with words shaved off.
+3. **Otherwise:** trim it, then rewrite it to the rule files - why not what, no history, no filler,
+   no banned words.
 
-A comment comes back only for something the code cannot carry: a why, a constraint invisible at
-this line, a workaround plus its cause, a contract callers depend on, a link to an issue or spec.
+Never run question 2 or 3 on a comment that failed question 1.
+
+A comment passes question 1 only for something the code cannot show: a why, a constraint invisible
+at this line, a workaround plus its cause, a contract callers depend on, a link to an issue or spec.
 "It explains what the function does" is not a reason - the function does that.
 
-Docstrings the repo requires (public API, a doc linter): trim to one line, do not delete.
+Docstrings the repo requires (public API, a doc linter) skip question 1. Start them at question 2
+and cut to one line.
 
-Expected result: most comments stay deleted, most survivors come back shorter. If nearly everything
-was restored, pass 2 defended instead of judged. Redo it.
+Expected result: most comments stay deleted, and nearly every survivor is one sentence. If most came
+back, pass 2 defended instead of judged. Redo it.
 
-Never prompt the user about a comment. Deletion is the default, and every deletion is visible in
-the fixups they review before rebasing.
+Never prompt the user about a comment. Deletion is the default, and every deletion is visible in the
+fixups they review before rebasing.
 
 ## Reply mode
 
@@ -145,7 +150,7 @@ Skip the git steps entirely - there is no working tree, no `<parent>`, no absorb
 ## Summary (git modes)
 
 - Files deslopped: count + one line each
-- Comments: N deleted, N restored trimmed, N restored as is
+- Comments: N deleted, N kept as one sentence, N kept longer
 - Commit messages reworded: count + `<sha-short> <old subject>` -> `<new subject>`
 - Deferred (would drop information): count + one line each
 - Fixups: N via `git absorb`, N via blame, N new commits
@@ -155,7 +160,7 @@ Skip the git steps entirely - there is no working tree, no `<parent>`, no absorb
 
 - Rewriting from memory of the rules instead of the files. That is the defect being fixed.
 - Judging comments where they sit instead of deleting them first. Pass 1 has no exceptions.
-- Restoring a comment because deleting it feels risky. That is not a reason it can carry.
+- Restoring a comment because deleting it feels risky. That is not a reason to keep it.
 - Touching git in reply mode. There is nothing to commit.
 - Any edit outside prose: renamed symbol, changed condition, moved code.
 - Deleting a fact to make a sentence shorter. Shorten the sentence instead.

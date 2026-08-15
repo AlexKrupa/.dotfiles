@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 # Usage: reword-fixup.sh <parent> <sha> <message-file>
-# Queues a commit-message rewrite as an `amend!` commit, so the user applies it later with
-# `git rebase -i --autosquash <parent>`. Same deal as git-absorb's fixups: nothing is rewritten now.
+#   <parent>       the ref review-branch resolved (its `parent:` line)
+#   <message-file> the full new message: subject, blank line, optional body
 #
-# <parent>       the parent ref/SHA review-branch resolved (its `parent:` line).
-# <sha>          the commit to reword; must be inside <parent>..HEAD.
-# <message-file> the full new message (subject line, blank line, optional body).
+# Queues the rewrite as an `amend!` commit for `git rebase -i --autosquash <parent>` to apply.
+# Makes one git write: an empty commit on HEAD.
 #
 # `git commit --fixup=reword:<sha>` cannot take -m/-F (git 2.55), so the `amend!` commit is built by
-# hand: first line `amend! <original subject>`, blank line, then the new message. Autosquash matches
-# it by that subject, so it aborts when the subject is not unique in <parent>..HEAD.
-#
-# Makes exactly one git write: an empty commit on HEAD. No push/rebase/amend/reset.
+# hand: first line `amend! <original subject>`, blank line, then the new message.
 set -euo pipefail
 
 die() { printf '%s\n' "$1" >&2; exit 1; }
@@ -25,7 +21,6 @@ parent_sha="$(git rev-parse --verify --quiet "$parent")" || die "Parent ref '$pa
 target_sha="$(git rev-parse --verify --quiet "${target}^{commit}")" \
   || die "Commit '$target' not found."
 
-# In range: descendant of parent, ancestor of HEAD, not parent itself.
 [ "$target_sha" != "$parent_sha" ] || die "Refusing to reword the parent commit."
 git merge-base --is-ancestor "$parent_sha" "$target_sha" 2>/dev/null \
   && git merge-base --is-ancestor "$target_sha" HEAD 2>/dev/null \
