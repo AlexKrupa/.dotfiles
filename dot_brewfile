@@ -50,18 +50,18 @@ brew "mosh" # mobile shell
 brew "neovim"
 brew "node"
 brew "openssl"
-brew "qmk/qmk/qmk" # keyboard
+brew "qmk/qmk/qmk" # keyboard firmware
 brew "prettier" # formatter
 brew "pngquant" # PNG optimization, e.g. in Android screenshot script
 brew "renameutils" # bulk renaming / copying
 brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
-brew "sesh" # tmux session manager (used with fzf)
+# brew "sesh" # tmux session manager (used with fzf)
 # brew "koekeishiya/formulae/skhd" # keyboard shortcuts
 brew "slides" # markdown slides, terminal presentation
 brew "tlrc" # tldr - docs, manpages alternative
-brew "tmux"
-brew "tpm" # tmux plugin manager
+# brew "tmux"
+# brew "tpm" # tmux plugin manager
 brew "tree-sitter"
 brew "tree-sitter-cli" # used by NeoVim
 brew "tokei" # project metric counter (e.g. LOC, complexity)
@@ -128,7 +128,6 @@ cask "espanso" # text expander
 cask "free-ruler" # screen ruler for measuring pixel distances
 # cask "handbrake" # video converter / compressor
 cask "handy" # speech-to-text # restart-on-upgrade: Handy:com.pais.handy
-# cask "homerow" # keyboard shortcuts for every button on the screen, paid, alt: shortcat
 cask "ghostty"
 # cask "google-drive"
 cask "google-chrome" # prompt-on-upgrade: Google Chrome:com.google.Chrome
@@ -143,18 +142,15 @@ cask "keyboardcleantool" # disable keyboard for cleaning
 cask "latest" # update all apps
 cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
 cask "lulu" # connection blocker
-cask "macshot" # screenshot tool
-# cask "marta" # file manager
 # cask "microsoft-edge" # prompt-on-upgrade: Microsoft Edge:com.microsoft.edgemac
 # cask "middleclick" # trackpad middle-click with 3 fingers
 cask "mitmproxy" # network proxy / request debugging
-# cask "mullvadvpn"
 cask "notunes" # disable iTunes on media button press
 # cask "obsidian" # note taking, Markdown
 cask "omnidisksweeper" # disk space visualizer and cleaner
 # cask "onyx" # system maintenance
 cask "pearcleaner" # app uninstaller/cleaner, probably better than appcleaner
-# cask "proxyman" # for debugging network requests
+# cask "proxyman" # network requests debugging
 # cask "qbittorrent" # torrent client
 # cask "rapidapi" # API client (Postman alternative)
 cask "raycast" # productivity tool, Spotlight replacement # restart-on-upgrade: Raycast:com.raycast.macos
@@ -169,7 +165,6 @@ cask "thaw" # hide menu bar icons # restart-on-upgrade: Thaw:com.stonerl.Thaw
 cask "the-unarchiver" # unzip
 # cask "via" # keyboard configurator (e.g. Keychron)
 # cask "visual-studio-code"
-# cask "wezterm" # terminal emulator
 
 # fonts
 cask "font-hack"
