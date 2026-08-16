@@ -9,6 +9,7 @@
 | `bin/balance-panes.sh`    | `split`, `close`, `break` and `equalize` subcommands, one per keybinding   |
 | `bin/balance.jq`          | Tree walks over a tab's layout, for the `equalize` and `close` subcommands |
 | `bin/tests/test.sh`       | Fixtures for `bin/balance.jq`                                              |
+| `plugins/balance-panes/`  | Local plugin: even out a tab when a pane's process ends on its own         |
 | `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees                  |
 | `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                         |
 | `plugins/config/`         | Config for installed plugins                                               |
@@ -35,6 +36,7 @@ splits around it. Nesting elsewhere in the tab, and the other axis of the same n
 they were resized to. Closing the middle of three columns evens the two that are left. Closing a row
 out of a column leaves that column's width alone. `alt+=` still evens the whole tab. A split or
 close made by the CLI, a plugin or an agent is left alone, apart from the herdr-pluck opens below.
+A pane whose process ends on its own is covered by `plugins/balance-panes/`.
 
 `bin/balance.jq` holds the tree walks the subcommands share, and picks the splits and ratios.
 `bin/tests/test.sh` covers it with fixture trees, no server needed.
@@ -48,6 +50,20 @@ close made by the CLI, a plugin or an agent is left alone, apart from the herdr-
 focuses that workspace if it is open, and creates it if not. A missing file, blank line or comment
 makes the key do nothing, so the keys stay quiet until the file is filled in. That file is
 machine-local and stays out of the dotfiles.
+
+### Balance on exit
+
+`plugins/balance-panes/` hooks `pane.exited` and runs `bin/balance-panes.sh on-exit`. That covers a
+pane whose process ended by itself - an agent that finished, a typed `exit`, a crash. No key fires
+on those, so the close key never sees them.
+
+Hooks get neither `HERDR_ACTIVE_PANE_ID` nor `HERDR_ACTIVE_TAB_ID`, and the `pane.exited` payload
+carries only `pane_id` and `workspace_id`. `HERDR_TAB_ID` is the one thing that names the tab, and
+it names the exited pane's tab rather than the focused one. Measured on herdr 0.8.0.
+
+The whole tab is evened, not one group: the pane is out of the tree by the time the hook runs, so
+nothing is left to name the group it was in. `pane.closed` is not hooked - the close key already
+covers it, and that event carries no tab id at all.
 
 ### Worktree links
 
@@ -107,6 +123,7 @@ herdr plugin install iurysza/termscope
 
 chmod +x ~/.config/herdr/bin/* ~/.config/herdr/bin/tests/*.sh \
   ~/.config/herdr/plugins/*/*.sh ~/.config/herdr/plugins/*/tests/*.sh
+herdr plugin link ~/.config/herdr/plugins/balance-panes
 herdr plugin link ~/.config/herdr/plugins/worktree-links
 herdr plugin link ~/.config/herdr/plugins/tab-name
 herdr config check          # config: ok

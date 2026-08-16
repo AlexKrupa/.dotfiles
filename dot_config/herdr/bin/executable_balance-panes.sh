@@ -116,5 +116,23 @@ case ${1:-} in
     equalize "${2:-}" "${3:-}"
     ;;
 
+  on-exit)
+    # plugins/balance-panes hooks pane.exited, for a pane whose process ended on
+    # its own - an agent that finished, a typed `exit`, a crash. No key fires on
+    # that, so the close subcommand never sees it.
+    #
+    # Hooks get neither HERDR_ACTIVE_PANE_ID nor HERDR_ACTIVE_TAB_ID, and the
+    # pane.exited payload carries only pane_id and workspace_id. HERDR_TAB_ID is
+    # the one thing that names the tab, and it names the exited pane's tab, not
+    # the focused one. Measured on herdr 0.8.0.
+    #
+    # The whole tab is evened, not one group: the pane is gone from the tree by
+    # the time this runs, so there is nothing left to name the group it was in.
+    # `[]` is the root, which equalize_at reads as both axes of the whole tree.
+    [ -n "$HERDR_TAB_ID" ] || exit 0
+    HERDR_ACTIVE_TAB_ID=$HERDR_TAB_ID
+    equalize "" "[]"
+    ;;
+
   *) usage ;;
 esac
