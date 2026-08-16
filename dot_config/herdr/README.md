@@ -36,7 +36,7 @@ splits around it. Nesting elsewhere in the tab, and the other axis of the same n
 they were resized to. Closing the middle of three columns evens the two that are left. Closing a row
 out of a column leaves that column's width alone. `alt+=` still evens the whole tab. A split or
 close made by the CLI, a plugin or an agent is left alone, apart from the herdr-pluck opens below.
-A pane whose process ends on its own is covered by `plugins/balance-panes/`.
+`plugins/balance-panes/` covers a pane whose process ends on its own.
 
 `bin/balance.jq` holds the tree walks the subcommands share, and picks the splits and ratios.
 `bin/tests/test.sh` covers it with fixture trees, no server needed.
@@ -58,12 +58,12 @@ pane whose process ended by itself - an agent that finished, a typed `exit`, a c
 on those, so the close key never sees them.
 
 Hooks get neither `HERDR_ACTIVE_PANE_ID` nor `HERDR_ACTIVE_TAB_ID`, and the `pane.exited` payload
-carries only `pane_id` and `workspace_id`. `HERDR_TAB_ID` is the one thing that names the tab, and
-it names the exited pane's tab rather than the focused one. Measured on herdr 0.8.0.
+has only `pane_id` and `workspace_id`. `HERDR_TAB_ID` is the one thing that names the tab, and it
+names the exited pane's tab rather than the focused one. Measured on herdr 0.8.0.
 
 The whole tab is evened, not one group: the pane is out of the tree by the time the hook runs, so
-nothing is left to name the group it was in. `pane.closed` is not hooked - the close key already
-covers it, and that event carries no tab id at all.
+no group is left to name. `pane.closed` is not hooked - the close key already covers it, and that
+event has no tab id.
 
 ### Worktree links
 

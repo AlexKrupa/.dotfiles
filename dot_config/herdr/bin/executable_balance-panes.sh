@@ -1,16 +1,16 @@
 #!/bin/sh
-# Pane splits, closes and evening out. One file with a subcommand each, because
-# a keybinding runs one command and config.toml binds the subcommands directly.
-# bin/balance.jq picks the splits and the ratios.
+# Split, close and even out panes. One subcommand per keybinding:
 #
-#   split right|down     split the active pane, even the group the new pane joins
-#   close                close the active pane, even the group it leaves behind
-#   break                move the active pane to a new tab
-#   equalize [dir [path]] even the whole tab, or one row or column group
+#   split right|down       split the active pane, even the group it joins
+#   close                  close the active pane, even the group it leaves
+#   break                  move the active pane to a new tab
+#   equalize [dir [path]]  even the whole tab, or one row or column group
+#   on-exit                plugins/balance-panes hook
 #
-# The built-in split and close actions are unset in config.toml. herdr fires
-# nothing after a split, and a close has to be read before the pane goes, so
-# both pair a CLI call with an equalize here.
+# One file because a keybinding runs one command. The built-in split and close
+# actions are unset in config.toml: herdr fires nothing after a split, and a
+# close has to be read before the pane goes, so both pair a CLI call with an
+# equalize here. bin/balance.jq picks the splits and the ratios.
 #
 # POSIX sh, not fish: this is key-bound, and fish spends ~110ms sourcing
 # config.fish per process.
@@ -117,18 +117,15 @@ case ${1:-} in
     ;;
 
   on-exit)
-    # plugins/balance-panes hooks pane.exited, for a pane whose process ended on
-    # its own - an agent that finished, a typed `exit`, a crash. No key fires on
-    # that, so the close subcommand never sees it.
+    # A pane whose process ended by itself fires no key, so the close
+    # subcommand never sees it.
     #
-    # Hooks get neither HERDR_ACTIVE_PANE_ID nor HERDR_ACTIVE_TAB_ID, and the
-    # pane.exited payload carries only pane_id and workspace_id. HERDR_TAB_ID is
-    # the one thing that names the tab, and it names the exited pane's tab, not
-    # the focused one. Measured on herdr 0.8.0.
+    # Hooks get no HERDR_ACTIVE_* variables and the pane.exited payload has only
+    # pane_id and workspace_id, so HERDR_TAB_ID is the only source for the tab.
+    # It names the exited pane's tab, not the focused one. Measured on 0.8.0.
     #
-    # The whole tab is evened, not one group: the pane is gone from the tree by
-    # the time this runs, so there is nothing left to name the group it was in.
-    # `[]` is the root, which equalize_at reads as both axes of the whole tree.
+    # The pane is out of the tree by the time this runs, so no group is left to
+    # name. `[]` is the root, which equalize_at reads as both axes.
     [ -n "$HERDR_TAB_ID" ] || exit 0
     HERDR_ACTIVE_TAB_ID=$HERDR_TAB_ID
     equalize "" "[]"

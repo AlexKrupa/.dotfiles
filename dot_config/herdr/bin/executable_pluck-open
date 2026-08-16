@@ -70,7 +70,7 @@ elif [ -d "$HOME/$match" ]; then
 fi
 
 if [ -n "$dir" ]; then
-  # The shell stays after yazi quits, so this pane is closed by key and the close
+  # The shell stays after yazi quits, so this pane is closed by key and the close key
   # evens what is left.
   exec herdr pane run "$(split_pane "$dir")" y
 fi
