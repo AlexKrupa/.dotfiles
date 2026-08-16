@@ -2,24 +2,20 @@
 
 ## What is here
 
-| Path                      | Purpose                                                                      |
-| ------------------------- | ---------------------------------------------------------------------------- |
-| `config.toml`             | All settings and keybindings                                                 |
-| `bin/project`             | Focus or create a project workspace, for `alt+y/u/i/o/p`                     |
-| `bin/break-pane`          | Move the focused pane to a new tab                                           |
-| `bin/split-pane`          | Split the active pane, then even out the group the new pane joins            |
-| `bin/close-pane`          | Close the active pane, then even out the group it leaves behind              |
-| `bin/equalize-panes`      | Even out the whole tab, or one row or column group with `right` or `down`    |
-| `bin/layout.jq`           | Tree walks over a tab's layout, shared by the three above                    |
-| `bin/tests/test.sh`       | Fixtures for `bin/layout.jq`                                                 |
-| `bin/herdr-rpc`           | One JSON-RPC call to the herdr socket, for API calls the CLI does not expose |
-| `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees                    |
-| `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                           |
-| `plugins/config/`         | Config for installed plugins                                                 |
-| `projects.local`          | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles         |
-| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`                    |
-| `bin/pluck-open`          | Open handler for herdr-pluck's uppercase hints                               |
-| `bin/pluck-post-close`    | Evens the group a pluck editor pane leaves when it closes itself             |
+| Path                      | Purpose                                                                    |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `config.toml`             | All settings and keybindings                                               |
+| `bin/project`             | Focus or create a project workspace, for `alt+y/u/i/o/p`                   |
+| `bin/balance-panes.sh`    | `split`, `close`, `break` and `equalize` subcommands, one per keybinding   |
+| `bin/balance.jq`          | Tree walks over a tab's layout, for the `equalize` and `close` subcommands |
+| `bin/tests/test.sh`       | Fixtures for `bin/balance.jq`                                              |
+| `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees                  |
+| `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                         |
+| `plugins/config/`         | Config for installed plugins                                               |
+| `projects.local`          | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles       |
+| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`                  |
+| `bin/pluck-open`          | Open handler for herdr-pluck's uppercase hints                             |
+| `bin/pluck-post-close`    | Evens the group a pluck editor pane leaves when it closes itself           |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files. Leave
 those alone.
@@ -32,15 +28,15 @@ Three direct layers, no prefix needed (but every direct key also has a prefix fo
 - `alt+shift` for workspaces,
 - `ctrl+alt` for agents.
 
-The split and close keys are custom commands, not the built-in actions: they run `bin/split-pane`
-and `bin/close-pane`, which act over the CLI and then run `bin/equalize-panes right` or `down`. That
-evens only the group the pane joined or left - the unbroken run of same-direction splits around it.
-Nesting elsewhere in the tab, and the other axis of the same nest, keep whatever they were resized
-to. Closing the middle of three columns evens the two that are left; closing a row out of a column
-leaves that column's width alone. `alt+=` still evens the whole tab. A split or close made by the
-CLI, a plugin or an agent is left alone, apart from the herdr-pluck opens below.
+The split and close keys are custom commands, not the built-in actions: they run
+`bin/balance-panes.sh split` and `close`, which act over the CLI and then run its `equalize right`
+or `down`. That evens only the group the pane joined or left - the unbroken run of same-direction
+splits around it. Nesting elsewhere in the tab, and the other axis of the same nest, keep whatever
+they were resized to. Closing the middle of three columns evens the two that are left. Closing a row
+out of a column leaves that column's width alone. `alt+=` still evens the whole tab. A split or
+close made by the CLI, a plugin or an agent is left alone, apart from the herdr-pluck opens below.
 
-`bin/layout.jq` holds the tree walks all three scripts share, and picks the splits and ratios.
+`bin/balance.jq` holds the tree walks the subcommands share, and picks the splits and ratios.
 `bin/tests/test.sh` covers it with fixture trees, no server needed.
 
 ## Custom plugins
@@ -93,7 +89,7 @@ focused while the handler runs.
 Both splits even out the column group they join, the same as the split keys. The editor pane closes
 itself when the editor quits and no key fires on that, so its command ends with
 `bin/pluck-post-close`: it re-runs itself detached, waits for the pane to go, then evens what is
-left. A yazi pane is closed by key, so `bin/close-pane` already covers it.
+left. A yazi pane is closed by key, so `bin/balance-panes.sh close` already covers it.
 
 `herdr-upgrade` runs `herdr-forks-sync` first, which reads `forks.conf` and rebases each fork's
 clone onto its upstream, then force-pushes. A conflict is reported and skipped, leaving the plugin
@@ -119,7 +115,7 @@ herdr server reload-config  # status: applied, diagnostics: []
 
 Dependencies:
 
-- `jq` - `bin/project`, `bin/equalize-panes` and the split and close keys, worktree-links,
+- `jq` - `bin/project`, `bin/balance-panes.sh` and the split and close keys, worktree-links,
   `claude-upgrade`
 - `bash` 5 - worktree-links, tab-name (macOS bash 3.2 has no fractional `read -t`)
 - `go` 1.26.4+ - sesh plugin, built from source

@@ -10,7 +10,7 @@ bin=$(cd "$(dirname "$0")" && pwd)
 
 # Splits the source pane, evens the column group the new pane joins, and prints its id.
 # The source pane is named explicitly because the picker tab is still focused here, and
-# equalize-panes takes its tab and pane from the environment, the same as the split key.
+# the equalize subcommand takes its tab and pane from the environment, the same as the split key.
 # Extra `herdr pane split` arguments (--env ...) may follow the cwd.
 split_pane() {
   local cwd=$1
@@ -19,7 +19,7 @@ split_pane() {
   pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$cwd" \
     "$@" --focus | jq -r .result.pane.pane_id)
   HERDR_ACTIVE_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_ACTIVE_PANE_ID="$pane" \
-    "$bin/equalize-panes" right
+    "$bin/balance-panes.sh" equalize right
   echo "$pane"
 }
 
@@ -70,7 +70,7 @@ elif [ -d "$HOME/$match" ]; then
 fi
 
 if [ -n "$dir" ]; then
-  # The shell stays after yazi quits, so this pane is closed by key and bin/close-pane
+  # The shell stays after yazi quits, so this pane is closed by key and the close
   # evens what is left.
   exec herdr pane run "$(split_pane "$dir")" y
 fi

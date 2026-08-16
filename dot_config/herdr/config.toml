@@ -125,44 +125,45 @@ key = "alt+g"
 type = "popup"
 command = "lazygit"
 description = "run lazygit"
-width = "90%"
-height = "90%"
+width = "98%"
+height = "96%"
 
 # --- Custom commands: plugin actions ---
 
 [[keys.command]]
 key = "alt+T"
 type = "shell"
-command = "~/.config/herdr/bin/break-pane"
+command = "~/.config/herdr/bin/balance-panes.sh break"
 description = "pane to new tab"
 
 [[keys.command]]
 key = "alt+="
 type = "shell"
-command = "~/.config/herdr/bin/equalize-panes"
+command = "~/.config/herdr/bin/balance-panes.sh equalize"
 description = "even out splits"
 
 # --- Custom commands: splits and closes ---
-# The built-in split and close actions are unset above. bin/split-pane and
-# bin/close-pane do the same over the CLI and then even out the row or column
-# group the pane joined or left, leaving every other split in the tab alone.
+# The built-in split and close actions are unset above. The split and close
+# subcommands of bin/balance-panes.sh do the same over the CLI and then even out
+# the row or column group the pane joined or left, leaving every other split in
+# the tab alone.
 
 [[keys.command]]
 key = ["prefix+v", "alt+slash"]
 type = "shell"
-command = "~/.config/herdr/bin/split-pane right"
+command = "~/.config/herdr/bin/balance-panes.sh split right"
 description = "split side by side, even that column group"
 
 [[keys.command]]
 key = ["prefix+minus", "alt+minus"]
 type = "shell"
-command = "~/.config/herdr/bin/split-pane down"
+command = "~/.config/herdr/bin/balance-panes.sh split down"
 description = "split stacked, even that row group"
 
 [[keys.command]]
 key = ["prefix+x", "alt+w"]
 type = "shell"
-command = "~/.config/herdr/bin/close-pane"
+command = "~/.config/herdr/bin/balance-panes.sh close"
 description = "close pane, even what is left"
 
 # --- Custom commands: pane resize ---

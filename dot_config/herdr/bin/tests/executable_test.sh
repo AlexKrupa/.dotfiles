@@ -1,5 +1,5 @@
 #!/bin/sh
-# Fixtures for bin/layout.jq. Run: bin/tests/test.sh
+# Fixtures for bin/balance.jq. Run: bin/tests/test.sh
 bin=$(dirname "$0")/..
 fail=0
 
@@ -8,7 +8,7 @@ check() {
   name=$1 fixture=$2 filter=$3
   shift 3
   want=$(printf '%s\n' "$@" | sed '/^$/d')
-  got=$(printf '%s' "$fixture" | jq -r -L "$bin" "include \"layout\"; $filter")
+  got=$(printf '%s' "$fixture" | jq -r -L "$bin" "include \"balance\"; $filter")
   if [ "$got" = "$want" ]; then
     echo "ok   $name"
   else
