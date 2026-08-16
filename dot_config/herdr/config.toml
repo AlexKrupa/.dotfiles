@@ -268,3 +268,8 @@ type = "plugin_action"
 command = "rmarganti.herdr-pluck.pluck"
 description = "copy with hints"
 
+[[keys.command]]
+key = "alt+D"
+type = "plugin_action"
+command = "persiyanov.reviewr.toggle"
+description = "toggle review pane"
