@@ -1,7 +1,9 @@
 # Decide every herdr tab label from one `herdr api snapshot`.
 #
 #   in:  snapshot JSON on stdin, --slurpfile st <state.json>
-#   out: {"rename": [{"tab_id","label"}...], "state": {tab_id: base}}
+#   out: with `jq -r`, line 1 is {tab_id: base} as JSON, every line after is
+#        "<tab_id>\t<label>". One text stream, so the caller needs no second jq to
+#        take it apart.
 #
 # Pure: no herdr calls, no clock, no files. tests/test.sh covers every branch.
 
@@ -55,5 +57,5 @@ def label_of($pane):
     | select($newbase != null)
     | { tab_id: $t.tab_id, mode: $mode, current: $t.label, base: $newbase,
         label: (($pos | tostring) + " • " + $newbase) } ]
-| { rename: [ .[] | select(.label != .current) | {tab_id, label} ],
-    state:  (map(select(.mode == "auto") | {key: .tab_id, value: .base}) | from_entries) }
+| (map(select(.mode == "auto") | {key: .tab_id, value: .base}) | from_entries | tojson),
+  (.[] | select(.label != .current) | [.tab_id, .label] | @tsv)

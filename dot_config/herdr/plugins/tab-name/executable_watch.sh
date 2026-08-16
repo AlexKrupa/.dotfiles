@@ -37,15 +37,20 @@ snapshot() {
 
 # One pass: read the session, let policy.jq decide, apply what changed.
 sweep() {
-  local out id label
-  out=$(snapshot | jq -c --slurpfile st "$state" -f "$root/policy.jq") || return 0
+  local out first id label
+  # One jq: policy.jq emits the state line and the rename lines in the same pass, so
+  # taking them apart below costs no further processes.
+  out=$(snapshot | jq -r --slurpfile st "$state" -f "$root/policy.jq") || return 0
   [ -n "$out" ] || return 0
+  first=${out%%$'\n'*}
 
   # State is written before the renames on purpose. Dying in between leaves a tab whose
   # label is still herdr's generated number, which the next sweep adopts again. The other
   # order would leave a renamed tab absent from state, and the next sweep would read that
   # as a name the user chose and freeze it.
-  jq -c '.state' <<<"$out" >"$state.new" && mv "$state.new" "$state"
+  printf '%s\n' "$first" >"$state.new" && mv "$state.new" "$state"
+
+  [ "$out" = "$first" ] && return 0   # state only: nothing to rename
 
   while IFS=$'\t' read -r id label; do
     [ -n "$id" ] || continue
@@ -54,7 +59,7 @@ sweep() {
     else
       herdr tab rename "$id" "$label" >/dev/null 2>&1
     fi
-  done < <(jq -r '.rename[] | [.tab_id, .label] | @tsv' <<<"$out")
+  done <<<"${out#*$'\n'}"
 }
 
 pidfile=$state_dir/watch.pid

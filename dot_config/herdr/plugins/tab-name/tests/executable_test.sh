@@ -17,11 +17,16 @@ check() { # check <name> <expected> <actual>
   fi
 }
 
-# run <state-json> [jq-filter-to-mutate-the-fixture] -> policy output
+# run <state-json> [jq-filter-to-mutate-the-fixture] -> policy output as {rename, state}
+#
+# policy.jq emits a text stream for watch.sh's benefit. The checks below read it as one
+# object, so this folds the stream back into that shape.
 run() {
   printf '%s' "$1" >"$tmp/state.json"
   if [ -n "${2:-}" ]; then jq "$2" snapshot.json; else cat snapshot.json; fi |
-    jq -c --slurpfile st "$tmp/state.json" -f ../policy.jq
+    jq -r --slurpfile st "$tmp/state.json" -f ../policy.jq |
+    jq -cRn '[inputs] | { state:  (.[0] | fromjson),
+                          rename: (.[1:] | map(split("\t") | {tab_id: .[0], label: .[1]})) }'
 }
 
 # The label a policy run assigned to one tab, empty when it decided not to rename it.
