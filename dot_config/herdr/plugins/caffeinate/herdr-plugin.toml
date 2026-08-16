@@ -1,0 +1,15 @@
+id = "local.caffeinate"
+name = "Caffeinate while agents work"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Hold a macOS idle-sleep assertion while any agent is working"
+platforms = ["macos"]
+
+# The assertion belongs to the watcher, so it has to outlive any single event. startup spawns
+# it, and pane.agent_detected re-checks the pid file, which is what revives a dead watcher.
+[[startup]]
+command = ["./watch.sh", "ensure"]
+
+[[events]]
+on = "pane.agent_detected"
+command = ["./watch.sh", "ensure"]

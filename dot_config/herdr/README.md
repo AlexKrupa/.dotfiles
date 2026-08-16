@@ -12,6 +12,7 @@
 | `plugins/balance-panes/`  | Local plugin: even out a tab when a pane's process ends on its own         |
 | `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees                  |
 | `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                         |
+| `plugins/caffeinate/`     | Local plugin: hold off sleep while an agent is working                     |
 | `plugins/config/`         | Config for installed plugins                                               |
 | `projects.local`          | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles       |
 | `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`                  |
@@ -89,6 +90,26 @@ number, such as `2`, hands it back to automatic naming. Ownership lives in
 
 `watch.sh` needs homebrew bash 5 for fractional `read -t` timeouts.
 
+### Caffeinate
+
+`plugins/caffeinate/` holds `caffeinate -i -w <watcher pid>` while any agent is `working`, so the
+machine does not idle-sleep mid-turn. `-w` ties the assertion to the watcher, so a crash releases
+it rather than leaving the machine unable to sleep. `watch.sh` is built like
+`plugins/tab-name/watch.sh`. `decide` makes every call and is covered by `tests/test.sh`.
+
+Only `working` counts. A `blocked` agent is parked waiting on an answer, so sleeping then loses
+nothing. `CAFFEINATE_GRACE` seconds of quiet, 60 by default, releases the hold, which also covers
+the pause between turns. That grace doubles as the event loop's read timeout - once the agents go
+quiet, no further events arrive to drive the release.
+
+Lid-close sleep is a different code path and no assertion blocks it. Clamshell - lid closed on AC
+with an external display - does not use that path, so it is covered. Lid closed on battery with no
+external display is not, and cannot be without the kernel `SleepDisabled` flag and a sudoers grant
+for `pmset -a disablesleep`. Every menu-bar app doing this uses that one mechanism, and none has a
+CLI, so none can follow agent state. Treat them as a manual override if that case ever matters.
+
+State lives in `~/.local/state/herdr-caffeinate/`. `watch.sh` needs homebrew bash 5, as above.
+
 ### Forked plugins
 
 `herdr-pluck` runs from [AlexKrupa/herdr-pluck](https://github.com/AlexKrupa/herdr-pluck). The fork
@@ -126,6 +147,7 @@ chmod +x ~/.config/herdr/bin/* ~/.config/herdr/bin/tests/*.sh \
 herdr plugin link ~/.config/herdr/plugins/balance-panes
 herdr plugin link ~/.config/herdr/plugins/worktree-links
 herdr plugin link ~/.config/herdr/plugins/tab-name
+herdr plugin link ~/.config/herdr/plugins/caffeinate
 herdr config check          # config: ok
 herdr server reload-config  # status: applied, diagnostics: []
 ```
