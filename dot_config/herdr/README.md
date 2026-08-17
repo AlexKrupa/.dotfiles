@@ -2,33 +2,36 @@
 
 ## What is here
 
-| Path                      | Purpose                                                                    |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `config.toml`             | All settings and keybindings                                               |
-| `bin/project`             | Focus or create a project workspace, for `alt+y/u/i/o/p`                   |
-| `bin/balance-panes.sh`    | `split`, `close`, `break` and `equalize` subcommands, one per keybinding   |
-| `bin/balance.jq`          | Tree walks over a tab's layout, for the `equalize` and `close` subcommands |
-| `bin/tests/test.sh`       | Fixtures for `bin/balance.jq`                                              |
-| `plugins/balance-panes/`  | Local plugin: even out a tab when a pane's process ends on its own         |
-| `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees                  |
-| `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                         |
-| `plugins/caffeinate/`     | Local plugin: hold off sleep while an agent is working                     |
-| `plugins/config/`         | Config for installed plugins                                               |
-| `projects.local`          | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles       |
-| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`                  |
-| `bin/pluck-open`          | Open handler for herdr-pluck's uppercase hints                             |
-| `bin/pluck-post-close`    | Evens the group a pluck editor pane leaves when it closes itself           |
+| Path                      | Purpose                                                              |
+| ------------------------- | -------------------------------------------------------------------- |
+| `config.toml`             | All settings and keybindings                                         |
+| `bin/project`             | Focus or create a project workspace, for `alt+y/u/i/o/p`             |
+| `bin/balance-panes.sh`    | `split`, `close`, `break`, `equalize` - one per keybinding           |
+| `bin/balance.jq`          | Tree walks over a tab's layout, for `equalize` and `close`           |
+| `bin/tests/test.sh`       | Fixtures for `bin/balance.jq`                                        |
+| `plugins/balance-panes/`  | Local plugin: even out a tab when a pane's process ends on its own   |
+| `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees            |
+| `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                   |
+| `plugins/caffeinate/`     | Local plugin: hold off sleep while an agent is working               |
+| `plugins/config/`         | Config for installed plugins                                         |
+| `projects.local`          | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles |
+| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`            |
+| `bin/pluck-open`          | Open handler for herdr-pluck's uppercase hints                       |
+| `bin/pluck-post-close`    | Evens the group a pluck editor pane leaves when it closes itself     |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files. Leave
 those alone.
 
 ## Keys
 
-Three direct layers, no prefix needed (but every direct key also has a prefix form):
+Three direct layers, no prefix needed (the built-in actions also keep their prefix form):
 
-- `alt` for tabs,
-- `alt+shift` for workspaces,
-- `ctrl+alt` for agents.
+- `alt` for tabs and panes,
+- `alt+shift` for close tab, tab nav, swap pane and `alt+shift+1..9` to switch tab,
+- `ctrl+alt` for agents and pane resize.
+
+Workspaces have no direct layer: `alt+y/u/i/o/p` open the five projects, the rest stay on
+`prefix+shift`.
 
 The split and close keys are custom commands, not the built-in actions: they run
 `bin/balance-panes.sh split` and `close`, which act over the CLI and then run its `equalize right`
@@ -49,8 +52,7 @@ close made by the CLI, a plugin or an agent is left alone, apart from the herdr-
 `alt+y`, `alt+u`, `alt+i`, `alt+o` and `alt+p` read one absolute path per line from
 `projects.local`. Line 1 is `alt+y`, line 2 `alt+u`, and so on through line 5 for `alt+p`. The key
 focuses that workspace if it is open, and creates it if not. A missing file, blank line or comment
-makes the key do nothing, so the keys stay quiet until the file is filled in. That file is
-machine-local and stays out of the dotfiles.
+makes the key do nothing. That file is machine-local and stays out of the dotfiles.
 
 ### Balance on exit
 
@@ -62,9 +64,9 @@ Hooks get neither `HERDR_ACTIVE_PANE_ID` nor `HERDR_ACTIVE_TAB_ID`, and the `pan
 has only `pane_id` and `workspace_id`. `HERDR_TAB_ID` is the one thing that names the tab, and it
 names the exited pane's tab rather than the focused one. Measured on herdr 0.8.0.
 
-The whole tab is evened, not one group: the pane is out of the tree by the time the hook runs, so
-no group is left to name. `pane.closed` is not hooked - the close key already covers it, and that
-event has no tab id.
+The whole tab is evened, not one group: the pane is out of the tree by the time the hook runs, so no
+group is left to name. `pane.closed` is not hooked - the close key already covers it, and that event
+has no tab id.
 
 ### Worktree links
 
@@ -81,7 +83,7 @@ a file that does not exist or one the worktree already has. Git-tracked files ar
 `plugins/tab-name/` labels every tab `N • name`, where `N` is the tab's position in its workspace
 and `name` describes the focused pane: the running command, the directory at an idle prompt, or the
 agent name in an agent pane. `watch.sh` holds one `events.subscribe` connection to the herdr socket
-and sweeps once per burst of events; `policy.jq` makes every decision and is covered by
+and sweeps once per burst of events. `policy.jq` makes every decision and is covered by
 `tests/test.sh`.
 
 A tab renamed by hand keeps its name and only gets its number maintained. Renaming it back to a bare
@@ -93,8 +95,8 @@ number, such as `2`, hands it back to automatic naming. Ownership lives in
 ### Caffeinate
 
 `plugins/caffeinate/` holds `caffeinate -i -w <watcher pid>` while any agent is `working`, so the
-machine does not idle-sleep mid-turn. `-w` ties the assertion to the watcher, so a crash releases
-it rather than leaving the machine unable to sleep. `watch.sh` is built like
+machine does not idle-sleep mid-turn. `-w` ties the assertion to the watcher, so a crash releases it
+rather than leaving the machine unable to sleep. `watch.sh` is built like
 `plugins/tab-name/watch.sh`. `decide` makes every call and is covered by `tests/test.sh`.
 
 Only `working` counts. A `blocked` agent is parked waiting on an answer, so sleeping then loses
@@ -135,12 +137,13 @@ on its old commit until the rebase is finished by hand.
 ## Setup
 
 ```bash
-brew install herdr jq fish fd neovim sesh television go bash
+brew install herdr jq fish fd neovim sesh television go bash yazi lazygit
 
 herdr plugin install fullerzz/herdr-plugin-sesh
 herdr plugin install thanhdat77/herdr-navigator
 herdr plugin install AlexKrupa/herdr-pluck
 herdr plugin install iurysza/termscope
+herdr plugin install persiyanov/herdr-reviewr
 
 chmod +x ~/.config/herdr/bin/* ~/.config/herdr/bin/tests/*.sh \
   ~/.config/herdr/plugins/*/*.sh ~/.config/herdr/plugins/*/tests/*.sh
@@ -160,6 +163,8 @@ Dependencies:
 - `go` 1.26.4+ - sesh plugin, built from source
 - `fd`, `neovim`, `television` (`tv`), python 3.10+ - termscope, built from source
 - `cargo` - herdr-navigator and the herdr-pluck fork, both built from source
+- `yazi` - `bin/pluck-open`, for a plucked directory
+- `lazygit` - `alt+g`
 
 Plugins run with full user permissions.
 

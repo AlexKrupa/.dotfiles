@@ -609,8 +609,12 @@ require('lazy').setup({
         -- But for many setups, the LSP (`tsserver`) will work just fine
         -- tsserver = {},
         --
+        gitlab_ci_ls = {},
         gradle_ls = {},
         graphql = {},
+        groovyls = {},
+        html = {},
+        jdtls = {},
         kotlin_lsp = {},
         ktfmt = {},
 
@@ -664,6 +668,13 @@ require('lazy').setup({
         'stylua', -- Used to format Lua code
         'prettier', -- Markdown formatter
         'markdownlint-cli2', -- Markdown linter
+        'detekt', -- Kotlin linter
+        'goimports', -- Go formatter
+        'jsonlint', -- JSON linter
+        'ktlint', -- Kotlin linter
+        'shfmt', -- Shell formatter
+        'yamlfmt', -- YAML formatter
+        'yamllint', -- YAML linter
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
