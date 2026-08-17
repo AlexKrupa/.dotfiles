@@ -612,6 +612,7 @@ require('lazy').setup({
         gradle_ls = {},
         graphql = {},
         kotlin_lsp = {},
+        ktfmt = {},
 
         lua_ls = {
           -- cmd = {...},
