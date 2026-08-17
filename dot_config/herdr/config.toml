@@ -170,6 +170,8 @@ description = "close pane, even what is left"
 # Herdr has no direct resize actions, only resize_mode (prefix+r). These call the
 # CLI instead. HERDR_ACTIVE_PANE_ID, not --current: --current falls back to the
 # UI-focused pane, which is the wrong tab once a second client is attached.
+# TODO: Migrate to built-in bindings when available:
+# https://github.com/herdrdev/herdr/pull/2558
 
 [[keys.command]]
 key = "ctrl+alt+h"
