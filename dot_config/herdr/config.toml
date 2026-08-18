@@ -27,6 +27,11 @@ sidebar_max_width = 48             # default 36
 sidebar_min_width = 18
 tab_bar_position = "top"
 
+# Workspace on line 1, the session title reported by statusline-command.sh on line 2.
+# An agent with no title reported gets no second line.
+[ui.sidebar.agents]
+rows = [["state_icon", "workspace"], ["$session"]]
+
 [ui.sound]
 enabled = true
 

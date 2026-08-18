@@ -52,11 +52,22 @@ usage_fmt() {
   printf '%s' "$seg"
 }
 
+# Show the Claude Code session title on herdr's sidebar agent row.
+herdr_session_title() {
+  [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ] || return
+  local name
+  name=$(jq -r '.session_name // empty' <<< "$1")
+  [ -n "$name" ] || return
+  herdr pane report-metadata "$HERDR_PANE_ID" --source herdr:claude \
+    --agent claude --token session="$name" >/dev/null 2>&1
+}
+
 # ============================================================
 # Input
 # ============================================================
 
 input=$(cat)
+herdr_session_title "$input" &
 
 # Single jq pass: emit fields in order, read line by line (values assumed
 # newline-free; cwd/branch never contain newlines in practice).
