@@ -73,6 +73,7 @@ herdr_session_title "$input" &
 # newline-free; cwd/branch never contain newlines in practice).
 {
   IFS= read -r cwd
+  IFS= read -r session_name
   IFS= read -r model
   IFS= read -r model_id
   IFS= read -r effort
@@ -88,6 +89,7 @@ herdr_session_title "$input" &
   IFS= read -r u7_reset
 } < <(echo "$input" | jq -r '
   .workspace.current_dir,
+  (.session_name // ""),
   .model.display_name,
   (.model.id // ""),
   (.effort.level // ""),
@@ -133,7 +135,7 @@ if git -C "$raw_cwd" rev-parse --git-dir &>/dev/null; then
     git -C "$raw_cwd" --no-optional-locks diff --quiet 2>/dev/null \
       && git -C "$raw_cwd" --no-optional-locks diff --cached --quiet 2>/dev/null \
       || st="*"
-    git_info=" on ${C_GIT}${br}${st}${C_RESET}"
+    git_info="${C_GIT}${br}${st}${C_RESET}"
   fi
 fi
 
@@ -168,8 +170,11 @@ if [ -n "$vim_mode" ]; then
   printf '%s-- %s --%s\n' "$vc" "$upper_mode" "$C_RESET"
 fi
 
-# Line 2: path, git
-printf '%s%s%s%s\n' "$C_PATH" "$short" "$C_RESET" "$git_info"
+# Line 2: path, git branch, session name
+line2="${C_PATH}${short}${C_RESET}"
+[ -n "$git_info" ] && line2="$line2 $sep $git_info"
+[ -n "$session_name" ] && line2="$line2 $sep $session_name"
+printf '%s\n' "$line2"
 
 # Line 3 segments. Each seg_<key> is a self-contained ANSI-ready string
 # (empty = skipped). Order/visibility controlled by SEGMENT_ORDER in config.
