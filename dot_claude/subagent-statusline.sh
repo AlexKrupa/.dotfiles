@@ -1,15 +1,20 @@
 #!/bin/bash
 
+source "$(dirname "${BASH_SOURCE[0]}")/statusline-lib.sh"
+
 input=$(cat)
 
 now=$(date +%s)
 
-# Format token count: 12000 -> 12k, 1500000 -> 1M
-fmt_tokens() {
-  local n="$1"
-  [ -z "$n" ] || [ "$n" = "null" ] && { echo "0k"; return; }
-  if [ "$n" -ge 1000000 ]; then echo "$(( (n + 500000) / 1000000 ))M";
-  else echo "$(( (n + 500) / 1000 ))k"; fi
+# Model id -> display name, matching the main statusline:
+# claude-opus-5 -> "Opus 5", claude-haiku-4-5-20251001 -> "Haiku 4.5"
+fmt_model() {
+  local id="${1#claude-}"
+  id="${id%-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]}"
+  local name="${id%%-*}" version="${id#*-}"
+  [ "$version" = "$name" ] && version=""
+  local head=$(echo "${name:0:1}" | tr '[:lower:]' '[:upper:]')
+  printf '%s%s' "${head}${name:1}" "${version:+ ${version//-/.}}"
 }
 
 # Elapsed since startTime (epoch s or ms) -> "Xm Ys" or "Ys"
@@ -25,33 +30,65 @@ fmt_elapsed() {
 }
 
 echo "$input" | jq -c '.tasks[]?' | while IFS= read -r task; do
-  id=$(echo "$task" | jq -r '.id // empty')
+  {
+    IFS= read -r id
+    IFS= read -r desc
+    IFS= read -r name
+    IFS= read -r type
+    IFS= read -r status
+    IFS= read -r start
+    IFS= read -r tokens
+    IFS= read -r model
+    IFS= read -r effort
+    IFS= read -r win
+  } < <(echo "$task" | jq -r '
+    (.id // ""),
+    (.description // ""),
+    (.name // ""),
+    (.type // ""),
+    (.status // ""),
+    (.startTime // ""),
+    (.tokenCount // 0),
+    (.model // ""),
+    (.effort // ""),
+    (.contextWindowSize // "")')
   [ -z "$id" ] && continue
-  desc=$(echo "$task" | jq -r '.description // empty')
-  name=$(echo "$task" | jq -r '.name // empty')
+
   primary="${desc:-$name}"          # description preferred; name as fallback
-  type=$(echo "$task" | jq -r '.type // empty')
-  status=$(echo "$task" | jq -r '.status // empty')
-  start=$(echo "$task" | jq -r '.startTime // empty')
-  tokens=$(echo "$task" | jq -r '.tokenCount // 0')
 
   case "$status" in
-    running)        dot=$'\033[32m●\033[0m' ;;  # green
-    completed)      dot=$'\033[2m●\033[0m' ;;   # dim
-    error|failed)   dot=$'\033[31m●\033[0m' ;;  # red
-    *)              dot=$'\033[2m●\033[0m' ;;   # dim fallback
+    running)        dot="${C_GREEN}●${C_RESET}" ;;
+    completed)      dot="${C_DIM}●${C_RESET}" ;;
+    error|failed)   dot="${C_RED}●${C_RESET}" ;;
+    *)              dot="${C_DIM}●${C_RESET}" ;;
   esac
 
-  elapsed=$(fmt_elapsed "$start")
-  tok=$(fmt_tokens "$tokens")
+  # Model + one-letter effort, as on the main statusline. Numeric effort
+  # budgets and inherited effort (absent) get no suffix.
+  model_seg=""
+  if [ -n "$model" ]; then
+    model_seg=$(fmt_model "$model")
+    case "$effort" in
+      ''|*[!a-z]*) ;;
+      *) model_seg="$model_seg $(echo "${effort:0:1}" | tr '[:lower:]' '[:upper:]')" ;;
+    esac
+  fi
 
-  # <dot> <description> [<type>] <elapsed> · <tokens>
+  # Context % when the window size is known, raw token count otherwise.
+  if [ -n "$win" ] && [ "$win" -gt 0 ]; then
+    pct=$(( tokens * 100 / win ))
+    ctx_seg="$(pct_color "$pct")${pct}%${C_RESET}"
+  else
+    ctx_seg=$(fmt_tokens "$tokens")
+  fi
+
+  # <dot> <description> [<type>] · <model> <effort> · <context> · <elapsed>
   content="$dot $primary"
-  [ -n "$type" ] && content="$content \033[2m[$type]\033[0m"
-  [ -n "$elapsed" ] && content="$content $elapsed"
-  content="$content \033[2m·\033[0m ${tok}"
+  [ -n "$type" ] && content="$content ${C_DIM}[$type]${C_RESET}"
+  [ -n "$model_seg" ] && content="$content $sep $model_seg"
+  content="$content $sep $ctx_seg"
+  elapsed=$(fmt_elapsed "$start")
+  [ -n "$elapsed" ] && content="$content $sep $elapsed"
 
-  # Expand escapes to real ANSI/bytes, then emit JSON safely
-  content=$(printf '%b' "$content")
   jq -nc --arg id "$id" --arg content "$content" '{id: $id, content: $content}'
 done

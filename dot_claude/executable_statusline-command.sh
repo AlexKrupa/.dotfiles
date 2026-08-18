@@ -1,15 +1,13 @@
 #!/bin/bash
 # ============================================================
-# Statusline configuration (everything tunable lives here)
+# Statusline configuration (tunables here, shared ones in statusline-lib.sh)
 # ============================================================
+
+source "$(dirname "${BASH_SOURCE[0]}")/statusline-lib.sh"
 
 # Line 3 segment order. Reorder or drop keys. Available:
 #   model ctx usage cost lines
 SEGMENT_ORDER=(model ctx usage)
-
-# Context-window % color (>= value wins; below yellow -> green).
-CTX_RED_AT=50
-CTX_YELLOW_AT=25
 
 # Rate-limit utilization % color (5h/7d windows).
 UTIL_RED_AT=80
@@ -25,47 +23,12 @@ USAGE_MIN_COLUMNS=80
 USAGE_5H_TIMEFMT='%H:%M'
 USAGE_7D_TIMEFMT='%a %H:%M'
 
-# Colors (actual ESC chars so they embed directly in strings).
-# Starship default named colors (no palette) -> ANSI, bold:
-C_CYAN=$'\033[1;36m'      # ANSI cyan, bold: starship directory, no palette
-C_MAGENTA=$'\033[1;35m'   # ANSI magenta, bold: starship git_branch, no palette
-# Dracula palette equivalents -> truecolor, no bold (Claude Code statusline
-# over-brightens bold; plain matches the live starship prompt visually):
-C_DRACULA_CYAN=$'\033[38;2;139;233;253m'    # #8be9fd
-C_DRACULA_PURPLE=$'\033[38;2;189;147;249m'  # #bd93f9
-C_RED=$'\033[31m'
-C_YELLOW=$'\033[33m'
-C_GREEN=$'\033[32m'
-C_DIM=$'\033[2m'
-C_RESET=$'\033[0m'
 C_VIM_INSERT=$'\033[33m'
 C_VIM_NORMAL=$'\033[32m'
-
-# Role -> color delegation (palette=dracula active)
-C_PATH="$C_DRACULA_CYAN"    # starship directory
-C_GIT="$C_DRACULA_PURPLE"   # starship git_branch
-
-sep="${C_DIM}·${C_RESET}"
 
 # ============================================================
 # Helpers
 # ============================================================
-
-# Format window size: 1000000 -> 1M, otherwise Nk.
-fmt_win() {
-  if [ -z "$1" ]; then echo "?";
-  elif [ "$1" -ge 1000000 ]; then echo "$(( $1 / 1000000 ))M";
-  else echo "$(( $1 / 1000 ))k"; fi
-}
-
-# Color for context %.
-pct_color() {
-  if [ -z "$1" ]; then printf '%s' "$C_DIM"; return; fi
-  local v="${1%.*}"
-  if [ "$v" -ge "$CTX_RED_AT" ]; then printf '%s' "$C_RED";
-  elif [ "$v" -ge "$CTX_YELLOW_AT" ]; then printf '%s' "$C_YELLOW";
-  else printf '%s' "$C_GREEN"; fi
-}
 
 # Color for utilization %.
 util_color() {
@@ -101,6 +64,7 @@ input=$(cat)
   IFS= read -r cwd
   IFS= read -r model
   IFS= read -r model_id
+  IFS= read -r effort
   IFS= read -r pct
   IFS= read -r win_size
   IFS= read -r cost
@@ -114,7 +78,8 @@ input=$(cat)
 } < <(echo "$input" | jq -r '
   .workspace.current_dir,
   .model.display_name,
-  (.model.model_id // ""),
+  (.model.id // ""),
+  (.effort.level // ""),
   (.context_window.used_percentage // ""),
   (.context_window.context_window_size // ""),
   (.cost.total_cost_usd // ""),
@@ -163,14 +128,6 @@ fi
 
 m=$(echo "$model" | sed 's/Claude //; s/ Sonnet//; s/ ([^)]*context)//')
 
-# Effort level: prefer live session value, fall back to settings.json, then EFFORT_DEFAULTS
-effort="${CLAUDE_EFFORT:-}"
-if [ -z "$effort" ]; then
-  settings="$HOME/.claude/settings.json"
-  if [ -f "$settings" ]; then
-    effort=$(jq -r '.effortLevel // empty' "$settings" 2>/dev/null)
-  fi
-fi
 # Append effort suffix (skip for Haiku; omitted when effort unknown)
 effort_suffix=""
 case "$model_id" in
@@ -180,7 +137,7 @@ esac
 
 pct_display="${pct:-?}"
 [ "$pct_display" != "?" ] && pct_display="${pct_display%.*}"
-win_display=$(fmt_win "$win_size")
+win_display=$(fmt_tokens "$win_size")
 
 # Build utilization segment (5h then 7d)
 usage_seg=""
