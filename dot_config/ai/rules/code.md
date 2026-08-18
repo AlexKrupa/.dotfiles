@@ -31,9 +31,10 @@ paths:
 ## Comments (inline and doc)
 
 - Comment ONLY when absolutely necessary, or when explicitly requested
-- Explain WHY, not WHAT
+- Comment what's there, not the diff
+  - No conversation-specific context, nothing about what changed, no "now handles", no "previously"
 - Are extremely concise and only provide relevant information
-- No conversation-specific context: nothing about what changed, "now handles", "previously"
+- Explain WHY, not WHAT
 - A comment to generic code must not reference specific callers or cases
 
 ## Other
