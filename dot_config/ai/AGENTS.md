@@ -46,6 +46,9 @@
 
 - Apply these rules to all written communication: replies, docs, code comments, commit messages, PR
   and issue descriptions.
+- When updating prose, replace obsolete text with accurate text rather than preserving the obsolete
+  text and adding a correction. The final document should read as if it were written correctly from
+  the beginning.
 - Match document length to the task - substance, no padding, no redundant summaries, no boilerplate
   sections. Applies to plans, specs, reviews, and any file written to disk.
 
