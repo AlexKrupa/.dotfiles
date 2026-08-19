@@ -14,7 +14,8 @@ end
 
 function __claude_upgrade_available --description 'Print "current -> new" if a newer claude-code cask exists'
     # --greedy: the cask may be marked auto_updates, which outdated skips otherwise.
-    brew outdated --cask --greedy --verbose claude-code@latest 2>/dev/null
+    # brew outdated exits 1 when the cask IS outdated, so only its output is usable.
+    brew outdated --cask --greedy --verbose claude-code@latest
 end
 
 function __claude_upgrade_cask
@@ -118,10 +119,6 @@ function claude-upgrade --description 'Quit interactive claude sessions, upgrade
     # Check before touching any session: no new version, nothing to quit.
     echo "Checking for a new claude-code version..."
     set -l outdated (__claude_upgrade_available)
-    if test $status -ne 0
-        echo "claude-upgrade: version check failed" >&2
-        return 1
-    end
     if test -z "$outdated"
         echo "Already up to date."
         return 0
