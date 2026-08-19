@@ -8,7 +8,7 @@ These rules apply to conversation replies. The written communication rules in us
 (e.g. `CLAUDE.md`) are REQUIRED and apply on top of the rules here, and also to every file you
 write:
 
-- Simple language, based on ASD-STE100 Simplified Technical English
+- Strict ASD-STE100 Simplified Technical English
 - Banned words
 - Formatting
 

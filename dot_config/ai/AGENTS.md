@@ -54,10 +54,9 @@
 
 ### Simple language
 
-Use ASD-STE100 Simplified Technical English, never at the cost of concision - fragments and
-compression stay.
+Strictly use ASD-STE100 Simplified Technical English.
 
-- If a simpler word exists - use it.
+- If a simpler word exists - use it
   - Example: use "is", not "serves as", not "utilizes". Use "has", not "carries".
 - Short sentences over conjunctions
 - No AI slop
@@ -77,7 +76,7 @@ Strictly forbidden, unless I use them in conversation or there's absolutely no a
 ```
 honest, genuine, latent, robust, authoritative, canonical, sharp,
 honestly, genuinely, quietly, deeply, fundamentally, remarkably, arguably,
-gate, gap, shape, reshape, wrinkle, seam,
+gate, gap, shape, reshape, wrinkle, seam, spine,
 delve, leverage, streamline, land, carry, overstep,
 "smoking gun", "load-bearing", "full stop", "blast radius", "earned its keep",
 "honest caveat", "honest take", "production ready", "belt-and-suspenders",
