@@ -136,7 +136,7 @@ supporting detail after it for readers who want it.
 
 #### Limits
 
-- Sentences: 12 word limit
+- Sentences: 15 word limit
 - Paragraphs: 3 sentence limit
 - Lists over 5 items: rank them, or split into now/later - never truncate
   - Exception: sequential steps - a procedure is as long as it is
