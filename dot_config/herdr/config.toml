@@ -27,8 +27,12 @@ sidebar_max_width = 48             # default 36
 sidebar_min_width = 18
 tab_bar_position = "top"
 
-# Workspace on line 1, the session title reported by statusline-command.sh on line 2.
-# An agent with no title reported gets no second line.
+# Title herdr writes to the Ghostty window. Tokens: {hostname}, {workspace}, {tab}, {pane},
+# {terminal_title}. Rendered on the server, so {hostname} names the host the panes run on.
+window_title = "{hostname}: {workspace}"   # default
+
+# Line 1 - workspace
+# Line 2 - session title reported by Claude Code via statusline script
 [ui.sidebar.agents]
 rows = [["state_icon", "workspace"], ["$session"]]
 
@@ -104,6 +108,10 @@ copy_mode                = ["prefix+[", "alt+v"]         # default + added
 rename_pane              = "prefix+shift+p"
 edit_scrollback          = "prefix+e"
 resize_mode              = "prefix+r"
+resize_pane_left         = "ctrl+alt+h"                  # default: unset
+resize_pane_down         = "ctrl+alt+j"                  # default: unset
+resize_pane_up           = "ctrl+alt+k"                  # default: unset
+resize_pane_right        = "ctrl+alt+l"                  # default: unset
 cycle_pane_next          = "prefix+tab"
 cycle_pane_previous      = "prefix+shift+tab"
 # last_pane                                              # default: unset
@@ -170,37 +178,6 @@ key = ["prefix+x", "alt+w"]
 type = "shell"
 command = "~/.config/herdr/bin/balance-panes.sh close"
 description = "close pane, even what is left"
-
-# --- Custom commands: pane resize ---
-# Herdr has no direct resize actions, only resize_mode (prefix+r). These call the
-# CLI instead. HERDR_ACTIVE_PANE_ID, not --current: --current falls back to the
-# UI-focused pane, which is the wrong tab once a second client is attached.
-# TODO: Migrate to built-in bindings when available:
-# https://github.com/herdrdev/herdr/pull/2558
-
-[[keys.command]]
-key = "ctrl+alt+h"
-type = "shell"
-command = 'herdr pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction left --amount 0.05'
-description = "resize pane left"
-
-[[keys.command]]
-key = "ctrl+alt+j"
-type = "shell"
-command = 'herdr pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction down --amount 0.05'
-description = "resize pane down"
-
-[[keys.command]]
-key = "ctrl+alt+k"
-type = "shell"
-command = 'herdr pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction up --amount 0.05'
-description = "resize pane up"
-
-[[keys.command]]
-key = "ctrl+alt+l"
-type = "shell"
-command = 'herdr pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction right --amount 0.05'
-description = "resize pane right"
 
 # alt+y/u/i/o/p read one absolute path per line from ~/.config/herdr/projects.local:
 # line 1 is alt+y, line 2 alt+u, and so on through line 5 for alt+p. A missing file,
