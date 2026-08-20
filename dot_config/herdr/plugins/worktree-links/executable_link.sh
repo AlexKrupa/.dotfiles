@@ -11,7 +11,7 @@ if ((BASH_VERSINFO[0] < 4)); then
   echo "worktree-links: needs bash 4+, got $BASH_VERSION" >&2
   exit 0
 fi
-shopt -s extglob
+shopt -s extglob dotglob nullglob
 
 [[ -n ${HERDR_PLUGIN_EVENT_JSON:-} ]] || exit 0
 command -v jq >/dev/null || exit 0
@@ -38,6 +38,20 @@ for list in "${HERDR_PLUGIN_ROOT:-$(dirname "${BASH_SOURCE[0]}")}/links.conf" "$
     [[ -n $path ]] || continue
 
     [[ $path != /* && $path != *..* ]] || continue  # no absolute paths, no traversal
+
+    # A trailing slash links the entries inside the directory, not the directory
+    # itself. Use it when the repo commits some files into that directory: git
+    # creates the directory in the worktree, so a link of the directory is skipped.
+    if [[ $path == */ ]]; then
+      dir=${path%/}
+      [[ -d $main/$dir ]] || continue
+      mkdir -p "$wt/$dir"
+      for entry in "$main/$dir"/*; do
+        [[ ! -e $wt/$dir/${entry##*/} ]] || continue
+        ln -s "$entry" "$wt/$dir/${entry##*/}"
+      done
+      continue
+    fi
 
     [[ -e $main/$path ]] || continue                # nothing to link
     [[ ! -e $wt/$path ]] || continue                # never overwrite
