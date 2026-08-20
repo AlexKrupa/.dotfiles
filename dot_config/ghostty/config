@@ -1,6 +1,6 @@
 command = "/opt/homebrew/bin/fish --login"
 shell-integration = fish
-shell-integration-features = "no-cursor,sudo"
+shell-integration-features = "no-cursor"
 
 auto-update = off
 
