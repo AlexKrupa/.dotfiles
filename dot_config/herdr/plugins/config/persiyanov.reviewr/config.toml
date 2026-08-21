@@ -1,2 +1,3 @@
+auto_open = false
 theme = "dracula"
 default_scope = "branch"
