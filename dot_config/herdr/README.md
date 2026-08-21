@@ -42,6 +42,11 @@ out of a column leaves that column's width alone. `alt+=` still evens the whole 
 close made by the CLI, a plugin or an agent is left alone, apart from the herdr-pluck opens below.
 `plugins/balance-panes/` covers a pane whose process ends on its own.
 
+`alt+g` opens lazygit in a new focused tab instead of a popup, so tab and pane keys keep working.
+The tab holds one pane running `exec lazygit`, so quitting lazygit ends the pane and herdr closes
+the tab. The pane starts through `HERDR_PANE_CMD`, which skips `conf.d`, so the command carries
+`PATH`.
+
 `bin/balance.jq` holds the tree walks the subcommands share, and picks the splits and ratios.
 `bin/tests/test.sh` covers it with fixture trees, no server needed.
 
@@ -86,9 +91,19 @@ agent name in an agent pane. `watch.sh` holds one `events.subscribe` connection 
 and sweeps once per burst of events. `policy.jq` makes every decision and is covered by
 `tests/test.sh`.
 
+The name comes from the pane's foreground process, one `herdr pane process-info` per tab, not from
+its terminal title. A title is not a name: lazygit, yazi and nvim leave the pane without one, and
+`herdr api snapshot` carries no process information. The name is the leader of the foreground
+process group, so a program that starts another keeps the tab on the one the shell started. A pane
+whose leader is its shell counts as idle and takes the directory instead. An agent pane still takes
+the agent name, and needs no process call.
+
 A tab renamed by hand keeps its name and only gets its number maintained. Renaming it back to a bare
 number, such as `2`, hands it back to automatic naming. Ownership lives in
 `~/.local/state/herdr-tab-name/state.json`.
+
+The socket connection is a coprocess, so `watch.sh` itself holds the write end that keeps `nc`
+alive. When the connection ends, the read loop sees EOF and reconnects.
 
 `watch.sh` needs homebrew bash 5 for fractional `read -t` timeouts.
 
@@ -96,13 +111,18 @@ number, such as `2`, hands it back to automatic naming. Ownership lives in
 
 `plugins/caffeinate/` holds `caffeinate -i -w <watcher pid>` while any agent is `working`, so the
 machine does not idle-sleep mid-turn. `-w` ties the assertion to the watcher, so a crash releases it
-rather than leaving the machine unable to sleep. `watch.sh` is built like
-`plugins/tab-name/watch.sh`. `decide` makes every call and is covered by `tests/test.sh`.
+rather than leaving the machine unable to sleep. `decide` makes every call and is covered by
+`tests/test.sh`.
+
+`watch.sh` polls, unlike `plugins/tab-name/watch.sh`: herdr takes a `pane.agent_status_changed`
+subscription only per `pane_id`, so no one request covers a session whose agent panes come and go.
+Events would buy nothing here. A hold placed within `CAFFEINATE_INTERVAL` seconds, 30 by default, is
+still minutes ahead of macOS idle sleep, and the release is a clock decision that no event
+announces.
 
 Only `working` counts. A `blocked` agent is parked waiting on an answer, so sleeping then loses
 nothing. `CAFFEINATE_GRACE` seconds of quiet, 60 by default, releases the hold, which also covers
-the pause between turns. That grace doubles as the event loop's read timeout - once the agents go
-quiet, no further events arrive to drive the release.
+the pause between turns.
 
 Lid-close sleep is a different code path and no assertion blocks it. Clamshell - lid closed on AC
 with an external display - does not use that path, so it is covered. Lid closed on battery with no
@@ -110,7 +130,7 @@ external display is not, and cannot be without the kernel `SleepDisabled` flag a
 for `pmset -a disablesleep`. Every menu-bar app doing this uses that one mechanism, and none has a
 CLI, so none can follow agent state. Treat them as a manual override if that case ever matters.
 
-State lives in `~/.local/state/herdr-caffeinate/`. `watch.sh` needs homebrew bash 5, as above.
+State lives in `~/.local/state/herdr-caffeinate/`.
 
 ### Forked plugins
 
@@ -146,7 +166,8 @@ herdr plugin install iurysza/termscope
 herdr plugin install persiyanov/herdr-reviewr
 
 chmod +x ~/.config/herdr/bin/* ~/.config/herdr/bin/tests/*.sh \
-  ~/.config/herdr/plugins/*/*.sh ~/.config/herdr/plugins/*/tests/*.sh
+  ~/.config/herdr/plugins/*/*.sh ~/.config/herdr/plugins/*/tests/*.sh \
+  ~/.config/herdr/plugins/*/tests/mocks/*
 herdr plugin link ~/.config/herdr/plugins/balance-panes
 herdr plugin link ~/.config/herdr/plugins/worktree-links
 herdr plugin link ~/.config/herdr/plugins/tab-name

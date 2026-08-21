@@ -294,7 +294,7 @@
   },
   "syntaxHighlightingDisabled": false,
   "alwaysThinkingEnabled": true,
-  "effortLevel": "medium",
+  "effortLevel": "high",
   "showClearContextOnPlanAccept": true,
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,

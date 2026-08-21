@@ -27,9 +27,9 @@ sidebar_max_width = 48             # default 36
 sidebar_min_width = 18
 tab_bar_position = "top"
 
-# Title herdr writes to the Ghostty window. Tokens: {hostname}, {workspace}, {tab}, {pane},
-# {terminal_title}. Rendered on the server, so {hostname} names the host the panes run on.
-window_title = "{hostname}: {workspace}"   # default
+# Tokens: {hostname}, {workspace}, {tab}, {pane}, {terminal_title}. Rendered on the
+# server, so {hostname} names the host the panes run on.
+window_title = "{workspace} • {tab}"   # default
 
 # Line 1 - workspace
 # Line 2 - session title reported by Claude Code via statusline script
@@ -52,9 +52,6 @@ pane_history = false
 
 [session]
 resume_agents_on_restore = true    # default, resumes Claude Code conversations after a restart
-
-# [advanced] scrollback_limit_bytes defaults to 10 MB per pane, the rough
-# equivalent of `history-limit 50000`. Left at the default.
 
 [keys]
 prefix = "ctrl+space"
@@ -133,15 +130,17 @@ navigate_pane_right      = "l"
 
 # --- Custom commands ---
 
+# A tab, not a popup: lazygit stays out of the way of tab and pane keys. The tab
+# holds one pane, so quitting lazygit ends its shell and herdr closes the tab.
+# HERDR_PANE_CMD is the fast-pane path from conf.d/00-herdr-fast-pane.fish, which
+# skips conf.d and needs PATH from here.
 [[keys.command]]
 key = "alt+g"
-type = "popup"
-command = "lazygit"
-description = "run lazygit"
-width = "98%"
-height = "96%"
+type = "shell"
+command = 'herdr tab create --focus --cwd "$HERDR_ACTIVE_PANE_CWD" --env "PATH=$PATH" --env "HERDR_PANE_CMD=exec lazygit"'
+description = "lazygit in a new tab"
 
-# --- Custom commands: plugin actions ---
+# --- Custom commands: panes ---
 
 [[keys.command]]
 key = "alt+T"
@@ -156,10 +155,8 @@ command = "~/.config/herdr/bin/balance-panes.sh equalize"
 description = "even out splits"
 
 # --- Custom commands: splits and closes ---
-# The built-in split and close actions are unset above. The split and close
-# subcommands of bin/balance-panes.sh do the same over the CLI and then even out
-# the row or column group the pane joined or left, leaving every other split in
-# the tab alone.
+# These replace the built-in actions unset above. Every other split in the tab is
+# left alone.
 
 [[keys.command]]
 key = ["prefix+v", "alt+slash"]
@@ -179,10 +176,9 @@ type = "shell"
 command = "~/.config/herdr/bin/balance-panes.sh close"
 description = "close pane, even what is left"
 
-# alt+y/u/i/o/p read one absolute path per line from ~/.config/herdr/projects.local:
-# line 1 is alt+y, line 2 alt+u, and so on through line 5 for alt+p. A missing file,
-# blank line or comment makes the key do nothing. That file is machine-local, never
-# committed.
+# One absolute path per line in ~/.config/herdr/projects.local: line 1 is alt+y,
+# line 2 alt+u, through line 5 for alt+p. A missing file, blank line or comment
+# makes the key do nothing. That file is machine-local, never committed.
 
 [[keys.command]]
 key = "alt+y"

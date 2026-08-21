@@ -1,40 +1,36 @@
 # Decide every herdr tab label from one `herdr api snapshot`.
 #
-#   in:  snapshot JSON on stdin, --slurpfile st <state.json>
+#   in:  snapshot JSON on stdin, --slurpfile st <state.json>,
+#        --argjson fg {pane_id: foreground program}, a shell name for an idle pane
 #   out: with `jq -r`, line 1 is {tab_id: base} as JSON, every line after is
 #        "<tab_id>\t<label>". One text stream, so the caller needs no second jq to
 #        take it apart.
 #
-# Pure: no herdr calls, no clock, no files. tests/test.sh covers every branch.
+# Pure: no herdr calls, no clock, no files.
 
 def ignored: ["ls","cd","cat","echo","clear","git","jj","rm","cp","mv","grep","rg","fd",
               "which","type","printf","test"];
+
+# A pane whose foreground program is a shell is sitting at its prompt.
+def shells: ["fish","bash","zsh","sh","dash","ksh","nu"];
 
 def cap: .[0:20] | sub(" +$"; "");
 
 def basename: sub("/+$"; "") | split("/") | last | if . == "" then "/" else . end;
 
 # The base label for one pane, or null to leave the tab's label alone.
-def label_of($pane):
+def label_of($pane; $program):
   if $pane == null then null
   # An agent rewrites its title with its current task, so use the agent name instead.
   elif $pane.agent != null then $pane.agent
-  else
-    (($pane.terminal_title_stripped // "") | split(" ") | map(select(length > 0))) as $w
-    | if ($w | length) == 0 then null
-      # fish's fish_title always appends prompt_pwd, so a trailing path means fish set this
-      # title: one token is an idle prompt, more than one is a running command.
-      elif ($w[-1] | test("^[~/]")) then
-        ($w[0] | basename) as $cmd
-        | if ($w | length) == 1 then $cmd
-          elif (ignored | index($cmd)) then null
-          else $cmd
-          end
-      # No trailing path: the program set this title, so use it as it is.
-      else $pane.terminal_title_stripped
-      end
+  # No reading for this pane: it went away, or the process call failed.
+  elif $program == null or $program == "" then null
+  elif (shells | index($program)) then
+    (if $pane.cwd == env.HOME then "~" else ($pane.cwd // "" | basename) end)
+  elif (ignored | index($program)) then null
+  else $program
   end
-  | if . == null then null else cap end;
+  | if . == null or . == "" then null else cap end;
 
 ($st[0] // {}) as $owned
 | .result.snapshot as $s
@@ -48,9 +44,9 @@ def label_of($pane):
     | ($t.label | sub("^[0-9]+ • "; "")) as $base
     | (if ($base | test("^[0-9]+$")) or ($owned[$t.tab_id] == $base)
        then "auto" else "manual" end) as $mode
-    | label_of($pane[$focus[$t.tab_id]]) as $want
+    | $focus[$t.tab_id] as $pane_id
+    | label_of($pane[$pane_id]; $fg[$pane_id]) as $want
     | (if $mode == "manual" then $base
-       # Nothing to derive: keep an owned name, but leave a generated label alone.
        elif $want == null then (if ($base | test("^[0-9]+$")) then null else $base end)
        else $want
        end) as $newbase

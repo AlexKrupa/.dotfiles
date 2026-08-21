@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
-# herdr-pluck open action. Text file -> split running $EDITOR, directory -> split running yazi.
-# Everything else -> macOS `open`.
-# pluck pipes the match on stdin and runs us in the source pane's cwd, so relative paths resolve.
+# herdr-pluck open action. pluck pipes the match on stdin and runs this in the source
+# pane's cwd, so relative paths resolve.
 
 set -euo pipefail
 
 editor="${EDITOR:-nvim}"
 bin=$(cd "$(dirname "$0")" && pwd)
 
-# Splits the source pane, evens the column group the new pane joins, and prints its id.
-# The source pane is named explicitly because the picker tab is still focused here, and
-# the equalize subcommand takes its tab and pane from the environment, the same as the split key.
-# Extra `herdr pane split` arguments (--env ...) may follow the cwd.
+# The picker tab is still focused here, so the source pane is named explicitly. equalize
+# takes its tab and pane from the environment, the same as the split key.
 split_pane() {
   local cwd=$1
   shift
@@ -30,7 +27,6 @@ case "$match" in
   "~"|"~/"*) match="$HOME${match#\~}" ;;
 esac
 
-# Resolve: as-is (pane cwd or absolute), then fall back to $HOME-relative.
 path=""
 if [ -f "$match" ]; then
   path="$match"
@@ -47,11 +43,11 @@ if [ -n "$path" ]; then
   if [ "$enc" != "binary" ]; then
     printf -v quoted '%q' "$path"
     # Trailing `exit` ends the pane shell with the editor, so herdr closes the split.
-    # No key fires on that close: the pane starts pluck-post-close on its way out.
+    # No key fires on that close, so the pane starts pluck-post-close on its way out.
     #
     # HERDR_PANE_CMD replaces a `herdr pane run` round-trip: conf.d/00-herdr-fast-pane.fish
     # runs it at spawn. That skips conf.d/brew.fish too, hence PATH from this pane.
-    # $HERDR_PANE_ID stays unexpanded for the new pane's own shell, since the id is not
+    # $HERDR_PANE_ID stays unexpanded for the new pane's own shell, because the id is not
     # known until the split that delivers this command returns.
     cmd="$editor $quoted; $bin/pluck-post-close $HERDR_PLUCK_TAB_ID $HERDR_PLUCK_PANE_ID \$HERDR_PANE_ID; exit"
     split_pane "$PWD" --env "PATH=$PATH" --env "HERDR_PANE_CMD=$cmd" >/dev/null
@@ -60,8 +56,6 @@ if [ -n "$path" ]; then
   exec open "$path"
 fi
 
-# Directories browse in yazi rather than Finder. `y` is the fish wrapper from
-# conf.d/yazi.fish: on quit the pane shell stays in the directory yazi ended in.
 dir=""
 if [ -d "$match" ]; then
   dir="$match"
@@ -70,8 +64,9 @@ elif [ -d "$HOME/$match" ]; then
 fi
 
 if [ -n "$dir" ]; then
-  # The shell stays after yazi quits, so this pane is closed by key and the close key
-  # evens what is left.
+  # `y` is the fish wrapper from conf.d/yazi.fish: on quit the pane shell stays in the
+  # directory yazi ended in. The shell stays after yazi quits, so this pane is closed by
+  # key and the close key evens what is left.
   exec herdr pane run "$(split_pane "$dir")" y
 fi
 

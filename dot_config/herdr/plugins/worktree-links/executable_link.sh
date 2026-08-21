@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Symlink shared local files from the main checkout into a newly created worktree.
-# Runs on herdr's worktree.created event. Always exits 0, so herdr does not mark
-# the event failed when there is nothing to do.
+# Always exits 0, so herdr does not mark the event failed when there is nothing
+# to do.
 #
 # Field names come from herdr's API schema. The worktree_created event holds
 # .worktree.path (the new checkout) and .workspace.worktree.repo_root (the main
@@ -25,19 +25,18 @@ IFS=$'\t' read -r wt main < <(
 [[ -d ${wt:-} && -d ${main:-} && $wt != "$main" ]] || exit 0
 
 # The global list, then this repo's own additions. Both are optional, and the
-# lists add up rather than replace. A path listed twice is harmless: the first
-# pass creates the link and the second sees it already exists.
+# lists add up rather than replace.
 for list in "${HERDR_PLUGIN_ROOT:-$(dirname "${BASH_SOURCE[0]}")}/links.conf" "$main/.herdr-links"; do
   [[ -f $list ]] || continue
 
   mapfile -t lines < "$list"
   for line in "${lines[@]}"; do
-    path=${line%%#*}                  # drop comments
-    path=${path##*([[:space:]])}      # trim both ends
+    path=${line%%#*}
+    path=${path##*([[:space:]])}
     path=${path%%*([[:space:]])}
     [[ -n $path ]] || continue
 
-    [[ $path != /* && $path != *..* ]] || continue  # no absolute paths, no traversal
+    [[ $path != /* && $path != *..* ]] || continue
 
     # A trailing slash links the entries inside the directory, not the directory
     # itself. Use it when the repo commits some files into that directory: git
@@ -53,7 +52,7 @@ for list in "${HERDR_PLUGIN_ROOT:-$(dirname "${BASH_SOURCE[0]}")}/links.conf" "$
       continue
     fi
 
-    [[ -e $main/$path ]] || continue                # nothing to link
+    [[ -e $main/$path ]] || continue
     [[ ! -e $wt/$path ]] || continue                # never overwrite
 
     [[ $path != */* ]] || mkdir -p "$wt/${path%/*}"

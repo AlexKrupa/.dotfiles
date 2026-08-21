@@ -1,8 +1,6 @@
-# Ported from tmux.conf @fingers-pattern-0..2.
 # Rust regex has no lookbehind. The named `match` capture does the same job, because
 # pluck copies only that capture when one is present.
 # Lower priority wins, and a custom pattern beats a built-in at equal priority.
-# The built-in `url` pattern already trims trailing punctuation, so there is no custom URL entry.
 
 # Leading `(?:^|\s)` keeps timestamps (`10:30:45`), compiler columns (`Foo.kt:12:5`) and
 # `host:8080:x` out. The final class excludes `.`/`-` so prose punctuation is not yanked.
@@ -12,7 +10,7 @@ regex = '(?:^|\s)(?<match>:(?:[a-zA-Z0-9_.-]+:)+[a-zA-Z0-9_.-]*[a-zA-Z0-9_])'
 priority = 20
 
 # Same as built-in `path` (priority 20), except the last segment cannot end with `.`.
-# A trailing `[.,;:]?` does not work: `.` is inside the segment class, so the greedy
+# A trailing `[.,;:]?` does not work. `.` is inside the segment class, so the greedy
 # segment eats it and the optional group matches empty.
 [[patterns]]
 name = "path-trimmed"

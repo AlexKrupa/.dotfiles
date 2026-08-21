@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # herdr tab names. Labels each tab `N • name` after its focused pane.
 #
-# This file is transport only: every naming, numbering and ownership decision lives in
-# policy.jq, which is pure and tested by tests/test.sh.
+# This file is transport only. Every naming, numbering and ownership decision is in
+# policy.jq, which is pure.
 #
-# Needs bash 5, for `read -t 0.15` and $EPOCHREALTIME in the event loop added in Task 3.
-# macOS ships bash 3.2, which rejects fractional read timeouts, so this deliberately does
-# not follow the bash 3.2 rule that plugins/worktree-links/link.sh keeps to.
+# Needs bash 5, for `read -t 0.15` and $EPOCHREALTIME in the event loop. macOS ships
+# bash 3.2, which rejects fractional read timeouts.
 #
 # Usage: watch.sh sweep     one pass over the session, then exit
 #        watch.sh watch     sweep, then subscribe and sweep per burst of events
@@ -35,19 +34,41 @@ snapshot() {
   fi
 }
 
-# One pass: read the session, let policy.jq decide, apply what changed.
+# The foreground program of each tab's focused pane, as {pane_id: name}. A terminal title
+# cannot answer this - lazygit, yazi and nvim leave the pane with none at all - and
+# `api snapshot` holds no process information, so this costs one `pane process-info` per
+# tab. Agent panes are named after their agent, so they are left out.
+#
+# The name is the leader of the foreground process group, which is the program the shell
+# started rather than anything that program then ran itself.
+programs() {
+  local ids id
+  ids=$(jq -r '.result.snapshot as $s
+    | ($s.panes | map({key: .pane_id, value: .}) | from_entries) as $p
+    | $s.layouts[].focused_pane_id
+    | select($p[.] != null and $p[.].agent == null)' <<<"$1")
+  for id in $ids; do
+    herdr pane process-info --pane "$id"
+  done | jq -sc 'map(.result.process_info | select(type == "object") | . as $i
+    | { key: $i.pane_id,
+        value: (first($i.foreground_processes[]
+                      | select(.pid == $i.foreground_process_group_id)
+                      | .name) // "") })
+    | from_entries'
+}
+
 sweep() {
-  local out first id label
-  # One jq: policy.jq emits the state line and the rename lines in the same pass, so
-  # taking them apart below costs no further processes.
-  out=$(snapshot | jq -r --slurpfile st "$state" -f "$root/policy.jq") || return 0
+  local snap out first id label
+  snap=$(snapshot) || return 0
+  out=$(jq -r --slurpfile st "$state" --argjson fg "$(programs "$snap")" \
+    -f "$root/policy.jq" <<<"$snap") || return 0
   [ -n "$out" ] || return 0
   first=${out%%$'\n'*}
 
   # State is written before the renames on purpose. Dying in between leaves a tab whose
   # label is still herdr's generated number, which the next sweep adopts again. The other
-  # order would leave a renamed tab absent from state, and the next sweep would read that
-  # as a name the user chose and freeze it.
+  # order leaves a renamed tab absent from state, and the next sweep reads that as a name
+  # the user chose and freezes it.
   printf '%s\n' "$first" >"$state.new" && mv "$state.new" "$state"
 
   [ "$out" = "$first" ] && return 0   # state only: nothing to rename
@@ -72,28 +93,33 @@ subscribe_req=$(jq -nc '{
   ] | map({type: .}) }
 }')
 
-# One subscription, streamed as JSON lines. nc -U exits as soon as stdin reaches EOF, so
-# stdin has to stay open for the life of the stream.
-stream() {
-  { printf '%s\n' "$subscribe_req"; exec sleep 2147483647; } |
-    nc -U "$HERDR_SOCKET_PATH"
-}
-
 # Sweep once per burst, not once per event: driving yazi produces a pane.updated every
-# ~100ms, and every event in a burst yields the same labels. The 500ms cap matters as much
-# as the 150ms window - without it, sustained churn keeps resetting the window and the
-# label never updates at all.
+# ~100ms, and every event in a burst yields the same labels. Without the 500ms cap on the
+# 150ms window, sustained churn keeps resetting the window and the label never updates.
+#
+# One subscription, streamed as JSON lines. nc exits as soon as its stdin reaches EOF, so
+# the connection is a coprocess and this shell holds the write end open. Holding it with a
+# `sleep` in a pipeline instead outlives nc, and the read loop then blocks for ever on a
+# dead connection rather than seeing EOF and reconnecting.
 watch() {
-  trap 'rm -f "$pidfile"' EXIT
+  # Only our own pid file: a watcher that dies after being replaced must not delete the
+  # live one's, or every later `ensure` starts one more.
+  trap '[ "$(cat "$pidfile" 2>/dev/null)" = "$$" ] && rm -f "$pidfile"' EXIT
   sweep
   while :; do
+    coproc conn { nc -U "$HERDR_SOCKET_PATH"; }
+    local reader=${conn[0]} writer=${conn[1]}
+    printf '%s\n' "$subscribe_req" >&"$writer"
     while IFS= read -r _; do
       local start=${EPOCHREALTIME/./}
       while read -t 0.15 -r _; do
         (( ${EPOCHREALTIME/./} - start > 500000 )) && break
       done
       sweep
-    done < <(stream)
+    done <&"$reader"
+    exec {reader}<&- {writer}>&-
+    # bash unsets the coprocess pid as soon as it reaps it, which is most of the time here.
+    [ -n "${conn_PID:-}" ] && wait "$conn_PID" 2>/dev/null
     sleep 1   # the server restarted, or the socket went away
   done
 }

@@ -1,5 +1,4 @@
 #!/bin/sh
-# Fixtures for bin/balance.jq. Run: bin/tests/test.sh
 bin=$(dirname "$0")/..
 fail=0
 
@@ -58,7 +57,7 @@ check "close at the root" "$columns" 'close_target("c")' "right []"
 check "close inside a stack" "$stack" 'close_target("c")' "down [true]"
 check "closing the whole tab" "$alone" 'close_target("a")'
 
-# The trees the closes above leave behind, which is what equalize_at then reads.
+# The trees the closes above leave behind, which is what equalize_at reads.
 # a | c, from closing b out of the three columns
 closed_columns=$(tree "$(split right 0.3 "$(pane a)" "$(pane c)")")
 # a | (c / d), from closing b out of a | b | (c / d): the group loses a column

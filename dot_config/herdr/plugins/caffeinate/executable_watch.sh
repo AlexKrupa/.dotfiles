@@ -1,26 +1,25 @@
 #!/usr/bin/env bash
 # herdr caffeinate. Holds a macOS idle-sleep assertion while any agent is working.
 #
-# Only `working` counts. A `blocked` agent is parked waiting on the user, so sleeping loses
-# nothing.
+# Only `working` counts. A `blocked` agent waits on the user, so sleeping loses nothing.
 #
-# Every decision lives in `decide`, which touches no processes and is covered by tests/.
-#
-# Needs homebrew bash 5, for the fractional `read -t` timeout in the event loop.
+# Every decision is in `decide`, which touches no processes.
 #
 # Usage: watch.sh decide    print the decision and exit, applying nothing
-#        watch.sh watch     sweep, then subscribe and sweep per burst of events
+#        watch.sh watch     decide once per interval, for ever
 #        watch.sh ensure    spawn a detached watcher unless one is already running
 #
 # Env overrides, for tests and debugging:
-#   CAFFEINATE_AGENTS  read this file instead of running `herdr agent list`
-#   CAFFEINATE_STATE   use this state directory instead of the XDG one
-#   CAFFEINATE_GRACE   seconds to hold on after the last agent stops working (default 60)
+#   CAFFEINATE_AGENTS    read this file instead of running `herdr agent list`
+#   CAFFEINATE_STATE     use this state directory instead of the XDG one
+#   CAFFEINATE_GRACE     seconds to hold on after the last agent stops working (default 60)
+#   CAFFEINATE_INTERVAL  seconds between decisions (default 30)
 
 set -u
 
 state_dir=${CAFFEINATE_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/herdr-caffeinate}
 grace=${CAFFEINATE_GRACE:-60}
+interval=${CAFFEINATE_INTERVAL:-30}
 pidfile=$state_dir/watch.pid
 holdfile=$state_dir/caffeinate.pid
 idlefile=$state_dir/idle-since
@@ -38,7 +37,7 @@ agents() {
 
 holding() { [ -r "$holdfile" ] && kill -0 "$(cat "$holdfile")" 2>/dev/null; }
 
-# Writes the idle stamp: when the agents went quiet decides the release, and nothing else
+# Writes the idle stamp. When the agents went quiet decides the release, and nothing else
 # tracks it.
 decide() {
   local working now since
@@ -56,7 +55,6 @@ decide() {
 
   holding || return 0
 
-  # Writing before reading keeps the two branches from disagreeing about `now`.
   if [ -r "$idlefile" ]; then
     since=$(cat "$idlefile")
   else
@@ -87,39 +85,17 @@ sweep() {
   esac
 }
 
-subscribe_req=$(jq -nc '{
-  id: "caffeinate", method: "events.subscribe",
-  params: { subscriptions: [
-    "pane.agent_status_changed", "pane.agent_detected", "pane.exited", "pane.closed"
-  ] | map({type: .}) }
-}')
-
-# nc -U exits as soon as stdin reaches EOF, so stdin has to stay open for the whole stream.
-stream() {
-  { printf '%s\n' "$subscribe_req"; exec sleep 2147483647; } |
-    nc -U "$HERDR_SOCKET_PATH"
-}
-
-# Sweep once per burst: one turn ending fires several status changes, all deciding the same.
-# The read timeout drives the release - once the agents go quiet, no further events arrive.
+# A poll, not a subscription: herdr takes `pane.agent_status_changed` only per pane_id, so
+# no one request covers a session whose agent panes come and go. A hold placed within one
+# interval is still minutes ahead of macOS idle sleep, and the release is a clock decision
+# that no event announces.
 watch() {
-  trap 'release; rm -f "$pidfile"' EXIT
-  sweep
+  # Only our own pid file: a watcher that dies after being replaced must not delete the
+  # live one's, or every later `ensure` starts one more.
+  trap 'release; [ "$(cat "$pidfile" 2>/dev/null)" = "$$" ] && rm -f "$pidfile"' EXIT
   while :; do
-    while :; do
-      IFS= read -t "$grace" -r _
-      local rc=$?
-      if (( rc == 0 )); then
-        local start=${EPOCHREALTIME/./}
-        while read -t 0.15 -r _; do
-          (( ${EPOCHREALTIME/./} - start > 500000 )) && break
-        done
-      elif (( rc <= 128 )); then
-        break   # the server restarted, or the socket went away
-      fi
-      sweep
-    done < <(stream)
-    sleep 1
+    sweep
+    sleep "$interval"
   done
 }
 

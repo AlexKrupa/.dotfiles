@@ -1,8 +1,7 @@
 #!/bin/sh
-# Even the column group a pluck editor pane leaves behind. That pane closes itself when
-# the editor quits, and nothing inside it outlives the close: the first call re-runs
-# itself detached, and that copy waits for the pane to go before it evens the group.
-# The close subcommand of bin/balance-panes.sh covers panes closed by key.
+# Even the column group a pluck editor pane leaves behind. Nothing inside that pane
+# outlives its close, so the first call re-runs itself detached and the detached copy
+# waits for the pane to go.
 #
 # Usage: pluck-post-close <tab-id> <surviving-pane-id> <closing-pane-id>
 [ $# -eq 3 ] || exit 2
@@ -13,7 +12,7 @@ if [ -z "${PLUCK_POST_CLOSE_BG:-}" ]; then
 fi
 
 # 2s at most. A pane still there after that is not closing, and evening the group while
-# it lives would only set the ratios the split already made.
+# it lives only sets the ratios the split already made.
 i=0
 while herdr pane get "$3" >/dev/null 2>&1; do
   i=$((i + 1))

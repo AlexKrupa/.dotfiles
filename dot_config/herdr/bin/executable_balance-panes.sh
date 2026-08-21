@@ -1,22 +1,14 @@
 #!/bin/sh
-# Split, close and even out panes. One subcommand per keybinding:
-#
-#   split right|down       split the active pane, even the group it joins
-#   close                  close the active pane, even the group it leaves
-#   break                  move the active pane to a new tab
-#   equalize [dir [path]]  even the whole tab, or one row or column group
-#   on-exit                plugins/balance-panes hook
-#
 # One file because a keybinding runs one command. The built-in split and close
 # actions are unset in config.toml: herdr fires nothing after a split, and a
-# close has to be read before the pane goes, so both pair a CLI call with an
-# equalize here. bin/balance.jq picks the splits and the ratios.
+# close has to be read before the pane goes. Both pair a CLI call with an
+# equalize here.
 #
 # POSIX sh, not fish: this is key-bound, and fish spends ~110ms sourcing
 # config.fish per process.
 #
-# Pane *areas* are only equal when the whole tab splits one direction; ratios
-# alone cannot do better on a mixed tree without restructuring it.
+# Only ratios change here, so pane areas come out equal only when the whole tab
+# splits one direction. Anything better needs the tree restructured.
 
 bin=$(dirname "$0")
 
@@ -26,10 +18,8 @@ usage() {
   exit 2
 }
 
-# One JSON-RPC call to the herdr socket, for calls the CLI does not expose.
-# layout.apply would set every ratio at once but takes a whole tree and can
-# recreate panes, which would kill running agents. set_split_ratio only changes
-# a ratio.
+# The CLI does not expose these calls. layout.apply sets every ratio at once but
+# takes a whole tree and can recreate panes, which kills running agents.
 #
 # The server does not close the connection after it replies. Without -w 3 a bare
 # `nc -U` waits for ever and stalls the server.
@@ -39,16 +29,13 @@ rpc() {
     nc -U -w 3 "$HERDR_SOCKET_PATH"
 }
 
-# Give every pane in the current tab an equal share, or with `right` or `down`
-# only the row or column group the active pane sits in - what the split key
-# uses. A layout path as the second argument names the group by its spot in the
-# tree instead of by a pane, which is what the close key needs: the pane it
-# would name has already gone.
+# A layout path as the second argument names the group by its spot in the tree
+# instead of by a pane, which the close key needs: the pane it would name has
+# already gone.
 #
-# The keybinding env names the pressing pane and its tab, so nothing has to be
-# looked up. Asking the server instead would mean `herdr pane layout --current`,
-# which answers for whichever pane the UI has focused - the wrong tab as soon as
-# a second client is attached.
+# Tab and pane come from the keybinding env. Asking the server instead would
+# mean `herdr pane layout --current`, which answers for whichever pane the UI
+# has focused - the wrong tab as soon as a second client is attached.
 equalize() {
   dir=${1:-}
   group=${2:-}
@@ -74,9 +61,9 @@ equalize() {
 case ${1:-} in
   split)
     case ${2:-} in right | down) ;; *) usage ;; esac
-    # --focus matches the built-in actions; `herdr pane split` does not focus
-    # the new pane on its own. The pane named in the environment stays in the
-    # group that was just split, so equalize can read it from there.
+    # --focus matches the built-in actions. `herdr pane split` does not focus
+    # the new pane on its own. The pane in the environment stays in the group
+    # that was just split, so equalize reads it from there.
     [ -n "$HERDR_ACTIVE_PANE_ID" ] || exit 0
     herdr pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction "$2" --focus \
       >/dev/null || exit 1
@@ -84,15 +71,10 @@ case ${1:-} in
     ;;
 
   close)
-    # `(a | b) | c` closing `b` leaves `a | c` at the 2:1 ratio the three
-    # columns had, and this puts it back to 1:1. Closing a pane out of
-    # `a | (b / c)` collapses a row split into a column with no row group left,
-    # so nothing moves.
     [ -n "$HERDR_ACTIVE_PANE_ID" ] || exit 0
     command -v jq >/dev/null || exec herdr pane close "$HERDR_ACTIVE_PANE_ID"
 
-    # `<direction> <path>`, or nothing when the pane is the whole tab. Cleared
-    # first so the count below never reads this script's own arguments.
+    # Cleared first so the count below never reads this script's own arguments.
     set --
     if [ -n "$HERDR_ACTIVE_TAB_ID" ]; then
       set -- $(rpc layout.export "{\"tab_id\":\"$HERDR_ACTIVE_TAB_ID\"}" |
@@ -106,7 +88,6 @@ case ${1:-} in
     ;;
 
   break)
-    # Replaces tmux `break-pane`.
     [ -n "$HERDR_ACTIVE_PANE_ID" ] || exit 0
     herdr pane move "$HERDR_ACTIVE_PANE_ID" --new-tab --focus
     ;;
@@ -117,15 +98,12 @@ case ${1:-} in
     ;;
 
   on-exit)
-    # A pane whose process ended by itself fires no key, so the close
-    # subcommand never sees it.
-    #
     # Hooks get no HERDR_ACTIVE_* variables and the pane.exited payload has only
     # pane_id and workspace_id, so HERDR_TAB_ID is the only source for the tab.
     # It names the exited pane's tab, not the focused one. Measured on 0.8.0.
     #
-    # The pane is out of the tree by the time this runs, so no group is left to
-    # name. `[]` is the root, which equalize_at reads as both axes.
+    # The pane is out of the tree by now, so no group is left to name. `[]` is
+    # the root, which equalize_at reads as both axes.
     [ -n "$HERDR_TAB_ID" ] || exit 0
     HERDR_ACTIVE_TAB_ID=$HERDR_TAB_ID
     equalize "" "[]"

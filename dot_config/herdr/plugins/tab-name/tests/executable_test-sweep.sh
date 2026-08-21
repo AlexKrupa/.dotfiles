@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Checks watch.sh sweep: state file round-tripping and rename output, with no herdr
-# process involved. Run: tests/test-sweep.sh
+# Checks watch.sh sweep with no herdr process involved.
 set -u
 
 cd "$(dirname "$0")" || exit 1
@@ -16,20 +15,25 @@ check() {
 export TAB_NAME_SNAPSHOT="$PWD/snapshot.json"
 export TAB_NAME_STATE="$tmp/state.json"
 export TAB_NAME_DRY=1
+# `pane process-info` is a real call in a sweep, so mocks/herdr answers it from a fixture.
+export PATH="$PWD/mocks:$PATH"
+export HOME=/Users/tester
 
 out=$(../watch.sh sweep)
 
 check "sweep prints a rename for the idle tab" \
   "rename wA:t1 -> 1 • herdr" "$(grep '^rename wA:t1' <<<"$out")"
-check "sweep prints no rename for the null-title tab" \
+check "sweep prints a rename for the lazygit tab" \
+  "rename wA:t4 -> 4 • lazygit" "$(grep '^rename wA:t4' <<<"$out")"
+check "sweep prints no rename for the tab with no reading" \
   "" "$(grep '^rename wB:t3' <<<"$out")"
 check "sweep created the state file" \
   "herdr" "$(jq -r '.["wA:t1"] // "null"' "$TAB_NAME_STATE")"
 check "sweep did not claim the manual tab" \
   "null" "$(jq -r '.["wB:t2"] // "null"' "$TAB_NAME_STATE")"
 
-# A second sweep over an unchanged session must still print the same renames, because
-# TAB_NAME_DRY never applies them - the state file is what must stay stable.
+# TAB_NAME_DRY never applies the renames, so a second sweep prints the same ones. Only the
+# state file must stay stable.
 before=$(cat "$TAB_NAME_STATE")
 ../watch.sh sweep >/dev/null
 check "state is stable across sweeps" "$before" "$(cat "$TAB_NAME_STATE")"

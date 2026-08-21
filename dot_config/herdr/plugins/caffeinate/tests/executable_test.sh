@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Checks watch.sh decide against tests/agents.json. Runs no herdr commands, spawns no
-# caffeinate and touches no real state, so it is safe in any pane. Run: tests/test.sh
+# Runs no herdr commands, spawns no caffeinate and touches no real state, so it is safe
+# in any pane.
 set -u
 
 cd "$(dirname "$0")" || exit 1
@@ -55,7 +55,6 @@ check "still inside the grace period" "" "$(run "$blocked")"
 printf '%s\n' "$(( $(date +%s) - 60 ))" >"$tmp/idle-since"
 check "grace elapsed releases the hold" "release" "$(run "$blocked")"
 
-# A watcher that died leaves its pid file behind, which must not read as a live assertion.
 printf '%s\n' 99999999 >"$tmp/caffeinate.pid"; rm -f "$tmp/idle-since"
 check "a dead hold pid is not a hold" "" "$(run "$blocked")"
 check "a dead hold pid still asks for one" "hold" "$(run)"
