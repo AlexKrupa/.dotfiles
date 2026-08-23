@@ -11,7 +11,7 @@
 | `bin/tests/test.sh`       | Fixtures for `bin/balance.jq`                                        |
 | `plugins/balance-panes/`  | Local plugin: even out a tab when a pane's process ends on its own   |
 | `plugins/worktree-links/` | Local plugin: symlink gitignored files into new worktrees            |
-| `plugins/tab-name/`       | Local plugin: name each tab after its focused pane                   |
+| `plugins/auto-label/`     | Local plugin: name each tab, number each tab, workspace and agent    |
 | `plugins/caffeinate/`     | Local plugin: hold off sleep while an agent is working               |
 | `plugins/config/`         | Config for installed plugins                                         |
 | `projects.local`          | Machine-local project paths for `alt+y/u/i/o/p`, not in the dotfiles |
@@ -83,13 +83,13 @@ Paths are relative to the repo root. Absolute paths and anything containing `..`
 a file that does not exist or one the worktree already has. Git-tracked files arrive from
 `git worktree add`, so in practice only gitignored files get linked.
 
-### Tab names
+### Auto label
 
-`plugins/tab-name/` labels every tab `N • name`, where `N` is the tab's position in its workspace
-and `name` describes the focused pane: the running command, the directory at an idle prompt, or the
-agent name in an agent pane. `watch.sh` holds one `events.subscribe` connection to the herdr socket
-and sweeps once per burst of events. `policy.jq` makes every decision and is covered by
-`tests/test.sh`.
+`plugins/auto-label/` labels every tab `N • name`, where `N` is the tab's position in its
+workspace and `name` describes the focused pane: the running command, the directory at an idle
+prompt, or the agent name in an agent pane. `watch.sh` holds one `events.subscribe` connection to
+the herdr socket and sweeps once per burst of events. `policy.jq` makes every decision and is
+covered by `tests/test.sh`.
 
 The name comes from the pane's foreground process, one `herdr pane process-info` per tab, not from
 its terminal title. A title is not a name: lazygit, yazi and nvim leave the pane without one, and
@@ -100,7 +100,18 @@ the agent name, and needs no process call.
 
 A tab renamed by hand keeps its name and only gets its number maintained. Renaming it back to a bare
 number, such as `2`, hands it back to automatic naming. Ownership lives in
-`~/.local/state/herdr-tab-name/state.json`.
+`~/.local/state/herdr-auto-label/state.json`.
+
+The sidebar is numbered too. Every workspace and agent gets an `idx` metadata token holding the slot
+its `alt+1..9` or `ctrl+alt+1..9` binding uses, rendered by the `$idx` token in
+`[ui.sidebar.spaces]` and `[ui.sidebar.agents]`. A workspace has a `number` of its own. An agent has
+none, so its slot is its position in the snapshot's agents list. Nothing past the ninth slot is
+numbered, because no binding reaches it. There is no bullet, unlike a tab label: herdr puts its own
+separator between the tokens of a sidebar row.
+
+A number is a display-only token, not a rename, so a workspace name typed by hand is never touched
+and needs no ownership state. Only a token that differs from the one already set is written, which
+also stops the write from feeding its own event back as more work.
 
 The socket connection is a coprocess, so `watch.sh` itself holds the write end that keeps `nc`
 alive. When the connection ends, the read loop sees EOF and reconnects.
@@ -114,7 +125,7 @@ machine does not idle-sleep mid-turn. `-w` ties the assertion to the watcher, so
 rather than leaving the machine unable to sleep. `decide` makes every call and is covered by
 `tests/test.sh`.
 
-`watch.sh` polls, unlike `plugins/tab-name/watch.sh`: herdr takes a `pane.agent_status_changed`
+`watch.sh` polls, unlike `plugins/auto-label/watch.sh`: herdr takes a `pane.agent_status_changed`
 subscription only per `pane_id`, so no one request covers a session whose agent panes come and go.
 Events would buy nothing here. A hold placed within `CAFFEINATE_INTERVAL` seconds, 30 by default, is
 still minutes ahead of macOS idle sleep, and the release is a clock decision that no event
@@ -170,7 +181,7 @@ chmod +x ~/.config/herdr/bin/* ~/.config/herdr/bin/tests/*.sh \
   ~/.config/herdr/plugins/*/tests/mocks/*
 herdr plugin link ~/.config/herdr/plugins/balance-panes
 herdr plugin link ~/.config/herdr/plugins/worktree-links
-herdr plugin link ~/.config/herdr/plugins/tab-name
+herdr plugin link ~/.config/herdr/plugins/auto-label
 herdr plugin link ~/.config/herdr/plugins/caffeinate
 herdr config check          # config: ok
 herdr server reload-config  # status: applied, diagnostics: []
@@ -180,7 +191,7 @@ Dependencies:
 
 - `jq` - `bin/project`, `bin/balance-panes.sh` and the split and close keys, worktree-links,
   `claude-upgrade`
-- `bash` 5 - worktree-links, tab-name (macOS bash 3.2 has no fractional `read -t`)
+- `bash` 5 - worktree-links, auto-label (macOS bash 3.2 has no fractional `read -t`)
 - `go` 1.26.4+ - sesh plugin, built from source
 - `fd`, `neovim`, `television` (`tv`), python 3.10+ - termscope, built from source
 - `cargo` - herdr-navigator and the herdr-pluck fork, both built from source

@@ -1,0 +1,30 @@
+{
+  "wA:p1": { "result": { "process_info": {
+    "pane_id": "wA:p1", "shell_pid": 100, "foreground_process_group_id": 100,
+    "foreground_processes": [ { "name": "fish", "pid": 100 } ] } } },
+
+  "wA:p2": { "result": { "process_info": {
+    "pane_id": "wA:p2", "shell_pid": 200, "foreground_process_group_id": 250,
+    "foreground_processes": [ { "name": "chezmoi", "pid": 250 } ] } } },
+
+  "wA:p4": { "result": { "process_info": {
+    "pane_id": "wA:p4", "shell_pid": 450, "foreground_process_group_id": 450,
+    "foreground_processes": [ { "name": "lazygit", "pid": 450 } ] } } },
+
+  "wA:p5": { "result": { "process_info": {
+    "pane_id": "wA:p5", "shell_pid": 500, "foreground_process_group_id": 500,
+    "foreground_processes": [ { "name": "fish", "pid": 500 } ] } } },
+
+  "wB:p1": { "result": { "process_info": {
+    "pane_id": "wB:p1", "shell_pid": 600, "foreground_process_group_id": 650,
+    "foreground_processes": [ { "name": "nvim", "pid": 680 },
+                              { "name": "yazi", "pid": 650 } ] } } },
+
+  "wB:p2": { "result": { "process_info": {
+    "pane_id": "wB:p2", "shell_pid": 700, "foreground_process_group_id": 700,
+    "foreground_processes": [ { "name": "fish", "pid": 700 } ] } } },
+
+  "wB:p4": { "result": { "process_info": {
+    "pane_id": "wB:p4", "shell_pid": 800, "foreground_process_group_id": 850,
+    "foreground_processes": [ { "name": "git", "pid": 850 } ] } } }
+}

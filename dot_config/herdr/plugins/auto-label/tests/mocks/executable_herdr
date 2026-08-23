@@ -1,0 +1,6 @@
+#!/bin/sh
+# Fake herdr for tests/test-sweep.sh. Answers `pane process-info --pane <id>` from
+# tests/process-info.json, and nothing else: a pane with no entry there stands for a call
+# that returned nothing. Any other subcommand is a test writing more than it means to.
+[ "$1 $2" = "pane process-info" ] || { echo "unexpected herdr call: $*" >&2; exit 2; }
+jq -c --arg pane "$4" '.[$pane] // empty' "$(dirname "$0")/../process-info.json"
