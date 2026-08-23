@@ -22,11 +22,22 @@ export HOME=/Users/tester
 out=$(../watch.sh sweep)
 
 check "sweep prints a rename for the idle tab" \
-  "rename wA:t1 -> 1 • herdr" "$(grep '^rename wA:t1' <<<"$out")"
+  "tab wA:t1 -> 1 • herdr" "$(grep '^tab wA:t1' <<<"$out")"
 check "sweep prints a rename for the lazygit tab" \
-  "rename wA:t4 -> 4 • lazygit" "$(grep '^rename wA:t4' <<<"$out")"
+  "tab wA:t4 -> 4 • lazygit" "$(grep '^tab wA:t4' <<<"$out")"
 check "sweep prints no rename for the tab with no reading" \
-  "" "$(grep '^rename wB:t3' <<<"$out")"
+  "" "$(grep '^tab wB:t3' <<<"$out")"
+check "sweep numbers a workspace from its own slot" \
+  "workspace wA -> 1" "$(grep '^workspace wA' <<<"$out")"
+check "sweep leaves a workspace whose token already matches" \
+  "" "$(grep '^workspace wB' <<<"$out")"
+check "sweep clears the token of a workspace past the ninth slot" \
+  "workspace wZ -> " "$(grep '^workspace wZ' <<<"$out")"
+check "sweep numbers an agent from its position in the list" \
+  "pane wA:p3 -> 1" "$(grep '^pane wA:p3' <<<"$out")"
+check "sweep corrects an agent token that moved slot" \
+  "pane wB:p9 -> 2" "$(grep '^pane wB:p9' <<<"$out")"
+
 check "sweep created the state file" \
   "herdr" "$(jq -r '.["wA:t1"] // "null"' "$TAB_NAME_STATE")"
 check "sweep did not claim the manual tab" \

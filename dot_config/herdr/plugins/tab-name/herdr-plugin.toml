@@ -6,11 +6,15 @@ description = "Name each tab after its focused pane, keeping a position number o
 platforms = ["macos"]
 
 # herdr's docs call startup entries one-shot initialization, not supervised daemons, so
-# this spawns the watcher and exits. tab.created re-checks the pid file, which brings the
-# watcher back if it dies.
+# this spawns the watcher and exits. The events below re-check the pid file, which brings
+# the watcher back if it dies.
 [[startup]]
 command = ["./watch.sh", "ensure"]
 
 [[events]]
 on = "tab.created"
+command = ["./watch.sh", "ensure"]
+
+[[events]]
+on = "workspace.created"
 command = ["./watch.sh", "ensure"]

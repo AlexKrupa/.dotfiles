@@ -35,7 +35,8 @@ run() {
   if [ -n "${2:-}" ]; then jq "$2" snapshot.json; else cat snapshot.json; fi |
     jq -r --slurpfile st "$tmp/state.json" --argjson fg "$fg" -f ../policy.jq |
     jq -cRn '[inputs] | { state:  (.[0] | fromjson),
-                          rename: (.[1:] | map(split("\t") | {tab_id: .[0], label: .[1]})) }'
+                          rename: (.[1:] | map(split("\t"))
+                                   | map(select(.[0] == "tab") | {tab_id: .[1], label: .[2]})) }'
 }
 
 # Empty when the run decided not to rename the tab.

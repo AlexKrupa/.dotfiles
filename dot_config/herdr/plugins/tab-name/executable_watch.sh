@@ -57,8 +57,17 @@ programs() {
     | from_entries'
 }
 
+# `report-metadata` rejects the flags unless the id comes first.
+meta() {
+  if [ -n "$3" ]; then
+    herdr "$1" report-metadata "$2" --source tab-name --token "idx=$3"
+  else
+    herdr "$1" report-metadata "$2" --source tab-name --clear-token idx
+  fi
+}
+
 sweep() {
-  local snap out first id label
+  local snap out first kind id value
   snap=$(snapshot) || return 0
   out=$(jq -r --slurpfile st "$state" --argjson fg "$(programs "$snap")" \
     -f "$root/policy.jq" <<<"$snap") || return 0
@@ -71,14 +80,16 @@ sweep() {
   # the user chose and freezes it.
   printf '%s\n' "$first" >"$state.new" && mv "$state.new" "$state"
 
-  [ "$out" = "$first" ] && return 0   # state only: nothing to rename
+  [ "$out" = "$first" ] && return 0   # state only: nothing to apply
 
-  while IFS=$'\t' read -r id label; do
+  while IFS=$'\t' read -r kind id value; do
     [ -n "$id" ] || continue
     if [ -n "${TAB_NAME_DRY:-}" ]; then
-      printf 'rename %s -> %s\n' "$id" "$label"
+      printf '%s %s -> %s\n' "$kind" "$id" "$value"
+    elif [ "$kind" = tab ]; then
+      herdr tab rename "$id" "$value" >/dev/null 2>&1
     else
-      herdr tab rename "$id" "$label" >/dev/null 2>&1
+      meta "$kind" "$id" "$value" >/dev/null 2>&1
     fi
   done <<<"${out#*$'\n'}"
 }
@@ -88,8 +99,10 @@ pidfile=$state_dir/watch.pid
 subscribe_req=$(jq -nc '{
   id: "tab-name", method: "events.subscribe",
   params: { subscriptions: [
-    "pane.updated", "pane.focused", "pane.exited", "layout.updated",
-    "tab.created", "tab.closed", "tab.moved", "tab.renamed"
+    "pane.updated", "pane.focused", "pane.exited", "pane.closed",
+    "pane.agent_detected", "layout.updated",
+    "tab.created", "tab.closed", "tab.moved", "tab.renamed",
+    "workspace.created", "workspace.closed", "workspace.moved", "workspace.reordered"
   ] | map({type: .}) }
 }')
 

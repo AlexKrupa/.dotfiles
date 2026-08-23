@@ -3,8 +3,9 @@
 #   in:  snapshot JSON on stdin, --slurpfile st <state.json>,
 #        --argjson fg {pane_id: foreground program}, a shell name for an idle pane
 #   out: with `jq -r`, line 1 is {tab_id: base} as JSON, every line after is
-#        "<tab_id>\t<label>". One text stream, so the caller needs no second jq to
-#        take it apart.
+#        "<kind>\t<id>\t<value>". One text stream, so the caller needs no second jq to
+#        take it apart. `tab` is a label to apply, `workspace` and `pane` an `idx` token
+#        to report, empty to clear.
 #
 # Pure: no herdr calls, no clock, no files.
 
@@ -17,6 +18,10 @@ def shells: ["fish","bash","zsh","sh","dash","ksh","nu"];
 def cap: .[0:20] | sub(" +$"; "");
 
 def basename: sub("/+$"; "") | split("/") | last | if . == "" then "/" else . end;
+
+# No binding reaches a 10th row, so those stay bare. No bullet either: herdr puts its own
+# separator between the tokens of a sidebar row.
+def slot: if . <= 9 then tostring else "" end;
 
 # The base label for one pane, or null to leave the tab's label alone.
 def label_of($pane; $program):
@@ -54,4 +59,18 @@ def label_of($pane; $program):
     | { tab_id: $t.tab_id, mode: $mode, current: $t.label, base: $newbase,
         label: (($pos | tostring) + " • " + $newbase) } ]
 | (map(select(.mode == "auto") | {key: .tab_id, value: .base}) | from_entries | tojson),
-  (.[] | select(.label != .current) | [.tab_id, .label] | @tsv)
+  (.[] | select(.label != .current) | ["tab", .tab_id, .label] | @tsv),
+
+  # A display-only token, not a rename: a name the user typed is never touched, so none of
+  # the ownership state above applies. Emitting only a differing token also stops the write
+  # from feeding its own event back as more work.
+  ($s.workspaces[]?
+   | select((.tokens.idx // "") != (.number | slot))
+   | ["workspace", .workspace_id, (.number | slot)] | @tsv),
+  # An agent has no slot of its own. Its position in the agents list is what `focus_agent`
+  # counts.
+  (($s.agents // []) | to_entries[]
+   | (.key + 1 | slot) as $idx
+   | .value
+   | select((.tokens.idx // "") != $idx)
+   | ["pane", .pane_id, $idx] | @tsv)

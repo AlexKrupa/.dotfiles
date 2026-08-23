@@ -31,10 +31,14 @@ tab_bar_position = "top"
 # server, so {hostname} names the host the panes run on.
 window_title = "{workspace} • {tab}"   # default
 
+# `$idx` is the slot number for the 1-9 focus binding, reported by the tab-name plugin.
+[ui.sidebar.spaces]
+rows = [["state_icon", "$idx", "workspace"], ["branch", "git_status"]]
+
 # Line 1 - workspace
 # Line 2 - session title reported by Claude Code via statusline script
 [ui.sidebar.agents]
-rows = [["state_icon", "workspace"], ["$session"]]
+rows = [["state_icon", "$idx", "workspace"], ["$session"]]
 
 [ui.sound]
 enabled = true
