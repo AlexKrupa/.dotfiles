@@ -25,7 +25,7 @@ bold-color = bright
 
 mouse-hide-while-typing = true
 
-macos-non-native-fullscreen = true
+macos-non-native-fullscreen = visible-menu
 macos-option-as-alt = left
 macos-titlebar-style = hidden
 
