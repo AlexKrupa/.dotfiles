@@ -150,6 +150,15 @@
           "tab_id": "wB:t4",
           "agent": null,
           "cwd": "/Users/tester/.config/ai"
+        },
+        {
+          "pane_id": "wB:p5",
+          "tab_id": "wB:t4",
+          "agent": null,
+          "cwd": "/Users/tester/.config/ai",
+          "tokens": {
+            "idx": "3"
+          }
         }
       ],
       "workspaces": [
@@ -167,11 +176,61 @@
           }
         },
         {
+          "workspace_id": "wP",
+          "label": "repo",
+          "number": 3,
+          "worktree": {
+            "repo_key": "/Users/tester/src/repo/.git",
+            "is_linked_worktree": false
+          }
+        },
+        {
+          "workspace_id": "wC",
+          "label": "sixth",
+          "number": 4
+        },
+        {
+          "workspace_id": "wE",
+          "label": "seventh",
+          "number": 5
+        },
+        {
+          "workspace_id": "wG",
+          "label": "eighth",
+          "number": 6
+        },
+        {
+          "workspace_id": "wH",
+          "label": "ninth",
+          "number": 7
+        },
+        {
           "workspace_id": "wZ",
           "label": "tenth",
-          "number": 10,
+          "number": 8,
           "tokens": {
             "idx": "9"
+          }
+        },
+        {
+          "workspace_id": "wP1",
+          "label": "branch-one",
+          "number": 9,
+          "worktree": {
+            "repo_key": "/Users/tester/src/repo/.git",
+            "is_linked_worktree": true
+          },
+          "tokens": {
+            "idx": "9"
+          }
+        },
+        {
+          "workspace_id": "wP2",
+          "label": "branch-two",
+          "number": 10,
+          "worktree": {
+            "repo_key": "/Users/tester/src/repo/.git",
+            "is_linked_worktree": true
           }
         }
       ],
