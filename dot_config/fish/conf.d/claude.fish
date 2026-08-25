@@ -1,7 +1,7 @@
-function claude --description 'Run Claude Code after navigating to git root'
+function claude --description 'Run Claude Code after navigating to git root and expanding args'
     if git rev-parse --git-dir >/dev/null 2>&1
-        set git_root (git rev-parse --show-toplevel)
-        set current_dir (pwd)
+        set -l git_root (git rev-parse --show-toplevel)
+        set -l current_dir (pwd)
 
         if test "$git_root" != "$current_dir"
             cd "$git_root"
@@ -9,7 +9,16 @@ function claude --description 'Run Claude Code after navigating to git root'
         end
     end
 
-    command claude $argv
+    set -l args
+    for arg in $argv
+        if test "$arg" = "--fs"
+            set -a args "--fork-session"
+        else
+            set -a args "$arg"
+        end
+    end
+
+    command claude $args
 end
 
 function __claude_upgrade_available --description 'Print "current -> new" if a newer claude-code cask exists'

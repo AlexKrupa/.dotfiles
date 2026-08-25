@@ -37,6 +37,7 @@ brew "github-keygen"
 brew "gnupg" # "openssl"
 brew "grc" # command output colorizer
 # brew "gum" # easy CLI tools
+brew "herdr" # modern tmux with native agents
 # brew "httpie" # HTTP client, curl alternative
 brew "htop" # system monitor
 brew "imagemagick" # image converter / compressor
