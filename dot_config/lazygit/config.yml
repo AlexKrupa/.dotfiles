@@ -48,3 +48,7 @@ customCommands:
     context: "global"
     command: "git abs"
     description: "Absorb staged changes into local commits"
+  - key: "<ctrl+shift+a>"
+    context: "global"
+    command: "git absr"
+    description: "Absorb staged changes into local commits and rebase"

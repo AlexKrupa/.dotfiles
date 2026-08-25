@@ -40,7 +40,18 @@ else
     echo "$SUDOERS_FILE already configured"
 fi
 
-# 5. Bootstrap the LaunchAgent into the GUI domain. This both starts it now
+# 5. Install the Karabiner virtual keyboard daemon as a LaunchDaemon. The
+#    standalone driver package ships no launchd job, and kanata has no key
+#    output without this daemon. launchd rejects a plist in /Library/LaunchDaemons
+#    that a non-root user can write, so copy instead of symlink.
+KARABINER_DAEMON_LABEL="org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon"
+KARABINER_DAEMON_PLIST="/Library/LaunchDaemons/$KARABINER_DAEMON_LABEL.plist"
+sudo install -o root -g wheel -m 0644 \
+    "$SCRIPT_DIR/$KARABINER_DAEMON_LABEL.plist" "$KARABINER_DAEMON_PLIST"
+sudo launchctl bootout "system/$KARABINER_DAEMON_LABEL" 2>/dev/null || true
+sudo launchctl bootstrap system "$KARABINER_DAEMON_PLIST"
+
+# 6. Bootstrap the LaunchAgent into the GUI domain. This both starts it now
 #    (RunAtLoad=true in the plist) and makes launchd auto-load it on every
 #    future login. `|| true` so re-running setup.sh on an already-configured
 #    machine doesn't abort under `set -e`.
