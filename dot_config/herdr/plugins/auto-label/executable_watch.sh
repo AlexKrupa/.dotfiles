@@ -103,7 +103,8 @@ subscribe_req=$(jq -nc '{
     "pane.updated", "pane.focused", "pane.exited", "pane.closed",
     "pane.agent_detected", "layout.updated",
     "tab.created", "tab.closed", "tab.moved", "tab.renamed",
-    "workspace.created", "workspace.closed", "workspace.moved", "workspace.reordered"
+    "workspace.created", "workspace.closed", "workspace.moved", "workspace.reordered",
+    "worktree.created", "worktree.opened", "worktree.removed"
   ] | map({type: .}) }
 }')
 
