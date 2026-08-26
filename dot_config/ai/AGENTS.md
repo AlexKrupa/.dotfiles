@@ -163,5 +163,5 @@ Layout:
 
 ## Environment
 
-- MacOS, Fish shell, Ghostty terminal, herdr multiplexer (`~/.config/herdr`)
+- MacOS, Fish shell, Ghostty terminal, tmux
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.

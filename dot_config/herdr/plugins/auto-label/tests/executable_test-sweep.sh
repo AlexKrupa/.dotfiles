@@ -33,16 +33,10 @@ check "sweep leaves a workspace whose token already matches" \
   "" "$(grep '^workspace wB' <<<"$out")"
 check "sweep clears the token of a workspace past the ninth slot" \
   "workspace wZ -> " "$(grep '^workspace wZ' <<<"$out")"
-check "sweep counts a worktree child from the row under its parent" \
-  "workspace wP1 -> 4" "$(grep '^workspace wP1' <<<"$out")"
-check "sweep pushes the space after a worktree group down by the group" \
-  "workspace wC -> 6" "$(grep '^workspace wC' <<<"$out")"
 check "sweep numbers an agent from its position in the list" \
   "pane wA:p3 -> 1" "$(grep '^pane wA:p3' <<<"$out")"
 check "sweep corrects an agent token that moved slot" \
   "pane wB:p9 -> 2" "$(grep '^pane wB:p9' <<<"$out")"
-check "sweep clears the token of a pane that is no longer an agent" \
-  "pane wB:p5 -> " "$(grep '^pane wB:p5' <<<"$out")"
 
 check "sweep created the state file" \
   "herdr" "$(jq -r '.["wA:t1"] // "null"' "$AUTO_LABEL_STATE")"

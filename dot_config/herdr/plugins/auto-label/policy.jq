@@ -23,21 +23,6 @@ def basename: sub("/+$"; "") | split("/") | last | if . == "" then "/" else . en
 # separator between the tokens of a sidebar row.
 def slot: if . <= 9 then tostring else "" end;
 
-# The workspaces in sidebar order, which `switch_workspace` counts. A worktree child sits
-# under the checkout of its repo, wherever the list itself holds it, so `.number` is the
-# wrong slot for every space below such a group.
-def packed:
-  . as $ws
-  | [ $ws | to_entries[]
-      | .value.worktree.repo_key as $repo
-      | (if $repo == null
-         then .key
-         else first($ws | to_entries[] | select(.value.worktree.repo_key == $repo) | .key)
-         end) as $anchor
-      | { row: [$anchor, (if .value.worktree.is_linked_worktree then .key else -1 end)],
-          workspace: .value } ]
-  | sort_by(.row) | map(.workspace);
-
 # The base label for one pane, or null to leave the tab's label alone.
 def label_of($pane; $program):
   if $pane == null then null
@@ -79,21 +64,13 @@ def label_of($pane; $program):
   # A display-only token, not a rename: a name the user typed is never touched, so none of
   # the ownership state above applies. Emitting only a differing token also stops the write
   # from feeding its own event back as more work.
-  (($s.workspaces // []) | packed | to_entries[]
-   | (.key + 1 | slot) as $idx
-   | .value
-   | select((.tokens.idx // "") != $idx)
-   | ["workspace", .workspace_id, $idx] | @tsv),
+  ($s.workspaces[]?
+   | select((.tokens.idx // "") != (.number | slot))
+   | ["workspace", .workspace_id, (.number | slot)] | @tsv),
   # An agent has no slot of its own. Its position in the agents list is what `focus_agent`
   # counts.
   (($s.agents // []) | to_entries[]
    | (.key + 1 | slot) as $idx
    | .value
    | select((.tokens.idx // "") != $idx)
-   | ["pane", .pane_id, $idx] | @tsv),
-  # A pane that stops being an agent keeps the token it was given, and nothing above
-  # reaches it: the agents list no longer holds it.
-  (($s.agents // []) | map(.pane_id)) as $agent_panes
-  | ($s.panes[]?
-     | select((.tokens.idx // "") != "" and ((.pane_id | IN($agent_panes[])) | not))
-     | ["pane", .pane_id, ""] | @tsv)
+   | ["pane", .pane_id, $idx] | @tsv)
