@@ -45,9 +45,7 @@ close made by the CLI, a plugin or an agent is left alone, apart from the herdr-
 `alt+g` opens lazygit in a new focused tab instead of a popup, so tab and pane keys keep working.
 The tab holds one pane running `exec lazygit`, so quitting lazygit ends the pane and herdr closes
 the tab. The pane starts through `HERDR_PANE_CMD`, which skips `conf.d`, so the command carries
-`PATH`. `bin/lazygit.sh` first looks for a pane in the same workspace that runs lazygit in the same
-directory, and focuses that tab instead. The match is cwd plus process name: a pane keeps no marker
-of the key that opened it, and lazygit sets no terminal title.
+`PATH`.
 
 `bin/balance.jq` holds the tree walks the subcommands share, and picks the splits and ratios.
 `bin/tests/test.sh` covers it with fixture trees, no server needed.

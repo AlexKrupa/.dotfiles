@@ -2,9 +2,6 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "respectGitignore": true,
   "env": {
-    "CAVEMAN_DEFAULT_MODE": "lite",
-    "CLAUDE_CODE_BASALT_COVE": "1",
-    "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "0",
     "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
     "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
     "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
@@ -144,14 +141,11 @@
   },
   "enabledPlugins": {
     "android-skills@android": false,
-    "build-brief@build-brief-local": false,
-    "caveman@caveman": false,
     "chrisbanes-skills@chrisbanes": false,
     "clangd-lsp@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": false,
     "claude-md-management@claude-plugins-official": false,
     "gopls-lsp@claude-plugins-official": false,
-    "i-have-adhd@i-have-adhd": false,
     "jdtls-lsp@claude-plugins-official": false,
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
@@ -172,28 +166,10 @@
         "repo": "android/skills"
       }
     },
-    "build-brief-local": {
-      "source": {
-        "source": "directory",
-        "path": "/Users/alexkrupa/.claude/marketplaces/build-brief"
-      }
-    },
-    "caveman": {
-      "source": {
-        "source": "github",
-        "repo": "JuliusBrussee/caveman"
-      }
-    },
     "chrisbanes": {
       "source": {
         "source": "github",
         "repo": "chrisbanes/skills"
-      }
-    },
-    "i-have-adhd": {
-      "source": {
-        "source": "github",
-        "repo": "ayghri/i-have-adhd"
       }
     },
     "mattpocock": {

@@ -141,8 +141,8 @@ navigate_pane_right      = "l"
 [[keys.command]]
 key = "alt+g"
 type = "shell"
-command = "~/.config/herdr/bin/lazygit.sh"
-description = "lazygit in a new tab, or focus the one for this directory"
+command = 'herdr tab create --focus --cwd "$HERDR_ACTIVE_PANE_CWD" --env "PATH=$PATH" --env "HERDR_PANE_CMD=exec lazygit"'
+description = "lazygit in a new tab"
 
 # --- Custom commands: panes ---
 
