@@ -22,17 +22,17 @@ image_delay     = 30
 
 [opener]
 edit = [
-  { run = '$EDITOR "$@"', block = true, for = "unix" }
+  { run = '$EDITOR %s', block = true, for = "unix" }
 ]
 play = [
-  { run = 'open -a IINA "$@"', desc = "IINA", orphan = true }
+  { run = 'open -a IINA %s', desc = "IINA", orphan = true }
 ]
 open = [
-	{ run = 'open "$@"', desc = "Open", for = "macos" },
+	{ run = 'open %s', desc = "Open", for = "macos" },
 ]
 reveal = [
-	{ run = 'open -R "$1"',                         desc = "Reveal", for = "macos" },
-	{ run = '''clear; exiftool "$1"; echo "Press enter to exit"; read _''', block = true, desc = "Show EXIF", for = "unix" },
+	{ run = 'open -R %s1',                         desc = "Reveal", for = "macos" },
+	{ run = '''clear; exiftool %s1; echo "Press enter to exit"; read _''', block = true, desc = "Show EXIF", for = "unix" },
 ]
 
 # ya pkg add yazi-rs/plugins:git
