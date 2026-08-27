@@ -138,7 +138,8 @@
   rcobf = !fish -c 'gbf | xargs git rcob'
 
   # Commit
-  abs = !(git add . && git absorb --force --and-rebase)
+  abs = !(git add . && git absorb --force)
+  absr = !(git add . && git absorb --force && GIT_SEQUENCE_EDITOR=true git rebase --autosquash --autostash @{upstream})
   c = commit -am
   ca = !(git add . && git commit --amend)
   canv = !(git add . && git commit --amend --no-verify)
