@@ -6,8 +6,16 @@
 source "$(dirname "${BASH_SOURCE[0]}")/statusline-lib.sh"
 
 # Line 3 segment order. Reorder or drop keys. Available:
-#   model ctx usage cost lines
-SEGMENT_ORDER=(model ctx usage)
+#   model ctx cache usage cost lines
+SEGMENT_ORDER=(model ctx cache usage)
+
+CACHE_TTL_DEFAULT_SECONDS=3600
+
+CACHE_GREEN_AT=600
+CACHE_YELLOW_AT=120
+
+CACHE_ICON_WARM=$'⏱︎'
+CACHE_ICON_COLD=$'⌛︎'
 
 # Rate-limit utilization % color (5h/7d windows).
 UTIL_RED_AT=80
@@ -52,6 +60,37 @@ usage_fmt() {
   printf '%s' "$seg"
 }
 
+cache_color() {
+  if [ "$1" -ge "$CACHE_GREEN_AT" ]; then printf '%s' "$C_GREEN";
+  elif [ "$1" -ge "$CACHE_YELLOW_AT" ]; then printf '%s' "$C_YELLOW";
+  else printf '%s' "$C_RED"; fi
+}
+
+cache_remaining() {
+  local transcript="$1"
+  [ -f "$transcript" ] || return
+  local stamp ttl
+  IFS=$'\t' read -r stamp ttl < <(tail -r "$transcript" | awk '
+    /"type":"assistant"/ {
+      touched = /"cache_read_input_tokens":[1-9]/ || /"cache_creation_input_tokens":[1-9]/
+      if (!stamp && touched && match($0, /"timestamp":"[^"]+"/)) {
+        stamp = substr($0, RSTART + 13, RLENGTH - 14)
+      }
+      if (!ttl) {
+        if (/"ephemeral_1h_input_tokens":[1-9]/) ttl = 3600
+        else if (/"ephemeral_5m_input_tokens":[1-9]/) ttl = 300
+      }
+      if (stamp && ttl) exit
+    }
+    END { if (stamp) print stamp "\t" ttl }')
+  [ -n "$stamp" ] || return
+  stamp="${stamp%.*}"
+  stamp="${stamp%Z}"
+  local epoch
+  epoch=$(TZ=UTC date -j -f '%Y-%m-%dT%H:%M:%S' "$stamp" +%s 2>/dev/null) || return
+  echo $(( epoch + ${ttl:-$CACHE_TTL_DEFAULT_SECONDS} - $(date +%s) ))
+}
+
 # Show the Claude Code session title on herdr's sidebar agent row.
 herdr_session_title() {
   [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ] || return
@@ -87,6 +126,7 @@ herdr_session_title "$input" &
   IFS= read -r u5_reset
   IFS= read -r u7_pct
   IFS= read -r u7_reset
+  IFS= read -r transcript
 } < <(echo "$input" | jq -r '
   .workspace.current_dir,
   (.session_name // ""),
@@ -102,7 +142,8 @@ herdr_session_title "$input" &
   (.rate_limits.five_hour.used_percentage // ""),
   (.rate_limits.five_hour.resets_at // ""),
   (.rate_limits.seven_day.used_percentage // ""),
-  (.rate_limits.seven_day.resets_at // "")')
+  (.rate_limits.seven_day.resets_at // ""),
+  (.transcript_path // "")')
 
 raw_cwd="$cwd"
 cwd="${cwd/#$HOME/\~}"
@@ -184,6 +225,15 @@ seg_usage=""
 if [ -n "$usage_seg" ] && { [ -z "$COLUMNS" ] || [ "$COLUMNS" -ge "$USAGE_MIN_COLUMNS" ]; }; then
   seg_usage="$usage_seg"
 fi
+seg_cache=""
+cache_left=$(cache_remaining "$transcript")
+if [ -n "$cache_left" ] && [ "$cache_left" -gt 0 ]; then
+  [ "$cache_left" -ge 60 ] && left_display="$((cache_left / 60))m" || left_display="${cache_left}s"
+  seg_cache="${CACHE_ICON_WARM} $(cache_color "$cache_left")${left_display}${C_RESET}"
+elif [ -n "$cache_left" ]; then
+  seg_cache="$CACHE_ICON_COLD"
+fi
+
 seg_cost="${C_DIM}\$$([ -n "$cost" ] && printf '%.2f' "$cost" || echo '?')${C_RESET}"
 seg_lines=""
 if [ "$added" -gt 0 ] || [ "$removed" -gt 0 ]; then

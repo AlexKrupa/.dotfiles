@@ -95,7 +95,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "opus",
+  "model": "sonnet",
   "fallbackModel": [
     "claude-opus-4-8",
     "claude-opus-4-7",
@@ -247,12 +247,16 @@
       ]
     }
   },
+  "feedbackDrafts": "off",
   "syntaxHighlightingDisabled": false,
   "alwaysThinkingEnabled": true,
   "effortLevel": "high",
   "modelSettings": {
     "claude-opus-5": {
       "effortLevel": "medium"
+    },
+    "claude-sonnet-5": {
+      "effortLevel": "low"
     }
   },
   "showClearContextOnPlanAccept": true,
@@ -264,6 +268,5 @@
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "autoConnectIde": false,
-  "feedbackDrafts": "off"
+  "autoConnectIde": false
 }
