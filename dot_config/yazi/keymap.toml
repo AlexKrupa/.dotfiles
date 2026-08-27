@@ -10,7 +10,7 @@ run  = "plugin jump-to-char"
 desc = "Jump to char"
 
 # ya pkg add ciarandg/cd-git-root
-[[manager.prepend_keymap]]
+[[mgr.prepend_keymap]]
 on   = ["g", "r"]
 run  = "plugin cd-git-root"
 desc = "Go to Git repo root"
