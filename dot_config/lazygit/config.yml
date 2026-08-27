@@ -46,5 +46,5 @@ customCommands:
     description: "WIP"
   - key: "<c-a>"
     context: "global"
-    command: "git abs"
+    command: "git absr"
     description: "Absorb staged changes into local commits"
