@@ -1,5 +1,8 @@
 vim.cmd 'source ~/.config/vim/vimrc'
 
+-- Load local repo nvim lua configs
+vim.o.exrc = true
+
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
@@ -725,7 +728,7 @@ require('lazy').setup({
           return nil
         else
           return {
-            timeout_ms = 500,
+            timeout_ms = vim.g.conform_timeout_ms or 500,
             lsp_format = 'fallback',
           }
         end
