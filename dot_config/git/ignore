@@ -3,6 +3,7 @@
 .claude*
 .maestro*
 .npm*
+.nvim.lua
 CLAUDE.local.md
 node_modules*
 
