@@ -124,6 +124,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/alexkrupa/.claude/hooks/append-terse.sh'"
+          }
+        ]
+      }
     ]
   },
   "worktree": {
