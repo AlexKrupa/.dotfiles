@@ -95,7 +95,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "sonnet",
+  "model": "opus",
   "fallbackModel": [
     "claude-opus-4-8",
     "claude-opus-4-7",

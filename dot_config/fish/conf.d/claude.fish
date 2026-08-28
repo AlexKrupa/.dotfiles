@@ -10,11 +10,35 @@ function claude --description 'Run Claude Code after navigating to git root and 
     end
 
     set -l args
+    set -l fork 0
+    set -l has_resume 0
     for arg in $argv
-        if test "$arg" = "--fs"
-            set -a args "--fork-session"
-        else
-            set -a args "$arg"
+        switch $arg
+            case --fs
+                set fork 1
+            case -r --resume -c --continue
+                set has_resume 1
+                set -a args "$arg"
+            case '*'
+                set -a args "$arg"
+        end
+    end
+
+    if test $fork -eq 1
+        set -a args --fork-session
+
+        # --fork-session only applies with --resume or --continue. A bare
+        # session ID is otherwise sent to claude as a prompt, so make it the
+        # value of --resume.
+        if test $has_resume -eq 0
+            for i in (seq (count $args))
+                if string match -rq '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' -- $args[$i]
+                    set -l sid $args[$i]
+                    set -e args[$i]
+                    set args --resume $sid $args
+                    break
+                end
+            end
         end
     end
 

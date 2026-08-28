@@ -14,8 +14,8 @@ CACHE_TTL_DEFAULT_SECONDS=3600
 CACHE_GREEN_AT=600
 CACHE_YELLOW_AT=120
 
-CACHE_ICON_WARM=$'⏱︎'
-CACHE_ICON_COLD=$'⌛︎'
+CACHE_ICON=$'⏱'
+CACHE_EXPIRED=$'∅'
 
 # Rate-limit utilization % color (5h/7d windows).
 UTIL_RED_AT=80
@@ -127,6 +127,7 @@ herdr_session_title "$input" &
   IFS= read -r u7_pct
   IFS= read -r u7_reset
   IFS= read -r transcript
+  IFS= read -r session_id
 } < <(echo "$input" | jq -r '
   .workspace.current_dir,
   (.session_name // ""),
@@ -143,7 +144,8 @@ herdr_session_title "$input" &
   (.rate_limits.five_hour.resets_at // ""),
   (.rate_limits.seven_day.used_percentage // ""),
   (.rate_limits.seven_day.resets_at // ""),
-  (.transcript_path // "")')
+  (.transcript_path // ""),
+  (.session_id // "")')
 
 raw_cwd="$cwd"
 cwd="${cwd/#$HOME/\~}"
@@ -211,10 +213,11 @@ if [ -n "$vim_mode" ]; then
   printf '%s-- %s --%s\n' "$vc" "$upper_mode" "$C_RESET"
 fi
 
-# Line 2: path, git branch, session name
+# Line 2: path, git branch, session name, session id
 line2="${C_PATH}${short}${C_RESET}"
 [ -n "$git_info" ] && line2="$line2 $sep $git_info"
 [ -n "$session_name" ] && line2="$line2 $sep $session_name"
+[ -n "$session_id" ] && line2="$line2 $sep ${C_DIM}${session_id}${C_RESET}"
 printf '%s\n' "$line2"
 
 # Line 3 segments. Each seg_<key> is a self-contained ANSI-ready string
@@ -227,11 +230,12 @@ if [ -n "$usage_seg" ] && { [ -z "$COLUMNS" ] || [ "$COLUMNS" -ge "$USAGE_MIN_CO
 fi
 seg_cache=""
 cache_left=$(cache_remaining "$transcript")
-if [ -n "$cache_left" ] && [ "$cache_left" -gt 0 ]; then
-  [ "$cache_left" -ge 60 ] && left_display="$((cache_left / 60))m" || left_display="${cache_left}s"
-  seg_cache="${CACHE_ICON_WARM} $(cache_color "$cache_left")${left_display}${C_RESET}"
-elif [ -n "$cache_left" ]; then
-  seg_cache="$CACHE_ICON_COLD"
+if [ -n "$cache_left" ]; then
+  [ "$cache_left" -lt 0 ] && cache_left=0
+  if [ "$cache_left" -ge 60 ]; then left_display="$((cache_left / 60))m"
+  elif [ "$cache_left" -gt 0 ]; then left_display="${cache_left}s"
+  else left_display="$CACHE_EXPIRED"; fi
+  seg_cache="${CACHE_ICON} $(cache_color "$cache_left")${left_display}${C_RESET}"
 fi
 
 seg_cost="${C_DIM}\$$([ -n "$cost" ] && printf '%.2f' "$cost" || echo '?')${C_RESET}"
