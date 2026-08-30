@@ -74,9 +74,9 @@ on-window-detected = [
   # Layout
   alt-ctrl-shift-e = 'layout accordion horizontal vertical'
   alt-ctrl-shift-r = 'layout tiles horizontal vertical'
-  alt-ctrl-shift-z = 'fullscreen' # Mnemonic: zoom, matches tmux/herdr bindings
+  alt-ctrl-shift-f = 'fullscreen'
   alt-ctrl-shift-cmd-f = 'layout floating tiling'
-  alt-ctrl-shift-cmd-m = 'macos-native-minimize'
+  alt-ctrl-shift-cmd-g = 'macos-native-minimize'
 
   alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
   alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
@@ -86,8 +86,8 @@ on-window-detected = [
   cmd-m = [] # Disable "minimize application"
 
   # Resizing
-  alt-ctrl-shift-minus = 'resize smart -200'
-  alt-ctrl-shift-equal = 'resize smart +200'
+  alt-ctrl-shift-m = 'resize smart -200'
+  alt-ctrl-shift-comma = 'resize smart +200'
 
   # Focus
   alt-ctrl-shift-h = 'focus left'
@@ -113,7 +113,7 @@ on-window-detected = [
   alt-ctrl-shift-p = 'workspace P'
 
   # Move to workspace
-  alt-ctrl-shift-cmd-y = 'move-node-to-workspace --focus-follows-window Y'
+  alt-ctrl-shift-cmd-y = 'move-node-to-workspace Y'
   alt-ctrl-shift-cmd-u = 'move-node-to-workspace --focus-follows-window U'
   alt-ctrl-shift-cmd-i = 'move-node-to-workspace --focus-follows-window I'
   alt-ctrl-shift-cmd-o = 'move-node-to-workspace --focus-follows-window O'

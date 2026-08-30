@@ -10,6 +10,7 @@ paths:
 - Prefix boolean properties verbs, e.g, `isEnabled` over `enabled`
 - `PascalCase` enum entries
 - Empty function body: use `= Unit` expression over empty lambda `{}`
+- Prefer exhaustive `when` over `else` fallback
 - Coroutines over callbacks
   - Convert library callbacks into coroutines using `suspendCancellableCoroutine`
   - Convert library listeners into flows using flow builders
