@@ -12,13 +12,10 @@ function claude --description 'Run Claude Code after navigating to git root and 
     set -l args
     set -l fork 0
     set -l has_resume 0
-    set -l sandbox 0
     for arg in $argv
         switch $arg
             case --fs
                 set fork 1
-            case --nono
-                set sandbox 1
             case -r --resume -c --continue
                 set has_resume 1
                 set -a args "$arg"
@@ -45,19 +42,11 @@ function claude --description 'Run Claude Code after navigating to git root and 
         end
     end
 
-    if test $sandbox -eq 1
-        if set -q NONO_CAP_FILE
-            echo "claude: already inside a nono sandbox; ignoring --nono" >&2
-            command claude $args
-            return
-        end
-        # --proxy-port must match the port in the android profile's JDK_JAVA_OPTIONS.
-        nono run --profile android --proxy-port 19999 --allow-cwd -- claude $args
-        return
-    end
-
     command claude $args
 end
+
+# --proxy-port must match the port in the android profile's JDK_JAVA_OPTIONS.
+alias claudea "nono run --profile android --proxy-port 19999 --allow-cwd -- claude"
 
 function __claude_upgrade_available --description 'Print "current -> new" if a newer claude-code cask exists'
     # --greedy: the cask may be marked auto_updates, which outdated skips otherwise.
