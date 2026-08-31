@@ -280,5 +280,6 @@
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "autoConnectIde": false
+  "autoConnectIde": false,
+  "enableArtifact": false
 }
