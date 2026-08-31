@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "name": "android",
+    "description": "Android/Gradle development with proxy filtering"
+  },
+  "network": {
+    "network_profile": "developer",
+    "allow_http2": true,
+    "allow_domain": [
+      "dl.google.com",
+      "maven.google.com",
+      "services.gradle.org",
+      "downloads.gradle.org",
+      "plugins.gradle.org",
+      "plugins-artifacts.gradle.org",
+      "repo1.maven.org",
+      "repo.maven.apache.org"
+    ],
+    "open_port": [5037],
+    "open_port_range": [[49152, 65535]]
+  },
+  "filesystem": {
+    "allow": [
+      "~/.gradle",
+      "~/Library/Android/sdk",
+      "~/.android",
+      "~/.config/.android",
+      "~/.local/share/android"
+    ]
+  },
+  "workdir": { "access": "readwrite" },
+  "environment": {
+    "set_vars": {
+      "GRADLE_OPTS": "-Djava.net.preferIPv4Stack=true",
+      "JDK_JAVA_OPTIONS": "-Djava.net.preferIPv4Stack=true -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=19999 -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=19999 -Dhttp.nonProxyHosts=localhost|127.0.0.1"
+    }
+  },
+  "unsafe_macos_seatbelt_rules": ["(allow user-preference-read)"]
+}
