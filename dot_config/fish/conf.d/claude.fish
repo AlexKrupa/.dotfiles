@@ -46,7 +46,9 @@ function claude --description 'Run Claude Code after navigating to git root and 
 end
 
 # --proxy-port must match the port in the android profile's JDK_JAVA_OPTIONS.
-alias claudea "nono run --profile android --proxy-port 19999 --allow-cwd -- claude"
+# --extends claude adds the nolabs-ai/claude pack profile, which grants ~/.claude
+# and the login keychain, so the host login and settings stay usable.
+alias claudea "nono run --profile android --extends claude --proxy-port 19999 --allow-cwd -- claude"
 
 function __claude_upgrade_available --description 'Print "current -> new" if a newer claude-code cask exists'
     # --greedy: the cask may be marked auto_updates, which outdated skips otherwise.

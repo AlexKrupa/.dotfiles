@@ -166,7 +166,8 @@
     "simple-english@simple-english": true,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false
+    "typescript-lsp@claude-plugins-official": false,
+    "nono@nolabs-ai": true
   },
   "extraKnownMarketplaces": {
     "ponytail": {
