@@ -590,6 +590,62 @@ require('lazy').setup({
       --  So, we create new capabilities with blink.cmp, and then broadcast that to the servers.
       local capabilities = require('blink.cmp').get_lsp_capabilities()
 
+      -- `intellij-server` reruns the Gradle import on every `initialize` and exits with its client.
+      -- Keep one detached server per project root so a later reopen reuses the warm index.
+      -- The cache in `~/Library/Caches/JetBrains/analyzer` is keyed by root path, so git worktrees
+      -- of one repo need separate servers.
+      local function connect_kotlin_lsp(dispatchers, config)
+        local host = '127.0.0.1'
+        -- A wrong root starts a server that imports the wrong project, so refuse to guess.
+        local root_dir = config.root_dir or error 'kotlin_lsp: no project root'
+        local workspace_key = vim.fn.sha256(root_dir):sub(1, 12)
+        local port = 20000 + tonumber(workspace_key:sub(1, 4), 16) % 20000
+
+        local function is_listening()
+          local reachable = false
+          local socket = assert(vim.uv.new_tcp())
+          socket:connect(host, port, function(err)
+            reachable = err == nil
+            socket:close()
+          end)
+          vim.wait(1000, function()
+            return socket:is_closing()
+          end, 10)
+          return reachable
+        end
+
+        if not is_listening() then
+          local command = vim.fn.exepath 'intellij-server'
+          if command == '' then
+            command = vim.fn.expand '~/.local/share/nvim/mason/bin/intellij-server'
+          end
+          vim.fn.jobstart({
+            command,
+            '--socket',
+            host .. ':' .. port,
+            -- Without this the server exits as soon as the first client disconnects.
+            '--multi-client',
+            -- Defaults to a fresh temp directory, which leaks a log tree per run.
+            '--system-path',
+            vim.fn.expand('~/.cache/kotlin-lsp/' .. workspace_key),
+          }, { cwd = root_dir, detach = true })
+
+          local started = false
+          for _ = 1, 60 do
+            started = is_listening()
+            if started then
+              break
+            end
+            vim.uv.sleep(500)
+          end
+          if not started then
+            error(('kotlin_lsp: no server on %s:%d for %s'):format(host, port, root_dir))
+          end
+        end
+
+        return vim.lsp.rpc.connect(host, port)(dispatchers)
+      end
+
       -- Enable the following language servers
       --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
       --
@@ -618,7 +674,7 @@ require('lazy').setup({
         groovyls = {},
         html = {},
         jdtls = {},
-        kotlin_lsp = {},
+        kotlin_lsp = { cmd = connect_kotlin_lsp },
         ktfmt = {},
 
         lua_ls = {

@@ -57,17 +57,83 @@ adds **what to do about findings**, including folding fixes into their originati
 
 ### Git writes allowed
 
-Only these three. Anything else is forbidden.
+Only these four. Anything else is forbidden.
 
 - `git absorb --base <parent>` (no `--and-rebase`).
 - `git commit --fixup=<sha>` where `<sha>` is in `<parent>..HEAD`. Fixup against a SHA outside that
   range would corrupt parent history on autosquash - fall back to a normal commit instead.
 - `git commit -m <msg>` for the no-fixup-target fallback only.
+- `history-rewrite.sh` (see "Commit history"), and only after the user confirms. It is the single
+  permitted history rewrite - never run `git rebase` yourself.
 
-Plus the obvious read/stage helpers (`git add`, `git status`, `git diff`, `git blame`).
+Plus the obvious read/stage helpers (`git add`, `git status`, `git diff`, `git blame`, `git log`).
 
-Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
+Hard no: `git push`, a hand-run `git rebase`, `git commit --amend`, `git reset --hard`,
 `git absorb --and-rebase`, PR/issue ops, edits to files outside the branch diff.
+
+## Commit history
+
+Self-review only. `review-branch` does not check this - it also serves teammate reviews, where
+history is not yours to restructure.
+
+Goal: every commit on the branch is independently valuable. Find over-fragmentation only.
+
+### Input
+
+```
+git log --reverse --format='%h %s' <parent>..HEAD
+git log --reverse --name-only --format='--- %h %s' <parent>..HEAD
+```
+
+### Flag a commit when any of these holds
+
+- **Repair subject** - the subject or body says it repairs an earlier branch commit: "fix typo",
+  "address review", "oops", "forgot", "adjust X", "revert of <earlier commit>".
+- **Placeholder subject** - `wip`, `tmp`, `fix`, `stash`, `.`, or any subject naming no capability.
+- **Repair content** - the commit only changes lines an earlier branch commit added, and adds no
+  capability a reader could name.
+
+Pick the target: the earlier branch commit that introduced the lines this one changes. Use
+`git blame` when the subject alone does not name it. No identifiable in-range target means no
+finding.
+
+### Never flag
+
+- A commit that stands on its own, even a small one.
+- Merge commits, and anything at or below `<parent>`.
+- `fixup!` / `amend!` commits - `--autosquash` places those already.
+- A commit that is too large or mixes concerns. Splitting is out of scope for this skill.
+
+### Report and confirm
+
+One line per suggestion, one sentence each:
+
+```
+<src-sha> "<src subject>" -> squash into <tgt-sha> "<tgt subject>"
+```
+
+Add `(reorder first)` when the two are not adjacent. Then ask once. The user picks per item: apply
+or skip. No suggestions means say so in one line and skip the rest.
+
+### Rewrite
+
+Only for confirmed items, only through the helper:
+
+```
+~/.claude/skills/review-me/history-rewrite.sh <parent> <source>:<target>...
+```
+
+- Each spec reads `<newer>:<older>`. Both SHAs must lie in `<parent>..HEAD`.
+- The script validates the specs, saves a backup ref, and runs one
+  `git rebase -i --autosquash <parent>`. Reordering happens inside that same rebase - do not reorder
+  first as a separate step.
+- On conflict it aborts, restores the branch, and exits 1. Do not resolve the conflict and do not
+  retry. Report the failure and the backup ref, and tell the user to squash by hand.
+- It prints `backup-ref`, `squashes-applied`, `commits-before`, `commits-after`, `result`. Surface
+  these.
+- `--dry-run` as first arg prints the plan and writes nothing.
+
+If the user declines every item, change nothing.
 
 ## Loop
 
@@ -108,6 +174,8 @@ Hard no: `git push`, `git rebase`, `git commit --amend`, `git reset --hard`,
 8. Re-invoke `review-branch` to regenerate the report against the post-fix state.
 9. Stop when no auto-fixable findings remain, or after **3 passes** (avoid loops). If still looping,
    surface why.
+10. **History pass (last, once).** After the loop ends and with a clean working tree, run the
+    "Commit history" section. It runs last so it sees the commits steps 6 and 7 added.
 
 ## Final turn-end summary
 
@@ -121,9 +189,12 @@ Short, scannable:
 - Fixups via `git absorb`: N (against: `<sha-short> <subject>`, ...)
 - Orphan hunks resolved by blame-based fixup: N (against: `<sha-short> <subject>`, ...)
 - New commits added (no in-range fixup target): N (subjects: ...)
+- Commit history: N squashes suggested, N applied, N declined (or `none suggested`); on a rewrite,
+  the backup ref and the before/after commit counts
 - Working tree: clean / dirty paths listed if not
 - Remaining findings: counts by severity, listing the ids left unresolved (e.g. `B2`, `C1`)
-- Next step for user: `git rebase -i --autosquash <parent>`, then push.
+- Next step for user: `git rebase -i --autosquash <parent>`, then push. Omit the rebase when
+  `history-rewrite.sh` already ran it - say the history is squashed and only push remains.
 
 ## Red flags - stop and reconsider
 
@@ -134,3 +205,9 @@ Short, scannable:
 - Proceeding to the next pass with a non-clean working tree. Stop and surface the leftover.
 - Looping past 3 passes. Stop and ask the user.
 - Finishing without the `deslop` pass, or fixing wording by hand instead of invoking it.
+- Rewriting history without an explicit per-item confirmation, or through anything other than
+  `history-rewrite.sh`.
+- Suggesting a squash for a commit that stands on its own, or suggesting a split. Over-fragmentation
+  only.
+- Resolving a conflict after `history-rewrite.sh` aborts. Hand it back to the user.
+- Running the history pass before the fix loop ends - the commit list would be stale.
