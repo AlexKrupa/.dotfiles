@@ -52,6 +52,7 @@ These rules apply to both conversation replies and written documentation, code c
 
 Strictly use ASD-STE100 Simplified Technical English.
 
+- Remove all mannered prose
 - If a simpler word exists - use it
   - Example: use "is", not "serves as", not "utilizes".
 - Objects should never do anything: no "X carries", no "X names"
