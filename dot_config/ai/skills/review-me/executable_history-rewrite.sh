@@ -2,15 +2,15 @@
 # Usage: history-rewrite.sh [--dry-run] <parent> <source>:<target>...
 # Squashes over-fragmented commits into the commits they belong to, deterministically.
 # <parent> is the parent ref/SHA review-branch resolved (its report's `parent:` line).
-# Each spec means: commit <source> is a repair of commit <target>; fold source into target.
-# <source> must be NEWER than <target>; both must lie strictly within <parent>..HEAD.
+# Each spec means: commit <source> is a repair of commit <target>. Fold source into target.
+# <source> must be NEWER than <target>. Both must lie strictly within <parent>..HEAD.
 #
 # Pipeline:
 #   1. Validate: clean tree, no rebase in progress, no merge commits in range, every spec
 #      in range and correctly ordered, no commit used as both source and target.
 #   2. Save a backup ref so the pre-rewrite branch is always recoverable.
 #   3. `git rebase -i --autosquash <parent>` with this script as GIT_SEQUENCE_EDITOR.
-#      --autosquash places any pending fixup!/amend! commits; the editor pass then moves
+#      --autosquash places any pending fixup!/amend! commits. The editor pass then moves
 #      each <source> line to sit right after its <target> block and marks it `fixup`.
 #      Reordering therefore happens as part of the same rewrite, not as a separate step.
 #   4. On any conflict or failure: `git rebase --abort`, reset back to the backup, exit 1.
@@ -54,8 +54,8 @@ if [ "${1:-}" = "--edit-todo" ]; then
     [ "$si" -lt "$ti" ] && ti=$((ti - 1))               # target shifted left
 
     # Insert directly after the target, ahead of any fixup!/amend! lines --autosquash
-    # already attached: those were written against the current tip, so they must stay
-    # last. Multiple sources for one target keep their original order.
+    # already attached. Those were written against the current tip and must stay last.
+    # Multiple sources for one target keep their original order.
     at=$((ti + 1 + ${placed[$tgt]:-0}))
     placed[$tgt]=$(( ${placed[$tgt]:-0} + 1 ))
 

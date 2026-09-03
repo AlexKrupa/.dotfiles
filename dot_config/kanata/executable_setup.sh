@@ -40,14 +40,18 @@ else
     echo "$SUDOERS_FILE already configured"
 fi
 
-# 5. Bootstrap the LaunchAgent into the GUI domain. This both starts it now
-#    (RunAtLoad=true in the plist) and makes launchd auto-load it on every
-#    future login. `|| true` so re-running setup.sh on an already-configured
-#    machine doesn't abort under `set -e`.
-#    If this step fails, just start kanata-tray manually this once:
-#      open ~/.config/kanata/kanata-tray-macos
-#    It will still come up automatically on next login.
-launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.kanata-tray-macos.plist" || true
+# 5. Bootstrap the LaunchAgent into the GUI domain, then restart it. Bootstrap
+#    fails with "Input/output error" when the agent is already loaded, so only
+#    report the error if the agent is absent afterwards.
+GUI_DOMAIN="gui/$(id -u)"
+launchctl bootstrap "$GUI_DOMAIN" "$HOME/Library/LaunchAgents/com.kanata-tray-macos.plist" \
+    > /dev/null 2>&1 || true
+if launchctl print "$GUI_DOMAIN/com.kanata-tray-macos" > /dev/null 2>&1; then
+    launchctl kickstart -k "$GUI_DOMAIN/com.kanata-tray-macos" > /dev/null
+else
+    echo "error: could not load the LaunchAgent. Start kanata-tray manually:" >&2
+    echo "  open $SCRIPT_DIR/kanata-tray-macos" >&2
+fi
 
 cat <<'EOF'
 Done. Remaining manual steps:

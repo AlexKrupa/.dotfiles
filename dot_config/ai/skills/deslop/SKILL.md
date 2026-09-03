@@ -20,7 +20,7 @@ commits. This skill does not push, rebase, or amend. The user applies the fixups
 
 Open these files at the start of **every** run, before you edit anything:
 
-- `~/.claude/CLAUDE.md` - the `## Written communication` section. It gives the simple language,
+- `~/.claude/CLAUDE.md` - the `## Written communication` section. It has the simple language,
   banned words, and formatting rules.
 - `~/.claude/rules/code.md` - the `## Comments (inline and doc)` section. The comment pass applies
   these rules.
@@ -28,8 +28,8 @@ Open these files at the start of **every** run, before you edit anything:
 - The repo's own style docs, if they exist (`CONTRIBUTING*`, `docs/style*`). For files in that repo,
   these docs have priority over the personal rules.
 
-This skill defines no writing rules. If you recall the rules instead of reading them, you cause the
-defect that this skill must correct. If `~/.claude/CLAUDE.md` is missing, tell the user and stop.
+This skill defines no writing rules. Do not recall them - recall causes the defect that this skill
+must correct. If `~/.claude/CLAUDE.md` is missing, tell the user and stop.
 
 ## Modes
 
@@ -39,13 +39,13 @@ defect that this skill must correct. If `~/.claude/CLAUDE.md` is missing, tell t
 | `/deslop`                 | The branch diff (`<parent>...HEAD`) and its commit messages | yes |
 | `/deslop docs/ README.md` | Those paths, the full file, no commit-message pass          | yes |
 
-If there are no args, and the directory is not a git repo, use reply mode.
+If there are no args and the directory is not a git repo, use reply mode.
 
 Branch mode includes:
 
 - Markdown and other docs that the branch changed
-- comments and docstrings that the branch changed
-- commit subjects and bodies in `<parent>..HEAD`
+- Comments and docstrings that the branch changed
+- Commit subjects and bodies in `<parent>..HEAD`
 
 **Out of scope:** code, identifiers, string literals, tests, generated files, vendored files, PR
 descriptions, and MR descriptions. Also all files outside the diff, unless the user gives them as a
@@ -55,7 +55,7 @@ path arg.
 
 Apply each fix that keeps all the facts. Ask first only if the fix removes a fact.
 
-Test: does the reader lose data that the adjacent code or doc does not give?
+Test: does the reader lose data that the adjacent code or doc does not show?
 
 | Apply immediately                                     | Ask first                              |
 | ----------------------------------------------------- | -------------------------------------- |
@@ -65,22 +65,22 @@ Test: does the reader lose data that the adjacent code or doc does not give?
 | Reflow to 100 chars, heading case, list structure     | Merge or deletion of a full doc        |
 
 Ask with **one** grouped prompt at the end. Put one item in it for each finding. Do not use one
-prompt per finding. Reply mode never asks. Refer to the reply mode section.
+prompt per finding. Reply mode never asks.
 
 When you update prose, replace the obsolete text with accurate text. Do not keep the obsolete text
 and add a correction. The final document must read as if it was correct from the start.
 
-Comments do not use this table. The comment pass applies to them, and that pass never asks.
+Comments do not use this table. The comment pass applies to them. That pass never asks.
 
 ## Comments: delete first, then justify
 
 If you examine a comment in place, you will defend it. Delete the comment first. Then restore it
 only if it passes the test below. Do the two passes in this sequence. Never merge them.
 
-**Pass 1 - delete all of them.** In the target files, delete each comment and each docstring that
-the branch added or changed. Delete all of them. Use no judgment. Make no exceptions. Do not read
-them first. Do not change the code lines. Stage nothing. The deletions stay in the working tree, and
-pass 2 reads them there.
+**Pass 1 - delete all of them.** In the target files, delete each comment and docstring that the
+branch added or changed. Delete all of them. Use no judgment. Make no exceptions. Do not read them
+first. Do not change the code lines. Stage nothing. The deletions stay in the working tree. Pass 2
+reads them there.
 
 **Pass 2 - one comment at a time.** Run `git diff -U8 -- <file>...` to show each deleted comment
 with the adjacent code. Process them in diff order, one comment per step. For each comment, answer
@@ -96,17 +96,21 @@ these questions in sequence. Stop at the first question that gives a decision.
 
 Never run question 2 or question 3 on a comment that failed question 1.
 
-A comment passes question 1 only for data that the code cannot show: a why, a constraint that is not
-visible at this line, a workaround with its cause, a contract that callers use, or a link to an
-issue or a spec. "It explains what the function does" is not a sufficient reason. The function shows
-that.
+A comment passes question 1 only for data that the code cannot show:
+
+- a why
+- a constraint that is not visible at this line
+- a workaround with its cause
+- a contract that callers use
+- a link to an issue or a spec
+
+"It explains what the function does" is not a sufficient reason. The function shows that.
 
 Docstrings that the repo makes necessary (public API, a doc linter) do not use question 1. Start
 them at question 2 and reduce them to one line.
 
-Expected result: most comments stay deleted, and almost all of the comments that stay are one
-sentence. If most of the comments returned, pass 2 defended them instead of judged them. Do pass 2
-again.
+Expected result: most comments stay deleted. Almost all of the comments that stay are one sentence.
+If most of the comments returned, pass 2 defended them instead of judged them. Do pass 2 again.
 
 Never prompt the user about a comment. Deletion is the default. The user sees each deletion in the
 fixups before the rebase.
@@ -116,8 +120,8 @@ fixups before the rebase.
 1. Read the rule files above. Do this for each mode. Do not skip it because the target is only a
    reply.
 2. Print the new text and nothing more. No diff, no list of changes, no preamble.
-3. Apply each fix, also the fixes that remove data. Add one line below the new text that names the
-   removed data, so the user can restore it. Never prompt.
+3. Apply each fix, including the fixes that remove data. Add one line below the new text. It names
+   the removed data for the user to restore. Never prompt.
 
 Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
 
@@ -146,8 +150,8 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
    ~/.claude/skills/deslop/reword-fixup.sh <parent> <sha> <message-file>
    ```
 
-   The script builds the `amend!` commit. It stops if the sha is out of range, if the subject is a
-   duplicate, or if the index is dirty. Do not write `amend!` commits manually.
+   The script builds the `amend!` commit. It stops on an out-of-range sha, a duplicate subject, or a
+   dirty index. Do not write `amend!` commits manually.
 
 7. Fold the file edits into their commits. Give only the files that you edited in this pass:
 
@@ -158,19 +162,20 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
    Process its `needs-message` files as `review-me` does. Write one conventional-commit line for
    each file. Then run `git commit -m "<msg>" -- <file>`.
 
-8. If the repo lints prose (markdownlint, vale, a formatter with a comment width), run the linter on
-   the touched files. If the repo has no linter, tell the user. Do not invent a command.
+8. If the repo lints prose, run the linter on the touched files. Examples: markdownlint, vale, a
+   formatter with a comment width. If the repo has no linter, tell the user. Do not invent a
+   command.
 
 ## Summary (git modes)
 
-- Files deslopped: count and one line for each
+- Files changed: count and one line for each
 - Comments: N deleted, N kept as one sentence, N kept longer
 - Commit messages reworded: count and `<sha-short> <old subject>` -> `<new subject>`
 - Deferred (the fix would remove data): count and one line for each
 - Fixups: N by `git absorb`, N by blame, N as new commits
 - Next step: `git rebase -i --autosquash <parent>`
 
-## Red flags - stop
+## Mistakes - stop
 
 - You write from memory of the rules instead of from the files. This is the defect to correct.
 - You judge comments in place instead of deleting them first. Pass 1 has no exceptions.

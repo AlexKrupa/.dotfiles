@@ -1,3 +1,2 @@
 #!/bin/sh
-launchctl unload ~/Library/LaunchAgents/com.kanata-tray-macos.plist
-launchctl load ~/Library/LaunchAgents/com.kanata-tray-macos.plist
+launchctl kickstart -k "gui/$(id -u)/com.kanata-tray-macos"

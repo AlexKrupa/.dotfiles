@@ -51,7 +51,7 @@ adds **what to do about findings**, including folding fixes into their originati
 - Snapshot / golden-file regeneration.
 - Dependency add / upgrade / remove.
 - Any change to code **not introduced by this branch** (out-of-scope cleanup).
-- Adding concurrency changes - flag and ask; concurrency is rarely "low risk". (This decides whether
+- Adding concurrency changes - flag and ask. Concurrency is rarely "low risk". (This decides whether
   to auto-edit. Detection of concurrency issues is review-branch's "Concurrency & data races"
   bucket, a separate axis.)
 
@@ -73,7 +73,7 @@ Hard no: `git push`, a hand-run `git rebase`, `git commit --amend`, `git reset -
 
 ## Commit history
 
-Self-review only. `review-branch` does not check this - it also serves teammate reviews, where
+Self-review only. `review-branch` does not check this - it also runs for teammate reviews, where
 history is not yours to restructure.
 
 Goal: every commit on the branch is independently valuable. Find over-fragmentation only.
@@ -162,7 +162,8 @@ If the user declines every item, change nothing.
      (never `git add -A`), runs `git absorb`, and for each orphan it leaves, fixes up to the
      dominant in-range commit via blame.
    - It prints a keyed block: `absorb-fixups`, `blame-fixups` (with `<sha> <file>` lines),
-     `needs-message` (files left staged because no in-range blame target exists), `staged-remaining`.
+     `needs-message` (files left staged because no in-range blame target exists), and
+     `staged-remaining`.
    - For each `needs-message` file: write a conventional one-liner and
      `git commit -m "<msg>" -- <file>`. This is the only orphan case the script defers, because the
      message is a judgment call. Note each as a new commit in the summary.
@@ -171,9 +172,18 @@ If the user declines every item, change nothing.
    `deslop` in branch mode (no args). It reads the writing rules, fixes prose and commit messages,
    and does its own absorb and `amend!` commits. Its deferred items join this skill's ask-first
    prompt.
-8. Re-invoke `review-branch` to regenerate the report against the post-fix state.
-9. Stop when no auto-fixable findings remain, or after **3 passes** (avoid loops). If still looping,
-   surface why.
+8. **Re-review.** Skip this step when the pass changed no file. Nothing moved, so the report on disk
+   is still accurate. Say so and go to step 10.
+
+   Otherwise re-invoke `review-branch` in **re-review mode** with three inputs: every file this pass
+   modified (step 6's list plus the files `deslop` touched in step 7), which of them got a behavior
+   change, and the path of the previous report. It audits that scope plus one hop, and keeps
+   unresolved findings. Pass 1 may fan out review agents, later passes never do.
+9. Stop when no auto-fixable findings remain. That is the stop condition. **3 passes** is only a
+   runaway cap: a converging run needs pass 1 to fix and pass 2 to confirm plus catch cascades (a
+   removed dead symbol makes its neighbour dead). Pass 3 is the margin. Hitting the cap means the
+   run is not converging - a fix is reintroducing a finding, or two findings contradict each other.
+   Surface which finding ids keep coming back.
 10. **History pass (last, once).** After the loop ends and with a clean working tree, run the
     "Commit history" section. It runs last so it sees the commits steps 6 and 7 added.
 
@@ -189,7 +199,7 @@ Short, scannable:
 - Fixups via `git absorb`: N (against: `<sha-short> <subject>`, ...)
 - Orphan hunks resolved by blame-based fixup: N (against: `<sha-short> <subject>`, ...)
 - New commits added (no in-range fixup target): N (subjects: ...)
-- Commit history: N squashes suggested, N applied, N declined (or `none suggested`); on a rewrite,
+- Commit history: N squashes suggested, N applied, N declined (or `none suggested`). On a rewrite,
   the backup ref and the before/after commit counts
 - Working tree: clean / dirty paths listed if not
 - Remaining findings: counts by severity, listing the ids left unresolved (e.g. `B2`, `C1`)
@@ -199,11 +209,16 @@ Short, scannable:
 ## Red flags - stop and reconsider
 
 - About to auto-apply a behavior change because it "feels safe". It's not auto-applicable. Ask.
-- Editing files outside `<parent>...HEAD`. Out of scope.
+- Editing files outside `<parent>...HEAD` without asking first. Out-of-scope cleanup, including an
+  `(adjacent)` finding, needs a per-item confirmation.
 - Skipping the re-review pass after fixes - the report on disk would be wrong.
 - Running any git write outside "Git writes allowed".
 - Proceeding to the next pass with a non-clean working tree. Stop and surface the leftover.
 - Looping past 3 passes. Stop and ask the user.
+- Letting `review-branch` fan out review agents on a re-review pass. Pass 1 only.
+- Re-running the full audit on pass 2 or 3 instead of re-review mode.
+- Re-reviewing after a pass that changed nothing, or leaving `deslop`'s files out of the scope list.
+- Accepting a re-review report that lost a pass-1 finding the scoped pass never read.
 - Finishing without the `deslop` pass, or fixing wording by hand instead of invoking it.
 - Rewriting history without an explicit per-item confirmation, or through anything other than
   `history-rewrite.sh`.

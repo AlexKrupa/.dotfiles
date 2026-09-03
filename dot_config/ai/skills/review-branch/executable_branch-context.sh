@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 # Usage: branch-context.sh [parent-override]
-# Resolves branch-vs-parent review context deterministically and prints it as a
-# keyed text block on stdout. Fail-fast: cheap local guards abort before any diff.
+# Prints the branch-vs-parent review context as a keyed text block on stdout.
+# Cheap local guards abort before any diff.
 #
-# With no arg, parent is auto-detected by git topology: the nearest local branch
-# that is a strict ancestor of HEAD is the immediate stack parent. When that
-# resolves to mainline (main/master/develop or the remote default branch), the
-# remote copy is fetched (best-effort) and the remote-tracking ref is used as the
-# base, so a stale local mainline does not pollute the diff. Intermediate stack
-# parents stay anchored on their local tip (their split point is your local tip).
-# With an arg, that ref is used as parent (validated to exist).
+# With no arg, the parent is the nearest local branch that is a strict ancestor of
+# HEAD. When that branch is mainline (main/master/develop or the remote default
+# branch), the remote copy is fetched (best-effort) and the remote-tracking ref is
+# the base. A stale local mainline would otherwise pollute the diff. Intermediate
+# stack parents stay anchored on their local tip. With an arg, that ref is the
+# parent (validated to exist).
 #
-# Aborts (exit 1, message on stderr) when: not a repo; branch == parent;
-# parent unresolved; override ref missing.
+# Aborts (exit 1, message on stderr) when: not a repo, branch == parent, parent
+# unresolved, override ref missing.
 #
-# Does NOT emit the full diff (unbounded). It prints the exact `git diff` command
-# to run for the reviewable content, plus bounded metadata (--stat, log, status).
+# Does NOT emit the full diff (unbounded). It prints the `git diff` command to run
+# for the reviewable content, plus bounded metadata (--stat, log, status).
 set -euo pipefail
 
 override="${1:-}"
@@ -34,8 +33,7 @@ if [ -n "$override" ]; then
   parent="$override"
   parent_source="override"
 else
-  # Mainline set: local main/master/develop plus each remote's default branch
-  # (its HEAD symref). Used to classify the nearest ancestor as trunk vs stack parent.
+  # Used to classify the nearest ancestor as trunk vs stack parent.
   mainlines=()
   for cand in main master develop; do
     if git show-ref --verify --quiet "refs/heads/$cand"; then
@@ -56,15 +54,14 @@ else
     return 1
   }
 
-  # Nearest strict-ancestor local branch = smallest positive commit distance to HEAD.
-  # That is the immediate stack parent; mainline wins when no intermediate branch exists.
+  # The nearest strict-ancestor local branch is the immediate stack parent.
   nearest=""
   nearest_count=""
   while IFS= read -r cand; do
     [ "$cand" = "$branch" ] && continue
     git merge-base --is-ancestor "$cand" HEAD 2>/dev/null || continue  # guard non-zero under set -e
     count="$(git rev-list --count "$cand..HEAD")"
-    [ "$count" -gt 0 ] || continue  # same commit; SHA-equality guard below covers it
+    [ "$count" -gt 0 ] || continue  # same commit - the SHA guard below covers it
     if [ -z "$nearest_count" ] || [ "$count" -lt "$nearest_count" ]; then
       nearest="$cand"
       nearest_count="$count"
@@ -72,11 +69,10 @@ else
   done < <(git for-each-ref --format='%(refname:short)' refs/heads/)
 
   if [ -n "$nearest" ] && ! is_mainline "$nearest"; then
-    # Intermediate stack parent: split point is your local tip, so anchor local, no fetch.
+    # Intermediate stack parent: the split point is your local tip. No fetch.
     parent="$nearest"
     parent_source="ancestor-branch"
   else
-    # Mainline base. Prefer the nearest-ancestor mainline name, else first existing mainline.
     mainline=""
     if [ -n "$nearest" ]; then
       mainline="$nearest"
@@ -86,8 +82,7 @@ else
     [ -n "$mainline" ] \
       || die "Could not resolve parent branch (no ancestor branch, no main/master/develop)."
 
-    # Anchor on a FRESH remote-tracking ref so a stale local mainline does not leak
-    # other people's commits into the diff. Best-effort: fall back to local on failure.
+    # A fresh remote-tracking ref keeps other people's commits out of the diff.
     remote="$(git config "branch.$mainline.remote" 2>/dev/null || true)"
     [ -n "$remote" ] || remote="$(git remote | head -1)"
     parent_source="default-branch"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Read-only GitLab MR fetcher for the review-gitlab skill.
 # Subcommands: preflight | resolve | discussions | diff-check | checkout
-# Exit codes: 0 ok · 1 usage/other · 2 not found · 3 ambiguous · 4 missing dep / auth · 5 network
+# Exit codes: 0 ok, 1 usage/other, 2 not found, 3 ambiguous, 4 missing dep / auth, 5 network
 
 set -euo pipefail
 
@@ -31,8 +31,8 @@ cmd_preflight() {
   echo "ok"
 }
 
-# pick_remote [project_path]: single remote -> use it; multiple -> the one whose
-# URL contains project_path; else origin; else first listed.
+# pick_remote [project_path]: one remote -> use it. Several -> the one whose URL
+# contains project_path, else origin, else the first listed.
 pick_remote() {
   local project="${1-}" remotes count r url
   remotes=$(git remote)
@@ -51,8 +51,8 @@ pick_remote() {
 
 # checkout <source_branch> <target_branch> [project_path]
 # Fetches and checks out the MR source branch, refreshes the target's remote-tracking
-# ref (does NOT touch the user's local target branch), and reports it as target_ref so
-# review-branch diffs against a fresh base, not a stale local mainline.
+# ref (does NOT touch the user's local target branch), and reports it as target_ref.
+# review-branch then diffs against a fresh base, not a stale local mainline.
 # Emits JSON: remote, previous_branch, moved, source_branch, target_branch, target_ref.
 cmd_checkout() {
   local source="${1-}" target="${2-}" project="${3-}"
@@ -82,7 +82,7 @@ cmd_checkout() {
       source_branch:$source, target_branch:$target, target_ref:$target_ref}'
 }
 
-# Pull the canonical MR fields out of `glab mr view --output json`.
+# Pull the MR fields out of `glab mr view --output json`.
 project_mr_view() {
   jq '{
     iid,
@@ -190,8 +190,8 @@ cmd_discussions() {
 }
 
 # diff-check <iid>: compare the set of changed files (and total +/- counts)
-# between the local branch and the MR. Full-diff hash compare is too brittle
-# (whitespace/headers); file-set + line-count is a stable sanity check.
+# between the local branch and the MR. A full-diff hash compare is too brittle
+# (whitespace/headers). File-set + line-count is a stable check.
 cmd_diff_check() {
   local iid="${1-}" target="${2-}"
   [[ -n "$iid" ]] || die "usage: diff-check <iid> [target_branch]" 1

@@ -141,6 +141,7 @@
   "worktree": {
     "baseRef": "fresh"
   },
+  "enableArtifact": false,
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh",
@@ -160,7 +161,7 @@
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
-    "ponytail@ponytail": false,
+    "ponytail@ponytail": true,
     "pyright-lsp@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
     "simple-english@simple-english": true,
@@ -266,7 +267,7 @@
   "effortLevel": "high",
   "modelSettings": {
     "claude-opus-5": {
-      "effortLevel": "medium"
+      "effortLevel": "high"
     },
     "claude-sonnet-5": {
       "effortLevel": "low"
@@ -281,6 +282,5 @@
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "autoConnectIde": false,
-  "enableArtifact": false
+  "autoConnectIde": false
 }

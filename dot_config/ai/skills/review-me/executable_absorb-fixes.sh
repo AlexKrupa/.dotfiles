@@ -6,16 +6,16 @@
 #
 # Pipeline:
 #   1. Stage exactly the given files (never `git add -A`).
-#   2. `git absorb --base <parent>` — auto-fixups every hunk it can blame to one commit.
+#   2. `git absorb --base <parent>` - auto-fixups every hunk it can blame to one commit.
 #   3. For each file absorb left staged (orphan), blame the changed lines, pick the
 #      dominant in-range commit, and `git commit --fixup=<sha> -- <file>`.
 #   4. Files whose dominant blame SHA is outside <parent>..HEAD (or pure additions with
-#      nothing to blame) are LEFT STAGED and reported as `needs-message` — the caller
+#      nothing to blame) are LEFT STAGED and reported as `needs-message`. The caller
 #      writes a conventional message and commits them. The script never invents messages.
 #
 # Emits a keyed text block on stdout for the caller's summary. Makes no other git writes
-# (no push/rebase/amend/reset). Aborts (exit 1) on: not a repo; bad parent; no files; dirty
-# tree containing changes outside the given files (would risk staging unrelated work).
+# (no push/rebase/amend/reset). Aborts (exit 1) on: not a repo, bad parent, no files, or a
+# dirty tree with changes outside the given files (would risk staging unrelated work).
 set -euo pipefail
 
 die() { printf '%s\n' "$1" >&2; exit 1; }
@@ -31,8 +31,7 @@ git rev-parse --verify --quiet "$parent" >/dev/null || die "Parent ref '$parent'
 parent_sha="$(git rev-parse "$parent")"
 [ "$parent_sha" != "$(git rev-parse HEAD)" ] || die "HEAD == parent; nothing to absorb into."
 
-# Guard: every given file must exist and be one we can stage. Refuse if the index already
-# holds staged content (caller's loop must reach here with a clean index aside from our adds).
+# Refuse pre-staged content: the caller must reach here with a clean index.
 if [ -n "$(git diff --cached --name-only)" ]; then
   die "Index not empty before staging — refusing to mix in pre-staged changes."
 fi
@@ -73,14 +72,13 @@ dominant_sha() {
     done <<< "$hunks"
   } | tr -d ' ' | grep -v '^0\{40\}$' \
     | sort | uniq -c | sort -rn | while read -r _ sha; do
-        # In range: descendant of parent, ancestor of HEAD, not parent itself.
         if [ "$sha" != "$parent_sha" ] \
           && git merge-base --is-ancestor "$parent_sha" "$sha" 2>/dev/null \
           && git merge-base --is-ancestor "$sha" HEAD 2>/dev/null; then
           printf '%s\n' "$sha"; break
         fi
       done
-  return 0   # a no-match pipeline returns nonzero; that is normal (-> needs-message)
+  return 0   # a no-match pipeline returns nonzero - that is normal (-> needs-message)
 }
 
 blame_fixups=()    # "<sha7> <file>"

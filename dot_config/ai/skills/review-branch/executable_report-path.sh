@@ -8,9 +8,9 @@ parent="${1:?parent ref required}"
 prefix="${2:-}"
 
 # Transliterate common Latin-script diacritics to ASCII base letters (both cases -> lowercase).
-# Literal substitutions only (no [..] classes) so this is locale-independent: brackets match single
+# Literal substitutions only (no [..] classes), for locale independence: brackets match single
 # bytes in a C locale and corrupt multibyte sequences. Unmapped non-ASCII falls through to slugify's
-# [^a-z0-9] collapse, same as before.
+# [^a-z0-9] collapse.
 translit() {
   sed '
     s/à/a/g;s/á/a/g;s/â/a/g;s/ã/a/g;s/ä/a/g;s/å/a/g;s/ā/a/g;s/ă/a/g;s/ą/a/g
@@ -49,8 +49,8 @@ slugify() {
     | sed -E 's#[^a-z0-9]+#-#g; s#^-+##; s#-+$##'
 }
 
-# --git-common-dir with absolute path resolves to the main repo's .git even
-# inside a linked worktree, so all worktrees of one repo share one directory.
+# --git-common-dir with absolute path resolves to the main repo's .git even inside
+# a linked worktree. All worktrees of one repo then share one directory.
 common_git="$(git rev-parse --path-format=absolute --git-common-dir)"
 repo_root="$(cd "$common_git/.." && pwd)"
 repo_slug="$(slugify "$(basename "$repo_root")")"

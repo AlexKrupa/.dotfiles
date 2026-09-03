@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Usage: docs-index.sh
-# Discovers project documentation / convention files (tracked only) and prints a cheap
-# path+headings index on stdout for review-branch's docs-alignment check. Read-only,
-# deterministic, side-effect-free. Selection of which listed docs are relevant is the
-# caller's (model's) judgment — this script only discovers and indexes.
+# Finds project documentation / convention files (tracked only) and prints a cheap
+# path+headings index on stdout for review-branch's docs-alignment check. Read-only.
+# The caller decides which of the listed docs are relevant.
 #
 # Output:
 #   docs-found: <N>
@@ -25,7 +24,7 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
 
-# Classify a tracked path; echo it if it is a doc/convention/agent file, else nothing.
+# Echo a tracked path if it is a doc, convention, or agent file. Else print nothing.
 classify() {
   local p="$1" base="${1##*/}" lower
   lower="$(printf '%s' "$p" | tr '[:upper:]' '[:lower:]')"
@@ -51,7 +50,6 @@ classify() {
   esac
 }
 
-# Collect matches (dedupe + sort).
 mapfile -t files < <(
   git ls-files -z \
   | while IFS= read -r -d '' p; do classify "$p"; done \
@@ -64,7 +62,6 @@ printf 'docs-found: %s\n' "${#files[@]}"
 budget="$INDEX_MAX"
 for f in "${files[@]}"; do
   printf 'file: %s\n' "$f"
-  # size guard
   size="$(wc -c < "$f" 2>/dev/null || echo 0)"
   if [ "$size" -gt "$PER_FILE_MAX" ]; then
     printf '  (large, headings omitted)\n'
@@ -73,7 +70,7 @@ for f in "${files[@]}"; do
   if [ "$budget" -gt 0 ]; then
     headings="$(grep -E '^#{1,6} ' -- "$f" 2>/dev/null || true)"
   else
-    headings="$(grep -E '^# ' -- "$f" 2>/dev/null || true)"   # over budget: H1 only
+    headings="$(grep -E '^# ' -- "$f" 2>/dev/null || true)"
   fi
   [ -n "$headings" ] || continue
   while IFS= read -r h; do
