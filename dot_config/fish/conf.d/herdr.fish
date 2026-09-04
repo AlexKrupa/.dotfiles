@@ -50,22 +50,45 @@ end
 
 # Reinstall every GitHub-managed plugin at its latest commit. herdr has no
 # `plugin update` in v1, so refreshing a plugin means reinstalling it. Pinned
-# plugins keep their --ref, so this never silently unpins one. Afterwards it
-# reports what moved, with links to the commits and the releases page.
+# plugins keep their --ref, so this never silently unpins one. A plugin whose
+# remote commit already matches the installed one is skipped, because
+# reinstalling it rebuilds it for nothing. Afterwards it reports what moved,
+# with links to the commits and the releases page.
 function herdr-upgrade --description "Update all installed herdr plugins"
   herdr-forks-sync
 
   set -l before (mktemp)
   herdr plugin list --json >$before; or return 1
 
-  for line in (jq -r '
+  for row in (jq -r '
       .result.plugins[]
       | select(.source.kind == "github")
       | [ ([.source.owner, .source.repo, (.source.subdir // empty)] | join("/")),
-          (if .source.requested_ref then "--ref " + .source.requested_ref else empty end) ]
-      | join(" ")' $before)
-    echo "==> $line"
-    herdr plugin install (string split " " -- $line) --yes
+          (.source.resolved_commit // ""),
+          (.source.requested_ref // ""),
+          "https://github.com/\(.source.owner)/\(.source.repo).git" ]
+      | @tsv' $before)
+    set -l cols (string split \t -- $row)
+    set -l spec $cols[1]
+    set -l installed $cols[2]
+    set -l ref $cols[3]
+    set -l url $cols[4]
+
+    echo "==> $spec"
+
+    set -l target $ref
+    test -z "$target"; and set target HEAD
+    # Empty for a ref that is already a raw commit, which ls-remote cannot resolve.
+    set -l remote (git ls-remote $url $target 2>/dev/null | head -n1 | string split -f1 \t)
+    test -z "$remote"; and set remote $ref
+    if test -n "$remote"; and test "$remote" = "$installed"
+      echo "    up to date at "(string sub -l 7 -- $installed)
+      continue
+    end
+
+    set -l args $spec
+    test -n "$ref"; and set -a args --ref $ref
+    herdr plugin install $args --yes
     or begin
       rm -f $before
       return 1
