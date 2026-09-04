@@ -35,6 +35,17 @@ elif [ -f "$HOME/$match" ]; then
 fi
 
 if [ -n "$path" ]; then
+  # Plans, specs and reviews under ~/.ai/ are reviewed, not edited. The annotate pane names
+  # the source pane, so it survives the picker tab teardown, and returns before the 5s limit.
+  case "$path" in
+    "$HOME"/.ai/*.md)
+      exec herdr plugin pane open --plugin annotate --entrypoint doc --placement split \
+        --direction right --target-pane "$HERDR_PLUCK_PANE_ID" --focus --cwd "$PWD" \
+        --env "PLANNOTATOR_TUI_FILE=$path" \
+        --env "PLANNOTATOR_TUI_DELIVER_TO=$HERDR_PLUCK_PANE_ID" >/dev/null
+      ;;
+  esac
+
   # SVG is XML (text) but usually wanted as a preview, not an edit.
   case "$path" in
     *.svg|*.SVG) exec open "$path" ;;

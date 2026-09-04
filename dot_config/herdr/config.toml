@@ -75,7 +75,7 @@ next_workspace           = "alt+r"                       # default: unset
 switch_workspace         = "alt+1..9"                    # default: unset
 
 # Worktrees
-new_worktree             = ["prefix+shift+g", "alt+G"]   # default + added
+new_worktree             = "prefix+shift+g"              # alt+G reassigned to annotate.open
 # open_worktree                                          # default: unset
 # remove_worktree                                        # default: unset
 
@@ -257,3 +257,29 @@ key = "alt+D"
 type = "plugin_action"
 command = "persiyanov.reviewr.toggle"
 description = "toggle review pane"
+
+[[keys.command]]
+key = "alt+G"
+type = "plugin_action"
+command = "annotate.open"
+description = "review documents in this folder"
+
+# Avoid alt+f/alt+b: some terminals send Opt+Right->ESC-f, Opt+Left->ESC-b for readline word-jump
+
+[[keys.command]]
+key = "alt+A"
+type = "plugin_action"
+command = "annotate.capture"
+description = "annotate selected text"
+
+[[keys.command]]
+key = "alt+C"
+type = "plugin_action"
+command = "annotate.copy-context"
+description = "copy annotations as context"
+
+[[keys.command]]
+key = "alt+m"
+type = "plugin_action"
+command = "annotate.manage"
+description = "manage annotations"
