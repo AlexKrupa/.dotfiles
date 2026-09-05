@@ -80,7 +80,7 @@ Strictly forbidden, unless the user use them in conversation:
 honest, genuine, latent, robust, authoritative, canonical, sharp,
 honestly, genuinely, quietly, deeply, fundamentally, remarkably, arguably,
 gate, gap, shape, reshape, wrinkle, seam, spine,
-delve, leverage, streamline, land, carry, overstep,
+delve, leverage, streamline, land, carry, overstep, ship,
 "smoking gun", "load-bearing", "full stop", "blast radius", "earned its keep",
 "honest caveat", "honest take", "production ready", "belt-and-suspenders",
 "worth flagging", "and it matters", "part that matters", "say the word",
