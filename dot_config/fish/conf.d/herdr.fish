@@ -54,7 +54,12 @@ end
 # remote commit already matches the installed one is skipped, because
 # reinstalling it rebuilds it for nothing. Afterwards it reports what moved,
 # with links to the commits and the releases page.
+#
+# setup.sh runs first, so a machine that is missing a plugin gets it installed
+# instead of only upgrading what is already there.
 function herdr-upgrade --description "Update all installed herdr plugins"
+  ~/.config/herdr/setup.sh; or return 1
+  echo
   herdr-forks-sync
 
   set -l before (mktemp)

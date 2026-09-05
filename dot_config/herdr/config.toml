@@ -229,13 +229,13 @@ command = "termscope.open-links"
 description = "open a visible link"
 
 [[keys.command]]
-key = "alt+s"
+key = "alt+S"
 type = "plugin_action"
 command = "fullerzz.sesh.open-picker"
 description = "session picker"
 
 [[keys.command]]
-key = "alt+a"
+key = "alt+s"
 type = "plugin_action"
 command = "herdr-navigator.open"
 description = "jump to anything"
@@ -253,13 +253,13 @@ command = "rmarganti.herdr-pluck.pluck"
 description = "copy with hints"
 
 [[keys.command]]
-key = "alt+D"
+key = "alt+G"
 type = "plugin_action"
 command = "persiyanov.reviewr.toggle"
 description = "toggle review pane"
 
 [[keys.command]]
-key = "alt+G"
+key = "alt+a"
 type = "plugin_action"
 command = "annotate.open"
 description = "review documents in this folder"
