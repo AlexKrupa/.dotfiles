@@ -295,6 +295,7 @@ require("lazy").setup({
         end,
       },
       { "nvim-telescope/telescope-ui-select.nvim" },
+      { "nvim-telescope/telescope-frecency.nvim", version = "*" },
 
       -- Useful for getting pretty icons, but requires special font.
       --  If you already have a Nerd Font, or terminal set up with fallback fonts
@@ -321,21 +322,49 @@ require("lazy").setup({
       -- telescope picker. This is really useful to discover what Telescope can
       -- do as well as how to actually do it!
 
+      local build_output_patterns = {
+        "^%.git/",
+        "^%.gradle/",
+        "/%.gradle/",
+        "/build/",
+        "^build/",
+        "%.class$",
+        "%.jar$",
+      }
+
       -- [[ Configure Telescope ]]
       -- See `:help telescope` and `:help telescope.setup()`
       require("telescope").setup({
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
-        --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
-        -- pickers = {}
+        defaults = {
+          path_display = { filename_first = { reverse_directories = true } },
+          file_ignore_patterns = build_output_patterns,
+          dynamic_preview_title = true,
+          layout_strategy = "flex",
+          layout_config = {
+            width = 0.95,
+            height = 0.9,
+            flex = { flip_columns = 160 },
+            horizontal = { preview_width = 0.5 },
+            vertical = { preview_height = 0.5 },
+          },
+          mappings = {
+            i = {
+              ["<C-Down>"] = "cycle_history_next",
+              ["<C-Up>"] = "cycle_history_prev",
+            },
+          },
+        },
+        pickers = {
+          find_files = { hidden = true },
+        },
         extensions = {
           ["ui-select"] = {
             require("telescope.themes").get_dropdown(),
+          },
+          frecency = {
+            show_filter_column = false,
           },
         },
       })
@@ -343,12 +372,18 @@ require("lazy").setup({
       -- Enable telescope extensions, if they are installed
       pcall(require("telescope").load_extension, "fzf")
       pcall(require("telescope").load_extension, "ui-select")
+      pcall(require("telescope").load_extension, "frecency")
 
       -- See `:help telescope.builtin`
       local builtin = require("telescope.builtin")
       vim.keymap.set("n", "<leader>sh", builtin.help_tags, { desc = "[S]earch [H]elp" })
       vim.keymap.set("n", "<leader>sk", builtin.keymaps, { desc = "[S]earch [K]eymaps" })
-      vim.keymap.set("n", "<leader>sf", builtin.find_files, { desc = "[S]earch [F]iles" })
+      vim.keymap.set("n", "<leader>sf", function()
+        require("telescope").extensions.frecency.frecency({ workspace = "CWD" })
+      end, { desc = "[S]earch [F]iles" })
+      vim.keymap.set("n", "<leader>sF", function()
+        builtin.find_files({ hidden = true, no_ignore = true, file_ignore_patterns = {} })
+      end, { desc = "[S]earch [F]iles (build output included)" })
       vim.keymap.set("n", "<leader>ss", builtin.builtin, { desc = "[S]earch [S]elect Telescope" })
       vim.keymap.set("n", "<leader>sw", builtin.grep_string, { desc = "[S]earch current [W]ord" })
       vim.keymap.set("n", "<leader>sg", builtin.live_grep, { desc = "[S]earch by [G]rep" })
