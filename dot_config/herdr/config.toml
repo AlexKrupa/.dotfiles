@@ -280,7 +280,7 @@ command = "annotate.copy-context"
 description = "copy annotations as context"
 
 [[keys.command]]
-key = "alt+m"
+key = "alt+D"
 type = "plugin_action"
 command = "annotate.manage"
 description = "manage annotations"
