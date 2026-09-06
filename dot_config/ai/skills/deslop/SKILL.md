@@ -60,9 +60,12 @@ Test: does the reader lose data that the adjacent code or doc does not show?
 | Apply immediately                                     | Ask first                              |
 | ----------------------------------------------------- | -------------------------------------- |
 | Banned words, filler transitions, marketing diction   | Deletion of a paragraph or a section   |
-| Em-dashes, smart quotes, Markdown links -> plain URLs | Removal of a caveat or a version note  |
+| Em-dashes, smart quotes                               | Removal of a caveat or a version note  |
 | Same content, shorter sentence                        | Removal of the only example of a thing |
 | Reflow to 100 chars, heading case, list structure     | Merge or deletion of a full doc        |
+
+Keep Markdown links in files. The plain-URL rule is for replies only. In reply mode, change
+`[text](url)` to `text (url)`. In branch mode and path mode, do not touch links.
 
 Ask with **one** grouped prompt at the end. Put one item in it for each finding. Do not use one
 prompt per finding. Reply mode never asks.

@@ -132,8 +132,10 @@ supporting detail after it for readers who want it.
 - Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
   after the text
   - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
-- Apply these rules to all written communication: replies, docs, code comments, commit messages, PR
-  and issue descriptions.
+  - This rule is for replies only. In files, keep Markdown links: docs, commit messages, PR and
+    issue descriptions.
+- Apply the other rules in this section to all written communication: replies, docs, code comments,
+  commit messages, PR and issue descriptions.
 
 #### Limits
 
