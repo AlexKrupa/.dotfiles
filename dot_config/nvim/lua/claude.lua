@@ -1,10 +1,5 @@
--- Claude Code: @ file mention support
--- When editing a Claude Code prompt (claude-prompt-*.md), typing @ in insert mode
--- opens a Telescope file picker. Selecting a file inserts @path/to/file.
--- Cancelling (Escape) inserts a bare @.
--- Tail-only pattern (no '/') matches claude-prompt-*.md in any directory,
--- so it survives Claude Code changing TMPDIR (now /tmp/claude-501/...).
 vim.api.nvim_create_autocmd('BufEnter', {
+  -- Tail-only pattern (no `/`) survives Claude Code changing TMPDIR.
   pattern = 'claude-prompt-*.md',
   callback = function(ev)
     if vim.b[ev.buf].claude_at_mapped then
@@ -16,7 +11,7 @@ vim.api.nvim_create_autocmd('BufEnter', {
       local row, col = unpack(vim.api.nvim_win_get_cursor(0))
       local bufnr = vim.api.nvim_get_current_buf()
 
-      -- After a backtick, insert literal @ (e.g. inside inline code)
+      -- Inside inline code, insert a literal @.
       if col > 0 then
         local char_before = vim.api.nvim_buf_get_text(bufnr, row - 1, col - 1, row - 1, col, {})[1]
         if char_before == '`' then
@@ -46,7 +41,6 @@ vim.api.nvim_create_autocmd('BufEnter', {
               end
             end)
 
-            -- Cancel: insert bare @ and return to insert mode
             local function cancel()
               actions.close(prompt_bufnr)
               vim.schedule(function()

@@ -1,5 +1,4 @@
 return {
-  -- QMK keymap.c file formatter
   {
     'codethread/qmk.nvim',
     config = function()

@@ -4,14 +4,11 @@ return {
     event = 'InsertEnter',
     version = '1.*',
     dependencies = {
-      -- Snippet Engine
       {
         'L3MON4D3/LuaSnip',
         version = '2.*',
         build = (function()
-          -- Build Step is needed for regex support in snippets.
-          -- This step is not supported in many windows environments.
-          -- Remove the below condition to re-enable on windows.
+          -- The build gives regex support in snippets. Windows cannot run it.
           if vim.fn.has 'win32' == 1 or vim.fn.executable 'make' == 0 then
             return
           end
@@ -25,11 +22,7 @@ return {
     ---@type blink.cmp.Config
     opts = {
       keymap = {
-        -- 'default' preset maintains your existing keybinds:
-        --   <c-y> to accept ([y]es) the completion
-        --   <c-n>/<c-p> to navigate next/previous
-        --   <c-space> to manually trigger completion
-        --   <tab>/<s-tab> for snippet expansion navigation
+        -- <c-y> accept, <c-n>/<c-p> navigate, <c-space> trigger, <tab> snippets.
         preset = 'default',
       },
 
@@ -46,7 +39,7 @@ return {
 
       snippets = { preset = 'luasnip' },
 
-      -- Use Lua implementation (rust is faster but requires download)
+      -- Rust is faster but needs a download.
       fuzzy = { implementation = 'lua' },
 
       signature = { enabled = true },

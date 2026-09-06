@@ -1,38 +1,31 @@
 return {
-  -- Flash: Enhanced search and navigation (IdeaVim flash equivalent)
-  {
+  { -- Search and jump labels, same as the ideavim flash plugin
     'folke/flash.nvim',
     event = 'VeryLazy',
     opts = {
       search = {
         mode = 'exact',
-        incremental = true, -- Show matches as you type
+        incremental = true,
       },
       label = {
-        distance = true, -- for the current window, label targets closer to the cursor first
-        -- minimum pattern length to show labels
-        -- Ignored for custom labelers.
-        min_pattern_length = 0, -- Show labels immediately
-        -- Enable this to use rainbow colors to highlight labels
-        -- Can be useful for visualizing Treesitter ranges.
+        distance = true,
+        min_pattern_length = 0, -- show labels immediately
         rainbow = {
           enabled = true,
-          -- number between 1 and 9
-          shade = 5,
+          shade = 5, -- 1 to 9
         },
-        uppercase = false, -- allow uppercase labels
+        uppercase = false,
       },
       modes = {
         char = {
-          enabled = false, -- Disable single-char f/F/t/T replacement
+          enabled = false, -- keep f/F/t/T as vim defaults
         },
       },
       jump = {
-        autojump = true, -- Automatically jump when there is only one match
-        nohlsearch = false, -- Clear highlight after jump
+        autojump = true,
+        nohlsearch = false,
       },
       highlight = {
-        -- Highlight the search matches
         matches = true,
       },
     },
@@ -46,7 +39,7 @@ return {
         desc = 'Flash',
       },
       {
-        -- Visual S left to nvim-surround (tpope grammar), matching ideavim.
+        -- Visual S is left to nvim-surround, same as ideavim.
         'S',
         mode = { 'n', 'o' },
         function()
