@@ -304,6 +304,7 @@ return {
         -- A closer `build.gradle*` marks one module, not the repo root.
         local root_dir = vim.fs.root(bufnr, { 'settings.gradle.kts', 'settings.gradle', 'build.gradle.kts', 'build.gradle' })
         if not root_dir then
+          vim.notify(('kotlin_lsp: no Gradle root above %s'):format(vim.api.nvim_buf_get_name(bufnr)), vim.log.levels.WARN)
           return
         end
         local _, port = kotlin_lsp_workspace(root_dir)
