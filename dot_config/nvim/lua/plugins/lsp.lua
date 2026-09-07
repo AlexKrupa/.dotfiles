@@ -235,9 +235,11 @@ return {
       require('mason-lspconfig').setup {
         ensure_installed = {}, -- mason-tool-installer above owns the install list
         automatic_installation = false,
+        -- A cold `intellij-server` needs minutes to accept a connection. `vim.lsp.enable` cannot
+        -- wait for it. The `FileType` autocmd starts `kotlin_lsp` instead.
+        automatic_enable = { exclude = { 'kotlin_lsp' } },
       }
 
-      -- A cold `intellij-server` needs minutes to accept a connection. `vim.lsp.enable` cannot wait.
       vim.lsp.enable(vim.tbl_filter(function(name)
         return name ~= 'kotlin_lsp'
       end, vim.tbl_keys(servers)))
