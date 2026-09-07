@@ -133,56 +133,28 @@ return {
       -- Keep one detached server per project root so a later reopen reuses the warm index.
       -- The cache in `~/Library/Caches/JetBrains/analyzer` is keyed by root path, so git worktrees
       -- of one repo need separate servers.
-      local function connect_kotlin_lsp(dispatchers, config)
-        local host = '127.0.0.1'
-        -- A wrong root imports the wrong project, so refuse to guess.
-        local root_dir = config.root_dir or error 'kotlin_lsp: no project root'
+      local kotlin_lsp_host = '127.0.0.1'
+
+      ---@return string workspace_key
+      ---@return integer port
+      local function kotlin_lsp_workspace(root_dir)
         local workspace_key = vim.fn.sha256(root_dir):sub(1, 12)
-        local port = 20000 + tonumber(workspace_key:sub(1, 4), 16) % 20000
+        return workspace_key, 20000 + tonumber(workspace_key:sub(1, 4), 16) % 20000
+      end
 
-        local function is_listening()
-          local reachable = false
-          local socket = assert(vim.uv.new_tcp())
-          socket:connect(host, port, function(err)
-            reachable = err == nil
-            socket:close()
-          end)
-          vim.wait(1000, function()
-            return socket:is_closing()
-          end, 10)
-          return reachable
-        end
+      local function probe_port(port, on_result)
+        local socket = assert(vim.uv.new_tcp())
+        socket:connect(kotlin_lsp_host, port, function(err)
+          socket:close()
+          on_result(err == nil)
+        end)
+      end
 
-        if not is_listening() then
-          local command = vim.fn.exepath 'intellij-server'
-          if command == '' then
-            command = vim.fn.expand '~/.local/share/nvim/mason/bin/intellij-server'
-          end
-          vim.fn.jobstart({
-            command,
-            '--socket',
-            host .. ':' .. port,
-            -- Without this the server exits when the first client disconnects.
-            '--multi-client',
-            -- Defaults to a fresh temp directory, which leaks a log tree per run.
-            '--system-path',
-            vim.fn.expand('~/.cache/kotlin-lsp/' .. workspace_key),
-          }, { cwd = root_dir, detach = true })
-
-          local started = false
-          for _ = 1, 60 do
-            started = is_listening()
-            if started then
-              break
-            end
-            vim.uv.sleep(500)
-          end
-          if not started then
-            error(('kotlin_lsp: no server on %s:%d for %s'):format(host, port, root_dir))
-          end
-        end
-
-        return vim.lsp.rpc.connect(host, port)(dispatchers)
+      local function connect_kotlin_lsp(dispatchers, config)
+        -- A wrong root imports the wrong project. Do not guess one.
+        local root_dir = config.root_dir or error 'kotlin_lsp: no project root'
+        local _, port = kotlin_lsp_workspace(root_dir)
+        return vim.lsp.rpc.connect(kotlin_lsp_host, port)(dispatchers)
       end
 
       -- On an unbuilt Android project the server lists every missing `build/` artifact in one
@@ -265,7 +237,99 @@ return {
         automatic_installation = false,
       }
 
-      vim.lsp.enable(vim.tbl_keys(servers))
+      -- A cold `intellij-server` needs minutes to accept a connection. `vim.lsp.enable` cannot wait.
+      vim.lsp.enable(vim.tbl_filter(function(name)
+        return name ~= 'kotlin_lsp'
+      end, vim.tbl_keys(servers)))
+
+      local function start_kotlin_lsp(root_dir, bufnr)
+        if vim.api.nvim_buf_is_valid(bufnr) then
+          local config = vim.tbl_extend('force', vim.lsp.config.kotlin_lsp, { root_dir = root_dir })
+          vim.lsp.start(config, { bufnr = bufnr })
+        end
+      end
+
+      local kotlin_lsp_booting = {}
+
+      local function boot_kotlin_lsp(root_dir, bufnr)
+        local workspace_key, port = kotlin_lsp_workspace(root_dir)
+        if kotlin_lsp_booting[port] then
+          return
+        end
+        kotlin_lsp_booting[port] = true
+
+        local command = vim.fn.exepath 'intellij-server'
+        if command == '' then
+          command = vim.fn.expand '~/.local/share/nvim/mason/bin/intellij-server'
+        end
+        local log_path = vim.fn.stdpath 'state' .. '/kotlin-lsp-' .. workspace_key .. '.log'
+        -- A detached job drops both pipes.
+        local shell_command = ('exec %s --socket %s:%d --multi-client --system-path %s >%s 2>&1'):format(
+          vim.fn.shellescape(command),
+          kotlin_lsp_host,
+          port,
+          -- Without this, each run leaks a log tree in a new temp directory.
+          vim.fn.shellescape(vim.fn.expand('~/.cache/kotlin-lsp/' .. workspace_key)),
+          vim.fn.shellescape(log_path)
+        )
+        vim.fn.jobstart({ 'sh', '-c', shell_command }, { cwd = root_dir, detach = true })
+
+        local timer = assert(vim.uv.new_timer())
+        local deadline = vim.uv.now() + 300000
+        timer:start(2000, 2000, function()
+          probe_port(port, function(live)
+            if timer:is_closing() then
+              return
+            end
+            local expired = vim.uv.now() > deadline
+            if not (live or expired) then
+              return
+            end
+            timer:close()
+            kotlin_lsp_booting[port] = nil
+            vim.schedule(function()
+              if live then
+                start_kotlin_lsp(root_dir, bufnr)
+              else
+                vim.notify(('kotlin_lsp: no server on %s:%d for %s, see %s'):format(kotlin_lsp_host, port, root_dir, log_path), vim.log.levels.WARN)
+              end
+            end)
+          end)
+        end)
+      end
+
+      local function attach_kotlin_lsp(bufnr)
+        -- A closer `build.gradle*` marks one module, not the repo root.
+        local root_dir = vim.fs.root(bufnr, { 'settings.gradle.kts', 'settings.gradle', 'build.gradle.kts', 'build.gradle' })
+        if not root_dir then
+          return
+        end
+        local _, port = kotlin_lsp_workspace(root_dir)
+        probe_port(port, function(live)
+          vim.schedule(function()
+            if live then
+              start_kotlin_lsp(root_dir, bufnr)
+            else
+              boot_kotlin_lsp(root_dir, bufnr)
+            end
+          end)
+        end)
+      end
+
+      vim.api.nvim_create_autocmd('FileType', {
+        pattern = 'kotlin',
+        group = vim.api.nvim_create_augroup('kotlin-lsp-start', { clear = true }),
+        callback = function(event)
+          attach_kotlin_lsp(event.buf)
+        end,
+      })
+
+      -- `FileType` already fired for a file named on the command line.
+      for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.bo[bufnr].filetype == 'kotlin' then
+          attach_kotlin_lsp(bufnr)
+        end
+      end
     end,
   },
 }
