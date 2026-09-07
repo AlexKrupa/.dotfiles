@@ -59,6 +59,9 @@ return {
           },
           frecency = {
             show_filter_column = false,
+            -- Its confirmation dialog types an `A` into the prompt.
+            -- https://github.com/nvim-telescope/telescope-frecency.nvim/issues/270
+            db_safe_mode = false,
           },
         },
       }
