@@ -18,7 +18,7 @@ copy_on_select = true
 hide_tab_bar_when_single_tab = false
 mouse_capture = true
 mouse_scroll_lines = 1             # default 3
-pane_borders = true
+pane_borders = "always"            # options: always auto off
 pane_gaps = true
 pane_scrollbars = true
 prompt_new_tab_name = false        # default true
@@ -51,7 +51,6 @@ delay_seconds = 1
 position = "bottom-right"
 
 [experimental]
-kitty_graphics = true
 pane_history = false
 
 [session]
