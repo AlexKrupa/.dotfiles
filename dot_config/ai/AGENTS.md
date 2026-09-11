@@ -89,6 +89,8 @@ delve, leverage, streamline, land, carry, overstep, ship,
 #### Formatting
 
 - Markdown line length limit: 100 characters
+- Lists are fine - both bullets and numbers! They can be more readable than forced enumeration in
+  one sentence.
 - Prefer ASCII over Unicode for punctuation and stylistic symbols (no smart quotes, em-dashes, or
   decorative icons).
   - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,
