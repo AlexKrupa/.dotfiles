@@ -92,7 +92,7 @@ defaults write com.apple.universalaccess.plist HIDScrollZoomModifierMask -int 26
 defaults write com.apple.universalaccess.plist closeViewZoomFollowsFocus -bool true
 
 # Change the default mouse cursor size on macos
-defaults write com.apple.universalaccess.plist 'mouseDriverCursorSize' 2.5
+defaults write com.apple.universalaccess.plist mouseDriverCursorSize -float 2.5
 
 # Change key hold & repeat rates
 # https://www.defaults-write.com/disable-press-and-hold-option-in-mac-os-x-10-7/
@@ -201,7 +201,7 @@ defaults write com.apple.finder OpenWindowForNewRemovableDisk -bool true
 /usr/libexec/PlistBuddy -c "Set :FK_StandardViewSettings:IconViewSettings:showItemInfo true" ~/Library/Preferences/com.apple.finder.plist
 /usr/libexec/PlistBuddy -c "Set :StandardViewSettings:IconViewSettings:showItemInfo true" ~/Library/Preferences/com.apple.finder.plist
 # Show item info to the right of the icons on the desktop
-/usr/libexec/PlistBuddy -c "Set DesktopViewSettings:IconViewSettings:labelOnBottom false" ~/Library/Preferences/com.apple.finder.plist
+/usr/libexec/PlistBuddy -c "Set :DesktopViewSettings:IconViewSettings:labelOnBottom false" ~/Library/Preferences/com.apple.finder.plist
 # Enable snap-to-grid for icons on the desktop and in other icon views
 /usr/libexec/PlistBuddy -c "Set :DesktopViewSettings:IconViewSettings:arrangeBy grid" ~/Library/Preferences/com.apple.finder.plist
 /usr/libexec/PlistBuddy -c "Set :FK_StandardViewSettings:IconViewSettings:arrangeBy grid" ~/Library/Preferences/com.apple.finder.plist
@@ -218,7 +218,7 @@ defaults write com.apple.finder OpenWindowForNewRemovableDisk -bool true
 # Four-letter codes for the other view modes: `icnv`, `Nlsv`, `clmv`, `glyv`
 defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
 # Show the ~/Library folder
-chflags nohidden ~/Library && xattr -d com.apple.FinderInfo ~/Library
+chflags nohidden ~/Library && xattr -d com.apple.FinderInfo ~/Library 2>/dev/null
 # Show the /Volumes folder
 sudo chflags nohidden /Volumes
 
@@ -254,7 +254,8 @@ defaults write com.apple.dock expose-group-by-app -bool false
 # Don’t automatically rearrange Spaces based on most recent use
 defaults write com.apple.dock mru-spaces -bool false
 # Remove the auto-hiding Dock delay
-defaults write com.apple.dock autohide-delay -float 0 && defaults write com.apple.dock autohide-time-modifier -float 0.4 && killall Dock
+defaults write com.apple.dock autohide-delay -float 0
+defaults write com.apple.dock autohide-time-modifier -float 0.4
 # Automatically hide and show the Dock
 defaults write com.apple.dock autohide -bool true
 # Make Dock icons of hidden applications translucent

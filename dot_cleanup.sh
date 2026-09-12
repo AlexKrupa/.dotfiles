@@ -1,55 +1,60 @@
 #!/usr/bin/env bash
 
-YELLOW='\033[1;33m'     # switching section
-GRAY='\033[1;30m'       # info
-PURPLE='\033[1;35m'     # making change
-NC='\033[0m' # No Color
+YELLOW='\033[1;33m' # switching section
+GRAY='\033[1;30m'   # info
+PURPLE='\033[1;35m' # making change
+NC='\033[0m'        # no color
 
-function delete_if_exists {
-    if [ -f "$1" ]; then
-        echo -e "$1 exists."
-        sudo rm -rf "$1" 2> /dev/null
-    # else
-        echo -e "$1 does not exist."
+info()   { echo -e "${GRAY}---- $1${NC}"; }
+step()   { echo -e "\n${YELLOW}---- $1${NC}"; }
+action() { echo -e "\n${PURPLE}---- $1${NC}"; }
+
+delete_if_exists() {
+    if [ -e "$1" ]; then
+        info "Deleting $1"
+        sudo rm -rf "$1" 2>/dev/null
+    else
+        info "$1 does not exist"
     fi
 }
 
-echo -e "\n\n\n${YELLOW}---- Running cleanup now...${NC}"
+step "Running cleanup now"
 
-echo -e "${PURPLE}---- Rebuilding launch services${NC}"
+action "Rebuilding launch services"
 # Remove duplicates in the “Open With” menu (also see `lscleanup` alias)
 # /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -kill -r -domain local -domain user; and killall Finder
 # /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user
 
-# echo -e "${PURPLE}---- Safari caches${NC}"
+# action "Safari caches"
 # delete_if_exists ~/Library/Caches/com.apple.Safari
 
-echo -e "${PURPLE}---- gradle caches${NC}"
+action "gradle caches"
 find ~/.gradle/caches -type f -atime +30 -delete
 find ~/.gradle/caches -type d -mindepth 1 -empty -delete
 
-echo -e "${PURPLE}---- kscript jars${NC}"
-delete_if_exists $HOME/.kscript
+action "kscript jars"
+delete_if_exists "$HOME/.kscript"
 
-echo -e "${PURPLE}---- .android caches${NC}"
-delete_if_exists $HOME/.android/cache
-delete_if_exists $HOME/.android/build-cache
+action ".android caches"
+delete_if_exists "$HOME/.android/cache"
+delete_if_exists "$HOME/.android/build-cache"
 
-# echo -e "${PURPLE}---- CocoaPods${NC}"
+# action "CocoaPods"
 # see flushpods.fish
 # delete_if_exists $HOME/Library/Caches/CocoaPods
 
-# echo -e "${PURPLE}---- Spotlight refresh${NC}"
+# action "Spotlight refresh"
 # sudo mdutil -a -i off
 # sudo launchctl unload -w /System/Library/LaunchDaemons/com.apple.metadata.mds.plist
 # sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.metadata.mds.plist
 # sudo mdutil -a -i on
 
-# echo -e "${PURPLE}---- DNS flush${NC}"
+# action "DNS flush"
 # see flushdns.fish
-dscacheutil -flushcache;sudo killall -HUP mDNSResponder;
+dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
 
-echo -e "${PURPLE}---- homebrew cleanup${NC}"
+action "homebrew cleanup"
 # brew outdated
 # Remove stale lock files and outdated downloads for all formulae and casks
 # remove old versions of installed formulae
@@ -65,5 +70,3 @@ brew doctor
 # manual process
 # https://thoughtbot.com/blog/brew-leaves
 # brew leaves
-
-unset delete_if_exists;

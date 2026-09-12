@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
-# Brew Apps installed from Brewfile
-echo "${ARROW}Installing apps from Brewfile..."
-brew bundle install --file Brewfile
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+step() { echo -e "\n${YELLOW}---- $1${NC}"; }
+
+step "Installing apps from Brewfile"
+brew bundle install --file "$HOME/.brewfile"
