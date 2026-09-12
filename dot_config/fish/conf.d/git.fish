@@ -1,10 +1,10 @@
-alias g "git"
-alias lg "lazygit"
+abbr -a g git
+abbr -a lg lazygit
 alias gs "git-spice"
 alias gitc "$EDITOR $XDG_CONFIG_HOME/git/config-base"
 alias giti "$EDITOR $XDG_CONFIG_HOME/git/ignore"
 
-set -Ux GIT_SPICE_NO_GS_WARNING 1
+set -gx GIT_SPICE_NO_GS_WARNING 1
 
 # Usage: branch [name...]
 function branch --description 'List branches or create prefixed branch'
@@ -16,7 +16,9 @@ function branch --description 'List branches or create prefixed branch'
 end
 
 function catch-up --description 'Checkout and pull main branch'
-  git checkout (__git_main)
+  set -l main (__git_main)
+  or return 1
+  git checkout $main
   and git pull --prune
 end
 
@@ -28,7 +30,9 @@ function gco --wraps="git checkout" --description 'Checkout branch or default to
   if test (count $argv) -gt 0
     git checkout $argv
   else
-    git checkout (__git_main)
+    set -l main (__git_main)
+    or return 1
+    git checkout $main
   end
 end
 
@@ -37,7 +41,8 @@ function gbf --description 'Fuzzy find and preview branches'
 end
 
 function rebase --description 'Rebase current branch onto main'
-  set main (__git_main)
+  set -l main (__git_main)
+  or return 1
   git checkout $main
   and git pull --prune
   and git checkout -
@@ -45,16 +50,21 @@ function rebase --description 'Rebase current branch onto main'
 end
 
 function rm-merged-local --description 'Delete local branches merged to main'
-  set main (__git_main)
-  git branch --merged $main | command grep -v $main | xargs git branch -D
+  set -l main (__git_main)
+  or return 1
+  git branch --merged $main --format='%(refname:short)' \
+    | string match --invert $main \
+    | xargs -r git branch -d
 end
 
 function __git_main
   for branch in "main" "master" "trunk"
-    if git rev-parse "$branch" &>/dev/null
+    if git rev-parse --verify --quiet "refs/heads/$branch" >/dev/null
       echo $branch
-      break
+      return 0
     end
   end
+  echo "No main, master or trunk branch found." >&2
+  return 1
 end
 

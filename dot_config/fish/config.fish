@@ -49,9 +49,9 @@ alias lgc "$EDITOR ~/.config/lazygit/config.yml"
 alias nvimc "$EDITOR ~/.config/nvim/init.lua"
 alias vimc "$EDITOR ~/.config/vim/vimrc"
 
-alias cd "z" # zoxide
+abbr -a cd z # zoxide
 alias cl "claude"
-alias ls "lsd -a --long"
+abbr -a ls lsd -a --long
 alias dl "cd ~/Downloads"
 alias dlf "open ~/Downloads"
 alias finder "open ."

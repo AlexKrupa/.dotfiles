@@ -4,16 +4,16 @@ function upfind --description 'Search parent directories for a file'
     return 1
   end
 
-  set -f dir (pwd)
+  set -f dir $PWD
 
-  while [ "$dir" != "/" ]
-    set -l p (find "$dir" -maxdepth 1 -name $argv[1])
-
-    if [ -n "$p" ]
-      echo "$p"
+  while test "$dir" != /
+    if test -e "$dir/$argv[1]"
+      echo "$dir/$argv[1]"
       return 0
     end
 
-    set -f dir (dirname $dir)
+    set -f dir (path dirname $dir)
   end
+
+  return 1
 end

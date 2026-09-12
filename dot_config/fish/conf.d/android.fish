@@ -15,12 +15,12 @@ set -gx ANDROID_AVD_HOME $XDG_DATA_HOME/android/avd
 set -g ANDROID_MEDIA_PATH ~/Downloads/android-
 set -g ADB_STATIC_PORT 4444
 
-fish_add_path $ANDROID_HOME/cmdline-tools/latest/bin
-fish_add_path $ANDROID_HOME/emulator
-fish_add_path $ANDROID_HOME/platform-tools
-fish_add_path $ANDROID_HOME/tools
+fish_add_path -ga $ANDROID_HOME/cmdline-tools/latest/bin
+fish_add_path -ga $ANDROID_HOME/emulator
+fish_add_path -ga $ANDROID_HOME/platform-tools
+fish_add_path -ga $ANDROID_HOME/tools
 
-fish_add_path ~/src/me/adx
+fish_add_path -ga ~/src/me/adx
 
 # ==============================================================================
 # Aliases
@@ -61,44 +61,31 @@ alias and-dc and-disconnect
 # ==============================================================================
 
 function and-emu --description 'Select and start Android emulator'
-  set -l avds "$(emulator -list-avds)"
-  set -l avd_count (count (echo $avds | string split -n "\n"))
-  if test $avd_count -ge 2
-    set -f selected_avd (echo $avds | fzf)
-    wait
-    if test -z "$selected_avd"
-      echo AVD not selected 1>&2
-      return 1
-    end
-  else if test $avd_count -eq 1
-    set -f selected_avd $avds
-  else
-    echo No AVDs found 1>&2
-    return 1
-  end
+  set -l avd (emulator -list-avds | __select_one AVD)
+  or return 1
+
   # Start the emulator with Google's DNS server to avoid network issues.
-  emulator -avd $selected_avd -dns-server 8.8.8.8
+  emulator -avd $avd -dns-server 8.8.8.8
 end
 
 # ==============================================================================
 # Build & install
 # ==============================================================================
 
-# Usage: and-install <variant> <package>
+# Usage: and-install <variant>
 function and-install --description 'Build and install app on device'
-  if test (count $argv) -lt 2
-    echo "Usage: and-install <variant> <package>" >&2
+  if test (count $argv) -lt 1
+    echo "Usage: and-install <variant>" >&2
     return 1
   end
 
   set -l variant $argv[1]
-  set -l package $argv[2]
 
   if not __require_device_selection
     return 1
   end
 
-  echo "Installing $package on $ANDROID_SERIAL"
+  echo "Building $variant for $ANDROID_SERIAL"
 
   gw :app:assemble$variant
   if test $status -ne 0
@@ -142,7 +129,7 @@ function and-install-start --description 'Build, install, and start app'
   set -l package $argv[2]
   set -l intent_args $argv[3..-1]
 
-  and-install $variant $package
+  and-install $variant
   if test $status -ne 0
     return 1
   end
@@ -172,30 +159,26 @@ end
 # Returns path to most recent APK matching variant, or most recent APK if no variant specified.
 function __find_apk
   set -l variant (string lower $argv[1])
-  set -l apk_dir "app/build/outputs/apk"
+  set -l gradlew (upfind gradlew)
+  or return 1
+  set -l apk_dir (path dirname $gradlew)/app/build/outputs/apk
+  test -d $apk_dir
+  or return 1
 
-  if not test -d "$apk_dir"
-    return 1
-  end
+  set -l apks (find $apk_dir -name '*.apk' -type f -exec stat -f '%m %N' {} + 2>/dev/null \
+    | sort -rn | string replace -r '^\d+ ' '')
+  test -n "$apks"
+  or return 1
 
-  # Find all APKs sorted by modification time (newest first)
-  set -l apks (find $apk_dir -name "*.apk" -type f -exec stat -f "%m %N" {} + 2>/dev/null | sort -rn | cut -d' ' -f2-)
-
-  if test -z "$apks"
-    return 1
-  end
-
-  # If variant specified, find matching APK
   if test -n "$variant"
     for apk in $apks
-      if string match -qi "*$variant*" (basename $apk)
+      if string match -qi "*$variant*" (path basename $apk)
         echo $apk
         return 0
       end
     end
   end
 
-  # Fall back to most recent APK
   echo $apks[1]
 end
 
@@ -742,24 +725,34 @@ end
 
 # Select an ADB device from the list of connected devices.
 function __select_adb_device
-  set -l devices "$(adb devices -l | tail -n +2 | ghead -n -1)"
-  set -l device_count (count (echo $devices | string split -n "\n"))
-  set -l selected_device ""
+  # Preview shows device model for highlighted device
+  set -l device (adb devices -l | tail -n +2 | ghead -n -1 \
+    | __select_one device --preview 'echo {} | cut -f1 -w | xargs -I{} adb -s {} shell getprop ro.product.model 2>/dev/null')
+  or return 1
 
-  if test $device_count -ge 2
-    # Preview shows device model for highlighted device
-    set selected_device (echo $devices | fzf --preview 'echo {} | cut -f1 -w | xargs -I{} adb -s {} shell getprop ro.product.model 2>/dev/null')
-    wait
-    if test -z "$selected_device"
-      echo Device not selected 1>&2
-    end
-  else if test $device_count -eq 1
-    set selected_device $devices
-  else
-    echo No connected devices 1>&2
+  echo $device | cut -f1 -w
+end
+
+# Usage: <command> | __select_one <noun> [fzf_args...]
+function __select_one
+  set -l noun $argv[1]
+  set -l items
+  while read -l line
+    set -a items $line
   end
 
-  if test -n "$selected_device"
-    echo (echo $selected_device | cut -f1 -w)
+  switch (count $items)
+    case 0
+      echo "No $noun found" >&2
+      return 1
+    case 1
+      echo $items[1]
+    case '*'
+      set -l selected (printf '%s\n' $items | fzf $argv[2..-1])
+      if test -z "$selected"
+        echo "No $noun selected" >&2
+        return 1
+      end
+      echo $selected
   end
 end

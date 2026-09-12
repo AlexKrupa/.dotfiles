@@ -3,10 +3,12 @@
 bind -M insert ctrl-alt-b _fzf_search_git_branch
 bind -M default ctrl-alt-b _fzf_search_git_branch
 
-set -Ux FZF_DEFAULT_COMMAND "fd --type f --strip-cwd-prefix --hidden --follow --exclude .git"
+fzf_configure_bindings --history=
+
+set -gx FZF_DEFAULT_COMMAND "fd --type f --strip-cwd-prefix --hidden --follow --exclude .git"
 
 # style: default, full, minimal
-set -Ux FZF_DEFAULT_OPTS (printf '%s ' \
+set -gx FZF_DEFAULT_OPTS (printf '%s ' \
     '--style=minimal' \
     '--border' \
     # '--layout=reverse' \
