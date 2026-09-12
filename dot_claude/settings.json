@@ -1,42 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-
-  "model": "opus",
-  "fallbackModel": [
-    "claude-opus-5",
-    "claude-opus-4-8",
-    "claude-opus-4-7",
-    "claude-opus-4-6[1m]"
-  ],
-  "alwaysThinkingEnabled": true,
-  "effortLevel": "medium",
-  "modelSettings": {
-    "claude-fable-5-1": {
-      "effortLevel": "medium"
-    },
-    "claude-opus-5": {
-      "effortLevel": "medium"
-    },
-    "claude-sonnet-5": {
-      "effortLevel": "high"
-    }
+  "respectGitignore": true,
+  "env": {
+    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
+    "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
+    "CLAUDE_CODE_NO_FLICKER": "0",
+    "CLAUDE_CODE_THRIFTY_SONIC": "0",
+    "DISABLE_AUTOUPDATER": "1",
+    "ENABLE_LSP_TOOL": "1"
   },
-
-  "outputStyle": "Plain",
-  "theme": "auto",
-  "editorMode": "normal",
-  "syntaxHighlightingDisabled": false,
-  "prefersReducedMotion": false,
-  "showThinkingSummaries": true,
-  "showClearContextOnPlanAccept": true,
-
-  "preferredNotifChannel": "notifications_disabled",
-  "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true,
-  "feedbackDrafts": "off",
-
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
   "permissions": {
-    "defaultMode": "auto",
     "allow": [
       "Bash(~/.claude/skills/review-branch/branch-context.sh:*)",
       "Bash(~/.claude/skills/review-branch/report-path.sh:*)",
@@ -51,7 +31,6 @@
       "Bash(cat *)",
       "Bash(diff *)",
       "Bash(echo *)",
-      "Bash(env)",
       "Bash(fd *)",
       "Bash(file *)",
       "Bash(find *)",
@@ -113,10 +92,105 @@
       "Edit(**/build/**)",
       "Edit(**/generated/**)"
     ],
-    "ask": []
+    "ask": [],
+    "defaultMode": "auto"
   },
-  "skipAutoPermissionPrompt": true,
-
+  "model": "opus",
+  "fallbackModel": [
+    "claude-opus-5",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6[1m]"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/guard.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/alexkrupa/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/alexkrupa/.claude/hooks/append-terse.sh'"
+          }
+        ]
+      }
+    ]
+  },
+  "worktree": {
+    "baseRef": "fresh"
+  },
+  "enableArtifact": false,
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh",
+    "refreshInterval": 5,
+    "hideVimModeIndicator": true
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/subagent-statusline.sh"
+  },
+  "enabledPlugins": {
+    "clangd-lsp@claude-plugins-official": false,
+    "claude-code-setup@claude-plugins-official": false,
+    "claude-md-management@claude-plugins-official": false,
+    "gopls-lsp@claude-plugins-official": false,
+    "jdtls-lsp@claude-plugins-official": false,
+    "kotlin-lsp@claude-plugins-official": false,
+    "ksrc@respawn-tools": false,
+    "lua-lsp@claude-plugins-official": false,
+    "nono@nolabs-ai": true,
+    "ponytail@ponytail": true,
+    "pyright-lsp@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": false,
+    "simple-english@simple-english": true,
+    "superpowers@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": false,
+    "typescript-lsp@claude-plugins-official": false
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    },
+    "respawn-tools": {
+      "source": {
+        "source": "github",
+        "repo": "respawn-app/claude-plugin-marketplace"
+      }
+    },
+    "simple-english": {
+      "source": {
+        "source": "github",
+        "repo": "AminBlg/SimpleEnglish"
+      }
+    }
+  },
+  "outputStyle": "Plain",
   "sandbox": {
     "enabled": false,
     "failIfUnavailable": true,
@@ -187,114 +261,57 @@
       ]
     }
   },
-
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/guard.sh"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash '/Users/alexkrupa/.claude/hooks/herdr-agent-state.sh' session",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash '/Users/alexkrupa/.claude/hooks/append-terse.sh'"
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/statusline-command.sh",
-    "refreshInterval": 5,
-    "hideVimModeIndicator": true
-  },
-  "subagentStatusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/subagent-statusline.sh"
-  },
-
-  "enabledPlugins": {
-    "clangd-lsp@claude-plugins-official": false,
-    "claude-code-setup@claude-plugins-official": false,
-    "claude-md-management@claude-plugins-official": false,
-    "gopls-lsp@claude-plugins-official": false,
-    "jdtls-lsp@claude-plugins-official": false,
-    "kotlin-lsp@claude-plugins-official": false,
-    "ksrc@respawn-tools": false,
-    "lua-lsp@claude-plugins-official": false,
-    "nono@nolabs-ai": true,
-    "ponytail@ponytail": true,
-    "pyright-lsp@claude-plugins-official": false,
-    "skill-creator@claude-plugins-official": false,
-    "simple-english@simple-english": true,
-    "superpowers@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false
-  },
-  "extraKnownMarketplaces": {
-    "ponytail": {
-      "source": {
-        "source": "github",
-        "repo": "DietrichGebert/ponytail"
-      }
+  "feedbackDrafts": "off",
+  "syntaxHighlightingDisabled": false,
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "medium",
+  "modelSettings": {
+    "claude-fable-5-1": {
+      "effortLevel": "medium"
     },
-    "respawn-tools": {
-      "source": {
-        "source": "github",
-        "repo": "respawn-app/claude-plugin-marketplace"
-      }
+    "claude-opus-5": {
+      "effortLevel": "medium"
     },
-    "simple-english": {
-      "source": {
-        "source": "github",
-        "repo": "AminBlg/SimpleEnglish"
-      }
+    "claude-sonnet-5": {
+      "effortLevel": "high"
     }
   },
-
-  "attribution": {
-    "commit": "",
-    "pr": "",
-    "sessionUrl": false
+  "showClearContextOnPlanAccept": true,
+  "prefersReducedMotion": false,
+  "showThinkingSummaries": true,
+  "theme": "auto",
+  "editorMode": "normal",
+  "preferredNotifChannel": "notifications_disabled",
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: None configured",
+      "**Repository visibility**: Not queryable here (no remotes configured); assume private",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: None configured",
+      "**Default / protected branches**: Not queryable here (no remotes configured — origin/HEAD unset)",
+      "**CI/CD deploy targets**: None configured",
+      "**Network posture**: None configured",
+      "**Host containment**: None configured — assume Claude Code runs on an ordinary developer machine or CI runner with open internet",
+      "**Source control**: The trusted repo (/Users/alexkrupa/.config/fish) only — no remotes configured, no additional orgs configured",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: None configured",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar; note local.fish contains machine-specific aliases and API keys per CLAUDE.md",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (personal dotfiles / Fish shell configuration)",
+      "**Trusted repo**: /Users/alexkrupa/.config/fish (no remotes configured — local-only repo)",
+      "**Org-specific CLIs**: None configured — repo uses fish, brew, gradle wrapper (gw), adb, git-spice (gs) as personal tooling, not org-specific"
+    ]
   },
-  "worktree": {
-    "baseRef": "fresh"
-  },
-  "respectGitignore": true,
-
-  "env": {
-    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
-    "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
-    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
-    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
-    "CLAUDE_CODE_NO_FLICKER": "0",
-    "CLAUDE_CODE_THRIFTY_SONIC": "0",
-    "DISABLE_AUTOUPDATER": "1",
-    "ENABLE_LSP_TOOL": "1"
-  },
-
-  "enableArtifact": false,
   "autoConnectIde": false
 }
