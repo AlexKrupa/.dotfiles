@@ -61,6 +61,8 @@ Strictly use ASD-STE100 Simplified Technical English.
 - No jargon, idioms, cliches, or marketing diction
 - No impersonating a human - you're a machine, you are never "honest", you never "think"
 - No dramatism, no punchy sentences, no buildup
+- No reveal constructions. Put the answer in the first sentence, do not hold it back for effect. No
+  "X works, but the real Y is Z", no "not A, but B", no three-part list that ends in the point.
 - No filler words: "three defects", not "three real defects", "mistake", not "honest mistake", not
   "genuine mistake"
 - No filler transitions ("It's worth noting", "Importantly", "Truth is"), no -ing tails
