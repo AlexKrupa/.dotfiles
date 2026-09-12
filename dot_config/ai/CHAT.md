@@ -1,7 +1,5 @@
 # Personal AI chat instructions
 
-- **ALWAYS** follow unless explicitly asked otherwise
-
 ## Approach
 
 - Ask, not assume. If you have to pick between interpretations, name them and ask instead.
