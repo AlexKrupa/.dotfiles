@@ -161,14 +161,14 @@
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
+    "nono@nolabs-ai": true,
     "ponytail@ponytail": true,
     "pyright-lsp@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
     "simple-english@simple-english": true,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false,
-    "nono@nolabs-ai": true
+    "typescript-lsp@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "ponytail": {
@@ -264,13 +264,16 @@
   "feedbackDrafts": "off",
   "syntaxHighlightingDisabled": false,
   "alwaysThinkingEnabled": true,
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "modelSettings": {
+    "claude-fable-5-1": {
+      "effortLevel": "medium"
+    },
     "claude-opus-5": {
       "effortLevel": "medium"
     },
     "claude-sonnet-5": {
-      "effortLevel": "low"
+      "effortLevel": "high"
     }
   },
   "showClearContextOnPlanAccept": true,
