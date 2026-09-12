@@ -14,15 +14,19 @@ brew "bat" # cat alternative with syntax highlighting
 brew "age" # file encryption
 brew "atuin" # persistent shell history
 brew "bandwhich" # network monitor, requires sudo
+brew "static-var/tap/build-brief" # build output summarizer
 brew "chezmoi" # dotfiles management
+brew "colima" # containers
 brew "coreutils" # for gnu date
 brew "curl"
 brew "diskonaut" # disk usage TUI
+brew "difftastic" # structural diff
 brew "duf" # disk usage/free utility, df alternative
 brew "dust" # disk usage utility, du alternative
 brew "exiftool" # read/write metadata
 brew "fd" # find alternative
 brew "ffmpeg" # video converter / compressor
+brew "fish" # shell
 # brew "fjira" # Jira CLI
 brew "fx" # JSON viewer / processor
 brew "fzf" # fuzzy finder
@@ -33,6 +37,7 @@ brew "git-lfs" # git large file storage
 brew "git-spice" # git stack
 brew "gh" # GitHub
 brew "github-keygen"
+brew "gitleaks" # secret scanner
 # brew "glab" # GitLab
 brew "gnupg" # "openssl"
 brew "grc" # command output colorizer
@@ -45,11 +50,13 @@ brew "imagemagick" # image converter / compressor
 brew "jless" # JSON viewer
 brew 'jq' # grep for JSON
 brew 'jqp' # jq TUI
+brew "kanata" # keyboard remapper
+brew "lazygit" # git TUI
 brew "lsd" # better ls
 brew "lua-language-server"
 brew "mosh" # mobile shell
 brew "neovim"
-brew "node"
+brew "nono" # sandbox
 brew "openssl"
 brew "qmk/qmk/qmk" # keyboard firmware
 brew "prettier" # formatter
@@ -59,14 +66,18 @@ brew "ripgrep" # grep alternative
 brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
 # brew "sesh" # tmux session manager (used with fzf)
 # brew "koekeishiya/formulae/skhd" # keyboard shortcuts
+brew "shellcheck" # shell script linter
 brew "slides" # markdown slides, terminal presentation
+brew "starship" # shell prompt
+brew "tailscale"
 brew "tlrc" # tldr - docs, manpages alternative
 # brew "tmux"
 # brew "tpm" # tmux plugin manager
 brew "tree-sitter"
 brew "tree-sitter-cli" # used by NeoVim
 brew "tokei" # project metric counter (e.g. LOC, complexity)
-# brew "yt-dlp" # YouTube downloader
+brew "universal-ctags" # code tag generator
+brew "yt-dlp" # YouTube downloader
 brew "zoxide" # smart cd replacement
 
 # yazi file manager
@@ -80,7 +91,6 @@ cask "zulu-jdk17"
 cask "zulu-jdk21"
 cask "zulu-jdk25"
 brew "kotlin"
-# brew "kscripting/tap/kscript"
 
 # Android
 brew "adb-enhanced" # adb with more features
@@ -94,17 +104,13 @@ brew "scrcpy" # screen mirroring
 
 # JavaScript
 brew "oven-sh/bun/bun" # JS runtime / package manager
+brew "node"
 
 # Python
-brew "pyenv"
-brew "uv"
-# brew "python@3.13"
+brew "uv" # also manages Python versions (`uv python install`)
 
 # Ruby
-# brew "asdf"
-# brew "ruby-build"
 brew "rbenv"
-# brew "ruby-install"
 
 
 # Mac apps
@@ -126,10 +132,9 @@ cask "bettertouchtool" # restart-on-upgrade: BetterTouchTool:com.hegenberg.Bette
 # cask "cyberduck" # FTP client
 # cask "discord"
 cask "espanso" # text expander
-cask "free-ruler" # screen ruler for measuring pixel distances
-# cask "handbrake" # video converter / compressor
+# cask "handbrake-app" # video converter / compressor
 cask "handy" # speech-to-text # restart-on-upgrade: Handy:com.pais.handy
-cask "ghostty"
+cask "ghostty" # terminal emulator
 # cask "google-drive"
 cask "google-chrome" # prompt-on-upgrade: Google Chrome:com.google.Chrome
 cask "grandperspective" # disk space visualizer
@@ -145,14 +150,13 @@ cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
 cask "lulu" # connection blocker
 # cask "microsoft-edge" # prompt-on-upgrade: Microsoft Edge:com.microsoft.edgemac
 # cask "middleclick" # trackpad middle-click with 3 fingers
-cask "mitmproxy" # network proxy / request debugging
+# cask "mitmproxy" # network proxy / request debugging
+# cask "neru" # shortcat alternative
 cask "notunes" # disable iTunes on media button press
 # cask "obsidian" # note taking, Markdown
 cask "omnidisksweeper" # disk space visualizer and cleaner
 # cask "onyx" # system maintenance
 cask "pearcleaner" # app uninstaller/cleaner, probably better than appcleaner
-# cask "proxyman" # network requests debugging
-# cask "qbittorrent" # torrent client
 # cask "rapidapi" # API client (Postman alternative)
 cask "raycast" # productivity tool, Spotlight replacement # restart-on-upgrade: Raycast:com.raycast.macos
 cask "shortcat" # click anything on the screen, alt: homerow # restart-on-upgrade: Shortcat:com.sproutcube.Shortcat
@@ -164,8 +168,9 @@ cask "sublime-text" # text editor
 # cask "table-tool" # CSV editor
 cask "thaw" # hide menu bar icons # restart-on-upgrade: Thaw:com.stonerl.Thaw
 cask "the-unarchiver" # unzip
-# cask "via" # keyboard configurator (e.g. Keychron)
 # cask "visual-studio-code"
+# cask "vlc" # video player
+# cask "vorssaint" # macOS utils
 
 # fonts
 cask "font-hack"
@@ -173,18 +178,3 @@ cask "font-hack-nerd-font"
 cask "font-jetbrains-mono"
 cask "font-jetbrains-mono-nerd-font"
 cask "font-sf-mono"
-
-# Karabiner / Goku
-# cask "karabiner-elements" # pkg cask with root daemons, install/upgrade manually
-# brew "yqrashawn/goku/goku" # Karabiner config manager
-
-##################
-# Helpful commands
-##################
-
-# https://gist.github.com/ChristopherA/a579274536aab36ea9966f301ff14f3f
-
-# track transitive dependencies
-# brew deps --tree --installed asdf
-
-# see ~/.brew.sh for more commands
