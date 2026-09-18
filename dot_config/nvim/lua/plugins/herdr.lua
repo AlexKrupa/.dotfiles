@@ -3,8 +3,4 @@ return {
     'ChmaraX/herdr-nvim',
     opts = {},
   },
-  { -- Branch-to-branch diff review
-    'sindrets/diffview.nvim',
-    cmd = { 'DiffviewOpen', 'DiffviewFileHistory' },
-  },
 }
