@@ -13,6 +13,7 @@ github_plugins=(
   thanhdat77/herdr-navigator
   iurysza/termscope
   persiyanov/herdr-reviewr
+  ChmaraX/herdr-nvim
 )
 
 # herdr-pluck is linked from the fork clone, not installed from GitHub, so

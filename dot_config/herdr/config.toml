@@ -241,7 +241,7 @@ command = "herdr-navigator.open"
 description = "jump to anything"
 
 [[keys.command]]
-key = "alt+d"
+# key = "alt+d"  # moved to the nvim sidebar; pick a new key
 type = "plugin_action"
 command = "fullerzz.sesh.last"
 description = "previous workspace"
@@ -257,6 +257,18 @@ key = "alt+G"
 type = "plugin_action"
 command = "persiyanov.reviewr.toggle"
 description = "toggle review pane"
+
+[[keys.command]]
+key = "alt+d"
+type = "plugin_action"
+command = "chmarax.herdr-nvim.toggle"
+description = "nvim sidebar"
+
+[[keys.command]]
+key = "alt+D"
+type = "shell"
+command = "~/.config/herdr/bin/nvim-diff.sh"
+description = "branch diff in nvim sidebar"
 
 [[keys.command]]
 key = "alt+a"

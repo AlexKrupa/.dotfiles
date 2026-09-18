@@ -4,21 +4,7 @@
 
 set -euo pipefail
 
-editor="${EDITOR:-nvim}"
 bin=$(cd "$(dirname "$0")" && pwd)
-
-# The picker tab is still focused here, so the source pane is named explicitly. equalize
-# takes its tab and pane from the environment, the same as the split key.
-split_pane() {
-  local cwd=$1
-  shift
-  local pane
-  pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$cwd" \
-    "$@" --focus | jq -r .result.pane.pane_id)
-  HERDR_ACTIVE_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_ACTIVE_PANE_ID="$pane" \
-    "$bin/balance-panes.sh" equalize right
-  echo "$pane"
-}
 
 match=$(cat)
 [ -z "$match" ] && exit 0
@@ -26,59 +12,34 @@ match=$(cat)
 case "$match" in
   "~"|"~/"*) match="$HOME${match#\~}" ;;
 esac
+[ -e "$match" ] || [ ! -e "$HOME/$match" ] || match="$HOME/$match"
 
-path=""
 if [ -f "$match" ]; then
-  path="$match"
-elif [ -f "$HOME/$match" ]; then
-  path="$HOME/$match"
-fi
-
-if [ -n "$path" ]; then
-  # Plans, specs and reviews under ~/.ai/ are reviewed, not edited. The annotate pane names
-  # the source pane, so it survives the picker tab teardown, and returns before the 5s limit.
-  case "$path" in
-    "$HOME"/.ai/*.md)
-      exec herdr plugin pane open --plugin annotate --entrypoint doc --placement split \
-        --direction right --target-pane "$HERDR_PLUCK_PANE_ID" --focus --cwd "$PWD" \
-        --env "PLANNOTATOR_TUI_FILE=$path" \
-        --env "PLANNOTATOR_TUI_DELIVER_TO=$HERDR_PLUCK_PANE_ID" >/dev/null
-      ;;
-  esac
-
   # SVG is XML (text) but usually wanted as a preview, not an edit.
-  case "$path" in
-    *.svg|*.SVG) exec open "$path" ;;
+  case "$match" in
+    *.svg|*.SVG) exec open "$match" ;;
   esac
-  enc=$(file -b --mime-encoding -- "$path" 2>/dev/null || echo binary)
-  if [ "$enc" != "binary" ]; then
-    printf -v quoted '%q' "$path"
-    # Trailing `exit` ends the pane shell with the editor, so herdr closes the split.
-    # No key fires on that close, so the pane starts pluck-post-close on its way out.
-    #
-    # HERDR_PANE_CMD replaces a `herdr pane run` round-trip: conf.d/00-herdr-fast-pane.fish
-    # runs it at spawn. That skips conf.d/brew.fish too, hence PATH from this pane.
-    # $HERDR_PANE_ID stays unexpanded for the new pane's own shell, because the id is not
-    # known until the split that delivers this command returns.
-    cmd="$editor $quoted; $bin/pluck-post-close $HERDR_PLUCK_TAB_ID $HERDR_PLUCK_PANE_ID \$HERDR_PANE_ID; exit"
-    split_pane "$PWD" --env "PATH=$PATH" --env "HERDR_PANE_CMD=$cmd" >/dev/null
-    exit 0
-  fi
-  exec open "$path"
+  enc=$(file -b --mime-encoding -- "$match" 2>/dev/null || echo binary)
+  [ "$enc" != "binary" ] || exec open "$match"
+  # open-link is the Ctrl+click handler. It takes its input from these env vars and
+  # rejects a bare filename, hence the absolute path.
+  match="$(cd "$(dirname "$match")" && pwd)/$(basename "$match")"
+  nvim_plugin=$(ls -d "$HOME"/.config/herdr/plugins/github/chmarax.herdr-nvim-*/ | head -1)
+  HERDR_PLUGIN_CLICKED_URL="$match" HERDR_PANE_ID="$HERDR_PLUCK_PANE_ID" \
+    HERDR_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_WORKSPACE_ID="${HERDR_PLUCK_TAB_ID%%:*}" \
+    exec "$nvim_plugin/bin/herdr-nvim" open-link
 fi
 
-dir=""
 if [ -d "$match" ]; then
-  dir="$match"
-elif [ -d "$HOME/$match" ]; then
-  dir="$HOME/$match"
-fi
-
-if [ -n "$dir" ]; then
+  # The picker tab is still focused here, so the source pane is named explicitly. equalize
+  # takes its tab and pane from the environment, the same as the split key.
+  pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$match" \
+    --focus | jq -r .result.pane.pane_id)
+  HERDR_ACTIVE_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_ACTIVE_PANE_ID="$pane" \
+    "$bin/balance-panes.sh" equalize right
   # `y` is the fish wrapper from conf.d/yazi.fish: on quit the pane shell stays in the
-  # directory yazi ended in. The shell stays after yazi quits, so this pane is closed by
-  # key and the close key evens what is left.
-  exec herdr pane run "$(split_pane "$dir")" y
+  # directory yazi ended in. This pane is closed by key, and the close key evens what is left.
+  exec herdr pane run "$pane" y
 fi
 
 exec open "$match"
