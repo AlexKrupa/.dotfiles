@@ -13,7 +13,7 @@ cat <<'JSON'
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "respond tersely in ASD-STE100 Simplified Technical English"
+    "additionalContext": "Respond tersely in ASD-STE100 Simplified Technical English. Do not mention unrelated stuff."
   }
 }
 JSON
