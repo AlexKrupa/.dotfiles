@@ -89,6 +89,8 @@
       "Bash(rm -rf *)",
       "Read(**/.env)",
       "Read(**/.env.*)",
+      "Read(~/.ssh/id_ed25519)",
+      "Read(~/.gnupg/private-keys-v1.d/**)",
       "Edit(**/build/**)",
       "Edit(**/generated/**)"
     ],

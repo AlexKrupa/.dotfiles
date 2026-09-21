@@ -31,6 +31,19 @@ if grep -E "(^|$b)git$b" <<<"$segments" | grep -Eq "${b}credential${b}+fill($b|$
   deny "Blocked: printing a git credential."
 fi
 
+if grep -Eq '\.ssh/id_[[:alnum:]_-]+([^[:alnum:]_.-]|$)' <<<"$segments"; then
+  deny "Blocked: reading an SSH private key."
+fi
+
+# gpg accepts shortened long options, e.g. `--export-secret-k`.
+if grep -E "(^|$b)gpg2?$b" <<<"$segments" | grep -Eq "${b}--export-secret"; then
+  deny "Blocked: exporting a GPG secret key."
+fi
+
+if grep -Eq '\.gnupg/private-keys-v1\.d' <<<"$segments"; then
+  deny "Blocked: reading GPG private key files."
+fi
+
 if grep -E "(^|$b)security$b" <<<"$segments" | grep -E "${b}find-(generic|internet)-password($b|$)" \
   | grep -Eq "$b-[[:alpha:]]*[wg]"; then
   deny "Blocked: printing a Keychain secret. Omit \`-w\` and \`-g\`."
