@@ -1,5 +1,5 @@
-abbr -a g git
-abbr -a lg lazygit
+alias g "git"
+alias lg "lazygit"
 alias gs "git-spice"
 alias gitc "$EDITOR $XDG_CONFIG_HOME/git/config-base"
 alias giti "$EDITOR $XDG_CONFIG_HOME/git/ignore"

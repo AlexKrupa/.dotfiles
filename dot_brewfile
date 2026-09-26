@@ -54,7 +54,7 @@ brew "kanata" # keyboard remapper
 brew "lazygit" # git TUI
 brew "lsd" # better ls
 brew "lua-language-server"
-brew "mosh" # mobile shell
+# brew "mosh" # mobile shell
 brew "neovim"
 brew "nono" # sandbox
 brew "openssl"
