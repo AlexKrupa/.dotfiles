@@ -15,7 +15,7 @@
 
 - Avoid excessive project builds between steps. Prefer superficial verification for safer or less
   important steps like local reformatting or refactoring.
-- Delegate to subagents only for large, actually parallel tracks: wide multi-file investigation,
+- Delegate to subagents only for large, parallel tracks: wide multi-file investigation,
   independent features. Not for simple work finishable in a few tool calls, never to verify your own
   output. One agent over several.
 
@@ -29,7 +29,7 @@
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
 - Git: make commits (vertical slices), do not suggest pushing or opening PRs
-- Finishing a development branch: dispatch a reviewer subagent that just calls the `/review-me`
+- Finishing a development branch: dispatch a reviewer subagent that only calls the `/review-me`
   skill and reports back when it's done
 
 ## Code
@@ -161,7 +161,7 @@ Layout:
 
 `<repo-name>`:
 
-- Get via `~/.config/ai/bin/repo-slug.sh` (handles bare repos, submodules, worktrees; one name per
+- Get via `~/.config/ai/bin/repo-slug.sh` (handles bare repos, submodules, worktrees - one name per
   repo across worktrees)
 - `_no-repo` outside git
 - Create subdirectory if missing

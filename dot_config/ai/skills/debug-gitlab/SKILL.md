@@ -2,7 +2,7 @@
 name: debug-gitlab
 description:
   Use when a GitLab pipeline, job, or merge request failed and the user wants the root cause - by
-  URL, id, or implicitly the current branch. Read-only analysis; an optional fix step requires
+  URL, id, or implicitly the current branch. Read-only analysis. An optional fix step requires
   explicit user approval. Never pushes, retries, merges, or comments without consent.
 disable-model-invocation: true
 ---
@@ -20,14 +20,13 @@ means "the failing pipeline on the current branch".
 
 - A pipeline, job, or MR failed and the user asks "why did it fail", "what's wrong with my CI",
   "debug this pipeline", "the build is red", or similar.
-- Entry point is intentionally flexible: any of the inputs above, or the current branch.
 
 **Do not use** for: green pipelines, GitHub Actions, generic "fix my code" requests unconnected to
 CI, reviewing an MR before merge (use `review-gitlab`), cleaning up a branch (use `review-me`).
 
 ## Prerequisites
 
-The working directory at skill-invocation time is the user's repo, not the skill directory, so always
+The working directory at skill-invocation time is the user's repo, not the skill directory. Always
 invoke the helper by absolute path. Bind it once:
 
 ```sh
@@ -41,8 +40,8 @@ prints one line per check:
   checkout step).
 - `glab` / `jq` - hard-fail if missing (the helper uses `jq` for field projection).
 - `glab-auth` - hard-fails "glab not authenticated, run `glab auth login`".
-- `GITLAB_API_TOKEN: present|absent` - note only. Used by `trace`/`signals` as a `curl` fallback when
-  `glab api` cannot reach the project.
+- `GITLAB_API_TOKEN: present|absent` - note only. Used by `trace`/`signals` as a `curl` fallback
+  when `glab api` cannot reach the project.
 - `worktree: clean|dirty` - recorded, never blocks here. Only the optional checkout and fix steps
   block on a dirty tree.
 
@@ -58,7 +57,7 @@ Run `"$GL" resolve <input>`. It accepts:
 - MR URL (`.../-/merge_requests/<iid>`) - uses `head_pipeline`, falls back to most recent
 - branch name - same as empty but for a named branch
 
-Bare numeric ids are rejected as ambiguous; ask the user for the URL form.
+Bare numeric ids are rejected as ambiguous. Ask the user for the URL form.
 
 Output is one JSON object:
 `{project_path, pipeline_id, sha, status, ref, source_branch, target_branch, web_url, mr_iid}`.
@@ -67,9 +66,9 @@ header.
 
 Helper exit codes the skill must handle:
 
-- `2` not found (no pipeline / no test report / empty trace) - state what is missing in the report;
-  do not retry blindly.
-- `3` ambiguous (>1 open MR for the same branch) - the script prints the candidates on stderr; ask
+- `2` not found (no pipeline / no test report / empty trace) - state what is missing in the report.
+  Do not retry blindly.
+- `3` ambiguous (>1 open MR for the same branch) - the script prints the candidates on stderr. Ask
   the user to pick by iid.
 - `4` missing `glab` / `jq` / auth - covered by Prerequisites.
 - `5` network / API failure - retry once, then surface to the user.
@@ -114,7 +113,7 @@ the pipeline has no test report - fall through to step 3.
 back to `curl` with `GITLAB_API_TOKEN` if `glab api` cannot reach the project) and prints the
 pinpointing slices in one shot: the trace path, `tail` (last 200), hot lines with line numbers
 (error/fail/exception/fatal/panic/traceback/killed/non-zero exit, last 60), and step boundaries
-(`$ <command>`, ANSI-reset aware). The full log stays on disk; only these slices enter context.
+(`$ <command>`, ANSI-reset aware). The full log stays on disk. Only these slices enter context.
 
 For a specific line N from the hot-line list, get surrounding context with
 `sed -n '<N-15>,<N+5>p' /tmp/gl-trace-<jid>.log`.
@@ -125,7 +124,7 @@ streams the full log into the conversation. Reserve `glab ci trace` for the case
 explicitly wants to watch a running job.
 
 For pipelines with multiple failing jobs, run the per-job `"$GL" signals` calls in
-parallel (one Bash message, multiple calls). Each trace still stays on disk; only slices enter
+parallel (one Bash message, multiple calls). Each trace still stays on disk. Only slices enter
 context.
 
 ## Classification
@@ -198,14 +197,14 @@ fix without further repo inspection. Otherwise fall through to the repo-context 
 | Some other branch, user not the author             | refuse; print "branch belongs to @<author>; ask before fixing"; exit                                                              |
 
 Every fix offered by this skill is a behavior change by definition (it has to flip CI from red to
-green), so always ask. The auto-apply rules from `review-me` do not apply here.
+green). Always ask. The auto-apply rules from `review-me` do not apply here.
 
 ## Repo-context analysis (when the log alone is not enough)
 
 Trigger only after the user explicitly confirms a checkout.
 
-1. `git status --porcelain` - if non-empty, abort: "uncommitted changes present; commit or stash and
-   re-run". Do not auto-stash.
+1. `git status --porcelain` - if non-empty, abort: "uncommitted changes present - commit or stash
+   and re-run". Do not auto-stash.
 2. `git fetch <remote> <source_branch>` then `git checkout <source_branch>`. `<remote>` defaults to
    `origin`; if multiple remotes exist, prefer the one matching the MR's project (parsed from
    `web_url`).
@@ -228,7 +227,7 @@ Trigger only after the user explicitly confirms a checkout.
 ## Red flags - stop and reconsider
 
 - About to run `glab ci retry` because the log "looks like a flaky test". Recommend the retry in the
-  report; let the user run it.
+  report. Let the user run it.
 - Reading a downloaded trace with `Read` or `cat`. Slice with `tail` / `grep` / `sed` first.
 - Skipping `failure_reason` or `test_report` and going straight to the raw trace. Cheap signals
   first.

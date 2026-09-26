@@ -20,7 +20,7 @@ paths:
 - Use `TimeSource` for time measurements like metrics, instead of wall clock (`Clock`)
 - Assertions: use `require`/`check` and their `*NotNull` variants, never `assert` (JVM `-ea`-gated)
   - `require` for argument checks, `check` for state/invariants
-  - In app code prefer handling recoverable errors over asserting. Assert only genuine programmer
+  - In app code prefer handling recoverable errors over asserting. Assert only programmer
     errors or invariants that must hold
   - The two can coexist: `require`/`check` throw `IllegalArgumentException`/`IllegalStateException`,
     which a caller can catch and recover from

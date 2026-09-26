@@ -9,7 +9,7 @@ paths:
 
 - Match existing code style, not your preference
 - Formatting follows the "rectangle rule": "each subtree gets its own bounding rectangle, containing
-  all of that subtree’s text and none of any other subtree’s"
+  all of that subtree's text and none of any other subtree’s"
 
 ## Control flow
 
@@ -44,5 +44,5 @@ paths:
 - Only clean up things your changes made unused
 - Numbers:
   - Keep index (0-based), count (1-based), and size (units) distinct
-  - Carry the unit in the name (`rowIndex`, `rowCount`, `sizeBytes`)
+  - Put the unit in the name (`rowIndex`, `rowCount`, `sizeBytes`)
   - Make rounding explicit at the call site (ceil- vs floor-div)

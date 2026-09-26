@@ -111,7 +111,7 @@ Conversation output rules apply on top of the written communication rules.
 ## Artifacts
 
 - Use artifacts for content longer than ~15 lines (code, text, etc.). Inline short pieces.
-- When iterating on artifacts, show diffs or just the changed section - not the full thing again
+- When iterating on artifacts, show diffs or only the changed section - not the full thing again
 
 ## Source handling
 

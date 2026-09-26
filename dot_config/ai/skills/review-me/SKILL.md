@@ -66,7 +66,7 @@ Only these four. Anything else is forbidden.
 - `history-rewrite.sh` (see "Commit history"), and only after the user confirms. It is the single
   permitted history rewrite - never run `git rebase` yourself.
 
-Plus the obvious read/stage helpers (`git add`, `git status`, `git diff`, `git blame`, `git log`).
+Also allowed: read and stage commands (`git add`, `git status`, `git diff`, `git blame`, `git log`).
 
 Hard no: `git push`, a hand-run `git rebase`, `git commit --amend`, `git reset --hard`,
 `git absorb --and-rebase`, PR/issue ops, edits to files outside the branch diff.
@@ -171,8 +171,8 @@ If the user declines every item, change nothing.
    `deslop` in branch mode (no args). It reads the writing rules, fixes prose and commit messages,
    and does its own absorb and `amend!` commits. Its deferred items join this skill's ask-first
    prompt.
-8. **Re-review.** Skip this step when the pass changed no file. Nothing moved, so the report on disk
-   is still accurate. Say so and go to step 10.
+8. **Re-review.** Skip this step when the pass changed no file. The report on disk is still
+   accurate. Say so and go to step 10.
 
    Otherwise re-invoke `review-branch` in **re-review mode** with three inputs: every file this pass
    modified (step 6's list plus the files `deslop` touched in step 7), which of them got a behavior

@@ -129,7 +129,7 @@ typo, lint, dead-code, or comment fixes, run Dead code, Docs & comments, and Sty
 only.
 
 **Keep old findings.** Copy every unresolved finding from the previous report into the new one -
-text, severity, and **id** unchanged. A scoped pass did not read that code, so it cannot clear it.
+text, severity, and **id** unchanged. A scoped pass did not read that code. It cannot clear it.
 Give new findings the next free ordinal in their severity section. Never renumber a copied id. The
 caller already told the user "`B2` unresolved", and a pass that renumbers makes that reference point
 somewhere else. Dropping a copied finding is a silent regression - the caller reads the new report
@@ -172,7 +172,7 @@ Only the structure agent runs the repo-wide symbol search.
 ## Audit checklist
 
 Group findings under these. Each finding cites `file:line`. Before writing any finding, verify it
-against the actual diff/code: the cited `file:line` exists, the operator or condition is really as
+against the actual diff/code: the cited `file:line` exists, the operator or condition is as
 claimed, and the code is in audit scope. Audit scope is the branch's diff, plus the adjacent radius
 that **Simplicity** defines below - that radius is the only reach outside the diff, and no other
 checklist item uses it. Code outside audit scope goes to "Out of scope". Drop any finding you cannot
@@ -181,8 +181,8 @@ confirm.
 - **Correctness** - off-by-one, wrong conditions, null/undefined, wrong operator (`<` vs `<=`).
 - **Concurrency & data races** - shared mutable state without sync, lock ordering / deadlock,
   check-then-act atomicity, missing memory visibility, blocking call inside an async/coroutine
-  context, unbounded parallelism. Always checked. Go deeper when the diff touches serious
-  concurrency surface (lock primitives, coroutine/async infrastructure, low-level shared utilities,
+  context, unbounded parallelism. Always checked. Go deeper when the diff touches core
+  concurrency code (lock primitives, coroutine/async infrastructure, low-level shared utilities,
   caches, channels). Only races that can actually happen - do not manufacture findings.
 - **Conventions & docs alignment** - check the branch against the docs selected in "Gather context":
   (1) code contradicts a documented convention (naming, layering, error-handling pattern, "always
@@ -277,7 +277,7 @@ the main-repo grouping convention.
 ```markdown
 # Review: <branch> (vs <parent>)
 
-**TL;DR:** <1-2 sentence verdict - ship / fix-then-ship / major rework, plus the single biggest
+**TL;DR:** <1-2 sentence verdict - merge / fix-then-merge / major rework, plus the single biggest
 risk, naming that risk's finding id, e.g. `A1`.>
 
 **Counts:** <N> critical, <N> major, <N> minor, <N> nit
@@ -363,7 +363,7 @@ Report: `<path>`
 - An `(adjacent)` finding above `minor`, or one without its count as evidence.
 - Reading past one hop, or widening to the module on a branch that only edits function bodies.
 - Long code blocks in the report. Keep it scannable - TL;DR + Counts come first.
-- Filling buckets with manufactured findings. Empty bucket > fake bucket.
+- Filling buckets with manufactured findings.
 - Writing a finding without confirming its `file:line` and claim against the actual diff. Unverified
   findings are fabrications - drop them.
 - Dispatching review agents for a diff of 20 files or fewer, or in re-review mode. Audit it
