@@ -329,6 +329,24 @@ Pre-existing issues noticed but not introduced by this branch - mention, don't f
 Omit empty severity sections. Reference `file:line`, do not paste surrounding context. Snippets only
 when prose is unclear.
 
+## Final reply
+
+A caller that invoked this skill writes its own reply with the same rules.
+
+```markdown
+<the report's TL;DR>
+
+- **A1** `<file>:<line>` - <short title>
+- **B1** `<file>:<line>` - <short title>
+- **C1** `<file>:<line>` - <short title>
+- **D1** `<file>:<line>` - <short title>
+
+Report: `<path>`
+```
+
+- List all findings, one line each.
+- No counts. Add a line only when the user must act on it.
+
 ## Hard constraints
 
 - **No edits** to source files.

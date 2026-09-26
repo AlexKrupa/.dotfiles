@@ -134,6 +134,14 @@ end
 # conf.d loads alphabetically, so this exec happens before files sorting after
 # it. herdr's own process misses the PATH entries those add. Panes are not
 # affected, because each one runs a login fish that sources everything.
+#
+# An app started from a herdr pane keeps the pane's variables and gives them to
+# terminals it opens. If the herdr socket does not exist, the variables are stale.
+
+if set -q HERDR_PANE_ID
+  and not test -S "$HERDR_SOCKET_PATH"
+  set -e (set -xn | string match 'HERDR_*')
+end
 
 if status is-interactive
   and not set -q HERDR_PANE_ID

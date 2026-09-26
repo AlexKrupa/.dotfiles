@@ -30,7 +30,8 @@ function __brew_upgrade_cask --argument-names cask_name app_name bundle_id --des
     __brew_quit_app $app_name
     HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
     echo "Restarting $app_name..."
-    open -b "$bundle_id" -g
+    # `open` gives the app this shell's environment. `env -i` gives it the login environment.
+    env -i /usr/bin/open -b "$bundle_id" -g
 end
 
 function __brew_release_notes --description 'Append a release notes URL to each `brew outdated --verbose` line read from stdin'

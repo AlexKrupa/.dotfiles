@@ -86,6 +86,8 @@ informational, not an error.
 6. Optional: `"$FMR" diff-check "$iid" "$target_branch"`. If it exits 1, note the drift in the
    report.
 7. Augment the report (see "Report" section).
+8. Reply per `review-branch` "Final reply". Add a line when `moved == true`: the worktree is now on
+   the MR's source branch.
 
 ## Discussion filtering
 

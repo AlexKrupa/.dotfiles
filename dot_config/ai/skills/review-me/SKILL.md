@@ -129,8 +129,8 @@ Only for confirmed items, only through the helper:
   first as a separate step.
 - On conflict it aborts, restores the branch, and exits 1. Do not resolve the conflict and do not
   retry. Report the failure and the backup ref, and tell the user to squash by hand.
-- It prints `backup-ref`, `squashes-applied`, `commits-before`, `commits-after`, `result`. Surface
-  these.
+- It prints `backup-ref`, `squashes-applied`, `commits-before`, `commits-after`, `result`. The
+  final reply shows `backup-ref` only.
 - `--dry-run` as first arg prints the plan and writes nothing.
 
 If the user declines every item, change nothing.
@@ -145,7 +145,7 @@ If the user declines every item, change nothing.
 3. Apply auto-fixes, grouped by file. Use parallel edits when files are independent.
 4. For ask-first findings, present **one** consolidated prompt:
    - Finding id, title, severity, files affected, proposed change in ≤3 lines each.
-   - User picks per-item by id: apply / skip / defer.
+   - User picks per-item by id: apply / skip.
 5. Run repo's validation if discoverable: tests, typecheck, lint. Look in `package.json` scripts,
    `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, etc. If none found, say so - don't invent
    commands.
@@ -166,8 +166,7 @@ If the user declines every item, change nothing.
      `staged-remaining`.
    - For each `needs-message` file: write a conventional one-liner and
      `git commit -m "<msg>" -- <file>`. This is the only orphan case the script defers, because the
-     message is a judgment call. Note each as a new commit in the summary.
-   - Surface the counts to the user.
+     message is a judgment call.
 7. **Writing pass (REQUIRED).** First pass only, once the working tree is clean again: invoke
    `deslop` in branch mode (no args). It reads the writing rules, fixes prose and commit messages,
    and does its own absorb and `amend!` commits. Its deferred items join this skill's ask-first
@@ -187,24 +186,32 @@ If the user declines every item, change nothing.
 10. **History pass (last, once).** After the loop ends and with a clean working tree, run the
     "Commit history" section. It runs last so it sees the commits steps 6 and 7 added.
 
-## Final turn-end summary
+## Final reply
 
-Short, scannable:
+Follow the rules in `review-branch` "Final reply", with this format:
 
-- Passes run: N
-- Auto-fixes applied: count + one-line bullets
-- Deferred (awaiting user): count + one-line bullets
-- Validation: pass/fail/none-found, with command used
-- Writing pass: files deslopped, commit messages reworded (or `skipped - <reason>`)
-- Fixups via `git absorb`: N (against: `<sha-short> <subject>`, ...)
-- Orphan hunks resolved by blame-based fixup: N (against: `<sha-short> <subject>`, ...)
-- New commits added (no in-range fixup target): N (subjects: ...)
-- Commit history: N squashes suggested, N applied, N declined (or `none suggested`). On a rewrite,
-  the backup ref and the before/after commit counts
-- Working tree: clean / dirty paths listed if not
-- Remaining findings: counts by severity, listing the ids left unresolved (e.g. `B2`, `C1`)
-- Next step for user: `git rebase -i --autosquash <parent>`, then push. Omit the rebase when
-  `history-rewrite.sh` already ran it - say the history is squashed and only push remains.
+```markdown
+<one-line verdict: ready to push | needs your decision on N items | validation failed>
+
+Needs decision:
+- **B2** `<file>:<line>` - <short title>
+
+Fixed:
+- **C1** `<file>:<line>` - <short title>
+
+Skipped:
+- **D1** `<file>:<line>` - <short title>
+
+Report: `<path>`
+```
+
+Add a line only for these cases:
+
+- Validation failed: the command and the error.
+- No validation command found: no check verified the fixes.
+- Working tree is dirty: the paths.
+- `history-rewrite.sh` ran: the backup ref, and only push remains.
+- The pass cap was reached: the ids that keep coming back.
 
 ## Red flags - stop and reconsider
 
