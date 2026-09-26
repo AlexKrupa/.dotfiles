@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Read-only GitLab MR fetcher for the review-gitlab skill.
-# Subcommands: preflight | resolve | discussions | diff-check | checkout
+# Subcommands: preflight | resolve | locate | fetch | discussions | diff-check
 # Exit codes: 0 ok, 1 usage/other, 2 not found, 3 ambiguous, 4 missing dep / auth, 5 network
 
 set -euo pipefail
@@ -22,10 +22,8 @@ urlencode_path() { jq -nRr --arg s "$1" '$s|@uri'; }
 # preflight: deterministic prereqs in fail-fast order (cheap local -> network).
 # glab/jq presence already verified by top-level preflight().
 cmd_preflight() {
-  git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
-    || die "not in a git repo" 1
-  [[ -z "$(git status --porcelain)" ]] \
-    || die "uncommitted changes present, commit/stash and re-run" 1
+  [[ "${HERDR_ENV-}" == 1 ]] \
+    || die "not in a Herdr pane, the review needs a Herdr worktree workspace" "$E_DEP"
   glab auth status >/dev/null 2>&1 \
     || die "glab not authenticated, run: glab auth login" "$E_DEP"
   echo "ok"
@@ -49,37 +47,101 @@ pick_remote() {
   head -n1 <<<"$remotes"
 }
 
-# checkout <source_branch> <target_branch> [project_path]
-# Fetches and checks out the MR source branch, refreshes the target's remote-tracking
-# ref (does NOT touch the user's local target branch), and reports it as target_ref.
-# review-branch then diffs against a fresh base, not a stale local mainline.
-# Emits JSON: remote, previous_branch, moved, source_branch, target_branch, target_ref.
-cmd_checkout() {
+# remote_matches <url> <project_path>: true when the URL points at the project
+# (ssh or https, with or without .git), not at a project whose path only starts with it.
+remote_matches() {
+  local url="${1%.git}" project="$2"
+  [[ "$url" == *":$project" || "$url" == *"/$project" ]]
+}
+
+repo_matches() {
+  local repo="$1" project="$2" r
+  for r in $(git -C "$repo" remote); do
+    remote_matches "$(git -C "$repo" remote get-url "$r")" "$project" && return 0
+  done
+  return 1
+}
+
+# locate <project_path>: prints the local clone of the project. The current repo
+# wins when it matches. Otherwise scans main checkouts under ~/src.
+cmd_locate() {
+  local project="${1-}"
+  [[ -n "$project" ]] || die "usage: locate <project_path>" 1
+
+  local current
+  current=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+  if [[ -n "$current" ]] && repo_matches "$current" "$project"; then
+    echo "$current"
+    return
+  fi
+
+  # Linked worktrees and submodules have a .git file, not a directory.
+  local git_dir repo matches=()
+  while IFS= read -r git_dir; do
+    repo=$(dirname "$git_dir")
+    repo_matches "$repo" "$project" && matches+=("$repo")
+  done < <(find "$HOME/src" -maxdepth 5 -type d -name .git -prune 2>/dev/null)
+
+  case "${#matches[@]}" in
+    0) die "no clone of $project under ~/src" "$E_NOTFOUND" ;;
+    1) echo "${matches[0]}" ;;
+    *)
+      {
+        echo "multiple clones of $project under ~/src:"
+        printf '  %s\n' "${matches[@]}"
+      } >&2
+      exit "$E_AMBIGUOUS"
+      ;;
+  esac
+}
+
+# worktree_of <branch>: prints the path of the worktree that has the branch checked out.
+worktree_of() {
+  git worktree list --porcelain | awk -v ref="refs/heads/$1" '
+    /^worktree / { path = substr($0, 10) }
+    $0 == "branch " ref { print path; exit }'
+}
+
+# fetch <source_branch> <target_branch> [project_path]
+# Brings the local <source> branch to the MR tip without a checkout in the current
+# worktree, and refreshes the target's remote-tracking ref (does NOT touch the user's
+# local target branch). review-branch then diffs against a fresh base.
+# Emits JSON: remote, source_branch, target_branch, target_ref.
+cmd_fetch() {
   local source="${1-}" target="${2-}" project="${3-}"
   [[ -n "$source" && -n "$target" ]] \
-    || die "usage: checkout <source_branch> <target_branch> [project_path]" 1
+    || die "usage: fetch <source_branch> <target_branch> [project_path]" 1
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not in a git repo" 1
 
-  local remote prev moved=false
+  local remote
   remote=$(pick_remote "$project")
-  prev=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  git fetch "$remote" "$source" "$target" >/dev/null 2>&1 \
+    || die "git fetch $remote $source $target failed" "$E_NETWORK"
 
-  git fetch "$remote" "$source" >/dev/null 2>&1 \
-    || die "git fetch $remote $source failed" "$E_NETWORK"
-  if [[ "$prev" != "$source" ]]; then
-    git checkout "$source" >/dev/null 2>&1 \
-      || die "git checkout $source failed" 1
-    moved=true
+  local tip="$remote/$source" checkout
+  if ! git show-ref --verify --quiet "refs/heads/$source"; then
+    git branch --quiet --track "$source" "$tip"
+  elif [[ "$(git rev-parse "$source")" == "$(git rev-parse "$tip")" ]]; then
+    :
+  elif git merge-base --is-ancestor "$source" "$tip"; then
+    checkout=$(worktree_of "$source")
+    if [[ -n "$checkout" ]]; then
+      git -C "$checkout" merge --ff-only --quiet "$tip" \
+        || die "could not fast-forward $source in $checkout to $tip" 1
+    else
+      git branch --quiet --force "$source" "$tip"
+    fi
+  elif git merge-base --is-ancestor "$tip" "$source"; then
+    # Local commits not pushed yet. Keep them, diff-check reports the drift.
+    :
+  else
+    die "local $source and $tip diverged, reconcile them and re-run" 1
   fi
-  # Refresh refs/remotes/$remote/$target without writing the local $target branch.
-  git fetch "$remote" "$target" >/dev/null 2>&1 \
-    || die "could not fetch target branch $target" "$E_NETWORK"
 
   jq -n \
-    --arg remote "$remote" --arg prev "$prev" --argjson moved "$moved" \
-    --arg source "$source" --arg target "$target" --arg target_ref "$remote/$target" \
-    '{remote:$remote, previous_branch:$prev, moved:$moved,
-      source_branch:$source, target_branch:$target, target_ref:$target_ref}'
+    --arg remote "$remote" --arg source "$source" --arg target "$target" \
+    --arg target_ref "$remote/$target" \
+    '{remote:$remote, source_branch:$source, target_branch:$target, target_ref:$target_ref}'
 }
 
 # Pull the MR fields out of `glab mr view --output json`.
@@ -225,9 +287,10 @@ fetch-mr.sh - read-only GitLab MR fetcher for the review-gitlab skill.
 Usage:
   fetch-mr.sh preflight
   fetch-mr.sh resolve     <URL | iid | branch | "">
+  fetch-mr.sh locate      <project_path>
+  fetch-mr.sh fetch       <source_branch> <target_branch> [project_path]
   fetch-mr.sh discussions <iid> [project_path]      # or REVIEW_GITLAB_PROJECT
   fetch-mr.sh diff-check  <iid> [target_branch]
-  fetch-mr.sh checkout    <source_branch> <target_branch> [project_path]
 
 Exit codes: 0 ok · 1 usage/other · 2 not found · 3 ambiguous · 4 dep/auth · 5 network
 USAGE
@@ -237,9 +300,10 @@ preflight
 case "${1-}" in
   preflight)    cmd_preflight ;;
   resolve)      shift; cmd_resolve "${1-}" ;;
+  locate)       shift; cmd_locate "$@" ;;
+  fetch)        shift; cmd_fetch "$@" ;;
   discussions)  shift; cmd_discussions "$@" ;;
   diff-check)   shift; cmd_diff_check "$@" ;;
-  checkout)     shift; cmd_checkout "$@" ;;
   ""|-h|--help) usage ;;
   *)            die "unknown subcommand: $1" 1 ;;
 esac
