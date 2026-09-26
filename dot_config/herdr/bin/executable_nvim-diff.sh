@@ -1,4 +1,14 @@
 #!/bin/sh
+# Usage: nvim-diff.sh diffview|codediff
+
+tool=$1
+case $tool in
+  diffview | codediff) ;;
+  *)
+    echo "usage: nvim-diff.sh diffview|codediff" >&2
+    exit 2
+    ;;
+esac
 
 tab=$HERDR_ACTIVE_TAB_ID
 [ -n "$tab" ] || exit 0
@@ -25,7 +35,26 @@ done
 
 cd "${HERDR_ACTIVE_PANE_CWD:-.}" || exit 1
 base=$(git rev-parse --verify -q main || git rev-parse --verify -q master) || exit 1
-rev=$(git merge-base "$base" HEAD) || exit 1
 
 # --remote-send fails in insert mode.
-nvim --headless --server "$sock" --remote-expr "execute('DiffviewClose | DiffviewOpen $rev')"
+if [ "$tool" = diffview ]; then
+  rev=$(git merge-base "$base" HEAD) || exit 1
+  nvim --headless --server "$sock" --remote-expr "execute('DiffviewClose | DiffviewOpen $rev')"
+  exit
+fi
+
+# Focus an open CodeDiff tab, else diff the merge-base against the working tree.
+lua='(function(base)
+  for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+      if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == "codediff-explorer" then
+        vim.api.nvim_set_current_tabpage(tab)
+        return 0
+      end
+    end
+  end
+  vim.cmd("CodeDiff " .. base .. "...")
+  return 0
+end)(_A)'
+
+nvim --headless --server "$sock" --remote-expr "luaeval('$lua', '$base')" >/dev/null

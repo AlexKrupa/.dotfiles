@@ -253,13 +253,13 @@ command = "rmarganti.herdr-pluck.pluck"
 description = "copy with hints"
 
 [[keys.command]]
-key = "alt+G"
+key = "alt+d"
 type = "plugin_action"
 command = "persiyanov.reviewr.toggle"
 description = "toggle review pane"
 
 [[keys.command]]
-key = "alt+d"
+# key = "alt+d"  # moved to reviewr; pick a new key
 type = "plugin_action"
 command = "chmarax.herdr-nvim.toggle"
 description = "nvim sidebar"
@@ -267,8 +267,14 @@ description = "nvim sidebar"
 [[keys.command]]
 key = "alt+D"
 type = "shell"
-command = "~/.config/herdr/bin/nvim-diff.sh"
-description = "branch diff in nvim sidebar"
+command = "~/.config/herdr/bin/nvim-diff.sh diffview"
+description = "branch diff in nvim sidebar (diffview)"
+
+[[keys.command]]
+key = "ctrl+alt+d"
+type = "shell"
+command = "~/.config/herdr/bin/nvim-diff.sh codediff"
+description = "branch diff in nvim sidebar (codediff)"
 
 [[keys.command]]
 key = "alt+a"
@@ -291,7 +297,7 @@ command = "annotate.copy-context"
 description = "copy annotations as context"
 
 [[keys.command]]
-# key = "alt+D"
+key = "ctrl+alt+a"
 type = "plugin_action"
 command = "annotate.manage"
 description = "manage annotations"
