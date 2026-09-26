@@ -7,7 +7,6 @@
 - Follow the instructions in `README.md` files, including subdirectories
 - Plan thoroughly, do not rush to execution. Answer questions and address user concerns first.
 - Ask, not assume. If you have to pick between interpretations, name them and ask instead.
-- Surface assumptions explicitly, including ones that seem obvious
 - If uncertain, interview me about requirements, edge cases, and trade-offs
 - Push back when a simpler solution exists
 
@@ -15,9 +14,9 @@
 
 - Avoid excessive project builds between steps. Prefer superficial verification for safer or less
   important steps like local reformatting or refactoring.
-- Delegate to subagents only for large, parallel tracks: wide multi-file investigation,
-  independent features. Not for simple work finishable in a few tool calls, never to verify your own
-  output. One agent over several.
+- Delegate to subagents only for large, parallel tracks: wide multi-file investigation, independent
+  features. Not for simple work finishable in a few tool calls, never to verify your own output. One
+  agent over several.
 
 #### Non-Superpowers-driven plans
 
@@ -28,9 +27,9 @@
 
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
-- Git: make commits (vertical slices), do not suggest pushing or opening PRs
-- Finishing a development branch: dispatch a reviewer subagent that only calls the `/review-me`
-  skill and reports back when it's done
+- Git: make commits (vertical slices), do not mention or suggest pushing or opening PRs
+- Finishing a development branch: dispatch a reviewer subagent that reads
+  `~/.claude/skills/review-me/SKILL.md`, follows it, and reports back when done
 
 ## Code
 
@@ -40,7 +39,7 @@
 - Validate only at system boundaries. Handle only errors that can actually happen.
 - No abstractions for single-use code. If a senior engineer would call it overcomplicated -
   simplify.
-- Unrelated issues or dead code: mention, don't fix
+- Unrelated issues or dead code: do not fix, mention only if important
 
 ## Written communication
 
@@ -52,7 +51,6 @@ These rules apply to both conversation replies and written documentation, code c
 
 Strictly use ASD-STE100 Simplified Technical English.
 
-- Remove all mannered prose
 - If a simpler word exists - use it
   - Example: use "is", not "serves as", not "utilizes".
 - Objects should never do anything: no "X carries", no "X names"
