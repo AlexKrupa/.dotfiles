@@ -121,7 +121,7 @@ brew "rbenv"
 # Some apps go stale when brew replaces the binary while running (accessibility/input-monitoring
 # apps, browsers). `brew-upgrade` handles quit/restart for tagged casks:
 #   restart-on-upgrade - auto quit/restart (for accessibility/input tools)
-#   prompt-on-upgrade  - upgrade, then ask to restart if running (for browsers)
+#   prompt-on-upgrade  - if running, ask before upgrade and restart (for browsers)
 # Prefix with ! to temporarily disable (e.g. `# !restart-on-upgrade:`).
 
 # cask "1password" # restart-on-upgrade: 1Password:com.1password.1password

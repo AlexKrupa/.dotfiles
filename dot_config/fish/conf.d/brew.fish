@@ -70,7 +70,7 @@ def release_url(pkg):
             return re.sub(r"\.git$", "", repo.group(0)) + "/releases"
     return pkg.get("homepage") or ""
 
-release_urls = {pkg.get("token") or pkg["name"]: release_url(pkg)
+release_urls = {pkg.get("token") or pkg["full_name"]: release_url(pkg)
                 for pkg in info["formulae"] + info["casks"]}
 
 for line in lines:
@@ -91,7 +91,7 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
     # To avoid this, we quit tagged apps before upgrading and restart them after.
     # Tag casks in ~/.brewfile (prefix with ! to temporarily disable):
     #   restart-on-upgrade: AppName:bundle.id - auto quit/restart
-    #   prompt-on-upgrade: AppName:bundle.id  - upgrade, prompt to restart if running
+    #   prompt-on-upgrade: AppName:bundle.id  - if running, ask before upgrade and restart
     #
     # --greedy compares Caskroom metadata, not the app on disk, so self-updating casks
     # (firefox, google-chrome) report as outdated on every run until brew reinstalls them.
