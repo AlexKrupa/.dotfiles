@@ -11,6 +11,9 @@ reuse_existing = true
 # Create a new Herdr workspace when the selected path is not open yet.
 create_missing = true
 
+# Label new workspaces "herdr", not "dir: herdr".
+prefix_workspace_labels = false
+
 # Search engine: "nucleo" | "skim" | "simple"
 # - nucleo: best default; fast, fzf-like scoring, good Unicode support
 # - skim: skim/fzf-style matcher via fuzzy-matcher crate
