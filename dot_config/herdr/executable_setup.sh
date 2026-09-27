@@ -23,6 +23,7 @@ local_plugins=(
   "$PWD/plugins/worktree-links"
   "$PWD/plugins/labels"
   "$PWD/plugins/caffeinate"
+  "$PWD/plugins/nvim-sidebar-size-fix"
   "$HOME/src/me/herdr-pluck"
 )
 

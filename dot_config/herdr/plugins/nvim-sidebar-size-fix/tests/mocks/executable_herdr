@@ -1,0 +1,17 @@
+#!/bin/sh
+# Fake herdr for tests/test.sh. With MOCK_ATTACHED=1, `pane process-info` shows an
+# `nvim --remote-ui` client, otherwise a shell. Resizes are logged to MOCK_LOG. Any other
+# call is a test writing more than it means to.
+case "$1 $2" in
+  "pane process-info")
+    if [ "${MOCK_ATTACHED:-0}" = 1 ]; then
+      argv='["nvim","--server","/tmp/w1_t1.sock","--remote-ui"]' name=nvim
+    else
+      argv='["fish"]' name=fish
+    fi
+    printf '{"result":{"process_info":{"foreground_processes":[{"argv":%s,"name":"%s","pid":4242}]}}}\n' \
+      "$argv" "$name" ;;
+  "pane resize")
+    printf '%s\n' "$*" >>"$MOCK_LOG" ;;
+  *) echo "unexpected herdr call: $*" >&2; exit 2 ;;
+esac

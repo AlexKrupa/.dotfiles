@@ -1,0 +1,4 @@
+#!/bin/sh
+# Fake stty for tests/test.sh. Answers `size` for the client's tty with MOCK_PTY.
+[ "$*" = "-f /dev/ttys042 size" ] || { echo "unexpected stty call: $*" >&2; exit 2; }
+printf '%s\n' "$MOCK_PTY"
