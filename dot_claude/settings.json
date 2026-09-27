@@ -97,7 +97,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "opus[1m]",
+  "model": "opus",
   "fallbackModel": [
     "claude-opus-5",
     "claude-opus-4-8",
@@ -278,7 +278,7 @@
       "effortLevel": "high"
     },
     "claude-opus-5-5": {
-      "effortLevel": "high"
+      "effortLevel": "medium"
     }
   },
   "showClearContextOnPlanAccept": true,

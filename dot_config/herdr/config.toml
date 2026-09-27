@@ -259,12 +259,6 @@ command = "herdr-navigator.open"
 description = "jump to anything"
 
 [[keys.command]]
-# key = "alt+d"  # moved to the nvim sidebar; pick a new key
-type = "plugin_action"
-command = "fullerzz.sesh.last"
-description = "previous workspace"
-
-[[keys.command]]
 key = "alt+c"
 type = "plugin_action"
 command = "rmarganti.herdr-pluck.pluck"
@@ -277,7 +271,7 @@ command = "persiyanov.reviewr.toggle"
 description = "toggle review pane"
 
 [[keys.command]]
-# key = "alt+d"  # moved to reviewr; pick a new key
+key = "alt+n"
 type = "plugin_action"
 command = "chmarax.herdr-nvim.toggle"
 description = "nvim sidebar"
