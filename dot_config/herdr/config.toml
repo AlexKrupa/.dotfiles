@@ -92,7 +92,7 @@ next_workspace           = "alt+r"                       # default: unset
 switch_workspace         = "alt+1..9"                    # default: unset
 
 # Worktrees
-new_worktree             = "prefix+shift+g"              # alt+G reassigned to annotate.open
+new_worktree             = "prefix+shift+g"
 # open_worktree                                          # default: unset
 # remove_worktree                                        # default: unset
 
@@ -288,28 +288,4 @@ type = "shell"
 command = "~/.config/herdr/bin/nvim-diff.sh codediff"
 description = "branch diff in nvim sidebar (codediff)"
 
-[[keys.command]]
-key = "alt+a"
-type = "plugin_action"
-command = "annotate.open"
-description = "review documents in this folder"
-
 # Avoid alt+f/alt+b: some terminals send Opt+Right->ESC-f, Opt+Left->ESC-b for readline word-jump
-
-[[keys.command]]
-key = "alt+A"
-type = "plugin_action"
-command = "annotate.capture"
-description = "annotate selected text"
-
-[[keys.command]]
-key = "alt+C"
-type = "plugin_action"
-command = "annotate.copy-context"
-description = "copy annotations as context"
-
-[[keys.command]]
-key = "ctrl+alt+a"
-type = "plugin_action"
-command = "annotate.manage"
-description = "manage annotations"

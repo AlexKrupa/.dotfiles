@@ -8,7 +8,6 @@ shopt -s nullglob
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 github_plugins=(
-  plannotator/herdr-annotate
   fullerzz/herdr-plugin-sesh
   thanhdat77/herdr-navigator
   iurysza/termscope
