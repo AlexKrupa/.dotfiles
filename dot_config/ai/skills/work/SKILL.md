@@ -60,9 +60,10 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
 5. Next mode only: no base and no Claude flags. If the user gave a model or an effort, tell the
    user to set it with `/model` after the clear.
 6. Run the script. The prompt goes on stdin in a quoted heredoc: the ticket id, an empty line, and
-   the user's message with no changes. Do not summarize, fix, or add to the message. The slug text
-   goes in single quotes, with each `'` in it replaced by a space. A ticket title can contain
-   `` ` `` or `$`, and the shell runs these in double quotes.
+   the user's message with no changes. Do not summarize, fix, or add to the message. Option words
+   such as "haiku" or "from `origin/release-1.2`" stay in the message. The slug text goes in
+   single quotes, with each `'` in it replaced by a space. A ticket title can contain `` ` `` or
+   `$`, and the shell runs these in double quotes.
 
    New mode:
 
@@ -97,6 +98,8 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
      the message stays. If the message names `herdr agent start` or `herdr agent prompt`, its herdr
      worktree workspace stays too. The user can continue there or remove them.
    - Exit `3`: run `herdr agent read <pane-id> --source visible` and report what blocks the agent.
+     The prompt was not sent. Tell the user to send the ticket id and the message in that pane
+     after the block is gone.
 
 If the tracker read fails or the ticket does not exist, stop and report it. Do not run the script.
 
