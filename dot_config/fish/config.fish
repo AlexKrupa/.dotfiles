@@ -38,7 +38,18 @@ end
 
 alias fishc "$EDITOR ~/.config/fish/config.fish"
 alias fishl "$EDITOR ~/.config/fish/local.fish"
-alias fishr "exec fish"
+
+# Fish sends a universal variable change to every running fish process
+if status is-interactive
+  function __fishr_reload --on-variable __fishr
+    exec fish
+  end
+end
+
+function fishr --description "Reload config in every interactive fish"
+  set -U __fishr (random)
+end
+
 alias aerospacec "$EDITOR ~/.config/aerospace/aerospace.toml"
 alias atuinc "$EDITOR ~/.config/atuin/config.toml"
 alias claudec "$EDITOR ~/.claude/settings.json"

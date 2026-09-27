@@ -19,6 +19,7 @@ brew "chezmoi" # dotfiles management
 brew "colima" # containers
 brew "coreutils" # for gnu date
 brew "curl"
+brew "czkawka" # duplicate file finder
 brew "diskonaut" # disk usage TUI
 brew "difftastic" # structural diff
 brew "duf" # disk usage/free utility, df alternative
@@ -28,6 +29,7 @@ brew "fd" # find alternative
 brew "ffmpeg" # video converter / compressor
 brew "fish" # shell
 # brew "fjira" # Jira CLI
+# brew "fpp" # pipe path picker, e.g. git status | fpp
 brew "fx" # JSON viewer / processor
 brew "fzf" # fuzzy finder
 brew "git"
@@ -77,6 +79,7 @@ brew "tree-sitter"
 brew "tree-sitter-cli" # used by NeoVim
 brew "tokei" # project metric counter (e.g. LOC, complexity)
 brew "universal-ctags" # code tag generator
+brew "xdg-ninja" # XDG convention helper
 brew "yt-dlp" # YouTube downloader
 brew "zoxide" # smart cd replacement
 
@@ -91,6 +94,7 @@ cask "zulu-jdk17"
 cask "zulu-jdk21"
 cask "zulu-jdk25"
 brew "kotlin"
+# brew "jadx" # Java decompiler
 
 # Android
 brew "adb-enhanced" # adb with more features
