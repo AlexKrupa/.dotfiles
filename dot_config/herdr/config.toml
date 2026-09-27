@@ -31,14 +31,31 @@ tab_bar_position = "top"
 # server, so {hostname} names the host the panes run on.
 window_title = "{workspace} • {tab}"   # default
 
-# `$idx` is the slot number for the 1-9 focus binding, reported by the auto-label plugin.
+# `$idx` is the slot number for the 1-9 focus binding, reported by the labels plugin.
 [ui.sidebar.spaces]
-rows = [["state_icon", "$idx", "workspace"], ["branch", "git_status"]]
+rows = [["state_icon", "$idx", "workspace"], ["git_status"]]
 
-# Line 1 - workspace
-# Line 2 - session title reported by Claude Code via statusline script
+# Rows from the labels plugin, which also sets the panel order.
+# Line 1 - repo name, only above worktrees whose checkout runs no agent
+# Line 2 - state dot, rank for the 1-9 focus binding, workspace. Worktrees are indented.
+#          The dot fades when idle for 15 min and 1 h.
+# Line 3 - session title reported by Claude Code via statusline script
 [ui.sidebar.agents]
-rows = [["state_icon", "$idx", "workspace"], ["$session"]]
+rows = [
+  [{ token = "$group_parent", bold = true }],
+  [
+    { token = "$dot_working", fg = "#f1fa8c", dim = false },
+    { token = "$dot_blocked", fg = "#ff5555", dim = false },
+    { token = "$dot_done", fg = "#8be9fd", dim = false },
+    { token = "$dot_idle_fresh", fg = "#50fa7b", dim = false },
+    { token = "$dot_idle", fg = "#50fa7b", dim = true },
+    { token = "$dot_idle_stale", fg = "#6272a4", dim = false },
+    { token = "$dot_unknown", fg = "#6272a4", dim = false },
+    "$rank",
+    "workspace",
+  ],
+  ["$title"],
+]
 
 [ui.sound]
 enabled = true

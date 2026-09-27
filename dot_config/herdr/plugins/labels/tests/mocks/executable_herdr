@@ -1,0 +1,13 @@
+#!/bin/sh
+# Fake herdr for tests/test-sweep.sh. Answers `pane process-info --pane <id>` from
+# tests/process-info.json: a pane with no entry there stands for a call that returned
+# nothing. With HERDR_MOCK_LOG set, writes are logged there, one line per call. Any other
+# call is a test writing more than it means to.
+case "$1 $2" in
+  "pane process-info")
+    jq -c --arg pane "$4" '.[$pane] // empty' "$(dirname "$0")/../process-info.json" ;;
+  "pane report-metadata"|"workspace report-metadata"|"tab rename")
+    [ -n "${HERDR_MOCK_LOG:-}" ] || { echo "unexpected herdr call: $*" >&2; exit 2; }
+    printf '%s\n' "$*" >>"$HERDR_MOCK_LOG" ;;
+  *) echo "unexpected herdr call: $*" >&2; exit 2 ;;
+esac

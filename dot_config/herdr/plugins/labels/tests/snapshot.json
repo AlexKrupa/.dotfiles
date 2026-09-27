@@ -1,0 +1,195 @@
+{
+  "id": "cli:api:snapshot",
+  "result": {
+    "snapshot": {
+      "tabs": [
+        {
+          "tab_id": "wA:t1",
+          "workspace_id": "wA",
+          "number": 1,
+          "label": "1"
+        },
+        {
+          "tab_id": "wA:t2",
+          "workspace_id": "wA",
+          "number": 7,
+          "label": "2"
+        },
+        {
+          "tab_id": "wA:t3",
+          "workspace_id": "wA",
+          "number": 9,
+          "label": "3"
+        },
+        {
+          "tab_id": "wA:t4",
+          "workspace_id": "wA",
+          "number": 12,
+          "label": "4"
+        },
+        {
+          "tab_id": "wA:t5",
+          "workspace_id": "wA",
+          "number": 14,
+          "label": "5"
+        },
+        {
+          "tab_id": "wB:t1",
+          "workspace_id": "wB",
+          "number": 1,
+          "label": "1"
+        },
+        {
+          "tab_id": "wB:t2",
+          "workspace_id": "wB",
+          "number": 4,
+          "label": "agent"
+        },
+        {
+          "tab_id": "wB:t3",
+          "workspace_id": "wB",
+          "number": 6,
+          "label": "3"
+        },
+        {
+          "tab_id": "wB:t4",
+          "workspace_id": "wB",
+          "number": 8,
+          "label": "4"
+        }
+      ],
+      "layouts": [
+        {
+          "tab_id": "wA:t1",
+          "focused_pane_id": "wA:p1"
+        },
+        {
+          "tab_id": "wA:t2",
+          "focused_pane_id": "wA:p2"
+        },
+        {
+          "tab_id": "wA:t3",
+          "focused_pane_id": "wA:p3"
+        },
+        {
+          "tab_id": "wA:t4",
+          "focused_pane_id": "wA:p4"
+        },
+        {
+          "tab_id": "wA:t5",
+          "focused_pane_id": "wA:p5"
+        },
+        {
+          "tab_id": "wB:t1",
+          "focused_pane_id": "wB:p1"
+        },
+        {
+          "tab_id": "wB:t2",
+          "focused_pane_id": "wB:p2"
+        },
+        {
+          "tab_id": "wB:t3",
+          "focused_pane_id": "wB:p3"
+        },
+        {
+          "tab_id": "wB:t4",
+          "focused_pane_id": "wB:p4"
+        }
+      ],
+      "panes": [
+        {
+          "pane_id": "wA:p1",
+          "tab_id": "wA:t1",
+          "agent": null,
+          "cwd": "/Users/tester/.config/herdr"
+        },
+        {
+          "pane_id": "wA:p2",
+          "tab_id": "wA:t2",
+          "agent": null,
+          "cwd": "/Users/tester/.config/ai"
+        },
+        {
+          "pane_id": "wA:p3",
+          "tab_id": "wA:t3",
+          "agent": "claude",
+          "cwd": "/Users/tester/.config/herdr"
+        },
+        {
+          "pane_id": "wA:p4",
+          "tab_id": "wA:t4",
+          "agent": null,
+          "cwd": "/Users/tester/.config/herdr"
+        },
+        {
+          "pane_id": "wA:p5",
+          "tab_id": "wA:t5",
+          "agent": null,
+          "cwd": "/Users/tester"
+        },
+        {
+          "pane_id": "wB:p1",
+          "tab_id": "wB:t1",
+          "agent": null,
+          "cwd": "/Users/tester/.config/herdr"
+        },
+        {
+          "pane_id": "wB:p2",
+          "tab_id": "wB:t2",
+          "agent": null,
+          "cwd": "/Users/tester/.config/fish"
+        },
+        {
+          "pane_id": "wB:p3",
+          "tab_id": "wB:t3",
+          "agent": null,
+          "cwd": "/Users/tester/.config/nvim"
+        },
+        {
+          "pane_id": "wB:p4",
+          "tab_id": "wB:t4",
+          "agent": null,
+          "cwd": "/Users/tester/.config/ai"
+        }
+      ],
+      "workspaces": [
+        {
+          "workspace_id": "wA",
+          "label": "herdr",
+          "number": 1
+        },
+        {
+          "workspace_id": "wB",
+          "label": "config",
+          "number": 2,
+          "tokens": {
+            "idx": "2"
+          }
+        },
+        {
+          "workspace_id": "wZ",
+          "label": "tenth",
+          "number": 10,
+          "tokens": {
+            "idx": "9"
+          }
+        }
+      ],
+      "agents": [
+        {
+          "pane_id": "wA:p3",
+          "agent": "claude",
+          "workspace_id": "wA"
+        },
+        {
+          "pane_id": "wB:p9",
+          "agent": "claude",
+          "workspace_id": "wB",
+          "tokens": {
+            "idx": "1"
+          }
+        }
+      ]
+    }
+  }
+}

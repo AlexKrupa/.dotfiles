@@ -21,7 +21,7 @@ github_plugins=(
 local_plugins=(
   "$PWD/plugins/balance-panes"
   "$PWD/plugins/worktree-links"
-  "$PWD/plugins/auto-label"
+  "$PWD/plugins/labels"
   "$PWD/plugins/caffeinate"
   "$HOME/src/me/herdr-pluck"
 )

@@ -8,7 +8,7 @@
 | `bin/`                    | Scripts run by keybindings and plugins                    |
 | `plugins/balance-panes/`  | Even out a tab when a pane's process ends on its own      |
 | `plugins/worktree-links/` | Symlink gitignored files into new worktrees               |
-| `plugins/auto-label/`     | Name and number every tab                                 |
+| `plugins/labels/`         | Name tabs, number rows, group agents by repo              |
 | `plugins/caffeinate/`     | Hold off sleep while an agent is working                  |
 | `plugins/config/`         | Config for installed plugins                              |
 | `projects.local`          | Machine-local project paths, not in the dotfiles          |

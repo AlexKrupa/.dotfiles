@@ -1,0 +1,42 @@
+{
+  "result": {
+    "snapshot": {
+      "tabs": [],
+      "layouts": [],
+      "panes": [],
+      "workspaces": [
+        { "workspace_id": "wH", "label": "dir: herdr", "number": 1 },
+        { "workspace_id": "wR", "label": "radar-demo", "number": 2,
+          "worktree": { "repo_key": "/r/.git", "repo_name": "radar-demo",
+                        "is_linked_worktree": false } },
+        { "workspace_id": "wA", "label": "abc-101", "number": 3,
+          "worktree": { "repo_key": "/r/.git", "repo_name": "radar-demo",
+                        "is_linked_worktree": true } },
+        { "workspace_id": "wB", "label": "abc-102", "number": 4,
+          "worktree": { "repo_key": "/r/.git", "repo_name": "radar-demo",
+                        "is_linked_worktree": true } },
+        { "workspace_id": "wO", "label": "orphan-a", "number": 5,
+          "worktree": { "repo_key": "/o/.git", "repo_name": "orphan",
+                        "is_linked_worktree": true } },
+        { "workspace_id": "wP", "label": "orphan-b", "number": 6,
+          "worktree": { "repo_key": "/o/.git", "repo_name": "orphan",
+                        "is_linked_worktree": true } }
+      ],
+      "agents": [
+        { "pane_id": "wH:p1", "workspace_id": "wH", "agent_status": "working",
+          "state_change_seq": 50, "tokens": { "idx": "1", "session": "Herdr work" } },
+        { "pane_id": "wR:p1", "workspace_id": "wR", "agent_status": "idle",
+          "state_change_seq": 10, "tokens": { "session": "Ready" } },
+        { "pane_id": "wA:p1", "workspace_id": "wA", "agent_status": "blocked",
+          "state_change_seq": 30, "terminal_title_stripped": "subtract fn" },
+        { "pane_id": "wB:p1", "workspace_id": "wB", "agent_status": "done",
+          "state_change_seq": 20, "tokens": { "session": "Calc\tdesc" } },
+        { "pane_id": "wB:p2", "workspace_id": "wB", "state_change_seq": 5 },
+        { "pane_id": "wO:p1", "workspace_id": "wO", "agent_status": "idle",
+          "state_change_seq": 40, "tokens": { "session": "orphan one" } },
+        { "pane_id": "wP:p1", "workspace_id": "wP", "agent_status": "working",
+          "state_change_seq": 45, "tokens": { "session": "orphan two" } }
+      ]
+    }
+  }
+}
