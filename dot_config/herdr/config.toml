@@ -39,7 +39,8 @@ rows = [["state_icon", "$idx", "workspace"], ["git_status"]]
 # Line 1 - repo name, only above worktrees whose checkout runs no agent
 # Line 2 - state dot, rank for the 1-9 focus binding, workspace. Worktrees are indented.
 #          The dot fades when idle for 15 min and 1 h.
-# Line 3 - session title reported by Claude Code via statusline script
+# Line 3 - session title reported by Claude Code via statusline script. A worktree title starts
+#          with a tree line, `│` or `└` for the last worktree of the group.
 [ui.sidebar.agents]
 rows = [
   [{ token = "$group_parent", bold = true }],

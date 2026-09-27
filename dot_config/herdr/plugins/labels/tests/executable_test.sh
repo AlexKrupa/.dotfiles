@@ -122,6 +122,7 @@ check "equal activity ranks by pane id"            "006" "$(tok "$out" wB:p1 ord
 out=$(agents '{}' "$(fixture '.result.snapshot.agents +=
   [{pane_id: "wX:p1", workspace_id: "wX", state_change_seq: 60}]')")
 check "an agent with no known workspace is a root" "·" "$(tok "$out" wX:p1 dot_unknown)"
+check "a root agent with no title gets no title"   "<none>" "$(tok "$out" wX:p1 title)"
 
 out=$(agents '{}' "$(fixture '.result.snapshot.agents +=
   [range(1; 4) | {pane_id: "wZ:p\(.)", workspace_id: "wZ", state_change_seq: .}]')")
@@ -140,9 +141,10 @@ check "a token is not written twice"               "{}" "$(jq -c .panes <<<"$out
 
 out=$(agents '{}')
 check "a root title is the session"           "Herdr work" "$(tok "$out" wH:p1 title)"
-check "a worktree title is indented"          "${Z}  subtract fn" "$(tok "$out" wA:p1 title)"
-check "a tab in the session becomes a space"  "${Z}  Calc desc" "$(tok "$out" wB:p1 title)"
-check "an agent with no title gets no title"  "<none>" "$(tok "$out" wB:p2 title)"
+check "a worktree title continues the tree line" "│ subtract fn" "$(tok "$out" wA:p1 title)"
+check "a tab in the session becomes a space"  "│ Calc desc" "$(tok "$out" wB:p1 title)"
+check "the last worktree title gets a corner" "└ orphan one" "$(tok "$out" wO:p1 title)"
+check "a worktree with no title keeps the line" "└" "$(tok "$out" wB:p2 title)"
 check "an idle agent seen first is fresh"     "○" "$(tok "$out" wR:p1 dot_idle_fresh)"
 check "idle_since starts at now"              "10000" "$(jq -r '.state.idle_since["wR:p1"]' <<<"$out")"
 check "a working agent has no idle_since"     "null"  "$(jq -r '.state.idle_since["wH:p1"]' <<<"$out")"
@@ -177,11 +179,11 @@ check "a title keeps = and backslash"     'a=b \ c' "$(tok "$out" wH:p1 title)"
 long=$(printf 'x%.0s' {1..80})
 out=$(agents '{}' "$(fixture '.result.snapshot.agents[2].terminal_title_stripped = $t' --arg t "$long")")
 check "a long title is cut as herdr cuts it" \
-  "${Z}  ${long:0:77}" "$(tok "$out" wA:p1 title)"
+  "│ ${long:0:78}" "$(tok "$out" wA:p1 title)"
 
 out=$(agents '{}' "$(fixture '.result.snapshot.agents[2].terminal_title_stripped = "sub\u0007tract  "')")
 check "a title loses control characters and end spaces" \
-  "${Z}  subtract" "$(tok "$out" wA:p1 title)"
+  "│ subtract" "$(tok "$out" wA:p1 title)"
 
 # herdr <panes-json> -> the token values as herdr stores them
 herdr_store() {

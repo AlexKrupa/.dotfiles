@@ -38,9 +38,11 @@ def agent_rows($s):
         | sort_by((if .[0].child then 1 else 0 end), -.[0].seq, .[0].workspace_id)
         | add
         | (any(.[]; .child | not)) as $parent
+        | length as $n
         | to_entries
         # A worktree whose checkout runs no agent: the repo name heads the group instead.
-        | map(.value + {header: (.value.child and ($parent | not) and .key == 0)}))
+        | map(.value + { last: (.key == $n - 1),
+                         header: (.value.child and ($parent | not) and .key == 0) }))
   | sort_by(-(map(.seq) | max), .[0].family)
   | add // []
   | to_entries
@@ -74,7 +76,12 @@ def wanted($since; $now):
     # header is indented already.
     + { ("dot_" + $state):
           ((if .child and (.header | not) then indent else "" end) + (.status | glyph)),
-        title: (if $title == "" then "" elif .child then indent + $title else $title end) };
+        # The tree line is on the title row only: on the name row, the plain line and the
+        # colored dot need two cells, and herdr puts ` · ` between them.
+        title: (if .child | not then $title
+                else (if .last then "└" else "│" end)
+                     + (if $title == "" then "" else " " + $title end)
+                end) };
 
 # One line per pane with any token to change, so watch.sh makes one call for it. Only
 # differing tokens, so a write does not feed its own event back as more work.
