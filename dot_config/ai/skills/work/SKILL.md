@@ -1,7 +1,7 @@
 ---
 name: work
 description: >-
-  Use when the user runs /work to start a Jira ticket, or work with no ticket: in a new herdr
+  Use when the user runs /work to start a ticket, or work with no ticket: in a new herdr
   worktree workspace with its own Claude Code agent, or as the next stacked branch in the current
   worktree.
 argument-hint: "[ticket-id] <message>"
@@ -34,15 +34,17 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
 ## Steps
 
 1. Ticket id:
-   - If the first word is a Jira key, for example `ABC-123`, it is the ticket id. The rest is the
-     message.
+   - If the first word is an issue key of the repo's tracker, for example `ABC-123`, it is the
+     ticket id. The rest is the message. The project instructions tell the tracker and its key
+     format.
    - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. All the input is
      the message. If the repo has no placeholder id, ask the user for a ticket id.
 2. Mode: run `~/.claude/skills/work/work-start.sh mode`.
 3. Slug text, in English words:
-   - Real ticket id: read the ticket title with the Atlassian MCP. Read only the title. The slug
-     text is the title.
-   - Placeholder id: 3 to 6 words that tell what the message asks for. Do not read Jira.
+   - Real ticket id: read only the ticket title, with the tracker tool from the project
+     instructions. The slug text is the title. If the context has no tool that reads the tracker,
+     use the placeholder rule below.
+   - Placeholder id: 3 to 6 words that tell what the message asks for. Do not read the tracker.
 4. New mode only:
    - Base: "from <remote ref>", for example "from `origin/release-1.2`". Use the ref as the user
      wrote it. If the user names a local branch, tell the user to run `/work` in the worktree of
@@ -59,8 +61,8 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
    user to set it with `/model` after the clear.
 6. Run the script. The prompt goes on stdin in a quoted heredoc: the ticket id, an empty line, and
    the user's message with no changes. Do not summarize, fix, or add to the message. The slug text
-   goes in single quotes, with each `'` in it replaced by a space. A Jira title can contain `` ` ``
-   or `$`, and the shell runs these in double quotes.
+   goes in single quotes, with each `'` in it replaced by a space. A ticket title can contain
+   `` ` `` or `$`, and the shell runs these in double quotes.
 
    New mode:
 
@@ -96,7 +98,7 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
      worktree workspace stays too. The user can continue there or remove them.
    - Exit `3`: run `herdr agent read <pane-id> --source visible` and report what blocks the agent.
 
-If the Atlassian MCP fails or the ticket does not exist, stop and report it. Do not run the script.
+If the tracker read fails or the ticket does not exist, stop and report it. Do not run the script.
 
 If the new prompt does not show in next mode, the log is `${TMPDIR:-/tmp}/work-next.log`. The user
 can type `/clear`, then send the ticket id and the message by hand.
