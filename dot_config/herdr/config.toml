@@ -265,13 +265,13 @@ command = "rmarganti.herdr-pluck.pluck"
 description = "copy with hints"
 
 [[keys.command]]
-key = "alt+d"
+key = "alt+G"
 type = "plugin_action"
 command = "persiyanov.reviewr.toggle"
 description = "toggle review pane"
 
 [[keys.command]]
-key = "alt+a"
+key = "alt+d"
 type = "plugin_action"
 command = "chmarax.herdr-nvim.toggle"
 description = "nvim sidebar"
