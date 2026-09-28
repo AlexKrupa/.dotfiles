@@ -20,11 +20,10 @@ set -u
 state_dir=${CAFFEINATE_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/herdr-caffeinate}
 grace=${CAFFEINATE_GRACE:-60}
 interval=${CAFFEINATE_INTERVAL:-30}
-pidfile=$state_dir/watch.pid
 holdfile=$state_dir/caffeinate.pid
 idlefile=$state_dir/idle-since
 
-# Without the pid files `holding` is always false, so every sweep would leak an assertion.
+# Without the hold file `holding` is always false, so every sweep would leak an assertion.
 mkdir -p "$state_dir" || exit 1
 
 agents() {
@@ -90,21 +89,17 @@ sweep() {
 # interval is still minutes ahead of macOS idle sleep, and the release is a clock decision
 # that no event announces.
 watch() {
-  # Only our own pid file: a watcher that dies after being replaced must not delete the
-  # live one's, or every later `ensure` starts one more.
-  trap 'release; [ "$(cat "$pidfile" 2>/dev/null)" = "$$" ] && rm -f "$pidfile"' EXIT
+  trap release EXIT
   while :; do
     sweep
     sleep "$interval"
   done
 }
 
+# The watcher holds the lock while it lives, so a second `ensure` fails at once. Two
+# watchers could each take a hold, and the one not in the hold file would keep sleep off.
 ensure() {
-  if [ -r "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
-    return 0
-  fi
-  nohup "$0" watch >/dev/null 2>&1 &
-  printf '%s\n' "$!" >"$pidfile"
+  nohup lockf -s -k -t 0 "$state_dir/watch.lock" "$0" watch >/dev/null 2>&1 &
 }
 
 case ${1:-} in

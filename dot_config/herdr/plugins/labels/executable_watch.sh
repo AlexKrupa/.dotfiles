@@ -102,8 +102,6 @@ sweep() {
   done <<<"${out#*$'\n'}"
 }
 
-pidfile=$state_dir/watch.pid
-
 # While this is set, herdr sorts the agents panel by the `ord` token and turns off its own
 # grouped/priority toggle. The server forgets it on restart, so every connection sets it
 # again. The server answers one request and hangs up, so it has its own connection.
@@ -142,9 +140,6 @@ subscribe_req() { # subscribe_req <pane_id>...
 # A read that times out after 60 s is the clock for idle fading. A new or gone agent changes
 # the subscription list, so the watcher connects again.
 watch() {
-  # Only our own pid file: a watcher that dies after being replaced must not delete the
-  # live one's, or every later `ensure` starts one more.
-  trap '[ "$(cat "$pidfile" 2>/dev/null)" = "$$" ] && rm -f "$pidfile"' EXIT
   sweep
   local subscribed rc start
   while :; do
@@ -177,13 +172,11 @@ watch() {
   done
 }
 
+# The watcher holds the lock while it lives, so a second `ensure` fails at once. Hooks can
+# fire together, and a pid file check would let both start a watcher.
 ensure() {
-  if [ -r "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
-    return 0
-  fi
-  mkdir -p "$(dirname "$pidfile")"
-  nohup "$0" watch >/dev/null 2>&1 &
-  printf '%s\n' "$!" >"$pidfile"
+  mkdir -p "$state_dir"
+  nohup lockf -s -k -t 0 "$state_dir/watch.lock" "$0" watch >/dev/null 2>&1 &
 }
 
 case ${1:-} in

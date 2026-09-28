@@ -108,13 +108,10 @@ herdr_plus_quick_actions = true
 # Falls back to the built-in One Light palette.
 inherit_herdr = true
 
-# Keep roots short; zoxide should handle most frequent directories.
+# A root lists only directories with .git, package.json or Cargo.toml. max_depth counts the
+# root itself as 1, so 3 reaches ~/src/<group>/<repo>.
 [[roots]]
-path = "~/workspace"
-max_depth = 3
-
-[[roots]]
-path = "~/projects"
+path = "~/src"
 max_depth = 3
 
 # Optional agent aliases. All match fields are optional and matched as text contains.

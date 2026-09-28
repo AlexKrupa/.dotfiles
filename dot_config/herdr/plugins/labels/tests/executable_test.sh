@@ -75,6 +75,9 @@ check "user rename drops ownership" "null"    "$(jq -r '.state.tabs["wA:t1"] // 
 out=$(run '{"wA:t1":"mine"}' '.result.snapshot.tabs[0].label = "1"')
 check "bare number hands the tab back" "1 • herdr" "$(label_of "$out" wA:t1)"
 
+out=$(run '{}' '.result.snapshot.tabs[6].label = "a\\b"')
+check "a backslash in a label is kept" '2 • a\b' "$(label_of "$out" wB:t2)"
+
 out=$(run '{"wB:t4":"cargo"}' '.result.snapshot.tabs[8].label = "4 • cargo"')
 check "ignored command keeps the owned name" "" "$(label_of "$out" wB:t4)"
 

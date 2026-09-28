@@ -37,7 +37,10 @@ created() {
   HERDR_PLUGIN_EVENT_JSON=$(jq -cn --arg label "$1" \
       '{event: "pane_created", data: {pane: {pane_id: "w1:p2", label: $label}}}') \
     MOCK_ATTACHED=1 MOCK_UI=$2 MOCK_PTY="61 95" ../fix.sh on-created
-  sleep 0.5
+  for _ in {1..40}; do
+    pgrep -f '\.\./fix\.sh watch w1:p2' >/dev/null || break
+    sleep 0.05
+  done
   cat "$MOCK_LOG"
 }
 

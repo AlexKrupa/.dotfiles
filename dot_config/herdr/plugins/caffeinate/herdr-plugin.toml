@@ -6,7 +6,7 @@ description = "Hold a macOS idle-sleep assertion while any agent is working"
 platforms = ["macos"]
 
 # The assertion belongs to the watcher, so it must outlive any single event. startup spawns
-# the watcher. pane.agent_detected re-checks the pid file, which revives a dead watcher.
+# the watcher. pane.agent_detected tries the watcher lock, which revives a dead watcher.
 [[startup]]
 command = ["./watch.sh", "ensure"]
 

@@ -66,7 +66,8 @@ def label_of($pane; $program):
 | ({ tabs: (map(select(.mode == "auto") | {key: .tab_id, value: .base}) | from_entries),
      idle_since: idle_since($rows; $since; $now) }
    | tojson),
-  (.[] | select(.label != .current) | ["tab", .tab_id, .label] | @tsv),
+  # Not @tsv: it writes `\` as `\\`, and `read -r` keeps both.
+  (.[] | select(.label != .current) | ["tab", .tab_id, .label] | join("\t")),
 
   # A display-only token, not a rename: a name the user typed is never touched, so none of
   # the ownership state above applies. Emitting only a differing token also stops the write

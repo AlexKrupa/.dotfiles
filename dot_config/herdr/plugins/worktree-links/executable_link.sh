@@ -2,10 +2,6 @@
 # Symlink shared local files from the main checkout into a newly created worktree.
 # Always exits 0, so herdr does not mark the event failed when there is nothing
 # to do.
-#
-# Field names come from herdr's API schema. The worktree_created event holds
-# .worktree.path (the new checkout) and .workspace.worktree.repo_root (the main
-# checkout). The jq filter walks the whole payload, so only the leaf key matters.
 
 if ((BASH_VERSINFO[0] < 4)); then
   echo "worktree-links: needs bash 4+, got $BASH_VERSION" >&2
@@ -17,8 +13,9 @@ shopt -s extglob dotglob nullglob
 command -v jq >/dev/null || exit 0
 
 IFS=$'\t' read -r wt main < <(
-  jq -r '[ first(.. | objects | .path?      // empty) // "",
-           first(.. | objects | .repo_root? // empty) // "" ] | @tsv' \
+  # The new checkout, then the main checkout.
+  jq -r '[ .data.worktree.path // "",
+           .data.workspace.worktree.repo_root // "" ] | @tsv' \
     <<<"$HERDR_PLUGIN_EVENT_JSON"
 )
 
