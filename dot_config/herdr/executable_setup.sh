@@ -56,6 +56,31 @@ for path in "${local_plugins[@]}"; do
   fi
 done
 
+# A plugin dropped from the lists above stays installed on other machines.
+wanted_github=$(printf '%s\n' "${github_plugins[@]}" | jq -R . | jq -s .)
+wanted_local=$(printf '%s\n' "${local_plugins[@]}" | jq -R . | jq -s .)
+unwanted=$(herdr plugin list --json | jq -r --argjson gh "$wanted_github" --argjson local "$wanted_local" '
+  .result.plugins[]
+  | if .source.kind == "github" then
+      select("\(.source.owner)/\(.source.repo)" as $s | $gh | any(. == $s) | not)
+      | "uninstall \(.plugin_id)"
+    else
+      select(.plugin_root as $p | $local | any(. == $p) | not)
+      | "unlink \(.plugin_id)"
+    end')
+
+if [[ -n $unwanted ]]; then
+  echo
+  echo "==> Plugins not in this config:"
+  sed 's/^/    /' <<<"$unwanted"
+  read -rp "Remove them? [y/N] " answer </dev/tty || answer=
+  if [[ $answer == [yY] ]]; then
+    while read -r command id; do
+      herdr plugin "$command" "$id"
+    done <<<"$unwanted"
+  fi
+fi
+
 echo
 herdr config check
 herdr server reload-config

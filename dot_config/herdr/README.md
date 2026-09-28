@@ -35,7 +35,8 @@ git clone https://github.com/AlexKrupa/herdr-pluck.git
 ```
 
 `setup.sh` covers plugins only, not brew and not the fork clone. It is safe to re-run, so it also
-syncs a machine that is missing a plugin. `herdr-upgrade` runs it first.
+syncs a machine that is missing a plugin. It also finds plugins that are not in its lists and
+removes them after you confirm. `herdr-upgrade` runs it first.
 
 Then create `projects.local`, one absolute path per line, and press each plugin key. herdr does not
 validate plugin action ids, so a keypress is the only proof they are right.
