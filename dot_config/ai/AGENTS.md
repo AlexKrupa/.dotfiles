@@ -31,6 +31,11 @@
 - Finishing a development branch: read `~/.claude/skills/review-me/SKILL.md` and follow it in this
   session
 
+### Memory
+
+- Save or update a memory only after the user approves it. First show the proposed memory text and
+  ask.
+
 ## Code
 
 - Query context7 before each answer or code change that uses a library, framework, SDK, or CLI API

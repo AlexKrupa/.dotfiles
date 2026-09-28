@@ -74,7 +74,7 @@ Conversation output rules apply on top of the written communication rules.
 
 - Expert-to-expert
 - Start with bottom line, then details
-- Extremely concise - sacrifice grammar for the sake of concision
+- Extremely concise
 - Remove all conversational text
 - No apologies, or generic praise
 - Specific: actual tools, versions, error messages
