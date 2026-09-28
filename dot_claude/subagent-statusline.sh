@@ -6,10 +6,15 @@ input=$(cat)
 
 now=$(date +%s)
 
+session_id=$(echo "$input" | jq -r '.session_id // ""')
+session_effort=""
+[ -n "$session_id" ] && session_effort=$(cat "$(effort_file "$session_id")" 2>/dev/null)
+
 # Model id -> display name, matching the main statusline:
-# claude-opus-5 -> "Opus 5", claude-haiku-4-5-20251001 -> "Haiku 4.5"
+# claude-opus-5-5[1m] -> "Opus 5.5", claude-haiku-4-5-20251001 -> "Haiku 4.5"
 fmt_model() {
   local id="${1#claude-}"
+  id="${id%%\[*}"
   id="${id%-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]}"
   local name="${id%%-*}" version="${id#*-}"
   [ "$version" = "$name" ] && version=""
@@ -63,11 +68,13 @@ echo "$input" | jq -c '.tasks[]?' | while IFS= read -r task; do
     *)              dot="${C_DIM}●${C_RESET}" ;;
   esac
 
-  # Model + one-letter effort, as on the main statusline. Numeric effort
-  # budgets and inherited effort (absent) get no suffix.
+  # Model + one-letter effort, as on the main statusline. Absent effort is
+  # inherited from the session. Numeric budgets and Haiku get no suffix.
   model_seg=""
   if [ -n "$model" ]; then
     model_seg=$(fmt_model "$model")
+    effort="${effort:-$session_effort}"
+    case "$model" in *haiku*) effort="" ;; esac
     case "$effort" in
       ''|*[!a-z]*) ;;
       *) model_seg="$model_seg $(echo "${effort:0:1}" | tr '[:lower:]' '[:upper:]')" ;;

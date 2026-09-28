@@ -18,6 +18,10 @@ C_RESET=$'\033[0m'
 
 sep="${C_DIM}·${C_RESET}"
 
+# Session effort file: the main statusline writes it, subagent rows read it
+# because the subagent input omits inherited effort.
+effort_file() { printf '%s/claude-statusline-effort-%s' "${TMPDIR:-/tmp}" "$1"; }
+
 # Format token count: 1000000 -> 1M, 48000 -> 48k.
 fmt_tokens() {
   if [ -z "$1" ] || [ "$1" = "null" ]; then echo "?";

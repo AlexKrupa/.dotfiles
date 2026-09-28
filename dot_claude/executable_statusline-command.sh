@@ -147,6 +147,8 @@ herdr_session_title "$input" &
   (.transcript_path // ""),
   (.session_id // "")')
 
+[ -n "$session_id" ] && printf '%s' "$effort" > "$(effort_file "$session_id")"
+
 raw_cwd="$cwd"
 cwd="${cwd/#$HOME/\~}"
 
