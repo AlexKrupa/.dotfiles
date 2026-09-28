@@ -39,7 +39,8 @@ base=$(git rev-parse --verify -q main || git rev-parse --verify -q master) || ex
 # --remote-send fails in insert mode.
 if [ "$tool" = diffview ]; then
   rev=$(git merge-base "$base" HEAD) || exit 1
-  nvim --headless --server "$sock" --remote-expr "execute('DiffviewClose | DiffviewOpen $rev')"
+  # The Diffview commands take no `|`. DiffviewClose exists only after diffview loads.
+  nvim --headless --server "$sock" --remote-expr "execute(['silent! DiffviewClose', 'DiffviewOpen $rev'])" >/dev/null
   exit
 fi
 
