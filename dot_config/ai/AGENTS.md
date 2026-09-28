@@ -5,7 +5,7 @@
 ### Before coding
 
 - Follow the instructions in `README.md` files, including subdirectories
-- Plan thoroughly, do not rush to execution. Answer questions and address user concerns first.
+- Do not start edits until the user's questions and concerns have answers.
 - Ask, not assume. If you have to pick between interpretations, name them and ask. If uncertain,
   interview me about requirements, edge cases, and trade-offs.
 - Push back when a simpler solution exists
@@ -28,13 +28,14 @@
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
 - Git: make commits (vertical slices), do not mention or suggest pushing or opening PRs
-- Finishing a development branch: dispatch a reviewer subagent that reads
-  `~/.claude/skills/review-me/SKILL.md`, follows it, and reports back when done
+- Finishing a development branch: read `~/.claude/skills/review-me/SKILL.md` and follow it in this
+  session
 
 ## Code
 
-- Always check context7 before answering library/framework questions from memory
-- Always use MCP of an IDE or LSP over tool calls
+- Query context7 before each answer or code change that uses a library, framework, SDK, or CLI API
+- For definitions, references, call sites, and diagnostics, use the LSP tool or IDE MCP tools. Use
+  Grep only for plain-text search, or when no LSP or IDE server is connected.
 - Every changed line should trace to the request. Implement only what was asked, nothing more.
   Mention unrelated issues or dead code only if important.
 - Validate only at system boundaries. Handle only errors that can actually happen.
@@ -96,65 +97,6 @@ delve, leverage, streamline, land, carry, overstep, ship,
 - Code: backticks for inline (`Class.method()`), fences for multi-line. Including in commit message
   title and body.
 - Headings: sentence case (`## This format`), except proper names or code
-
-### Conversation output style / reply rules
-
-Conversation output rules apply on top of the written communication rules. They apply to replies
-only.
-
-- Extremely concise - sacrifice grammar for the sake of concision
-- Remove all conversational text
-- No apologies, or generic praise
-- Specific: actual tools, versions, error messages
-- Multi-step work: numbered list, one bounded action per step
-- Name one concrete next action when work is unfinished - omit it when work is done
-
-#### Limited progress updates
-
-Before your first tool call, say in one sentence what you're about to do. While working, give a
-brief update only when you find something important or change direction.
-
-#### Reply formatting
-
-- Primary 1 sentence TLDR on top if answer is more than 1 paragraph
-- Questions and answers are explicit and visible to the user
-  - Put every question and every answer on its own line - not inline, not hidden in a prose
-    paragraph
-  - Each question and answer is a TLDR: 1 sentence limit
-  - Prefix numbers: Q1, Q2 etc. for questions, A1, A2, etc. for answers
-  - Options: A, B, C, D, etc.
-- Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
-  after the text
-  - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
-  - In files, keep Markdown links: docs, commit messages, PR and issue descriptions.
-
-#### Emoji markers
-
-Put the marker at the start of the line. Exception: ⭐ goes after the recommended option. Use each
-marker only for its meaning.
-
-| Marker  | Use                                                 |
-| ------- | --------------------------------------------------- |
-| 📌      | TLDR                                                |
-| ❓      | Question                                            |
-| ❗️      | Answer                                              |
-| ➡️      | Next action: one concrete step                      |
-| 🛑      | Blocked: work stops until the user acts             |
-| ⚠️      | Risk: destructive, irreversible, or breaking change |
-| ✅ / ❌ | Verified result / verified failure                  |
-| 🔮      | Assumption: inferred, not verified                  |
-| ⭐      | Recommended option                                  |
-| ⏳      | Background task still runs                          |
-| 💻      | Command for the user to run (`! <command>`)         |
-| 👀      | Out-of-scope finding                                |
-| 💾      | Memory saved or updated                             |
-
-#### Limits
-
-- Sentences: 15 word limit
-- Paragraphs: 3 sentence limit
-- Lists over 5 items: rank them, or split into now/later - never truncate
-  - Exception: sequential steps - a procedure is as long as it is
 
 ## ~/.ai/ work directory
 

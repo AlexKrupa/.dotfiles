@@ -30,7 +30,7 @@ paths:
 
 ## Comments (inline and doc)
 
-- Comment ONLY when absolutely necessary, or when explicitly requested
+- Comment only when the code cannot show the reason, or when the user asks for a comment
 - Comment what's there, not the diff
   - No conversation-specific context, nothing about what changed, no "now handles", no "previously"
 - Are extremely concise and only provide relevant information
