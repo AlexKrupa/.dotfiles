@@ -78,6 +78,26 @@ check "bare number hands the tab back" "1 • herdr" "$(label_of "$out" wA:t1)"
 out=$(run '{"wB:t4":"cargo"}' '.result.snapshot.tabs[8].label = "4 • cargo"')
 check "ignored command keeps the owned name" "" "$(label_of "$out" wB:t4)"
 
+# slot <workspace_id> -> the idx token a run writes, from workspaces in sidebar order. herdr
+# appends a new worktree to the end of its list, but the sidebar and `alt+1..9` put it
+# under its checkout.
+slot() {
+  printf '{}' >"$tmp/state.json"
+  jq '.result.snapshot.workspaces = [
+        {workspace_id: "wA", number: 1, worktree: {repo_key: "r", is_linked_worktree: false}},
+        {workspace_id: "wB", number: 2},
+        {workspace_id: "wC", number: 3, worktree: {repo_key: "r", is_linked_worktree: true}},
+        {workspace_id: "wD", number: 4, worktree: {repo_key: "s", is_linked_worktree: true}}]' \
+    snapshot.json |
+    jq -r --slurpfile st "$tmp/state.json" --argjson fg "$fg" --argjson now 10000 \
+      -f ../policy.jq |
+    awk -F'\t' -v w="$1" '$1 == "workspace" && $2 == w { sub("^idx=", "", $3); print $3 }'
+}
+check "a checkout keeps its slot"                   "1" "$(slot wA)"
+check "a worktree follows its checkout"             "2" "$(slot wC)"
+check "a workspace after a worktree group moves down" "3" "$(slot wB)"
+check "a worktree with no open checkout keeps its place" "4" "$(slot wD)"
+
 # The agents panel, from a fixture with two repo groups and one plain workspace.
 Z=$'​'
 

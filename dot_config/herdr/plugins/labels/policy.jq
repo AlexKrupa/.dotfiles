@@ -20,6 +20,8 @@ def shells: ["fish","bash","zsh","sh","dash","ksh","nu"];
 
 def cap: .[0:20] | sub(" +$"; "");
 
+def linked: .worktree.is_linked_worktree == true;
+
 def basename: sub("/+$"; "") | split("/") | last | if . == "" then "/" else . end;
 
 # The base label for one pane, or null to leave the tab's label alone.
@@ -69,8 +71,20 @@ def label_of($pane; $program):
   # A display-only token, not a rename: a name the user typed is never touched, so none of
   # the ownership state above applies. Emitting only a differing token also stops the write
   # from feeding its own event back as more work.
-  ($s.workspaces[]?
-   | select((.tokens.idx // "") != (.number | slot))
-   | ["workspace", .workspace_id, "idx=" + (.number | slot)] | @tsv),
+  #
+  # The slot is the sidebar row, which is what `alt+1..9` counts. herdr appends a new
+  # worktree to the end of its list, but the sidebar puts it under its checkout. A collapsed
+  # group hides rows from that count too, but no client reports that state.
+  (($s.workspaces // [] | sort_by(.number)) as $list
+   | ($list | map(select(linked | not) | .worktree.repo_key // empty)) as $checkouts
+   | [ $list[]
+       | select(linked and (.worktree.repo_key as $k | any($checkouts[]; . == $k)) | not)
+       | ., (select(linked | not) | .worktree.repo_key // empty) as $k
+            | $list[] | select(linked and .worktree.repo_key == $k) ]
+   | to_entries[]
+   | (.key + 1 | slot) as $slot
+   | .value
+   | select((.tokens.idx // "") != $slot)
+   | ["workspace", .workspace_id, "idx=" + $slot] | @tsv),
   # The panel order is ours: herdr sorts by `ord`, and `focus_agent` counts the panel.
   ($rows[] | pane_line($since; $now))
