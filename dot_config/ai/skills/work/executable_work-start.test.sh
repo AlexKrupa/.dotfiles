@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Checks work-start.sh with real git repos and fake herdr, git-spice, and work-next.sh.
+# Checks work-start.sh with real git repos, the real shared bin/ scripts, and fake herdr, glab,
+# git-spice, and work-next.sh.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -14,7 +15,7 @@ check() {
 }
 
 # Fake herdr: answers the calls work-start.sh makes and logs each call. MOCK_START_FAIL is the
-# error text of a failed `agent start`.
+# error text of a failed `agent start`. MOCK_WT_LIST is the output of `worktree list`.
 mkdir -p "$tmp/bin"
 cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
@@ -24,6 +25,11 @@ case "$1 $2" in
     echo '{"result":{"worktree":{"path":"/wt/path"},' \
       '"workspace":{"workspace_id":"wT","label":"wt-label"},' \
       '"root_pane":{"pane_id":"wT:p1"}}}' ;;
+  "worktree list")
+    if [ -n "${MOCK_WT_LIST:-}" ]; then echo "$MOCK_WT_LIST"
+    else echo '{"result":{"worktrees":[]}}'; fi ;;
+  "worktree open")
+    echo '{"result":{"workspace":{"workspace_id":"wO"},"root_pane":{"pane_id":"wO:p1"}}}' ;;
   "agent start")
     if [ -n "${MOCK_START_FAIL:-}" ]; then echo "$MOCK_START_FAIL" >&2; exit 1; fi
     echo '{}' ;;
@@ -47,8 +53,13 @@ cat >"$tmp/bin/work-next" <<'EOF'
 #!/bin/sh
 { printf '%s\n' "$@"; cat; } >"$MOCK_NEXT.part" && mv "$MOCK_NEXT.part" "$MOCK_NEXT"
 EOF
-chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next"
-export PATH="$tmp/bin:$PATH" WORK_NEXT="$tmp/bin/work-next" TMPDIR="$tmp"
+# Fake glab: fetch-gitlab-mr.sh needs it on PATH. The fetch subcommand makes no glab call.
+cat >"$tmp/bin/glab" <<'EOF'
+#!/bin/sh
+echo "unexpected glab call: $*" >&2; exit 2
+EOF
+chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab"
+export PATH="$tmp/bin:$PATH" WORK_NEXT="$tmp/bin/work-next" TMPDIR="$tmp" HERDR_ENV=1
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$tmp/gitconfig"
 git config --global user.name tester
 git config --global user.email tester@example.com
@@ -85,6 +96,15 @@ run() {
 has_branch() {
   git -C "$work" show-ref --verify --quiet "refs/heads/$1" && echo yes || echo no
 }
+
+# push_branch <branch>: pushes one more commit on <branch> to origin from the other clone.
+push_branch() {
+  git -C "$d/other" switch -q "$1" 2>/dev/null || git -C "$d/other" switch -q -c "$1"
+  git -C "$d/other" commit -q --allow-empty -m "$1"
+  git -C "$d/other" push -q origin "$1"
+}
+
+remote_tip() { git -C "$d/remote.git" rev-parse "refs/heads/$1"; }
 
 # wait_next: waits up to 5 s for the fake work-next.sh, then prints what it got.
 wait_next() {
@@ -276,5 +296,120 @@ MOCK_SPICE_FAIL='FTL git-spice: branch not tracked: ABC-1/old' \
 check "next untracked: exit 1" 1 "$code"
 check "next untracked: message has the git-spice error" \
   "work-start: git-spice branch create failed: FTL git-spice: branch not tracked: ABC-1/old" "$err"
+
+# Existing branch only on origin: a local branch at the remote tip, in a new workspace.
+fresh
+push_branch ABC-5/review-me
+before=$(git -C "$work" rev-parse main)
+run $'ABC-5\n\nReview it' ABC-5 --branch ABC-5/review-me
+check "existing: exit 0" 0 "$code"
+check "existing: mode, branch, base, tracked" "existing ABC-5/review-me null false" \
+  "$(jq -r '"\(.mode) \(.branch) \(.base) \(.tracked)"' <<<"$out")"
+check "existing: local branch at the remote tip" \
+  "$(remote_tip ABC-5/review-me)" "$(git -C "$work" rev-parse ABC-5/review-me)"
+check "existing: worktree opened for the branch" \
+  "herdr worktree create --cwd $work --branch ABC-5/review-me --no-focus" \
+  "$(grep '^herdr worktree create' "$MOCK_LOG")"
+check "existing: agent started in the root pane" \
+  "herdr agent start abc-5-review-me --kind claude --pane wT:p1" \
+  "$(grep '^herdr agent start' "$MOCK_LOG")"
+check "existing: prompt from stdin" $'ABC-5\n\nReview it' "$(cat "$MOCK_PROMPT")"
+check "existing: output has pane, worktree, and workspace" "wT:p1 /wt/path wT" \
+  "$(jq -r '"\(.pane_id) \(.worktree) \(.workspace_id)"' <<<"$out")"
+check "existing: no git-spice call" "" "$(grep '^git-spice' "$MOCK_LOG")"
+check "existing: main not moved" "$before" "$(git -C "$work" rev-parse main)"
+check "existing: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
+
+# Existing local branch behind origin.
+fresh
+push_branch ABC-5/review-me
+git -C "$work" fetch -q origin
+git -C "$work" branch -q --no-track ABC-5/review-me origin/ABC-5/review-me
+push_branch ABC-5/review-me
+run p ABC-5 --branch ABC-5/review-me
+check "existing behind: exit 0" 0 "$code"
+check "existing behind: fast-forwarded to the remote tip" \
+  "$(remote_tip ABC-5/review-me)" "$(git -C "$work" rev-parse ABC-5/review-me)"
+
+# Existing local branch diverged from origin.
+fresh
+push_branch ABC-5/review-me
+git -C "$work" fetch -q origin
+git -C "$work" switch -q -c ABC-5/review-me origin/ABC-5/review-me
+git -C "$work" commit -q --allow-empty -m local
+git -C "$work" switch -q main
+push_branch ABC-5/review-me
+before=$(git -C "$work" rev-parse ABC-5/review-me)
+run p ABC-5 --branch ABC-5/review-me
+check "existing diverged: exit 1" 1 "$code"
+check "existing diverged: message" "work-start: cannot update ABC-5/review-me: local \
+ABC-5/review-me and origin/ABC-5/review-me diverged, reconcile them and re-run" "$err"
+check "existing diverged: branch not moved" "$before" "$(git -C "$work" rev-parse ABC-5/review-me)"
+check "existing diverged: no herdr call" "" "$(cat "$MOCK_LOG")"
+
+# Existing branch only in the local repo: no fetch.
+fresh
+git -C "$work" branch -q ABC-5/local-only
+run p ABC-5 --branch ABC-5/local-only
+check "existing local only: exit 0" 0 "$code"
+check "existing local only: branch not moved" \
+  "$(git -C "$work" rev-parse main)" "$(git -C "$work" rev-parse ABC-5/local-only)"
+
+# Existing branch not found.
+fresh
+run p ABC-5 --branch ABC-5/nope
+check "existing not found: exit 1" 1 "$code"
+check "existing not found: message" \
+  "work-start: branch not found in the local repo or on origin: ABC-5/nope" "$err"
+check "existing not found: no herdr call" "" "$(cat "$MOCK_LOG")"
+
+# Existing branch open in a herdr workspace already.
+fresh
+push_branch ABC-5/review-me
+MOCK_WT_LIST='{"result":{"worktrees":[{"branch":"ABC-5/review-me","path":"/wt/old",
+"is_prunable":false,"open_workspace_id":"wX"}]}}' run p ABC-5 --branch ABC-5/review-me
+check "existing open: exit 1" 1 "$code"
+check "existing open: message names the workspace" \
+  "work-start: ABC-5/review-me is open in herdr workspace wX already" "$err"
+check "existing open: no agent start" "" "$(grep '^herdr agent start' "$MOCK_LOG")"
+
+# Existing branch with a worktree and no open workspace.
+fresh
+push_branch ABC-5/review-me
+MOCK_WT_LIST='{"result":{"worktrees":[{"branch":"ABC-5/review-me","path":"/wt/old",
+"is_prunable":false}]}}' run p ABC-5 --branch ABC-5/review-me
+check "existing closed: exit 0" 0 "$code"
+check "existing closed: worktree opened" "herdr worktree open --cwd $work --path /wt/old --no-focus" \
+  "$(grep '^herdr worktree open' "$MOCK_LOG")"
+check "existing closed: agent started in the root pane" \
+  "herdr agent start abc-5-review-me --kind claude --pane wO:p1" \
+  "$(grep '^herdr agent start' "$MOCK_LOG")"
+check "existing closed: output has the worktree" "/wt/old wO" \
+  "$(jq -r '"\(.worktree) \(.workspace_id)"' <<<"$out")"
+
+# Existing branch from a linked worktree: a new workspace, the linked worktree stays.
+fresh
+push_branch ABC-5/review-me
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+cwd="$d/linked" run p ABC-5 --branch ABC-5/review-me -- --effort low
+check "existing from linked: exit 0" 0 "$code"
+check "existing from linked: mode" existing "$(jq -r .mode <<<"$out")"
+check "existing from linked: worktree opened from the main checkout" \
+  "herdr worktree create --cwd $work --branch ABC-5/review-me --no-focus" \
+  "$(grep '^herdr worktree create' "$MOCK_LOG")"
+check "existing from linked: claude flags passed" \
+  "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --effort low" \
+  "$(grep '^herdr agent start' "$MOCK_LOG")"
+check "existing from linked: linked worktree stays on its branch" ABC-1/old \
+  "$(git -C "$d/linked" branch --show-current)"
+
+# Existing branch with slug text or --base.
+fresh
+push_branch ABC-5/review-me
+run p ABC-5 'Review' --branch ABC-5/review-me
+check "existing with slug text: exit 1" 1 "$code"
+run p ABC-5 --branch ABC-5/review-me --base origin/main
+check "existing with --base: exit 1" 1 "$code"
+check "existing bad options: no herdr call" "" "$(cat "$MOCK_LOG")"
 
 exit $fail

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Opens a local git branch as a Herdr worktree workspace. Reuses the branch's existing worktree
 # when there is one. With --move-pane, moves the calling pane into that workspace.
-# Emits JSON: path, workspace_id, pane_id, created, moved.
+# Emits JSON: path, workspace_id, pane_id, root_pane_id, created, moved. root_pane_id is the idle
+# shell pane of a workspace this script opened, empty when the workspace was open already.
 # Exit codes: 0 ok, 1 usage/other, 2 branch not found, 4 not in Herdr / missing dep
 
 set -euo pipefail
@@ -74,9 +75,11 @@ if [[ "$move_pane" == true && "$(jq -r '.result.pane.workspace_id' <<<"$current"
   moved=true
   # The root pane is an idle shell this script opened. The moved pane replaces it.
   [[ -z "$root_pane" ]] || herdr pane close "$root_pane" >/dev/null
+  root_pane=""
 fi
 
 jq -n \
-  --arg path "$path" --arg workspace "$workspace" --arg pane "$pane" \
+  --arg path "$path" --arg workspace "$workspace" --arg pane "$pane" --arg root "$root_pane" \
   --argjson created "$created" --argjson moved "$moved" \
-  '{path:$path, workspace_id:$workspace, pane_id:$pane, created:$created, moved:$moved}'
+  '{path:$path, workspace_id:$workspace, pane_id:$pane, root_pane_id:$root, created:$created,
+    moved:$moved}'

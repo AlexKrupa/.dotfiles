@@ -271,7 +271,7 @@ command = "persiyanov.reviewr.toggle"
 description = "toggle review pane"
 
 [[keys.command]]
-key = "alt+n"
+key = "alt+a"
 type = "plugin_action"
 command = "chmarax.herdr-nvim.toggle"
 description = "nvim sidebar"

@@ -44,13 +44,13 @@ present.
 
 ## Helper script
 
-All deterministic GitLab fetching and JSON parsing lives in a helper script next to this file. The
+All deterministic GitLab fetching and JSON parsing lives in the shared `fetch-gitlab-mr.sh`. The
 worktree step uses the shared `herdr-worktree.sh` (run it with `--help` for usage). The working
 directory at skill-invocation time is not the skill directory. Always invoke both scripts by
 absolute path. Bind them once:
 
 ```sh
-FMR=~/.claude/skills/review-gitlab/fetch-mr.sh
+FMR=~/.config/ai/bin/fetch-gitlab-mr.sh
 HWT=~/.config/ai/bin/herdr-worktree.sh
 ```
 
@@ -59,10 +59,10 @@ Do not re-derive the script's behavior inline. Subcommands:
 | Call | Output |
 | --- | --- |
 | `"$FMR" preflight` | Prints `ok`, or aborts with one line + non-zero exit. Runs the deterministic prereq checks (see "Prerequisites"). |
-| `"$FMR" resolve "<input>"` | JSON: `iid`, `project_path`, `source_branch`, `target_branch`, `web_url`, `state`, `draft`, `labels`, `author`, `pipeline_status`, `description`. Input: URL, numeric iid, branch name, or empty (= current branch). |
+| `"$FMR" resolve "<input>"` | JSON: `iid`, `project_path`, `source_branch`, `target_branch`, `web_url`, `state`, `draft`, `labels`, `author`, `pipeline_status`, `description`. Input: MR, pipeline, or job URL, numeric iid, branch name, or empty (= current branch). |
 | `"$FMR" locate <project>` | Prints the local clone of `project`: the current repo when its remote matches, else the one match under `~/src`. |
 | `"$FMR" fetch <source> <target> [project]` | Run inside the clone. Fast-forwards local `<source>` to the MR tip with no checkout (keeps unpushed local commits, aborts on divergence). Refreshes the target's remote-tracking ref (`refs/remotes/<remote>/<target>` - does not write local `<target>`). JSON: `remote`, `source_branch`, `target_branch`, `target_ref` (= `<remote>/<target>`). Picks the remote whose URL matches `project` when several exist. |
-| `"$HWT" <branch> --repo <clone> --move-pane` | Opens the branch's worktree as a Herdr workspace (reuses an existing one) and moves the calling pane into it. JSON: `path`, `workspace_id`, `pane_id`, `created`, `moved`. |
+| `"$HWT" <branch> --repo <clone> --move-pane` | Opens the branch's worktree as a Herdr workspace (reuses an existing one) and moves the calling pane into it. JSON: `path`, `workspace_id`, `pane_id`, `root_pane_id`, `created`, `moved`. |
 | `"$FMR" discussions <iid> [project]` | JSON array of normalized threads. System-only discussions are already dropped. Fields per element: `id`, `individual_note`, `resolvable`, `resolved`, `note_count`, `authors`, `first_body` (≤280 chars), `files`. |
 | `"$FMR" diff-check <iid> [target]` | Exits 0 if the local `target...HEAD` file set matches the MR's. Exits 1 with the file diff on stderr otherwise. Pass the resolved `target_branch` to skip an extra `glab mr view` round-trip. |
 
