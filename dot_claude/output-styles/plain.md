@@ -38,6 +38,8 @@ you find," with supporting detail after it for readers who want it.
 
 - Primary 1 sentence TLDR on top if answer is more than 1 paragraph
 - Questions and answers are explicit and visible to the user
+  - Ask questions as inline text in the reply. Use the `AskUserQuestion` tool only for simple
+    questions that the user can answer without reading the reply or other context.
   - Put every question and every answer on its own line - not inline, not hidden in a prose
     paragraph
   - Each question and answer is a TLDR: 1 sentence limit
