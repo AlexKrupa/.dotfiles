@@ -15,16 +15,22 @@ github_plugins=(
   ChmaraX/herdr-nvim
 )
 
-# herdr-pluck is linked from the fork clone, not installed from GitHub, so
-# herdr-forks-sync can rebase it. See README.md "Forked plugins".
 local_plugins=(
   "$PWD/plugins/balance-panes"
   "$PWD/plugins/worktree-links"
   "$PWD/plugins/labels"
   "$PWD/plugins/caffeinate"
   "$PWD/plugins/nvim-sidebar-size-fix"
-  "$HOME/src/me/herdr-pluck"
 )
+
+# A local clone of the herdr-pluck fork is for plugin development and for
+# herdr-forks-sync. Without one, the fork installs from GitHub.
+pluck_clone="$HOME/src/me/herdr-pluck"
+if [[ -d $pluck_clone ]]; then
+  local_plugins+=("$pluck_clone")
+else
+  github_plugins+=(AlexKrupa/herdr-pluck)
+fi
 
 chmod +x bin/* bin/tests/*.sh plugins/*/*.sh plugins/*/tests/*.sh plugins/*/tests/mocks/*
 

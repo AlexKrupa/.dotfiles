@@ -23,14 +23,15 @@ The split and close keys run `bin/balance-panes.sh` instead of the built-in acti
 the group the pane joined or left. `bin/balance.jq` holds the tree walks, covered by
 `bin/tests/test.sh`.
 
-`herdr-pluck` runs from a fork (https://github.com/AlexKrupa/herdr-pluck), cloned at
-`~/src/me/herdr-pluck`. Uppercase hints open the match with `bin/pluck-open` instead of copying it.
+`herdr-pluck` runs from a fork (https://github.com/AlexKrupa/herdr-pluck). If a clone exists at
+`~/src/me/herdr-pluck`, `setup.sh` links it. If not, `setup.sh` installs the fork from GitHub.
+`herdr-forks-sync` rebases only the clone. Uppercase hints open the match with `bin/pluck-open`
+instead of copying it.
 
 ## Setup
 
 ```bash
 brew install herdr jq fish fd neovim sesh television go bash yazi lazygit
-git clone https://github.com/AlexKrupa/herdr-pluck.git
 ~/.config/herdr/setup.sh
 ```
 
