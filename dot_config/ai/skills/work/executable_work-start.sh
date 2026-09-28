@@ -26,16 +26,17 @@ mode_of() {
   if [[ $git_dir == "$common_dir" ]]; then echo new; else echo next; fi
 }
 
-# Lowercase ASCII words joined by hyphens. Longer than 40 characters: cut at a word end.
+# slugify <text> <max length>: lowercase ASCII words joined by hyphens. Longer than the max
+# length: cut at a word end.
 slugify() {
-  local s
+  local s max=$2
   s=$(printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]' \
     | LC_ALL=C sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')
-  if ((${#s} > 40)); then
-    if [[ ${s:40:1} == - ]]; then
-      s=${s:0:40}
+  if ((${#s} > max)); then
+    if [[ ${s:max:1} == - ]]; then
+      s=${s:0:max}
     else
-      s=${s:0:40}
+      s=${s:0:max}
       [[ $s != *-* ]] || s=${s%-*}
     fi
   fi
@@ -61,7 +62,7 @@ done
 [[ -n $ticket && -n $text ]] \
   || die "usage: work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]"
 
-slug=$(slugify "$text")
+slug=$(slugify "$text" 40)
 [[ -n $slug ]] || die "slug text has no letters or digits: $text"
 branch="$ticket/$slug"
 git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "not a valid branch name: $branch"
@@ -131,8 +132,9 @@ made=$(herdr worktree create --cwd "$main" --branch "$branch" --no-focus) \
   || fail "herdr worktree create failed"
 worktree=$(jq -r '.result.worktree.path' <<<"$made")
 workspace=$(jq -r '.result.workspace.workspace_id' <<<"$made")
-name=$(jq -r '.result.workspace.label' <<<"$made")
 pane=$(jq -r '.result.root_pane.pane_id' <<<"$made")
+# herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max.
+name=$(slugify "$branch" 32)
 
 start=(herdr agent start "$name" --kind claude --pane "$pane")
 ((${#claude_args[@]} == 0)) || start+=(-- "${claude_args[@]}")

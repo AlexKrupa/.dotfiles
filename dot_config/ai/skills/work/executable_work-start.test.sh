@@ -118,10 +118,10 @@ check "new: worktree opened from the main checkout" \
   "herdr worktree create --cwd $work --branch ABC-0/fix-readme-typo --no-focus" \
   "$(grep '^herdr worktree create' "$MOCK_LOG")"
 check "new: agent started with no claude flags" \
-  "herdr agent start wt-label --kind claude --pane wT:p1" \
+  "herdr agent start abc-0-fix-readme-typo --kind claude --pane wT:p1" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "new: prompt from stdin" "ABC-0 fix the typo" "$(cat "$MOCK_PROMPT")"
-check "new: output has pane, worktree, and agent" "wT:p1 /wt/path wt-label" \
+check "new: output has pane, worktree, and agent" "wT:p1 /wt/path abc-0-fix-readme-typo" \
   "$(jq -r '"\(.pane_id) \(.worktree) \(.agent)"' <<<"$out")"
 check "new: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
 
@@ -131,7 +131,8 @@ run $'ABC-7\n\nFix `x` in "$HOME" dir' ABC-7 'Add: --base support (v2)' \
   -- --model opus --effort high
 check "flags: slug drops symbols" "ABC-7/add-base-support-v2" "$(jq -r .branch <<<"$out")"
 check "flags: claude flags passed" \
-  "herdr agent start wt-label --kind claude --pane wT:p1 -- --model opus --effort high" \
+  "herdr agent start abc-7-add-base-support-v2 --kind claude --pane wT:p1 -- --model opus \
+--effort high" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "flags: prompt arrives with no changes" $'ABC-7\n\nFix `x` in "$HOME" dir' \
   "$(cat "$MOCK_PROMPT")"
@@ -141,6 +142,8 @@ fresh
 run p ABC-8 'Implement the new payment provider integration for checkout'
 check "long: slug cut at a word end" "ABC-8/implement-the-new-payment-provider" \
   "$(jq -r .branch <<<"$out")"
+check "long: agent name cut at a word end" "abc-8-implement-the-new-payment" \
+  "$(jq -r .agent <<<"$out")"
 
 # Bad input.
 fresh
