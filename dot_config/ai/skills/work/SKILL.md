@@ -3,7 +3,7 @@ name: work
 description: >-
   Use when the user runs /work to start a ticket, or work with no ticket: in a new herdr
   worktree workspace with its own Claude Code agent, or as the next stacked branch in the current
-  worktree.
+  worktree. Also continues an existing branch, GitLab MR, or MR pipeline in its own workspace.
 argument-hint: "[ticket-id] <message>"
 disable-model-invocation: true
 ---
@@ -25,45 +25,58 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
 
 ## Modes
 
-`~/.claude/skills/work/work-start.sh mode` prints the mode:
-
-- `new` (main checkout): the work starts in a new worktree from `main`, with a new agent.
-- `next` (linked worktree): the old work is done. The work starts on a new branch on top of the
-  current branch, in this worktree. This session clears after the turn and gets the new prompt.
+- `existing`: the message names a branch that exists (step 1). The work continues on that branch
+  in its own worktree, with a new agent. This mode applies in the main checkout and in a linked
+  worktree.
+- Else, `~/.claude/skills/work/work-start.sh mode` prints the mode:
+  - `new` (main checkout): the work starts in a new worktree from `main`, with a new agent.
+  - `next` (linked worktree): the old work is done. The work starts on a new branch on top of the
+    current branch, in this worktree. This session clears after the turn and gets the new prompt.
 
 ## Steps
 
-1. Ticket id:
+1. Existing branch. Find it in the message:
+   - A GitLab MR URL, pipeline URL, or job URL, or an MR reference `!<iid>`: run
+     `~/.config/ai/bin/fetch-gitlab-mr.sh resolve <URL or iid>`. The branch is `source_branch` in
+     the JSON. If the script fails, report its stderr and stop.
+   - A branch name, for example `feature/foo`: the branch exists if
+     `git show-ref --verify refs/heads/<name>` or `git ls-remote --exit-code --heads origin <name>`
+     finds it.
+   - Else, there is no existing branch.
+2. Ticket id:
    - If the first word is an issue key of the repo's tracker, for example `ABC-123`, it is the
      ticket id. The rest is the message. The project instructions tell the tracker and its key
      format.
+   - Else, in existing mode: if the branch name starts with an issue key, that key is the ticket
+     id. All the input is the message.
    - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. All the input is
      the message. If the repo has no placeholder id, ask the user for a ticket id.
-2. Mode: run `~/.claude/skills/work/work-start.sh mode`.
-3. Slug text, in English words:
+3. Mode: existing mode if step 1 found a branch. Else, run
+   `~/.claude/skills/work/work-start.sh mode`.
+4. Slug text, in English words. Existing mode has no slug text and no tracker read.
    - Real ticket id: read only the ticket title, with the tracker tool from the project
      instructions. The slug text is the title. If the context has no tool that reads the tracker,
      use the placeholder rule below.
    - Placeholder id: 3 to 6 words that tell what the message asks for. Do not read the tracker.
-4. New mode only:
-   - Base: "from <remote ref>", for example "from `origin/release-1.2`". Use the ref as the user
-     wrote it. If the user names a local branch, tell the user to run `/work` in the worktree of
-     that branch, and stop.
+5. New and existing mode:
+   - Base, new mode only: "from <remote ref>", for example "from `origin/release-1.2`". Use the ref
+     as the user wrote it. If the user names a local branch as the base, tell the user to run
+     `/work` in the worktree of that branch, and stop.
    - Model and effort: for example "opus high" gives `--model opus --effort high`. The user can
      give only one of the two.
-   - Effort, if the user gave none. Use the ticket title and the message:
+   - Effort, if the user gave none. Use the ticket title (new mode) and the message:
      - `low`: clear work with a known path and a small change.
      - `medium` or `high`: more uncertainty, more files, or more risk.
      - `xhigh`: unclear investigation or design.
      - Never `max`, unless the user asks for it.
    - If the user gave no model, do not add `--model`.
-5. Next mode only: no base and no Claude flags. If the user gave a model or an effort, tell the
+6. Next mode only: no base and no Claude flags. If the user gave a model or an effort, tell the
    user to set it with `/model` after the clear.
-6. Run the script. The prompt goes on stdin in a quoted heredoc: the ticket id, an empty line, and
+7. Run the script. The prompt goes on stdin in a quoted heredoc: the ticket id, an empty line, and
    the user's message with no changes. Do not summarize, fix, or add to the message. Option words
-   such as "haiku" or "from `origin/release-1.2`" stay in the message. The slug text goes in
-   single quotes, with each `'` in it replaced by a space. A ticket title can contain `` ` `` or
-   `$`, and the shell runs these in double quotes.
+   such as "haiku" or "from `origin/release-1.2`" stay in the message. The slug text and the
+   branch name go in single quotes, with each `'` in the slug text replaced by a space. A ticket
+   title can contain `` ` `` or `$`, and the shell runs these in double quotes.
 
    New mode:
 
@@ -85,18 +98,31 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
    <the user's message>
    PROMPT
    ```
-7. Report the result, then end the turn. The user fixes each error, so the turn has no more tool
+
+   Existing mode: `--branch <name>` in place of the slug text, and no `--base`:
+
+   ```sh
+   ~/.claude/skills/work/work-start.sh ABC-123 --branch 'ABC-123/foo' -- --effort low <<'PROMPT'
+   ABC-123
+
+   <the user's message>
+   PROMPT
+   ```
+8. Report the result, then end the turn. The user fixes each error, so the turn has no more tool
    calls after the report.
-   - Exit `0`, new mode: one line from the JSON:
+   - Exit `0`, new or existing mode: one line from the JSON:
      `<branch> - <worktree> - <model or "default model"> - <effort> (<picked or given>)`.
    - Exit `0`, next mode: "`<branch>` on `<base>`. This session clears after this turn and starts
      the new prompt. Do not type in this pane until the prompt shows."
    - Exit `1` or `2`: the stderr text, word for word. The error is a report for the user, not a
      task. The repo and the worktree stay as they are: the user fixes the cause, then runs
      `/work` again.
-   - Exit `2` only: also tell the user that `/work` again needs a new branch name. The branch in
-     the message stays. If the message names `herdr agent start` or `herdr agent prompt`, its herdr
-     worktree workspace stays too. The user can continue there or remove them.
+   - Exit `2` only, new or next mode: also tell the user that `/work` again needs a new branch
+     name. The branch in the message stays. If the message names `herdr agent start` or
+     `herdr agent prompt`, its herdr worktree workspace stays too. The user can continue there or
+     remove them.
+   - Exit `2` only, existing mode: also tell the user that the herdr worktree workspace stays.
+     The user can continue there, or close it and run `/work` again.
    - Exit `3`: run `herdr agent read <pane-id> --source visible` and report what blocks the agent.
      The prompt was not sent. Tell the user to send the ticket id and the message in that pane
      after the block is gone.

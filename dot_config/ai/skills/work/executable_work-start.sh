@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
 # Usage: work-start.sh mode
 #        work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]
+#        work-start.sh <ticket-id> --branch NAME [-- <claude flags>...]
 # Starts work on a ticket. Reads the first prompt on stdin. Branch: <ticket-id>/<slug>.
 # Mode "new" (main checkout): creates the branch from main after a fast-forward to origin/main,
 # or from the remote ref REF. Tracks it on main with git-spice. Opens it as a new herdr worktree
 # workspace, starts Claude there, and submits the prompt.
 # Mode "next" (linked worktree): creates the branch on top of the current branch with git-spice.
 # Then starts work-next.sh, which clears this Claude session after the turn and submits the prompt.
-# Prints JSON: mode, branch, base, tracked, worktree, pane_id, and in new mode workspace_id, agent.
+# Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
+# creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
+# NAME is used again. A workspace that is open already stops the script.
+# Prints JSON: mode, branch, base, tracked, worktree, pane_id, and in new and existing mode
+# workspace_id, agent.
 # Exit codes: 0 ok, 1 failed before the branch exists, 2 failed after it, 3 agent not ready
 set -euo pipefail
 
-here=$(cd "$(dirname "$0")" && pwd)
+here=$(cd "$(dirname "$0")" && pwd -P)
+bin=$(cd "$here/../../bin" && pwd)
 WORK_NEXT=${WORK_NEXT:-$here/work-next.sh}
 spice_ref=refs/spice/data
 
@@ -46,10 +52,11 @@ slugify() {
 git rev-parse --git-dir >/dev/null 2>&1 || die "not in a git repo: $PWD"
 if [[ ${1:-} == mode && $# -eq 1 ]]; then mode_of; exit 0; fi
 
-ticket="" text="" base="" claude_args=()
+ticket="" text="" base="" existing="" claude_args=()
 while (($#)); do
   case "$1" in
     --base) [[ $# -ge 2 ]] || die "--base needs a ref"; base=$2; shift 2 ;;
+    --branch) [[ $# -ge 2 ]] || die "--branch needs a name"; existing=$2; shift 2 ;;
     --) shift; claude_args=("$@"); break ;;
     -*) die "unknown option: $1" ;;
     *)
@@ -59,21 +66,29 @@ while (($#)); do
       shift ;;
   esac
 done
-[[ -n $ticket && -n $text ]] \
-  || die "usage: work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]"
 
-slug=$(slugify "$text" 40)
-[[ -n $slug ]] || die "slug text has no letters or digits: $text"
-branch="$ticket/$slug"
+if [[ -n $existing ]]; then
+  [[ -n $ticket && -z $text && -z $base ]] \
+    || die "usage: work-start.sh <ticket-id> --branch NAME [-- <claude flags>...]"
+  branch=$existing
+else
+  [[ -n $ticket && -n $text ]] \
+    || die "usage: work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]"
+  slug=$(slugify "$text" 40)
+  [[ -n $slug ]] || die "slug text has no letters or digits: $text"
+  branch="$ticket/$slug"
+fi
 git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "not a valid branch name: $branch"
 prompt=$(cat)
 [[ -n $prompt ]] || die "no prompt text on stdin"
 
-if git show-ref --verify --quiet "refs/heads/$branch"; then die "branch exists: $branch"; fi
-git show-ref --verify --quiet "$spice_ref" \
-  || die "git-spice is not set up: run 'gs repo init' first"
+if [[ -z $existing ]]; then
+  if git show-ref --verify --quiet "refs/heads/$branch"; then die "branch exists: $branch"; fi
+  git show-ref --verify --quiet "$spice_ref" \
+    || die "git-spice is not set up: run 'gs repo init' first"
+fi
 
-if [[ $(mode_of) == next ]]; then
+if [[ -z $existing && $(mode_of) == next ]]; then
   [[ -z $base ]] || die "--base does not apply in a linked worktree"
   ((${#claude_args[@]} == 0)) || die "claude flags do not apply in a linked worktree"
   [[ -z $(git status --porcelain) ]] || die "the worktree has changes: the old work is not done"
@@ -103,36 +118,56 @@ main=$(git worktree list --porcelain \
   | awk '/^worktree /{p = substr($0, 10)} $0 == "branch refs/heads/main" {print p; exit}')
 [[ -n $main ]] || die "no worktree has main checked out"
 
-git -C "$main" fetch --quiet origin || die "git fetch origin failed"
-
-if [[ -z $base ]]; then
-  git -C "$main" merge --ff-only --quiet origin/main >/dev/null 2>&1 \
-    || die "cannot fast-forward main to origin/main in $main"
-  base=main
-else
-  if git -C "$main" show-ref --verify --quiet "refs/heads/$base"; then
-    die "base $base is a local branch: stack it in its worktree with /work"
+if [[ -n $existing ]]; then
+  if git -C "$main" ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+    out=$(cd "$main" && "$bin/fetch-gitlab-mr.sh" fetch "$branch" 2>&1) \
+      || die "cannot update $branch: $out"
+  elif ! git -C "$main" show-ref --verify --quiet "refs/heads/$branch"; then
+    die "branch not found in the local repo or on origin: $branch"
   fi
-  git -C "$main" rev-parse --verify --quiet "$base^{commit}" >/dev/null \
-    || die "base not found: $base"
+
+  opened=$("$bin/herdr-worktree.sh" "$branch" --repo "$main" 2>&1) \
+    || die "herdr-worktree.sh failed: $opened"
+  worktree=$(jq -r '.path' <<<"$opened")
+  workspace=$(jq -r '.workspace_id' <<<"$opened")
+  pane=$(jq -r '.root_pane_id' <<<"$opened")
+  [[ -n $pane ]] || die "$branch is open in herdr workspace $workspace already"
+  mode=existing base="" tracked=false
+else
+  git -C "$main" fetch --quiet origin || die "git fetch origin failed"
+
+  if [[ -z $base ]]; then
+    git -C "$main" merge --ff-only --quiet origin/main >/dev/null 2>&1 \
+      || die "cannot fast-forward main to origin/main in $main"
+    base=main
+  else
+    if git -C "$main" show-ref --verify --quiet "refs/heads/$base"; then
+      die "base $base is a local branch: stack it in its worktree with /work"
+    fi
+    git -C "$main" rev-parse --verify --quiet "$base^{commit}" >/dev/null \
+      || die "base not found: $base"
+  fi
+
+  # No checkout: the main checkout stays on main.
+  git -C "$main" branch --no-track "$branch" "$base" >/dev/null \
+    || die "git branch failed: $branch"
+
+  # git-spice needs a local base branch, so a remote base gets no tracking.
+  tracked=false
+  if [[ $base == main ]]; then
+    git-spice -C "$main" branch track "$branch" --base main >/dev/null 2>&1 \
+      || fail "git-spice branch track failed"
+    tracked=true
+  fi
+
+  made=$(herdr worktree create --cwd "$main" --branch "$branch" --no-focus) \
+    || fail "herdr worktree create failed"
+  worktree=$(jq -r '.result.worktree.path' <<<"$made")
+  workspace=$(jq -r '.result.workspace.workspace_id' <<<"$made")
+  pane=$(jq -r '.result.root_pane.pane_id' <<<"$made")
+  mode=new
 fi
 
-# No checkout: the main checkout stays on main.
-git -C "$main" branch --no-track "$branch" "$base" >/dev/null || die "git branch failed: $branch"
-
-# git-spice needs a local base branch, so a remote base gets no tracking.
-tracked=false
-if [[ $base == main ]]; then
-  git-spice -C "$main" branch track "$branch" --base main >/dev/null 2>&1 \
-    || fail "git-spice branch track failed"
-  tracked=true
-fi
-
-made=$(herdr worktree create --cwd "$main" --branch "$branch" --no-focus) \
-  || fail "herdr worktree create failed"
-worktree=$(jq -r '.result.worktree.path' <<<"$made")
-workspace=$(jq -r '.result.workspace.workspace_id' <<<"$made")
-pane=$(jq -r '.result.root_pane.pane_id' <<<"$made")
 # herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max.
 name=$(slugify "$branch" 32)
 
@@ -148,7 +183,8 @@ fi
 
 herdr agent prompt "$pane" "$prompt" >/dev/null || fail "herdr agent prompt failed"
 
-jq -n --arg branch "$branch" --arg base "$base" --argjson tracked "$tracked" \
+jq -n --arg mode "$mode" --arg branch "$branch" --arg base "$base" --argjson tracked "$tracked" \
   --arg worktree "$worktree" --arg workspace "$workspace" --arg pane "$pane" --arg agent "$name" \
-  '{mode: "new", branch: $branch, base: $base, tracked: $tracked, worktree: $worktree,
-    workspace_id: $workspace, pane_id: $pane, agent: $agent}'
+  '{mode: $mode, branch: $branch, base: (if $base == "" then null else $base end),
+    tracked: $tracked, worktree: $worktree, workspace_id: $workspace, pane_id: $pane,
+    agent: $agent}'
