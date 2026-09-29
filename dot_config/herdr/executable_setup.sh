@@ -40,11 +40,10 @@ for spec in "${github_plugins[@]}"; do
       .result.plugins[]
       | select(.source.kind == "github")
       | select("\(.source.owner)/\(.source.repo)" == $s)' <<<"$installed" >/dev/null; then
-    echo "==> $spec is installed"
-  else
-    echo "==> $spec"
-    herdr plugin install "$spec" --yes
+    continue
   fi
+  echo "==> $spec"
+  herdr plugin install "$spec" --yes
 done
 
 for path in "${local_plugins[@]}"; do
@@ -54,11 +53,10 @@ for path in "${local_plugins[@]}"; do
     continue
   fi
   if jq -e --arg p "$path" '.result.plugins[] | select(.plugin_root == $p)' <<<"$installed" >/dev/null; then
-    echo "==> $name is linked"
-  else
-    echo "==> $name"
-    herdr plugin link "$path"
+    continue
   fi
+  echo "==> $name"
+  herdr plugin link "$path"
 done
 
 # A plugin dropped from the lists above stays installed on other machines.
@@ -86,6 +84,11 @@ if [[ -n $unwanted ]]; then
   fi
 fi
 
-echo
-herdr config check
-herdr server reload-config
+if ! check=$(herdr config check 2>&1); then
+  echo "$check"
+  exit 1
+fi
+reload=$(herdr server reload-config)
+if ! jq -e '.result.status == "applied" and (.result.diagnostics | length == 0)' <<<"$reload" >/dev/null; then
+  echo "$reload"
+fi
