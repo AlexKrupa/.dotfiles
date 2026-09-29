@@ -1,82 +1,73 @@
 ---
 name: review-me
 description:
-  Use when self-reviewing the currently checked-out branch and wanting low-risk fixes (typos, lint,
-  dead imports, doc tweaks) applied and folded into branch commits automatically. Triggers on
-  "review me", "self-review", "tidy up my branch", "clean up before PR". Pauses for confirmation
+  Self-review of the current branch. Applies low-risk fixes and folds them into branch commits. Asks
   before behavior changes or broad refactors.
 disable-model-invocation: true
 ---
 
 # review-me
 
-Extends `review-branch` with a fix loop. The audit + report logic is delegated - this skill only
-adds **what to do about findings**, including folding fixes into their originating commits via
-`git absorb`. Never pushes or rewrites history.
-
-## When to use
-
-- User asks to review their own branch and clean it up, or says "review me", "self-review", "tidy up
-  my branch before PR".
-
-**Do not use** when reviewing a teammate's branch or when the user only wants a report - use
-`review-branch` directly.
+This skill adds a fix loop to `review-branch`. `review-branch` does the audit and the report. This
+skill decides what to do with the findings. It folds the fixes into the commits that they fix, with
+`git absorb`. It never pushes. It rewrites history only through `history-rewrite.sh`, after the
+user confirms.
 
 ## REQUIRED SUB-SKILLS
 
-- `review-branch` - performs the audit and produces the report. Do not re-implement its git
-  discovery, checklist, severity scheme, or report writing. Read the generated report file before
-  proceeding.
-- `deslop` - the writing pass over prose and commit messages (loop step 7). REQUIRED, not optional:
-  do not hand-edit wording or messages yourself, and do not skip it because the diff "has no docs" -
-  it covers comments and commit messages too.
+- `review-branch` - does the audit and writes the report. Do not do its git discovery, checklist,
+  severity scheme, or report yourself. Read the report file before you continue.
+- `deslop` - the writing pass on prose, comments, and commit messages (loop step 7). This pass is
+  necessary. Do not edit wording or messages yourself. Do not skip it because the diff "has no
+  docs". It also examines comments and commit messages.
 
 ## Fix policy
 
-### Auto-apply - no prompt
+### Apply with no prompt
 
-- Typos in comments, strings, docs.
-- Lint / format issues, applied via the repo's configured tool (e.g. `eslint --fix`, `ruff format`,
-  `gofmt`, `cargo fmt`). Discover, don't hand-edit.
-- Unused imports introduced by this branch.
-- Dead variables / parameters / unreachable branches introduced by this branch.
-- Comment-only edits clarifying _why_ (not _what_).
-- Stale doc strings whose described behavior changed in this branch.
+- Typos in string literals. Comments and docs are for `deslop` (step 7).
+- Lint and format problems. Use the configured tool of the repo, for example `eslint --fix`,
+  `ruff format`, `gofmt`, or `cargo fmt`. Find the tool. Do not edit by hand.
+- Unused imports that this branch added.
+- Dead variables, dead parameters, and unreachable branches that this branch added.
+- Docstrings that describe behavior that this branch changed.
 
-### Ask first - one grouped prompt per category
+### Ask first - one grouped prompt for each category
 
-- Any behavior change, however small (including "obvious" bug fixes).
-- Refactors that touch call sites or change public signatures.
-- Test changes beyond fixing a clearly wrong assertion.
-- Snapshot / golden-file regeneration.
-- Dependency add / upgrade / remove.
-- Any change to code **not introduced by this branch** (out-of-scope cleanup).
-- Adding concurrency changes - flag and ask. Concurrency is rarely "low risk". (This decides whether
-  to auto-edit. Detection of concurrency issues is review-branch's "Concurrency & data races"
-  bucket, a separate axis.)
+- Each behavior change, also a small one, and also an "obvious" bug fix.
+- Refactors that change call sites or public signatures.
+- Test changes, except a fix of an assertion that is clearly wrong.
+- New snapshot or golden files.
+- A dependency that you add, upgrade, or remove.
+- A change to code that this branch did not add (out-of-scope cleanup).
+- A concurrency change. Concurrency changes are almost never low risk. This rule is about edits
+  only. `review-branch` finds concurrency problems in its "Concurrency & data races" bucket.
 
-### Git writes allowed
+### Permitted git writes
 
-Only these four. Anything else is forbidden.
+Only these five. All other git writes are forbidden.
 
-- `git absorb --base <parent>` (no `--and-rebase`).
-- `git commit --fixup=<sha>` where `<sha>` is in `<parent>..HEAD`. Fixup against a SHA outside that
-  range would corrupt parent history on autosquash - fall back to a normal commit instead.
-- `git commit -m <msg>` for the no-fixup-target fallback only.
-- `history-rewrite.sh` (see "Commit history"), and only after the user confirms. It is the single
-  permitted history rewrite - never run `git rebase` yourself.
+- `git absorb --base <parent>`, with no `--and-rebase`.
+- `git commit --fixup=<sha>`, where `<sha>` is in `<parent>..HEAD`. A fixup for a SHA outside that
+  range changes the parent history on autosquash. In that case, use a normal commit.
+- `git commit -m <msg>`, only when there is no fixup target.
+- `history-rewrite.sh` (see "Commit history"), only after the user confirms. It is the only
+  permitted history rewrite. Never run `git rebase` yourself.
+- The git writes of the `deslop` pass (step 7), which include the `amend!` commits from
+  `reword-fixup.sh`.
 
-Also allowed: read and stage commands (`git add`, `git status`, `git diff`, `git blame`, `git log`).
+Also permitted: read and stage commands (`git add`, `git status`, `git diff`, `git blame`,
+`git log`).
 
-Hard no: `git push`, a hand-run `git rebase`, `git commit --amend`, `git reset --hard`,
-`git absorb --and-rebase`, PR/issue ops, edits to files outside the branch diff.
+Forbidden: `git push`, `git rebase` by hand, `git commit --amend`, `git reset --hard`,
+`git absorb --and-rebase`, PR and issue operations, and edits to files outside the branch diff.
 
 ## Commit history
 
-Self-review only. `review-branch` does not check this - it also runs for teammate reviews, where
-history is not yours to restructure.
+Only for a self-review. `review-branch` does not do this check, because it also reviews the
+branches of other people. Their history is not yours to change.
 
-Goal: every commit on the branch is independently valuable. Find over-fragmentation only.
+Goal: each commit on the branch has value by itself. Find only commits that must be squashed.
 
 ### Input
 
@@ -85,106 +76,111 @@ git log --reverse --format='%h %s' <parent>..HEAD
 git log --reverse --name-only --format='--- %h %s' <parent>..HEAD
 ```
 
-### Flag a commit when any of these holds
+### Flag a commit if one of these is true
 
-- **Repair subject** - the subject or body says it repairs an earlier branch commit: "fix typo",
-  "address review", "oops", "forgot", "adjust X", "revert of <earlier commit>".
-- **Placeholder subject** - `wip`, `tmp`, `fix`, `stash`, `.`, or any subject naming no capability.
-- **Repair content** - the commit only changes lines an earlier branch commit added, and adds no
-  capability a reader could name.
+- **Repair subject** - the subject or the body tells that it repairs an earlier branch commit:
+  "fix typo", "address review", "oops", "forgot", "adjust X", "revert of <earlier commit>".
+- **Placeholder subject** - `wip`, `tmp`, `fix`, `stash`, `.`, or a subject that names no
+  capability.
+- **Repair content** - the commit changes only lines that an earlier branch commit added, and adds
+  no capability that a reader can name.
 
-Pick the target: the earlier branch commit that introduced the lines this one changes. Use
-`git blame` when the subject alone does not name it. No identifiable in-range target means no
+Find the target: the earlier branch commit that added the lines that this commit changes. Use
+`git blame` if the subject does not name it. If there is no target in the range, there is no
 finding.
 
 ### Never flag
 
-- A commit that stands on its own, even a small one.
-- Merge commits, and anything at or below `<parent>`.
-- `fixup!` / `amend!` commits - `--autosquash` places those already.
-- A commit that is too large or mixes concerns. Splitting is out of scope for this skill.
+- A commit that has value by itself, also a small one.
+- Merge commits, and all commits at or below `<parent>`.
+- `fixup!` and `amend!` commits. `--autosquash` already puts them in the correct position.
+- A commit that is too large or has more than one concern. Splits are out of scope for this skill.
 
 ### Report and confirm
 
-One line per suggestion, one sentence each:
+Write one line for each suggestion:
 
 ```
 <src-sha> "<src subject>" -> squash into <tgt-sha> "<tgt subject>"
 ```
 
-Add `(reorder first)` when the two are not adjacent. Then ask once. The user picks per item: apply
-or skip. No suggestions means say so in one line and skip the rest.
+Add `(reorder first)` if the two commits are not adjacent. Then ask one time. The user selects
+apply or skip for each item. If there are no suggestions, tell the user in one line and skip the
+rest of this section.
 
 ### Rewrite
 
-Only for confirmed items, only through the helper:
+Only for the items that the user confirmed, and only with the helper:
 
 ```
 ~/.claude/skills/review-me/history-rewrite.sh <parent> <source>:<target>...
 ```
 
-- Each spec reads `<newer>:<older>`. Both SHAs must lie in `<parent>..HEAD`.
-- The script validates the specs, saves a backup ref, and runs one
-  `git rebase -i --autosquash <parent>`. Reordering happens inside that same rebase - do not reorder
-  first as a separate step.
-- On conflict it aborts, restores the branch, and exits 1. Do not resolve the conflict and do not
-  retry. Report the failure and the backup ref, and tell the user to squash by hand.
-- It prints `backup-ref`, `squashes-applied`, `commits-before`, `commits-after`, `result`. The
-  final reply shows `backup-ref` only.
-- `--dry-run` as first arg prints the plan and writes nothing.
+- Each spec is `<newer>:<older>`. Both SHAs must be in `<parent>..HEAD`.
+- The script checks the specs, saves a backup ref, and runs one
+  `git rebase -i --autosquash <parent>`. The reorder occurs in that rebase. Do not reorder as a
+  separate step before.
+- On a conflict, the script stops the rebase, restores the branch, and exits `1`. Do not resolve
+  the conflict and do not retry. Report the failure and the backup ref. Tell the user to squash by
+  hand.
+- The script prints `backup-ref`, `squashes-applied`, `commits-before`, `commits-after`, and
+  `result`. The final reply shows only `backup-ref`.
+- With `--dry-run` as the first argument, the script prints the plan and writes nothing.
 
-If the user declines every item, change nothing.
+If the user declines all items, change nothing.
 
 ## Loop
 
-0. **Precondition:** Run `git status --porcelain`. If non-empty, abort. Show the dirty paths and
-   tell the user to stash or commit before retrying. Do not auto-stash - keeps user work and skill
-   work separate.
-1. Invoke `review-branch`. Read the resulting report.
-2. Partition findings: auto-apply vs ask-first.
-3. Apply auto-fixes, grouped by file. Use parallel edits when files are independent.
-4. For ask-first findings, present **one** consolidated prompt:
-   - Finding id, title, severity, files affected, proposed change in ≤3 lines each.
-   - User picks per-item by id: apply / skip.
-5. Run repo's validation if discoverable: tests, typecheck, lint. Look in `package.json` scripts,
-   `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, etc. If none found, say so - don't invent
-   commands.
-6. **Absorb pass.** Only if validation passed (or none was found) and at least one fix was applied
-   this iteration. The git mechanics are deterministic - delegate them to the helper script, do not
-   hand-run absorb/blame/fixup:
+0. **Precondition:** run `git status --porcelain`. If the output is not empty, stop. Show the
+   changed paths and tell the user to stash or commit, then try again. Do not stash. The user's
+   work and the work of this skill must stay separate.
+1. Use `review-branch`. Read the report.
+2. Put the findings in two groups: apply with no prompt, and ask first.
+3. Apply the no-prompt fixes, file by file. If the files are independent, edit them in parallel.
+4. For the ask-first findings, show **one** grouped prompt:
+   - For each finding: the id, title, severity, files, and the proposed change in at most 3 lines.
+   - The user selects apply or skip for each id.
+   - Apply the items that the user approves.
+5. Run the validation of the repo if you can find it: tests, type check, lint. Look in the
+   `package.json` scripts, `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, and similar
+   files. If you find no validation, tell the user. Do not make up commands.
+6. **Absorb pass.** Do this step only if the validation passed or there is no validation, and at
+   least one fix was applied in this pass. The helper script does the git work. Do not run absorb,
+   blame, or fixup by hand:
 
    ```
    ~/.claude/skills/review-me/absorb-fixes.sh <parent> <file>...
    ```
 
-   - `<parent>`: the `parent:` value from `review-branch`'s context. Do not recompute it.
-   - `<file>...`: only the files the skill modified this pass. The script stages exactly these
-     (never `git add -A`), runs `git absorb`, and for each orphan it leaves, fixes up to the
-     dominant in-range commit via blame.
-   - It prints a keyed block: `absorb-fixups`, `blame-fixups` (with `<sha> <file>` lines),
-     `needs-message` (files left staged because no in-range blame target exists), and
-     `staged-remaining`.
-   - For each `needs-message` file: write a conventional one-liner and
-     `git commit -m "<msg>" -- <file>`. This is the only orphan case the script defers, because the
-     message is a judgment call.
-7. **Writing pass (REQUIRED).** First pass only, once the working tree is clean again: invoke
-   `deslop` in branch mode (no args). It reads the writing rules, fixes prose and commit messages,
-   and does its own absorb and `amend!` commits. Its deferred items join this skill's ask-first
-   prompt.
-8. **Re-review.** Skip this step when the pass changed no file. The report on disk is still
-   accurate. Say so and go to step 10.
+   - `<parent>`: the `parent:` value from the context of `review-branch`. Do not calculate it
+     again.
+   - `<file>...`: only the files that this skill changed in this pass. The script stages only these
+     files (never `git add -A`) and runs `git absorb`. For each file that absorb does not fold, it
+     makes a fixup for the in-range commit that `git blame` shows most.
+   - The script prints a keyed block: `absorb-fixups`, `blame-fixups` (with `<sha> <file>` lines),
+     `needs-message` (staged files with no in-range blame target), and `staged-remaining`.
+   - For each `needs-message` file, write a one-line conventional commit message and run
+     `git commit -m "<msg>" -- <file>`. The script does not do this step, because the message needs
+     judgment.
+7. **Writing pass (REQUIRED).** Only in the first pass, when the working tree is clean again: use
+   `deslop` in branch mode (no arguments). It reads the writing rules, fixes prose and commit
+   messages, and makes its own absorb and `amend!` commits. It asks about its deferred items in
+   its own grouped prompt.
+8. **Re-review.** If this pass changed no file, skip this step. The report on disk is still
+   correct. Tell the user and go to step 10.
 
-   Otherwise re-invoke `review-branch` in **re-review mode** with three inputs: every file this pass
-   modified (step 6's list plus the files `deslop` touched in step 7), which of them got a behavior
-   change, and the path of the previous report. It audits that scope plus one hop, and keeps
-   unresolved findings. Pass 1 may fan out review agents, later passes never do.
-9. Stop when no auto-fixable findings remain. That is the stop condition. **3 passes** is only a
-   runaway cap: a converging run needs pass 1 to fix and pass 2 to confirm plus catch cascades (a
-   removed dead symbol makes its neighbour dead). Pass 3 is the margin. Hitting the cap means the
-   run is not converging - a fix is reintroducing a finding, or two findings contradict each other.
-   Surface which finding ids keep coming back.
-10. **History pass (last, once).** After the loop ends and with a clean working tree, run the
-    "Commit history" section. It runs last so it sees the commits steps 6 and 7 added.
+   Else, use `review-branch` again in **re-review mode** with three inputs: each file that this
+   pass changed (the files of step 6 and the files that `deslop` changed in step 7), the files
+   among them that got a behavior change, and the path of the previous report. It audits that
+   scope plus one hop, and keeps the unresolved findings. Pass 1 can dispatch review agents. Later
+   passes never do. Then go to step 2 with the new report.
+9. Stop when no findings remain that you can apply with no prompt. This is the stop condition.
+   **3 passes** is only a limit for a loop that does not stop. A normal run needs pass 1 to fix,
+   and pass 2 to confirm and to find cascades: a removed dead symbol can make its neighbor dead.
+   Pass 3 is a margin. If you get to the limit, the run does not converge: a fix adds a finding
+   again, or two findings contradict each other. Tell the user which finding ids come back.
+10. **History pass (last, one time).** After the loop ends, with a clean working tree, do "Commit
+    history". It runs last, so that it sees the commits of steps 6 and 7.
 
 ## Final reply
 
@@ -205,31 +201,32 @@ Skipped:
 Report: `<path>`
 ```
 
-Add a line only for these cases:
+Add a line only in these cases:
 
-- Validation failed: the command and the error.
-- No validation command found: no check verified the fixes.
-- Working tree is dirty: the paths.
-- `history-rewrite.sh` ran: the backup ref, and only push remains.
-- The pass cap was reached: the ids that keep coming back.
+- The validation failed: the command and the error.
+- There is no validation command: no check verified the fixes.
+- The working tree is dirty: the paths.
+- `history-rewrite.sh` ran: the backup ref, and that only the push remains.
+- The loop got to the pass limit: the ids that come back.
 
-## Red flags - stop and reconsider
+## Red flags - stop and think again
 
-- About to auto-apply a behavior change because it "feels safe". It's not auto-applicable. Ask.
-- Editing files outside `<parent>...HEAD` without asking first. Out-of-scope cleanup, including an
-  `(adjacent)` finding, needs a per-item confirmation.
-- Skipping the re-review pass after fixes - the report on disk would be wrong.
-- Running any git write outside "Git writes allowed".
-- Proceeding to the next pass with a non-clean working tree. Stop and surface the leftover.
-- Looping past 3 passes. Stop and ask the user.
-- Letting `review-branch` fan out review agents on a re-review pass. Pass 1 only.
-- Re-running the full audit on pass 2 or 3 instead of re-review mode.
-- Re-reviewing after a pass that changed nothing, or leaving `deslop`'s files out of the scope list.
-- Accepting a re-review report that lost a pass-1 finding the scoped pass never read.
-- Finishing without the `deslop` pass, or fixing wording by hand instead of invoking it.
-- Rewriting history without an explicit per-item confirmation, or through anything other than
-  `history-rewrite.sh`.
-- Suggesting a squash for a commit that stands on its own, or suggesting a split. Over-fragmentation
-  only.
-- Resolving a conflict after `history-rewrite.sh` aborts. Hand it back to the user.
-- Running the history pass before the fix loop ends - the commit list would be stale.
+- You are about to apply a behavior change with no prompt because it "feels safe". Ask.
+- You edit files outside `<parent>...HEAD` and did not ask first. Out-of-scope cleanup, also an
+  `(adjacent)` finding, needs a confirmation for each item.
+- You skip the re-review after fixes. Then the report on disk is wrong.
+- You run a git write that is not in "Permitted git writes".
+- You start the next pass with a dirty working tree. Stop and show the remaining changes.
+- You do more than 3 passes. Stop and ask the user.
+- You let `review-branch` dispatch review agents in a re-review pass. Only pass 1 can do this.
+- You run the full audit in pass 2 or 3 and not re-review mode.
+- You do a re-review after a pass that changed nothing, or you do not include the files of `deslop`
+  in the scope list.
+- You accept a re-review report that does not have a pass 1 finding that the scoped pass did not
+  read.
+- You finish without the `deslop` pass, or you fix wording by hand.
+- You rewrite history without a confirmation for each item, or not through `history-rewrite.sh`.
+- You suggest a squash for a commit that has value by itself, or you suggest a split. Suggest only
+  squashes of repair commits.
+- You resolve a conflict after `history-rewrite.sh` stops. Give it back to the user.
+- You do the history pass before the fix loop ends. Then the commit list is out of date.

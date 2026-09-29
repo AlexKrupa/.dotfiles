@@ -1,147 +1,156 @@
 ---
 name: debug-gitlab
 description:
-  Use when a GitLab pipeline, job, or merge request failed and the user wants the root cause - by
-  URL, id, or implicitly the current branch. Read-only analysis. An optional fix step requires
-  explicit user approval. Never pushes, retries, merges, or comments without consent.
+  Root-cause analysis of a failed GitLab pipeline, job, or merge request - by URL, branch, or the
+  current branch. Read-only, with an optional fix step after approval.
+argument-hint: "[pipeline-url | job-url | mr-url | branch | <empty>]"
 disable-model-invocation: true
 ---
 
 # debug-gitlab
 
-Read-only root-cause analysis for a failing GitLab pipeline, job, or merge request. Output is a
-single Markdown report printed to stdout. The skill may offer a code fix after analysis, but only
-applies it after the user says yes, and never commits or pushes.
+This skill finds the root cause of a failed GitLab pipeline, job, or merge request. It does not
+change the repo or GitLab. The output is one Markdown report in the reply. After the analysis, the
+skill can offer a code fix. It applies the fix only after the user says yes. It never commits or
+pushes.
 
-Argument hint: `[pipeline-url | pipeline-id | job-url | job-id | mr-url | mr-iid | <empty>]`. Empty
-means "the failing pipeline on the current branch".
-
-## When to use
-
-- A pipeline, job, or MR failed and the user asks "why did it fail", "what's wrong with my CI",
-  "debug this pipeline", "the build is red", or similar.
-
-**Do not use** for: green pipelines, GitHub Actions, generic "fix my code" requests unconnected to
-CI, reviewing an MR before merge (use `review-gitlab`), cleaning up a branch (use `review-me`).
+An empty argument means "the failed pipeline on the current branch".
 
 ## Prerequisites
 
-The working directory at skill-invocation time is the user's repo, not the skill directory. Always
-invoke the helper by absolute path. Bind it once:
+The working directory is the user's repo, not the skill directory. Always run the helper by its
+absolute path. Shell variables do not persist between Bash calls. Start each command that uses
+`$GL` with the binding:
 
 ```sh
-GL=~/.claude/skills/debug-gitlab/gitlab.sh
+GL=~/.claude/skills/debug-gitlab/gitlab.sh; "$GL" check
 ```
 
-Run `"$GL" check`. It runs the fail-fast chain (local checks first, network last) and
-prints one line per check:
+`check` runs the checks in fail-fast order: local checks first, network checks last. It prints one
+line for each check:
 
-- `git-repo` - hard-fails "not in a git repo" (needed for current-branch resolution and the optional
-  checkout step).
-- `glab` / `jq` - hard-fail if missing (the helper uses `jq` for field projection).
-- `glab-auth` - hard-fails "glab not authenticated, run `glab auth login`".
-- `GITLAB_API_TOKEN: present|absent` - note only. Used by `trace`/`signals` as a `curl` fallback
-  when `glab api` cannot reach the project.
-- `worktree: clean|dirty` - recorded, never blocks here. Only the optional checkout and fix steps
-  block on a dirty tree.
+- `git-repo` - fails with "not in a git repo". The skill needs the repo to find the current branch
+  and for the optional checkout step.
+- `glab` / `jq` - fails if the tool is missing. The helper uses `jq` to select JSON fields.
+- `glab-auth` - fails with "glab not authenticated, run `glab auth login`".
+- `GITLAB_API_TOKEN: present|absent` - a note only. `trace` and `signals` use the token for a
+  `curl` fallback when `glab api` cannot get to the project.
+- `worktree: clean|dirty` - a note only. Only the optional checkout and fix steps stop on a dirty
+  tree.
 
-Exit code 4 = a hard prerequisite failed (see the printed line). Stop and surface it.
+Exit code `4` means that a prerequisite failed. Show the printed line to the user and stop.
 
 ## Input resolution
 
-Run `"$GL" resolve <input>`. It accepts:
+Run `"$GL" resolve <input>`. The input can be:
 
-- empty -> current branch's failed pipeline
-- pipeline URL (`.../-/pipelines/<id>`)
-- job URL (`.../-/jobs/<id>`) - walks to the parent pipeline
-- MR URL (`.../-/merge_requests/<iid>`) - uses `head_pipeline`, falls back to most recent
-- branch name - same as empty but for a named branch
+- empty - the failed pipeline of the current branch
+- a pipeline URL (`.../-/pipelines/<id>`)
+- a job URL (`.../-/jobs/<id>`) - the helper finds the parent pipeline
+- an MR URL (`.../-/merge_requests/<iid>`) - the helper uses `head_pipeline`. If there is no head
+  pipeline, it uses the most recent pipeline.
+- a branch name - the same as empty, for the named branch
 
-Bare numeric ids are rejected as ambiguous. Ask the user for the URL form.
+The helper rejects a bare numeric id because it is ambiguous. Ask the user for the URL.
 
-Output is one JSON object:
+The output is one JSON object:
 `{project_path, pipeline_id, sha, status, ref, source_branch, target_branch, web_url, mr_iid}`.
-`mr_iid` is `null` when no open MR exists for the branch. Use the fields verbatim for the report
-header.
+`mr_iid` is `null` when the branch has no open MR. Use the field values without changes in the
+report header.
 
-Helper exit codes the skill must handle:
+Helper exit codes:
 
-- `2` not found (no pipeline / no test report / empty trace) - state what is missing in the report.
-  Do not retry blindly.
-- `3` ambiguous (>1 open MR for the same branch) - the script prints the candidates on stderr. Ask
-  the user to pick by iid.
-- `4` missing `glab` / `jq` / auth - covered by Prerequisites.
-- `5` network / API failure - retry once, then surface to the user.
+- `2` - not found: no pipeline, no test report, or an empty trace. Write in the report what is
+  missing. Do not retry.
+- `3` - ambiguous: more than one open MR for the branch. The helper prints the candidates on
+  stderr. Ask the user to select one by iid.
+- `4` - `glab`, `jq`, or auth is missing. See "Prerequisites".
+- `5` - network or API failure. Retry one time. If it fails again, tell the user.
 
 ## Failure signals - cheapest first
 
-Pull signals in this order. Stop as soon as the cause is clear. Most failures do not need the raw
+Get the signals in this sequence. Stop when the cause is clear. Most failures do not need the raw
 trace.
 
-### 1. `failure_reason` per failing job
+### 1. `failure_reason` for each failed job
 
-`"$GL" failed-jobs <pipeline_id>` returns a slim array
+`"$GL" failed-jobs <pipeline_id>` prints an array of
 `{id, name, stage, failure_reason, allow_failure, web_url, started_at, finished_at, duration,
-verdict, action}`. The script maps `failure_reason` to `verdict`/`action` deterministically (table
-below, for reference - you do not apply it by hand):
+verdict, action}`. The helper sets `verdict` and `action` from `failure_reason`. The table is for
+reference only. Do not apply it yourself.
 
-| `failure_reason`             | `verdict`        | `action`             |
-| ---------------------------- | ---------------- | -------------------- |
-| `script_failure`             | `needs-analysis` | `analyze`            |
-| `stuck_or_timeout_failure`   | `infra-stall`    | `retry`              |
-| `runner_system_failure`      | `infra`          | `retry`              |
-| `job_execution_timeout`      | `hit-timeout`    | `retry-or-raise-limit` |
-| `api_failure`                | `api-hiccup`     | `retry`              |
-| `missing_dependency_failure` | `upstream-failed`| `fix-upstream`       |
-| `scheduler_failure`          | `infra`          | `retry`              |
-| `archived_failure`           | `infra`          | `retry`              |
-| null / unknown               | `unknown`        | `analyze`            |
+| `failure_reason`             | `verdict`         | `action`               |
+| ---------------------------- | ----------------- | ---------------------- |
+| `script_failure`             | `needs-analysis`  | `analyze`              |
+| `stuck_or_timeout_failure`   | `infra-stall`     | `retry`                |
+| `runner_system_failure`      | `infra`           | `retry`                |
+| `job_execution_timeout`      | `hit-timeout`     | `retry-or-raise-limit` |
+| `api_failure`                | `api-hiccup`      | `retry`                |
+| `missing_dependency_failure` | `upstream-failed` | `fix-upstream`         |
+| `scheduler_failure`          | `infra`           | `retry`                |
+| `archived_failure`           | `infra`           | `retry`                |
+| null or unknown              | `unknown`         | `analyze`              |
 
-Only `verdict: needs-analysis` (and `unknown`) need step 2 / 3. Every other verdict is enough to
-write the report and skip the trace.
+Only the verdicts `needs-analysis` and `unknown` need step 2 or step 3. For all other verdicts,
+write the report and do not get the trace.
 
 ### 2. Pipeline test report (for jobs that ran tests)
 
-`"$GL" test-failures <pipeline_id>` returns only the failed JUnit cases as
-`{name, classname, file, execution_time, system_output, stack_trace}` with `system_output` and
-`stack_trace` each capped at 800 chars. Structured, small, no raw log needed. Exit code `2` means
-the pipeline has no test report - fall through to step 3.
+`"$GL" test-failures <pipeline_id>` prints only the failed JUnit cases as
+`{name, classname, file, execution_time, system_output, stack_trace}`. `system_output` and
+`stack_trace` each have a limit of 800 characters. Exit code `2` means that the pipeline has no
+test report. Then go to step 3.
 
-### 3. Raw trace - only if 1 and 2 do not pinpoint the cause
+### 3. Raw trace - only if step 1 and step 2 do not find the cause
 
-`"$GL" signals <job_id>` downloads the trace to `/tmp/gl-trace-<job_id>.log` (falls
-back to `curl` with `GITLAB_API_TOKEN` if `glab api` cannot reach the project) and prints the
-pinpointing slices in one shot: the trace path, `tail` (last 200), hot lines with line numbers
-(error/fail/exception/fatal/panic/traceback/killed/non-zero exit, last 60), and step boundaries
-(`$ <command>`, ANSI-reset aware). The full log stays on disk. Only these slices enter context.
+`"$GL" signals <job_id>` downloads the trace to `/tmp/gl-trace-<job_id>.log`. If `glab api`
+cannot get to the project, it uses `curl` with `GITLAB_API_TOKEN`. Then it prints these parts of
+the trace:
 
-For a specific line N from the hot-line list, get surrounding context with
-`sed -n '<N-15>,<N+5>p' /tmp/gl-trace-<jid>.log`.
+- the trace path
+- `tail`: the last 200 lines
+- hot lines with line numbers: error, fail, exception, fatal, panic, traceback, killed, non-zero
+  exit. The last 60 hot lines.
+- step boundaries: `$ <command>` lines, with ANSI reset codes removed
 
-Use `"$GL" trace <job_id>` (path only, no slices) if you need the raw file for some
-other reason. Never `cat` or `Read` the whole file. Never use `glab ci trace` for analysis - it
-streams the full log into the conversation. Reserve `glab ci trace` for the case where the user
-explicitly wants to watch a running job.
+The full log stays on disk. Only these parts go into the context.
 
-For pipelines with multiple failing jobs, run the per-job `"$GL" signals` calls in
-parallel (one Bash message, multiple calls). Each trace still stays on disk. Only slices enter
-context.
+To see the lines around hot line N, run `sed -n '<N-15>,<N+5>p' /tmp/gl-trace-<job_id>.log`.
+
+`"$GL" trace <job_id>` prints only the path, with no parts. Use it if you need the raw file for a
+different reason. Never `cat` or `Read` the full file. Never use `glab ci trace` for analysis. It
+puts the full log into the conversation. Use `glab ci trace` only when the user wants to watch a
+running job.
+
+If the pipeline has more than one failed job, run the `"$GL" signals` calls in parallel: one
+message with one Bash call for each job.
 
 ## Classification
 
-Per failing job, label one of:
+Give each failed job one class:
 
-- **code** - assertion, compile error, lint, test failure tied to a file the branch touched.
-- **config** - `.gitlab-ci.yml`, Dockerfile, image tag, missing CI variable, wrong runner tag.
-- **infra** - runner timeout, `dial tcp`, 5xx from registry / dependency mirror, OOM, disk full.
-- **dependency** - upstream package unavailable, lockfile drift, registry auth, npm 404.
-- **flaky** - apply only when the log itself names the symptom (timing-dependent assertion,
-  intermittent network) or the same test failed once and passed on a clean retry. When unsure,
-  classify as `code` or `infra`, not `flaky`.
+- **code** - an assertion, compile error, lint error, or test failure in a file that the branch
+  changed.
+- **config** - `.gitlab-ci.yml`, a Dockerfile, an image tag, a missing CI variable, or a wrong
+  runner tag.
+- **infra** - a runner timeout, `dial tcp`, a 5xx from a registry or dependency mirror, OOM, or a
+  full disk.
+- **dependency** - an upstream package is not available, lockfile drift, registry auth, or an npm
+  404.
+- **flaky** - use only when the log shows the symptom (a timing-dependent assertion, an
+  intermittent network error), or when the same test failed one time and passed on a clean retry.
+  If you are not sure, use `code` or `infra`.
 
-Pick an action: `retry`, `fix-in-repo`, `escalate`, `wait-and-retry`.
+Give each failed job one action: `retry`, `fix-in-repo`, `escalate`, or `wait-and-retry`.
 
-## Report (stdout)
+For a job that step 1 closed without analysis, use the script `verdict`:
+
+- `infra`, `infra-stall`, `api-hiccup` - class `infra`, action `retry`.
+- `hit-timeout` - class `infra`, action `retry`. The cause tells the user to increase the job
+  timeout if the retry also times out.
+- `upstream-failed` - the class and the action of the failed upstream job.
+
+## Report
 
 ````markdown
 # GitLab failure report
@@ -178,62 +187,63 @@ Pick an action: `retry`, `fix-in-repo`, `escalate`, `wait-and-retry`.
 
 ## Optional fix flow
 
-Run this only when the verdict is `fix needed in repo` and the log evidence is enough to name the
-fix without further repo inspection. Otherwise fall through to the repo-context step below.
+Use this flow only when the verdict is `fix needed in repo` and the log gives sufficient data to
+name the fix. If you must examine the repo, go to "Repo-context analysis".
 
-1. Print the proposed fix: prose summary + a minimal diff sketch. Do not edit yet.
-2. Prompt the user: apply / show me first / no.
-3. If approved:
-   - `git status --porcelain` - if non-empty, abort and warn. Do not auto-stash.
-   - Pick the fix branch (table below).
-   - Apply the edit with the normal editing tools (no shell `sed`).
-   - Stop. Do not run `git commit`, `git push`, `glab mr create`, or `glab ci retry`. Hand the diff
-     back to the user.
+1. Show the proposed fix: a short description and a minimal diff sketch. Do not edit yet.
+2. Ask the user: apply, show me first, or no.
+3. If the user approves:
+   - Run `git status --porcelain`. If the output is not empty, stop and tell the user. Do not stash.
+   - Select the fix branch from the table below.
+   - Make the edit with the edit tools, not with shell `sed`.
+   - Stop. Do not run `git commit`, `git push`, `glab mr create`, or `glab ci retry`. Give the diff
+     to the user.
 
-| Source branch state                                | Action                                                                                                                            |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Currently checked out, user is the majority author | edit in place                                                                                                                     |
-| On `main` / default branch                         | create `fix/<short-cause>` from default (use repo convention if a `CONTRIBUTING.md` or `.gitlab/` template defines one); checkout |
-| Some other branch, user not the author             | refuse; print "branch belongs to @<author>; ask before fixing"; exit                                                              |
+| Source branch state                                | Action                                                                                                                                  |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Checked out, the user is the majority author       | Edit in place.                                                                                                                          |
+| On `main` or the default branch                    | Create `fix/<short-cause>` from the default branch and check it out. Use the repo convention if `CONTRIBUTING.md` or `.gitlab/` has one. |
+| Not checked out, the user is the majority author   | Check it out as in "Repo-context analysis", then edit in place.                                                                         |
+| The user is not the majority author                | Refuse. Print "branch belongs to @<author>; ask before fixing" and stop.                                                                |
 
-Every fix offered by this skill is a behavior change by definition (it has to flip CI from red to
-green). Always ask. The auto-apply rules from `review-me` do not apply here.
+Each fix from this skill changes behavior, because it must change CI from failed to passed. Always
+ask. The auto-apply rules of `review-me` do not apply here.
 
-## Repo-context analysis (when the log alone is not enough)
+## Repo-context analysis (when the log is not sufficient)
 
-Trigger only after the user explicitly confirms a checkout.
+Ask the user to confirm a checkout of `<source_branch>`. Continue only after a yes.
 
-1. `git status --porcelain` - if non-empty, abort: "uncommitted changes present - commit or stash
-   and re-run". Do not auto-stash.
-2. `git fetch <remote> <source_branch>` then `git checkout <source_branch>`. `<remote>` defaults to
-   `origin`; if multiple remotes exist, prefer the one matching the MR's project (parsed from
+1. Run `git status --porcelain`. If the output is not empty, stop and tell the user: "uncommitted
+   changes present - commit or stash and re-run". Do not stash.
+2. Run `git fetch <remote> <source_branch>`, then `git checkout <source_branch>`. `<remote>` is
+   `origin` by default. If there is more than one remote, use the remote of the MR's project (from
    `web_url`).
-3. Tell the user explicitly that the worktree is now on the source branch.
-4. Re-run analysis with file access: inspect the files referenced by the trace, run the failing
-   command locally if it is cheap and deterministic.
-5. Add a "Repo evidence" sub-bullet under the relevant failure in the report.
+3. Tell the user that the worktree is now on the source branch.
+4. Do the analysis again with file access. Examine the files that the trace names. Run the failed
+   command locally if it is fast and deterministic.
+5. Add a "Repo evidence" sub-bullet below the related failure in the report.
 
 ## Hard constraints
 
-- No `git push`, commits, amends, rebases. The only allowed checkouts are the failing pipeline's
-  source branch (repo-context step) and a new `fix/<short-cause>` branch (fix flow), both requiring
-  explicit consent.
-- No `glab ci retry`, `glab ci cancel`, `glab mr create / update / merge / approve / note`, or
+- No `git push`, commits, amends, or rebases. Only two checkouts are permitted, both after the user
+  agrees: the source branch of the failed pipeline ("Repo-context analysis") and a new
+  `fix/<short-cause>` branch ("Optional fix flow").
+- No `glab ci retry`, `glab ci cancel`, `glab mr create / update / merge / approve / note`, and no
   `glab issue` write subcommands.
-- No API `POST` / `PUT` / `DELETE`.
-- Fix edits, when applied, never followed by a commit by this skill. The user picks the commit
-  message and timing.
+- No API `POST`, `PUT`, or `DELETE`.
+- After a fix edit, this skill does not commit. The user selects the commit message and the time.
 
-## Red flags - stop and reconsider
+## Red flags - stop and think again
 
-- About to run `glab ci retry` because the log "looks like a flaky test". Recommend the retry in the
-  report. Let the user run it.
-- Reading a downloaded trace with `Read` or `cat`. Slice with `tail` / `grep` / `sed` first.
-- Skipping `failure_reason` or `test_report` and going straight to the raw trace. Cheap signals
-  first.
-- Skipping MR resolution because the user passed a job id. Always surface the pipeline + MR.
-- Pasting more than ~20 lines of trace per failure into the report.
-- Editing a file before the user confirms the fix.
-- Checking out a branch silently. Always announce and verify a clean worktree first.
-- Labelling something `flaky` without log evidence. Default to `code` or `infra` when unsure.
-- Multiple open MRs for the same branch and you picked one silently. Ask.
+- You are about to run `glab ci retry` because the log "looks like a flaky test". Recommend the
+  retry in the report. The user runs it.
+- You read a downloaded trace with `Read` or `cat`. Use `tail`, `grep`, or `sed` to get parts.
+- You go to the raw trace before you check `failure_reason` and the test report. Cheap signals
+  come first.
+- You do not resolve the MR because the user gave a job URL. Always show the pipeline and the MR.
+- You put more than about 20 lines of trace for one failure into the report.
+- You edit a file before the user confirms the fix.
+- You check out a branch and do not tell the user. Always tell the user and make sure that the
+  worktree is clean first.
+- You use `flaky` with no log evidence. If you are not sure, use `code` or `infra`.
+- There is more than one open MR for the branch, and you selected one without a question. Ask.

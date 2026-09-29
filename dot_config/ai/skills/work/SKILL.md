@@ -61,6 +61,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      instructions. The slug text is the title. If the context has no tool that reads the tracker,
      use the placeholder rule below.
    - Placeholder id: 3 to 6 words that tell what the message asks for. Do not read the tracker.
+   - If the tracker read fails or the ticket does not exist, stop and report it. Do not run the
+     script.
 5. New and existing mode:
    - Base, new mode only: "from <remote ref>", for example "from `origin/release-1.2`". Use the ref
      as the user wrote it. If the user names a local branch as the base, tell the user to run
@@ -120,11 +122,10 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      remove them.
    - Exit `2` only, existing mode: also tell the user that the herdr worktree workspace stays.
      The user can continue there, or close it and run `/work` again.
-   - Exit `3`: run `herdr agent read <pane-id> --source visible` and report what blocks the agent.
+   - Exit `3`: the stderr text names the pane id. Run
+     `herdr agent read <pane-id> --source visible` and report what blocks the agent.
      The prompt was not sent. Tell the user to send the message in that pane after the block is
      gone.
-
-If the tracker read fails or the ticket does not exist, stop and report it. Do not run the script.
 
 If the new prompt does not show in next mode, the log is `${TMPDIR:-/tmp}/work-next.log`. The user
 can type `/clear`, then send the message by hand.

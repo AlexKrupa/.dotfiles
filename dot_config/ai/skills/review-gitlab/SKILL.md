@@ -1,167 +1,172 @@
 ---
 name: review-gitlab
 description:
-  Use when reviewing a GitLab merge request - by URL, MR id, branch name, or current branch.
-  Produces a Markdown report combining the branch audit with MR context (description, discussions,
-  labels, bot findings). Opens the MR branch in a Herdr worktree workspace. Read-only - no fixes,
-  commits, or comments posted.
+  Review of a GitLab merge request - by URL, MR id, branch, or the current branch. Adds MR context
+  (description, discussions, labels, bot findings) to the branch audit. Opens the MR branch in a
+  Herdr worktree workspace. Read-only.
+argument-hint: "[mr-url | mr-id | branch | <empty>]"
 disable-model-invocation: true
 ---
 
 # review-gitlab
 
-Wraps `review-branch` with GitLab merge request context. Same read-only constraints. Output: one
-Markdown report under `~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`.
+This skill adds GitLab merge request context to `review-branch`. It has the same read-only
+constraints. The output is one Markdown report at
+`~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`.
 
-Argument hint: `[mr-url | mr-id | branch | <empty>]`. Empty means "MR for current branch". Outside
-the MR's repo, only a URL works.
-
-## When to use
-
-- User asks to review a GitLab MR, by URL, iid, branch name, or implicitly the current branch.
-- Pre-merge audit that should account for the MR description, prior discussions, and bot findings,
-  not just the diff.
-
-**Do not use** for GitHub PRs, arbitrary commit ranges, or when the user only wants the raw branch
-audit with no MR context - use `review-branch` directly.
+An empty argument means "the MR of the current branch". Outside the MR's repo, only a URL works.
 
 ## REQUIRED SUB-SKILL
 
-Invoke `review-branch` for the audit and report scaffolding. Pass the `target_ref` from `fetch`
-(the fresh `<remote>/<target>` remote-tracking ref) as the explicit parent override (see
-review-branch's "Parent override" section) - not the bare local `target_branch`, which can be stale.
-Do not re-implement its git discovery, severity buckets, or finding format. After it writes the
-report, augment that file with MR context (sections below).
+Use `review-branch` for the audit and the report. Give it the `target_ref` from `fetch` as the
+parent override (see "Parent override" in `review-branch`). `target_ref` is the fresh
+`<remote>/<target>` remote-tracking ref. Do not use the local `target_branch`, because it can be
+out of date. Do not do again what `review-branch` does: git discovery, severity buckets, and the
+finding format. After it writes the report, add the MR context to that file (see "Report").
 
-## Prerequisites
+## Helper scripts
 
-Run `"$FMR" preflight` (bind `FMR` first, see "Helper script"). It performs all deterministic checks
-in fail-fast order - `glab`/`jq` present, running in a Herdr pane, `glab` authed - and prints `ok`
-or aborts with one line and a non-zero exit code. On non-zero, surface the line and stop.
-
-`GITLAB_API_TOKEN` is not checked: it is informational only. The script's API fallback uses it when
-present.
-
-## Helper script
-
-All deterministic GitLab fetching and JSON parsing lives in the shared `fetch-gitlab-mr.sh`. The
-worktree step uses the shared `herdr-worktree.sh` (run it with `--help` for usage). The working
-directory at skill-invocation time is not the skill directory. Always invoke both scripts by
-absolute path. Bind them once:
+The shared script `fetch-gitlab-mr.sh` does all GitLab fetches and JSON parsing. The shared script
+`herdr-worktree.sh` does the worktree step. Run it with `--help` for its usage. The working
+directory is not the skill directory. Always run both scripts by their absolute paths. Shell
+variables do not persist between Bash calls. Start each command that uses `$FMR` or `$HWT` with the
+bindings:
 
 ```sh
-FMR=~/.config/ai/bin/fetch-gitlab-mr.sh
-HWT=~/.config/ai/bin/herdr-worktree.sh
+FMR=~/.config/ai/bin/fetch-gitlab-mr.sh; HWT=~/.config/ai/bin/herdr-worktree.sh
 ```
 
-Do not re-derive the script's behavior inline. Subcommands:
+In the workflow, `$iid`, `$clone`, `$path`, and the other values from script output are the literal
+values. Write them into each later command.
 
-| Call | Output |
-| --- | --- |
-| `"$FMR" preflight` | Prints `ok`, or aborts with one line + non-zero exit. Runs the deterministic prereq checks (see "Prerequisites"). |
-| `"$FMR" resolve "<input>"` | JSON: `iid`, `project_path`, `source_branch`, `target_branch`, `web_url`, `state`, `draft`, `labels`, `author`, `pipeline_status`, `description`. Input: MR, pipeline, or job URL, numeric iid, branch name, or empty (= current branch). |
-| `"$FMR" locate <project>` | Prints the local clone of `project`: the current repo when its remote matches, else the one match under `~/src`. |
-| `"$FMR" fetch <source> <target> [project]` | Run inside the clone. Fast-forwards local `<source>` to the MR tip with no checkout (keeps unpushed local commits, aborts on divergence). Refreshes the target's remote-tracking ref (`refs/remotes/<remote>/<target>` - does not write local `<target>`). JSON: `remote`, `source_branch`, `target_branch`, `target_ref` (= `<remote>/<target>`). Picks the remote whose URL matches `project` when several exist. |
-| `"$HWT" <branch> --repo <clone> --move-pane` | Opens the branch's worktree as a Herdr workspace (reuses an existing one) and moves the calling pane into it. JSON: `path`, `workspace_id`, `pane_id`, `root_pane_id`, `created`, `moved`. |
-| `"$FMR" discussions <iid> [project]` | JSON array of normalized threads. System-only discussions are already dropped. Fields per element: `id`, `individual_note`, `resolvable`, `resolved`, `note_count`, `authors`, `first_body` (≤280 chars), `files`. |
-| `"$FMR" diff-check <iid> [target]` | Exits 0 if the local `target...HEAD` file set matches the MR's. Exits 1 with the file diff on stderr otherwise. Pass the resolved `target_branch` to skip an extra `glab mr view` round-trip. |
+Do not do again inline what the scripts do. Subcommands:
 
-Exit codes: `0` ok, `1` usage/parse error, `2` not found, `3` ambiguous (multiple open MRs for the
-branch, or multiple clones - script lists candidates on stderr, surface them and ask the user to
-pick), `4` missing dep / auth / not in Herdr, `5` network. On any non-zero, abort with one line. Do
-not retry.
+- `"$FMR" preflight` - runs the prerequisite checks in fail-fast order: `glab` and `jq` are
+  installed, the session runs in a Herdr pane, and `glab` is authenticated. Prints `ok`, or stops
+  with one line and a non-zero exit code.
+- `"$FMR" resolve "<input>"` - the input is an MR, pipeline, or job URL, a numeric iid, a branch
+  name, or empty (the current branch). JSON: `iid`, `project_path`, `source_branch`,
+  `target_branch`, `web_url`, `state`, `draft`, `labels`, `author`, `pipeline_status`,
+  `description`.
+- `"$FMR" locate <project>` - prints the local clone of `project`: the current repo if its remote
+  matches, else the one match below `~/src`.
+- `"$FMR" fetch <source> <target> [project]` - run it in the clone. It fast-forwards the local
+  `<source>` to the MR tip with no checkout. It keeps unpushed local commits and stops on
+  divergence. It updates `refs/remotes/<remote>/<target>` and does not write the local `<target>`.
+  If there is more than one remote, it uses the remote whose URL matches `project`. JSON: `remote`,
+  `source_branch`, `target_branch`, `target_ref` (`<remote>/<target>`).
+- `"$HWT" <branch> --repo <clone> --move-pane` - opens the worktree of the branch as a Herdr
+  workspace, or uses the workspace that exists. Moves the calling pane into it. JSON: `path`,
+  `workspace_id`, `pane_id`, `root_pane_id`, `created`, `moved`.
+- `"$FMR" discussions <iid> [project]` - a JSON array of normalized threads. The script removes the
+  threads that have only system notes. Fields: `id`, `individual_note`, `resolvable`, `resolved`,
+  `note_count`, `authors`, `first_body` (at most 280 characters), `files`.
+- `"$FMR" diff-check <iid> [target]` - exits `0` if the files in the local `target...HEAD` are the
+  same as the files of the MR. Else exits `1` with the file difference on stderr. Give the resolved
+  `target_branch` to prevent one more `glab mr view` call.
 
-`pipeline_status` is `"n/a"` when the MR has no head pipeline (draft / freshly pushed) - that is
-informational, not an error.
+Exit codes: `0` ok, `1` usage or parse error, `2` not found, `3` ambiguous, `4` a missing tool,
+missing auth, or not in Herdr, `5` network. Exit `3` means more than one open MR for the branch,
+or more than one clone. The script prints the candidates on stderr. Show them to the user and ask
+the user to select one. On all other non-zero exit codes, stop with one line. Do not retry.
+
+`GITLAB_API_TOKEN` is not a prerequisite. If the token exists, the API fallback of the script uses
+it.
+
+`pipeline_status` is `"n/a"` when the MR has no head pipeline, for example a draft or a new push.
+This is not an error.
 
 ## Workflow
 
-1. Bind `FMR` and `HWT` (see "Helper script") and run `"$FMR" preflight`.
-2. `"$FMR" resolve "<input>"` -> parse the JSON with `jq` and bind `iid`, `source_branch`,
-   `target_branch`, `project_path`, etc. as shell vars (or read them on demand).
-3. `"$FMR" locate "$project_path"` -> bind `clone`.
-4. `cd "$clone" && "$FMR" fetch "$source_branch" "$target_branch" "$project_path"` -> parse the
-   JSON. Bind `target_ref` (e.g. `origin/main`) for the parent override below.
-5. `"$HWT" "$source_branch" --repo "$clone" --move-pane` -> bind `path`. Tell the user the pane is
-   now in the worktree workspace at `path`.
-6. Enter the worktree: when the session cwd is already `path`, skip. Otherwise call `EnterWorktree`
-   with `path`. When it rejects the path (session started outside `clone`), start every later Bash
-   command with `cd "$path" &&` and give file tools absolute paths under `path`.
-7. Invoke `review-branch` with `$target_ref` (the fresh remote-tracking ref, not the bare local
-   `target_branch`) as the parent override. Compute the report path via the helper with the iid
-   prefix (see "Report"), so review-branch writes to `<date>-mr-<iid>-<branch>-<author>.md`
-   directly (no rename). Read the generated report before augmenting.
-8. `"$FMR" discussions "$iid" "$project_path"` -> substantive-thread judgment (next section).
-9. Optional: `"$FMR" diff-check "$iid" "$target_branch"`. If it exits 1, note the drift in the
-   report.
-10. Augment the report (see "Report" section).
-11. Reply per `review-branch` "Final reply". Add a line with the worktree `path`. Keep the worktree.
-    The user removes it like any other Herdr workspace.
+1. Run `"$FMR" preflight`. If the exit code is not `0`, show the line and stop.
+2. `"$FMR" resolve "<input>"` - get `iid`, `source_branch`, `target_branch`, `project_path`, and
+   the other fields from the JSON.
+3. `"$FMR" locate "$project_path"` - the output is `clone`.
+4. `cd "$clone" && "$FMR" fetch "$source_branch" "$target_branch" "$project_path"` - get
+   `target_ref` (for example `origin/main`) from the JSON.
+5. `"$HWT" "$source_branch" --repo "$clone" --move-pane` - get `path` from the JSON. Tell the user
+   that the pane is now in the worktree workspace at `path`.
+6. Go into the worktree. If the session working directory is already `path`, skip this step. Else
+   call `EnterWorktree` with `path`. If it rejects the path (the session started outside `clone`),
+   start each later Bash command with `cd "$path" &&`, and give file tools absolute paths below
+   `path`.
+7. Get the report path with the `mr-<iid>` prefix (see "Report"). Use `review-branch` with
+   `$target_ref` as the parent override, and tell it to write the report to that path. Do not
+   rename the file after. Read the report before you add to it.
+8. `"$FMR" discussions "$iid" "$project_path"` - select the threads for the report (see
+   "Discussion filtering").
+9. Optional: `"$FMR" diff-check "$iid" "$target_branch"`. If it exits `1`, write the difference in
+   the report.
+10. Add the MR context to the report (see "Report").
+11. Reply as `review-branch` "Final reply" tells. Add a line with the worktree `path`. Keep the
+    worktree. The user removes it as any other Herdr workspace.
 
 ## Discussion filtering
 
-The script already drops discussions whose every note is a GitLab system note (label/assignee churn,
-pipeline status pings, WIP toggles). For the remaining normalized threads, include in the report
-when:
+The script removed the threads that have only GitLab system notes (label and assignee changes,
+pipeline status messages, WIP changes). Put a thread in the report if one of these is true:
 
-- `note_count >= 2`, OR
-- `resolvable == true && resolved == false`, OR
-- `files` overlaps with a file flagged by the audit's findings.
+- `note_count >= 2`
+- `resolvable == true && resolved == false`
+- `files` has a file that an audit finding names
 
-Otherwise omit. For bot-authored threads (`authors` contains the SAST / coverage / CI bot), include
-only when the `first_body` names a specific file/function or contains a real failure message - not
-pure status pings. Summarize each kept thread in one line. Do not paste full bodies.
+Else, do not put it in the report. For a bot thread (`authors` has the SAST, coverage, or CI bot),
+put it in the report only if `first_body` names a specific file or function, or has a real failure
+message. Do not include status messages. Write one line for each thread. Do not copy full bodies.
 
 ## Report
 
-Path: `~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`. Compute it with review-branch's
-helper, passing `mr-<iid>` as the prefix. Do not slugify inline:
+Path: `~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`. Get it from the
+`review-branch` helper with `mr-<iid>` as the prefix. Do not make the slug yourself:
 
 ```sh
 path="$(~/.claude/skills/review-branch/report-path.sh "$target_ref" "mr-<iid>")"
 ```
 
-`<author>` is the **majority git-commit author** the helper resolves (not the GitLab MR username).
-The helper does repo / author / branch slugification and diacritic transliteration. Overwrite if
-exists.
+`<author>` is the **majority git commit author** from the helper, not the GitLab MR user name. The
+helper makes the repo, author, and branch slugs and removes diacritics. If the file exists,
+overwrite it.
 
-Augment the base report:
+Add to the base report:
 
-1. **Header** - append MR URL, target branch, labels, state, draft flag, pipeline status.
-2. **Context** (new, between header and Findings):
-   - Distill the MR description in one paragraph. If empty, flag "no description provided".
-   - Coverage check: does the description match what the diff actually changes? Note omissions.
-3. **Findings** (from base skill) - for each finding that matches an existing discussion or bot
-   note, add `(see thread by @<reviewer>)` or `(SAST flagged this)` inline after the finding's id.
+1. **Header** - add the MR URL, target branch, labels, state, draft flag, and pipeline status.
+2. **Context** (new, between the header and Findings):
+   - Write the MR description in one paragraph. If it is empty, write "no description provided".
+   - Coverage check: compare the description with the changes in the diff. Write what the
+     description does not tell.
+3. **Findings** (from the base report) - if a finding matches a discussion or a bot note, add
+   `(see thread by @<reviewer>)` or `(SAST flagged this)` after the finding id.
 4. **Discussions** (new, after Findings):
-   - One bullet per substantive thread: reviewer, gist, resolution state, and your own opinion when
-     the thread is unresolved or in conflict with the audit. Cite the related finding id when one
-     exists.
-   - One bullet per substantive bot finding.
-5. **Out of scope / mentions** - unchanged from base skill.
+   - One bullet for each selected thread: the reviewer, the main point, the resolution state, and
+     your opinion if the thread is not resolved or does not agree with the audit. Give the id of
+     the related finding if there is one.
+   - One bullet for each selected bot finding.
+5. **Out of scope / mentions** - no change from the base report.
 
 ## Hard constraints
 
-Inherited from `review-branch` plus:
+All constraints of `review-branch`, and also:
 
 - No `glab mr approve`, `glab mr note --message`/`-m`, `glab mr update`, `glab mr merge`,
-  `glab mr close`, `glab mr revoke`, or any other write subcommand.
-- No API `POST`/`PUT`/`DELETE`.
-- No `git push`, no commits, no amends, no rebases.
-- Branch changes go through `"$FMR" fetch` (fast-forward only) and `"$HWT"` (worktree). The user's
-  own checkouts keep their branch.
+  `glab mr close`, `glab mr revoke`, or other write subcommands.
+- No API `POST`, `PUT`, or `DELETE`.
+- No `git push`, commits, amends, or rebases.
+- Branch changes occur only through `"$FMR" fetch` (fast-forward only) and `"$HWT"` (worktree).
+  The branches of the user's checkouts do not change.
 
-## Red flags - stop and reconsider
+## Red flags - stop and think again
 
-- About to invoke `review-branch` without passing the MR's `target_ref` as parent override.
-  Default parent detection would pick the nearest local ancestor branch and produce wrong findings
-  for stacked MRs.
-- About to call `glab mr` with `-m`, `--message`, `approve`, `merge`, `update`, or `note create`.
-  This skill is read-only.
-- Pasting full discussion text into the report. Summarize.
-- Skipping the worktree because "the diff is enough". Base skill needs the working tree to inspect
-  the file context, not just patch hunks.
-- About to run `git checkout`/`git switch` in the user's repo. Use the worktree from `"$HWT"`.
-- Multiple open MRs for the same branch and you picked one silently. Ask the user.
-- Calling `glab mr view`, `glab api .../discussions`, or `glab mr list` directly instead of going
-  through `$FMR`. The script defines the JSON format. Ad-hoc calls diverge from it.
+- You are about to use `review-branch` without the MR's `target_ref` as the parent override. The
+  default parent detection selects the nearest local ancestor branch. For stacked MRs, the
+  findings are then wrong.
+- You are about to call `glab mr` with `-m`, `--message`, `approve`, `merge`, `update`, or
+  `note create`. This skill is read-only.
+- You copy full discussion text into the report. Write a summary.
+- You skip the worktree because "the diff is sufficient". `review-branch` needs the working tree to
+  examine the files, not only the diff hunks.
+- You are about to run `git checkout` or `git switch` in the user's repo. Use the worktree from
+  `"$HWT"`.
+- There is more than one open MR for the branch, and you selected one without a question. Ask the
+  user.
+- You call `glab mr view`, `glab api .../discussions`, or `glab mr list` directly, not through
+  `$FMR`. The script defines the JSON format. Direct calls give a different format.

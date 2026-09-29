@@ -4,10 +4,9 @@ argument-hint: "[reply|<path>...]"
 description:
   Use when an agent wrote prose that ignores the writing rules - docs, code comments, docstrings,
   and commit messages on the current branch that contain AI slop, filler, banned words, marketing
-  diction, or very long comments. Deletes each comment that the branch touched, then restores only
-  the comments that pass the test. Also rewrites the assistant's last reply on request. Triggers on
-  "deslop", "deslop that", "deslop your reply", "clean up the writing", "fix the wording on this
-  branch". Also a required sub-skill of review-me.
+  diction, or very long comments. Also use when the user asks to fix the wording of the assistant's
+  last reply. Triggers on "deslop", "deslop that", "deslop your reply", "clean up the writing", "fix
+  the wording on this branch".
 ---
 
 # deslop
@@ -81,21 +80,25 @@ If you examine a comment in place, you will defend it. Delete the comment first.
 only if it passes the test below. Do the two passes in this sequence. Never merge them.
 
 **Pass 1 - delete all of them.** In the target files, delete each comment and docstring that the
-branch added or changed. Delete all of them. Use no judgment. Make no exceptions. Do not read them
-first. Do not change the code lines. Stage nothing. The deletions stay in the working tree. Pass 2
-reads them there.
+branch added. Delete all of them. Use no judgment. Make no exceptions. Do not read them first. Do
+not change the code lines. Stage nothing. The deletions stay in the working tree. Pass 2 reads them
+there.
+
+Pass 1 does not delete a comment that exists at `<parent>` and that the branch changed. Pass 2
+examines only the changed lines of that comment, with the same questions. Delete each changed line
+that fails question 1. Keep the unchanged lines.
 
 **Pass 2 - one comment at a time.** Run `git diff -U8 -- <file>...` to show each deleted comment
 with the adjacent code. Process them in diff order, one comment per step. For each comment, answer
 these questions in sequence. Stop at the first question that gives a decision.
 
-1. **Is it useful?** Does it look unrelated to the code at that location? Can a reader infer it from
-   that code? If the answer to one of these questions is yes, the comment **stays deleted**. This is
-   the default result.
+1. **Is it redundant?** Does it look unrelated to the code at that location? Can a reader infer it
+   from that code? If the answer to one of these questions is yes, the comment **stays deleted**.
+   This is the default result.
 2. **Does it fit in one simple sentence?** If yes, write that sentence. Write the point again in one
    line. Do not write the original with fewer words.
-3. **If not:** cut the comment, then write it again to the rule files. Give the why, not the what.
-   Include no history, no filler, and no banned words.
+3. **If not:** cut the comment, then write it again as the rule files tell. Give the why, not the
+   what. Include no history, no filler, and no banned words.
 
 Never run question 2 or question 3 on a comment that failed question 1.
 
