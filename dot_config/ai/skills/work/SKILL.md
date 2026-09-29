@@ -4,7 +4,7 @@ description: >-
   Use when the user runs /work to start a ticket, or work with no ticket: in a new herdr
   worktree workspace with its own Claude Code agent, or as the next stacked branch in the current
   worktree. Also continues an existing branch, GitLab MR, or MR pipeline in its own workspace.
-argument-hint: "[ticket-id] <message>"
+argument-hint: "<message>"
 disable-model-invocation: true
 ---
 
@@ -13,7 +13,8 @@ disable-model-invocation: true
 Starts work on one ticket. The agent that does the work gets the user's message and reads the
 ticket itself.
 
-Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
+Input: `$ARGUMENTS` is the user's message, in free text. It can contain a ticket key, a tracker
+URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 
 ## Prerequisites
 
@@ -29,7 +30,8 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
   in its own worktree, with a new agent. This mode applies in the main checkout and in a linked
   worktree.
 - Else, `~/.claude/skills/work/work-start.sh mode` prints the mode:
-  - `new` (main checkout): the work starts in a new worktree from `main`, with a new agent.
+  - `new` (main checkout): the work starts in a new worktree from the default branch, with a new
+    agent.
   - `next` (linked worktree): the old work is done. The work starts on a new branch on top of the
     current branch, in this worktree. This session clears after the turn and gets the new prompt.
 
@@ -44,13 +46,14 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
      finds it.
    - Else, there is no existing branch.
 2. Ticket id:
-   - If the first word is an issue key of the repo's tracker, for example `ABC-123`, it is the
-     ticket id. The rest is the message. The project instructions tell the tracker and its key
-     format.
+   - An issue key of the repo's tracker in the message, as a key or in a tracker URL, for example
+     `ABC-123` or `https://<site>.atlassian.net/browse/ABC-123`. The project instructions tell the
+     tracker and its key format. If the message has more than one key, ask the user which key is
+     the ticket.
    - Else, in existing mode: if the branch name starts with an issue key, that key is the ticket
-     id. All the input is the message.
-   - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. All the input is
-     the message. If the repo has no placeholder id, ask the user for a ticket id.
+     id.
+   - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. If the repo has
+     no placeholder id, ask the user for a ticket id.
 3. Mode: existing mode if step 1 found a branch. Else, run
    `~/.claude/skills/work/work-start.sh mode`.
 4. Slug text, in English words. Existing mode has no slug text and no tracker read.
@@ -72,18 +75,16 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
    - If the user gave no model, do not add `--model`.
 6. Next mode only: no base and no Claude flags. If the user gave a model or an effort, tell the
    user to set it with `/model` after the clear.
-7. Run the script. The prompt goes on stdin in a quoted heredoc: the ticket id, an empty line, and
-   the user's message with no changes. Do not summarize, fix, or add to the message. Option words
-   such as "haiku" or "from `origin/release-1.2`" stay in the message. The slug text and the
-   branch name go in single quotes, with each `'` in the slug text replaced by a space. A ticket
-   title can contain `` ` `` or `$`, and the shell runs these in double quotes.
+7. Run the script. The prompt goes on stdin in a quoted heredoc: the user's message with no
+   changes. Do not summarize, fix, or add to the message. Ticket URLs and option words such as
+   "haiku" or "from `origin/release-1.2`" stay in the message. The slug text and the branch name
+   go in single quotes, with each `'` in the slug text replaced by a space. A ticket title can
+   contain `` ` `` or `$`, and the shell runs these in double quotes.
 
    New mode:
 
    ```sh
    ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' -- --effort low <<'PROMPT'
-   ABC-123
-
    <the user's message>
    PROMPT
    ```
@@ -93,8 +94,6 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
 
    ```sh
    ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' <<'PROMPT'
-   ABC-123
-
    <the user's message>
    PROMPT
    ```
@@ -103,8 +102,6 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
 
    ```sh
    ~/.claude/skills/work/work-start.sh ABC-123 --branch 'ABC-123/foo' -- --effort low <<'PROMPT'
-   ABC-123
-
    <the user's message>
    PROMPT
    ```
@@ -124,10 +121,10 @@ Input: `$ARGUMENTS` is `[<ticket-id>] <message>`.
    - Exit `2` only, existing mode: also tell the user that the herdr worktree workspace stays.
      The user can continue there, or close it and run `/work` again.
    - Exit `3`: run `herdr agent read <pane-id> --source visible` and report what blocks the agent.
-     The prompt was not sent. Tell the user to send the ticket id and the message in that pane
-     after the block is gone.
+     The prompt was not sent. Tell the user to send the message in that pane after the block is
+     gone.
 
 If the tracker read fails or the ticket does not exist, stop and report it. Do not run the script.
 
 If the new prompt does not show in next mode, the log is `${TMPDIR:-/tmp}/work-next.log`. The user
-can type `/clear`, then send the ticket id and the message by hand.
+can type `/clear`, then send the message by hand.

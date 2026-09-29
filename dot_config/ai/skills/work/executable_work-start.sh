@@ -3,9 +3,10 @@
 #        work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]
 #        work-start.sh <ticket-id> --branch NAME [-- <claude flags>...]
 # Starts work on a ticket. Reads the first prompt on stdin. Branch: <ticket-id>/<slug>.
-# Mode "new" (main checkout): creates the branch from main after a fast-forward to origin/main,
-# or from the remote ref REF. Tracks it on main with git-spice. Opens it as a new herdr worktree
-# workspace, starts Claude there, and submits the prompt.
+# Mode "new" (main checkout): creates the branch from the default branch of origin (origin/HEAD)
+# after a fast-forward, or from the remote ref REF. Tracks it on the default branch with
+# git-spice. Opens it as a new herdr worktree workspace, starts Claude there, and submits the
+# prompt.
 # Mode "next" (linked worktree): creates the branch on top of the current branch with git-spice.
 # Then starts work-next.sh, which clears this Claude session after the turn and submits the prompt.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
@@ -114,9 +115,14 @@ if [[ -z $existing && $(mode_of) == next ]]; then
   exit 0
 fi
 
-main=$(git worktree list --porcelain \
-  | awk '/^worktree /{p = substr($0, 10)} $0 == "branch refs/heads/main" {print p; exit}')
-[[ -n $main ]] || die "no worktree has main checked out"
+origin_head() { git symbolic-ref --quiet --short refs/remotes/origin/HEAD; }
+ref=$(origin_head || { git remote set-head origin --auto >/dev/null 2>&1 && origin_head; }) \
+  || die "cannot find the default branch: origin/HEAD is not set"
+default=${ref#origin/}
+
+main=$(git worktree list --porcelain | awk -v ref="branch refs/heads/$default" \
+  '/^worktree /{p = substr($0, 10)} $0 == ref {print p; exit}')
+[[ -n $main ]] || die "no worktree has $default checked out"
 
 if [[ -n $existing ]]; then
   if git -C "$main" ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
@@ -137,9 +143,9 @@ else
   git -C "$main" fetch --quiet origin || die "git fetch origin failed"
 
   if [[ -z $base ]]; then
-    git -C "$main" merge --ff-only --quiet origin/main >/dev/null 2>&1 \
-      || die "cannot fast-forward main to origin/main in $main"
-    base=main
+    git -C "$main" merge --ff-only --quiet "origin/$default" >/dev/null 2>&1 \
+      || die "cannot fast-forward $default to origin/$default in $main"
+    base=$default
   else
     if git -C "$main" show-ref --verify --quiet "refs/heads/$base"; then
       die "base $base is a local branch: stack it in its worktree with /work"
@@ -148,14 +154,14 @@ else
       || die "base not found: $base"
   fi
 
-  # No checkout: the main checkout stays on main.
+  # No checkout: the main checkout stays on the default branch.
   git -C "$main" branch --no-track "$branch" "$base" >/dev/null \
     || die "git branch failed: $branch"
 
   # git-spice needs a local base branch, so a remote base gets no tracking.
   tracked=false
-  if [[ $base == main ]]; then
-    git-spice -C "$main" branch track "$branch" --base main >/dev/null 2>&1 \
+  if [[ $base == "$default" ]]; then
+    git-spice -C "$main" branch track "$branch" --base "$default" >/dev/null 2>&1 \
       || fail "git-spice branch track failed"
     tracked=true
   fi

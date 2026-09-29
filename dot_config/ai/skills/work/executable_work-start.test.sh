@@ -65,20 +65,21 @@ git config --global user.name tester
 git config --global user.email tester@example.com
 git config --global init.defaultBranch main
 
-# fresh: a new repo whose local main is one commit behind origin/main, with git-spice set up.
-# Sets $d and $work.
+# fresh [default branch]: a new repo whose local default branch (main if not given) is one commit
+# behind origin, with git-spice set up. Sets $d and $work.
 n=0
 fresh() {
+  local b=${1:-main}
   n=$((n + 1))
   d="$tmp/case$n"
-  git init -q --bare "$d/remote.git"
-  git init -q "$d/work"
+  git init -q --bare -b "$b" "$d/remote.git"
+  git init -q -b "$b" "$d/work"
   git -C "$d/work" commit -q --allow-empty -m one
   git -C "$d/work" remote add origin "$d/remote.git"
-  git -C "$d/work" push -q -u origin main
+  git -C "$d/work" push -q -u origin "$b"
   git clone -q "$d/remote.git" "$d/other"
   git -C "$d/other" commit -q --allow-empty -m two
-  git -C "$d/other" push -q origin main
+  git -C "$d/other" push -q origin "$b"
   git -C "$d/work" update-ref refs/spice/data HEAD
   work="$d/work"
   export MOCK_LOG="$d/calls.log" MOCK_PROMPT="$d/prompt.txt" MOCK_NEXT="$d/next.txt"
@@ -144,6 +145,17 @@ check "new: prompt from stdin" "ABC-0 fix the typo" "$(cat "$MOCK_PROMPT")"
 check "new: output has pane, worktree, and agent" "wT:p1 /wt/path abc-0-fix-readme-typo" \
   "$(jq -r '"\(.pane_id) \(.worktree) \(.agent)"' <<<"$out")"
 check "new: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
+
+# New mode, default base: a default branch that is not main.
+fresh dev/x
+run 'ABC-0 fix it' ABC-0 'Fix it'
+check "default branch dev/x: exit 0" 0 "$code"
+check "default branch dev/x: fast-forward to origin/dev/x" \
+  "$(git -C "$work" rev-parse origin/dev/x)" "$(git -C "$work" rev-parse dev/x)"
+check "default branch dev/x: base and tracked" "dev/x true" \
+  "$(jq -r '"\(.base) \(.tracked)"' <<<"$out")"
+check "default branch dev/x: git-spice base" \
+  "git-spice -C $work branch track ABC-0/fix-it --base dev/x" "$(grep '^git-spice' "$MOCK_LOG")"
 
 # Claude flags, symbols in the slug text, a multi-line prompt with shell characters.
 fresh
