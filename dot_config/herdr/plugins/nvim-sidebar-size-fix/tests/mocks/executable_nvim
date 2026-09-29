@@ -1,5 +1,0 @@
-#!/bin/sh
-# Fake nvim for tests/test.sh. Answers `--remote-expr` with MOCK_UI, "<rows> <cols>" of the
-# first UI, or nothing when no UI is attached.
-[ "$1 $2 $3" = "--server /tmp/w1_t1.sock --remote-expr" ] || { echo "unexpected nvim call: $*" >&2; exit 2; }
-printf '%s\n' "${MOCK_UI:-}"

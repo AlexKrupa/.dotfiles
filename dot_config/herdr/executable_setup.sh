@@ -20,7 +20,6 @@ local_plugins=(
   "$PWD/plugins/worktree-links"
   "$PWD/plugins/labels"
   "$PWD/plugins/caffeinate"
-  "$PWD/plugins/nvim-sidebar-size-fix"
 )
 
 # A local clone of the herdr-pluck fork is for plugin development and for

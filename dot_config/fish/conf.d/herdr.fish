@@ -38,9 +38,20 @@ function herdr-forks-sync --description "Rebase forked herdr plugins onto upstre
       echo "    skipped: fetch from $upstream failed"
       continue
     end
+    set -l head (git -C $clone rev-parse HEAD)
     if git -C $clone rebase upstream/$ref
       git -C $clone push --quiet --force-with-lease
       or echo "    rebased, but push failed - push $clone by hand"
+      # `plugin link` runs no build commands, so a linked clone keeps its old build
+      # until these run.
+      if test (git -C $clone rev-parse HEAD) != $head
+        for cmd in (herdr plugin list --json | jq -c --arg p $clone '
+            .result.plugins[] | select(.plugin_root == $p) | .build[]?.command')
+          echo "    build: "(echo $cmd | jq -r 'join(" ")')
+          sh -c 'cd "$1" && shift && exec "$@"' sh $clone (echo $cmd | jq -r '.[]')
+          or echo "    build failed - rebuild $clone by hand"
+        end
+      end
     else
       git -C $clone rebase --abort
       echo "    CONFLICT: rebase $clone onto upstream/$ref by hand, then push"
@@ -56,7 +67,9 @@ end
 # with links to the commits and the releases page.
 #
 # setup.sh runs first, so a machine that is missing a plugin gets it installed
-# instead of only upgrading what is already there.
+# instead of only upgrading what is already there. At the end it warns if the
+# running server is older than the binary: `brew upgrade herdr` replaces only
+# the binary.
 function herdr-upgrade --description "Update all installed herdr plugins"
   ~/.config/herdr/setup.sh; or return 1
   echo
@@ -116,6 +129,13 @@ function herdr-upgrade --description "Update all installed herdr plugins"
         "    releases: \($repo)/releases"
       end'
   rm -f $before
+
+  set -l server (herdr status server --json | string collect)
+  if echo $server | jq -e .server_binary_stale >/dev/null
+    echo
+    echo "==> the server runs herdr "(echo $server | jq -r .version)", the binary is "(herdr --version | string split -f2 ' ')
+    echo "    to restart: herdr server stop, then herdr. The stop ends every pane process."
+  end
 end
 
 if status is-interactive

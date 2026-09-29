@@ -1,4 +1,0 @@
-#!/bin/sh
-# Fake ps for tests/test.sh. The nvim client from mocks/herdr runs on ttys042.
-[ "$*" = "-o tty= -p 4242" ] || { echo "unexpected ps call: $*" >&2; exit 2; }
-echo ' ttys042'

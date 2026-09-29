@@ -2,19 +2,18 @@
 
 ## What is here
 
-| Path                             | Purpose                                                   |
-| -------------------------------- | --------------------------------------------------------- |
-| `config.toml`                    | All settings and keybindings                              |
-| `bin/`                           | Scripts run by keybindings and plugins                    |
-| `plugins/balance-panes/`         | Even out a tab when a pane's process ends on its own      |
-| `plugins/worktree-links/`        | Symlink gitignored files into new worktrees               |
-| `plugins/labels/`                | Name tabs, number rows, group agents by repo              |
-| `plugins/caffeinate/`            | Hold off sleep while an agent is working                  |
-| `plugins/nvim-sidebar-size-fix/` | Resize an nvim sidebar that keeps its start size          |
-| `plugins/config/`                | Config for installed plugins                              |
-| `projects.local`                 | Machine-local project paths, not in the dotfiles          |
-| `forks.conf`                     | Forks of installed plugins, rebased by `herdr-forks-sync` |
-| `setup.sh`                       | Installs and links every plugin                           |
+| Path                      | Purpose                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| `config.toml`             | All settings and keybindings                              |
+| `bin/`                    | Scripts run by keybindings and plugins                    |
+| `plugins/balance-panes/`  | Even out a tab when a pane's process ends on its own      |
+| `plugins/worktree-links/` | Symlink gitignored files into new worktrees               |
+| `plugins/labels/`         | Name tabs, number rows, group agents by repo              |
+| `plugins/caffeinate/`     | Hold off sleep while an agent is working                  |
+| `plugins/config/`         | Config for installed plugins                              |
+| `projects.local`          | Machine-local project paths, not in the dotfiles          |
+| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync` |
+| `setup.sh`                | Installs and links every plugin                           |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files. Leave
 those alone.
@@ -54,11 +53,6 @@ npx skills add herdrdev/herdr --skill herdr -g
 ```
 
 Docs: https://herdr.dev/docs/agent-skill/
-
-## Known issue: yazi image preview
-
-Yazi wraps its Kitty graphics query for tmux and zellij only. herdr is neither, so yazi falls back
-to chafa.
 
 ## Back to tmux
 
