@@ -176,4 +176,68 @@ check "long note: detail has 100 characters" 100 "$(jq -r '.detail | length' <<<
 run
 check "same updated_at: no notes call" "" "$(grep '/notes' "$MOCK_LOG")"
 
+ev() { # kind iid title actor detail branch
+  jq -nc --arg k "$1" --argjson i "$2" --arg t "$3" --arg a "$4" --arg dt "$5" --arg b "$6" \
+    --arg u "$url/$2" \
+    '{kind: $k, iid: $i, title: $t, url: $u, actor: $a, detail: $dt, branch: $b}'
+}
+
+reset_mock
+fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
+fixture mr_5 '{"iid": 5, "head_pipeline": {"id": 50, "status": "running"}}'
+fixture approvals_5 '{"approved_by": []}'
+run
+check "MR state: first check has no events" "" "$out"
+
+fixture mr_5 '{"iid": 5, "head_pipeline": {"id": 50, "status": "success"}}'
+run
+check "pipeline passed" "$(ev pipeline 5 'Add foo' '' 'pipeline 50 passed' ABC-1/foo)" "$out"
+run
+check "same pipeline: no events" "" "$out"
+
+fixture approvals_5 '{"approved_by": [{"user": {"username": "anna"}}]}'
+run
+check "approval added" "$(ev approved 5 'Add foo' anna approved ABC-1/foo)" "$out"
+fixture approvals_5 '{"approved_by": []}'
+run
+check "approval removed" "$(ev unapproved 5 'Add foo' anna 'approval removed' ABC-1/foo)" "$out"
+
+fixture approvals_5 '{"approved_by": [{"user": {"username": "anna"}}]}'
+run
+fixture mine "[$(mr 5 'Add foo' merged t2 me ABC-1/foo '{"merge_user": {"username": "anna"}}')]"
+run
+check "merged by a different user: one event, no approval event" \
+  "$(ev merged 5 'Add foo' anna merged ABC-1/foo)" "$out"
+
+reset_mock
+fixture mine "[$(mr 6 'Add baz' opened t1 me ABC-3/baz)]"
+fixture mr_6 '{"iid": 6, "head_pipeline": null}'
+fixture approvals_6 '{"approved_by": []}'
+run
+fixture mine "[$(mr 6 'Add baz' merged t2 me ABC-3/baz '{"merge_user": {"username": "me"}}')]"
+run
+check "merged by the user: no events" "" "$out"
+
+reset_mock
+fixture mine "[$(mr 6 'Add baz' opened t1 me ABC-3/baz)]"
+run
+fixture mine "[$(mr 6 'Add baz' closed t2 me ABC-3/baz '{"closed_by": {"username": "bob"}}')]"
+run
+check "closed by a different user" "$(ev closed 6 'Add baz' bob closed ABC-3/baz)" "$out"
+
+export MOCK_FAIL='user' MOCK_FAIL_MSG='dial tcp: connection refused'
+: >"$MOCK_LOG"
+out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
+check "network error at the start: 5 tries" 5 "$(grep -c '^api user' "$MOCK_LOG")"
+check "network error at the start: message" \
+  "hub-watch-gitlab: user: dial tcp: connection refused" "$(cat "$d/err")"
+unset MOCK_FAIL MOCK_FAIL_MSG
+
+out=$("$script" --repo "$d/app" --once 2>&1); code=$?
+check "--repo from a different folder: exit 0" 0 "$code"
+
+out=$("$script" --bogus 2>&1); code=$?
+check "unexpected argument: exit 1" 1 "$code"
+check "unexpected argument: message" "hub-watch-gitlab: unexpected argument: --bogus" "$out"
+
 exit $fail

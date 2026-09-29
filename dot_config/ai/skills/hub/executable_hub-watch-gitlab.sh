@@ -66,9 +66,6 @@ api() {
 
 pid=''
 
-# Inputs: $old (the slurped state file, empty at the first check), $todos (the slurped To-Do
-# list), $watched (the slurped list of watched MRs), $notes (one {iid, notes} object for each MR
-# with fetched notes), and $me. Output: {state, events}.
 PROGRAM=$(cat <<'JQ'
 def by_iid: map({key: (.iid | tostring), value: .}) | from_entries;
 def event($kind; $mr; $actor; $detail; $url):
@@ -76,10 +73,13 @@ def event($kind; $mr; $actor; $detail; $url):
    branch: $mr.source_branch};
 
 $old[0] as $old | $todos[0] as $todos | ($watched[0] | by_iid) as $by
+| ($open | by_iid) as $open_by
 | ($notes | map({key: (.iid | tostring), value: .notes}) | from_entries) as $notes_by
 | ($by | with_entries(.key as $k | ($old.mrs[$k] // {}) as $o | .value |= {
     updated_at, state,
-    last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max)
+    last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max),
+    pipeline: $open_by[$k].pipeline,
+    approved_by: ($open_by[$k].approved_by // [])
   })) as $mrs
 | {
     state: {todos: [$todos[].id], mrs: $mrs},
@@ -87,12 +87,25 @@ $old[0] as $old | $todos[0] as $todos | ($watched[0] | by_iid) as $by
       ($todos[] | select(.id as $id | $old.todos | any(. == $id) | not)
         | {kind: "todo", iid: .target.iid, title: .target.title, url: .target_url,
            actor: .author.username, detail: .action_name, branch: .target.source_branch}),
-      ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k] as $o
+      ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k] as $o | $mrs[$k] as $n
         | select($o != null)
-        | ($notes_by[$k] // [])[]
-        | select(.id > $o.last_note_id and (.system | not) and .author.username != $me)
-        | event("note"; $mr; .author.username; (.body | gsub("\\s+"; " ") | .[0:100]);
-            "\($mr.web_url)#note_\(.id)"))
+        | ((($notes_by[$k] // [])[]
+             | select(.id > $o.last_note_id and (.system | not) and .author.username != $me)
+             | event("note"; $mr; .author.username; (.body | gsub("\\s+"; " ") | .[0:100]);
+                 "\($mr.web_url)#note_\(.id)")),
+           (select($mr.author.username == $me and $mr.state == "opened")
+             | (select($n.pipeline.status == "success" and $n.pipeline != $o.pipeline)
+                 | event("pipeline"; $mr; ""; "pipeline \($n.pipeline.id) passed"; $mr.web_url)),
+               (($n.approved_by - ($o.approved_by // []))[]
+                 | event("approved"; $mr; .; "approved"; $mr.web_url)),
+               ((($o.approved_by // []) - $n.approved_by)[]
+                 | event("unapproved"; $mr; .; "approval removed"; $mr.web_url))),
+           (select($mr.author.username == $me and $o.state == "opened"
+               and ($mr.state == "merged" or $mr.state == "closed"))
+             | ((if $mr.state == "merged" then $mr.merge_user // $mr.merged_by
+                 else $mr.closed_by end) | .username // "") as $actor
+             | select($actor != $me)
+             | event($mr.state; $mr; $actor; $mr.state; $mr.web_url))))
     ] end)
   }
 JQ
@@ -133,9 +146,18 @@ check() {
       >"$tmp/notes.json" || return
     jq -c --argjson iid "$iid" '{iid: $iid, notes: .}' "$tmp/notes.json" >>"$tmp/notes.jsonl"
   done
+  # Pipeline and approval changes do not change updated_at.
+  : >"$tmp/open.jsonl"
+  for iid in $(jq -r '.[] | select(.state == "opened") | .iid' "$tmp/mine.json"); do
+    api "projects/$pid/merge_requests/$iid" >"$tmp/mr.json" || return
+    api "projects/$pid/merge_requests/$iid/approvals" >"$tmp/approvals.json" || return
+    jq -c --argjson iid "$iid" --slurpfile a "$tmp/approvals.json" \
+      '{iid: $iid, pipeline: (.head_pipeline | if . then {id, status} else null end),
+        approved_by: [$a[0].approved_by[].user.username]}' "$tmp/mr.json" >>"$tmp/open.jsonl"
+  done
   jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
       --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
-      --arg me "$me" "$PROGRAM" >"$tmp/result.json" \
+      --slurpfile open "$tmp/open.jsonl" --arg me "$me" "$PROGRAM" >"$tmp/result.json" \
     || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
   jq '.state' "$tmp/result.json" >"$state.tmp" && mv "$state.tmp" "$state"
   jq -c '.events[]' "$tmp/result.json"
