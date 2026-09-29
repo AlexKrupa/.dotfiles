@@ -121,4 +121,59 @@ git -C "$d/app2" remote add origin git@gitlab.example.com:group/sub/app.git
 out=$(cd "$d/app2" && "$script" --once 2>&1); code=$?
 check "scp-style SSH remote: same project" "0 " "$code $out"
 
+# reset_mock: removes the state file and all fixtures except user and project.
+reset_mock() {
+  find "$d/mock" -name '*.json' ! -name user.json ! -name project.json -delete
+  rm -f "$state"
+}
+mr() { # iid title state updated_at author branch [extra fields as a JSON object]
+  local extra=${7:-}
+  [ -n "$extra" ] || extra='{}'
+  jq -nc --argjson iid "$1" --arg t "$2" --arg s "$3" --arg u "$4" --arg a "$5" --arg b "$6" \
+    --arg url "$url/$1" --argjson x "$extra" \
+    '{iid: $iid, title: $t, state: $s, updated_at: $u, source_branch: $b, web_url: $url,
+      author: {username: $a}} + $x'
+}
+
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
+fixture events '[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}},
+  {"project_id": 8, "note": {"noteable_type": "MergeRequest", "noteable_iid": 4}},
+  {"project_id": 7, "note": {"noteable_type": "Issue", "noteable_iid": 3}}]'
+fixture commented "[$(mr 9 'Fix bar' merged t1 bob ABC-2/bar)]"
+fixture notes_9 '[{"id": 100, "system": false, "body": "old", "author": {"username": "bob"}}]'
+run
+check "state with no mrs: no events for old notes" "" "$out"
+check "commented MRs: only MRs of this project" \
+  "api projects/7/merge_requests?state=all&iids[]=9&per_page=100" \
+  "$(grep '^api projects/7/merge_requests?state' "$MOCK_LOG" | tail -n1)"
+
+fixture commented "[$(mr 9 'Fix bar' merged t2 bob ABC-2/bar)]"
+fixture notes_9 '[
+  {"id": 102, "system": true, "body": "added 1 commit", "author": {"username": "anna"}},
+  {"id": 101, "system": false, "body": "Please\nrename this", "author": {"username": "anna"}},
+  {"id": 100, "system": false, "body": "old", "author": {"username": "bob"}}]'
+run
+check "new note from a different user" \
+  '{"kind":"note","iid":9,"title":"Fix bar","url":"'"$url"'/9#note_101","actor":"anna","detail":"Please rename this","branch":"ABC-2/bar"}' \
+  "$out"
+
+fixture mine "[$(mr 5 'Add foo' opened t2 me ABC-1/foo)]"
+fixture notes_5 '[{"id": 103, "system": false, "body": "done", "author": {"username": "me"}}]'
+run
+check "own note: no events" "" "$out"
+
+long=$(printf 'x%.0s' $(seq 300))
+fixture mine "[$(mr 5 'Add foo' opened t3 me ABC-1/foo)]"
+fixture notes_5 '[{"id": 104, "system": false, "body": "'"$long"'",
+  "author": {"username": "anna"}}]'
+run
+check "long note: one line" 1 "$(printf %s "$out" | grep -c "")"
+check "long note: detail has 100 characters" 100 "$(jq -r '.detail | length' <<<"$out")"
+
+: >"$MOCK_LOG"
+run
+check "same updated_at: no notes call" "" "$(grep '/notes' "$MOCK_LOG")"
+
 exit $fail

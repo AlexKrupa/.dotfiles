@@ -66,28 +66,77 @@ api() {
 
 pid=''
 
-# Input: $old (the slurped state file, empty at the first check) and $todos (the slurped To-Do
-# list). Output: {state, events}.
+# Inputs: $old (the slurped state file, empty at the first check), $todos (the slurped To-Do
+# list), $watched (the slurped list of watched MRs), $notes (one {iid, notes} object for each MR
+# with fetched notes), and $me. Output: {state, events}.
 PROGRAM=$(cat <<'JQ'
-$old[0] as $old | $todos[0] as $todos
+def by_iid: map({key: (.iid | tostring), value: .}) | from_entries;
+def event($kind; $mr; $actor; $detail; $url):
+  {kind: $kind, iid: $mr.iid, title: $mr.title, url: $url, actor: $actor, detail: $detail,
+   branch: $mr.source_branch};
+
+$old[0] as $old | $todos[0] as $todos | ($watched[0] | by_iid) as $by
+| ($notes | map({key: (.iid | tostring), value: .notes}) | from_entries) as $notes_by
+| ($by | with_entries(.key as $k | ($old.mrs[$k] // {}) as $o | .value |= {
+    updated_at, state,
+    last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max)
+  })) as $mrs
 | {
-    state: {todos: [$todos[].id]},
+    state: {todos: [$todos[].id], mrs: $mrs},
     events: (if $old == null then [] else [
-      $todos[] | select(.id as $id | $old.todos | any(. == $id) | not)
-      | {kind: "todo", iid: .target.iid, title: .target.title, url: .target_url,
-         actor: .author.username, detail: .action_name, branch: .target.source_branch}
+      ($todos[] | select(.id as $id | $old.todos | any(. == $id) | not)
+        | {kind: "todo", iid: .target.iid, title: .target.title, url: .target_url,
+           actor: .author.username, detail: .action_name, branch: .target.source_branch}),
+      ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k] as $o
+        | select($o != null)
+        | ($notes_by[$k] // [])[]
+        | select(.id > $o.last_note_id and (.system | not) and .author.username != $me)
+        | event("note"; $mr; .author.username; (.body | gsub("\\s+"; " ") | .[0:100]);
+            "\($mr.web_url)#note_\(.id)"))
     ] end)
   }
 JQ
 )
 
 check() {
-  local old=$state
+  local old=$state since iids iid user project_json
+  if [[ -z $pid ]]; then
+    user=$(api user) || return
+    project_json=$(api "projects/$(jq -rn --arg p "$project" '$p | @uri')") || return
+    me_id=$(jq -r .id <<<"$user")
+    me=$(jq -r .username <<<"$user")
+    pid=$(jq -r .id <<<"$project_json")
+  fi
   [[ -f $old ]] || old=/dev/null
+  since=$(jq -nr 'now | floor - 14 * 86400 | todate')
   api "todos?project_id=$pid&type=MergeRequest&state=pending&per_page=100" >"$tmp/todos.json" \
     || return
-  jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" "$PROGRAM" \
-    >"$tmp/result.json" || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
+  api "projects/$pid/merge_requests?author_username=$me&state=all&updated_after=$since&per_page=100" \
+    >"$tmp/mine.json" || return
+  api "users/$me_id/events?target_type=note&after=${since%%T*}&per_page=100" \
+    >"$tmp/events.json" || return
+  iids=$(jq -r --argjson pid "$pid" '[.[] | select(.project_id == $pid
+      and .note.noteable_type == "MergeRequest") | "iids[]=\(.note.noteable_iid)"]
+    | unique | join("&")' "$tmp/events.json")
+  echo '[]' >"$tmp/commented.json"
+  if [[ -n $iids ]]; then
+    api "projects/$pid/merge_requests?state=all&$iids&per_page=100" >"$tmp/commented.json" \
+      || return
+  fi
+  jq -s 'add | unique_by(.iid)' "$tmp/mine.json" "$tmp/commented.json" >"$tmp/watched.json"
+  # Only MRs with a changed updated_at get a notes call: a new note changes updated_at.
+  : >"$tmp/notes.jsonl"
+  for iid in $(jq -r --slurpfile old "$old" \
+      '.[] | select($old[0].mrs[.iid | tostring].updated_at != .updated_at) | .iid' \
+      "$tmp/watched.json"); do
+    api "projects/$pid/merge_requests/$iid/notes?sort=desc&order_by=created_at&per_page=50" \
+      >"$tmp/notes.json" || return
+    jq -c --argjson iid "$iid" '{iid: $iid, notes: .}' "$tmp/notes.json" >>"$tmp/notes.jsonl"
+  done
+  jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
+      --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
+      --arg me "$me" "$PROGRAM" >"$tmp/result.json" \
+    || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
   jq '.state' "$tmp/result.json" >"$state.tmp" && mv "$state.tmp" "$state"
   jq -c '.events[]' "$tmp/result.json"
 }
