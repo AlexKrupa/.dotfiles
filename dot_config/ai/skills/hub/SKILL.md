@@ -2,8 +2,8 @@
 name: hub
 description: >-
   Use when the user runs /hub in a repo's main checkout to manage the herdr worktree agents of
-  that repo and watch its GitLab MR and pipeline events, or asks the hub for the status of its
-  agents.
+  that repo, watch its GitLab MR and pipeline events, and keep the main checkout on the newest
+  commit, or asks the hub for the status of its agents.
 disable-model-invocation: true
 ---
 
@@ -11,7 +11,11 @@ disable-model-invocation: true
 
 This session is the hub of the repo. The hub manages the Claude agents in the repo's herdr
 worktree workspaces, and tells the user about GitLab events for the MRs of the user and the
-default branch. The session runs in the main checkout, which stays on `main`.
+default branch. The session runs in the main checkout, which stays on the default branch. The pull
+task keeps the checkout on the newest commit of that branch.
+
+The watch task and the pull task are background Bash tasks (`run_in_background: true`). Each task
+does one round each 120 seconds: give each script `--interval 120`.
 
 ## Role
 
@@ -44,8 +48,8 @@ The watch finds GitLab events for the MRs of the user and failed pipelines of th
 in the project of this repo. It gives no output while there are no events.
 
 1. After the first status report, start the watch: run
-   `~/.claude/skills/hub/hub-watch-gitlab.sh` as a background Bash task
-   (`run_in_background: true`). Start it only if no watch task runs.
+   `~/.claude/skills/hub/hub-watch-gitlab.sh --interval 120` as a background Bash task. Start it
+   only if no watch task runs.
 2. When the task stops with exit `0`, each output line is one JSON event with the fields `kind`,
    `iid`, `title`, `url`, `actor`, `detail`, and `branch`. A `default-failed` event is a failed
    pipeline of the default branch. Its `iid` and `title` are null. All other events are MR
@@ -76,3 +80,15 @@ in the project of this repo. It gives no output while there are no events.
    start the watch again. If the text names a token scope, tell the user to add that scope to the
    token of `glab`.
 4. If the user asks to stop the watch, stop the task. If the user asks to start it, start it.
+
+## Pull
+
+The pull fetches the default branch and fast-forwards the main checkout to it. It skips a round
+while a different herdr agent runs in the main checkout. It gives no output.
+
+1. After the watch starts, start the pull: run `~/.claude/skills/hub/hub-pull.sh --interval 120`
+   as a background Bash task. Start it only if no pull task runs.
+2. When the task stops with exit `1`, report its stderr text and run
+   `herdr notification show 'Hub pull stopped' --body '<stderr text>' --sound request`. Do not
+   start the pull again. The user fixes the cause, for example changes in the main checkout.
+3. If the user asks to stop the pull, stop the task. If the user asks to start it, start it.
