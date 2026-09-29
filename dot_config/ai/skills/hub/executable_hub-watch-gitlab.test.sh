@@ -36,6 +36,7 @@ case "$2" in
   projects/7/merge_requests\?*) f=commented ;;
   projects/7/merge_requests/*/approvals) f=approvals_$iid ;;
   projects/7/merge_requests/*/notes\?*) f=notes_$iid ;;
+  projects/7/pipelines\?*) f=pipelines ;;
   projects/7/merge_requests/*) f=mr_$iid ;;
   *) echo "unexpected glab api path: $2" >&2; exit 2 ;;
 esac
@@ -54,7 +55,7 @@ git config --global init.defaultBranch main
 git init -q "$d/app"
 git -C "$d/app" remote add origin https://gitlab.example.com/group/sub/app.git
 echo '{"id": 1, "username": "me"}' >"$d/mock/user.json"
-echo '{"id": 7}' >"$d/mock/project.json"
+echo '{"id": 7, "default_branch": "dev/x"}' >"$d/mock/project.json"
 state="$d/state/hub/app.json"
 lock="$d/state/hub/app.lock"
 url=https://gitlab.example.com/group/sub/app/-/merge_requests
@@ -224,6 +225,83 @@ run
 fixture mine "[$(mr 6 'Add baz' closed t2 me ABC-3/baz '{"closed_by": {"username": "bob"}}')]"
 run
 check "closed by a different user" "$(ev closed 6 'Add baz' bob closed ABC-3/baz)" "$out"
+
+reset_mock
+fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
+fixture mr_5 '{"iid": 5, "head_pipeline": {"id": 50, "status": "running"}}'
+run
+fixture mr_5 '{"iid": 5, "head_pipeline": {"id": 50, "status": "failed"}}'
+run
+check "pipeline failed" "$(ev pipeline 5 'Add foo' '' 'pipeline 50 failed' ABC-1/foo)" "$out"
+
+merge_mr() { # merge status, pipeline status, approver or ''
+  fixture mr_5 "$(jq -nc --arg m "$1" --arg p "$2" \
+    '{iid: 5, detailed_merge_status: $m, head_pipeline: {id: 50, status: $p}}')"
+  fixture approvals_5 "$(jq -nc --arg a "$3" \
+    '{approved_by: [$a | select(. != "") | {user: {username: .}}]}')"
+}
+reset_mock
+fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
+merge_mr not_approved running ''
+run
+merge_mr checking success anna
+run
+check "transient merge status: approval and pipeline events" \
+  "$(ev pipeline 5 'Add foo' '' 'pipeline 50 passed' ABC-1/foo)
+$(ev approved 5 'Add foo' anna approved ABC-1/foo)" "$out"
+check "transient merge status: old status stays" not_approved \
+  "$(jq -r '.mrs["5"].merge_status' "$state")"
+merge_mr mergeable success anna
+run
+check "mergeable after a transient status" \
+  "$(ev mergeable 5 'Add foo' '' 'now mergeable' ABC-1/foo)" "$out"
+
+reset_mock
+fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
+merge_mr not_approved running ''
+run
+merge_mr mergeable success anna
+run
+check "mergeable in the same check as approval and pipeline: one event" \
+  "$(ev mergeable 5 'Add foo' anna 'approved by @anna, pipeline 50 passed, now mergeable' ABC-1/foo)" \
+  "$out"
+merge_mr conflict success anna
+run
+check "merge conflict" "$(ev conflict 5 'Add foo' '' 'merge conflict' ABC-1/foo)" "$out"
+merge_mr need_rebase success anna
+run
+check "needs rebase" "$(ev conflict 5 'Add foo' '' 'needs rebase' ABC-1/foo)" "$out"
+run
+check "same merge status: no events" "" "$out"
+
+reset_mock
+fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
+merge_mr mergeable success ''
+echo '{"todos": [], "mrs": {"5": {"updated_at": "t1", "state": "opened", "last_note_id": 0,
+  "pipeline": {"id": 50, "status": "success"}, "approved_by": []}}}' >"$state"
+run
+check "state with no merge status: no events" "" "$out"
+
+pipelines="$(dirname "$url")/pipelines"
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture pipelines '[{"id": 70, "status": "failed", "web_url": "'"$pipelines"'/70"}]'
+: >"$MOCK_LOG"
+run
+check "default branch pipeline: ref and scope" \
+  "api projects/7/pipelines?ref=dev%2Fx&scope=finished&per_page=1" \
+  "$(grep '^api projects/7/pipelines' "$MOCK_LOG")"
+check "state with no default pipeline: no events" "" "$out"
+fixture pipelines '[{"id": 71, "status": "failed", "web_url": "'"$pipelines"'/71"}]'
+run
+check "default branch pipeline failed" \
+  '{"kind":"default-failed","iid":null,"title":null,"url":"'"$pipelines"'/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x"}' \
+  "$out"
+run
+check "same default branch pipeline: no events" "" "$out"
+fixture pipelines '[{"id": 72, "status": "success", "web_url": "'"$pipelines"'/72"}]'
+run
+check "default branch pipeline passed: no events" "" "$out"
 
 export MOCK_FAIL='user' MOCK_FAIL_MSG='dial tcp: connection refused'
 : >"$MOCK_LOG"

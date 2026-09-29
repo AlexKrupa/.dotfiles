@@ -2,15 +2,16 @@
 name: hub
 description: >-
   Use when the user runs /hub in a repo's main checkout to manage the herdr worktree agents of
-  that repo and watch its GitLab MR events, or asks the hub for the status of its agents.
+  that repo and watch its GitLab MR and pipeline events, or asks the hub for the status of its
+  agents.
 disable-model-invocation: true
 ---
 
 # hub
 
 This session is the hub of the repo. The hub manages the Claude agents in the repo's herdr
-worktree workspaces, and tells the user about GitLab events for the MRs of the user. The session
-runs in the main checkout, which stays on `main`.
+worktree workspaces, and tells the user about GitLab events for the MRs of the user and the
+default branch. The session runs in the main checkout, which stays on `main`.
 
 ## Role
 
@@ -39,20 +40,24 @@ Give the status when `/hub` starts, and each time the user asks for it.
 
 ## Watch
 
-The watch finds GitLab events for the MRs of the user in the project of this repo. It gives no
-output while there are no events.
+The watch finds GitLab events for the MRs of the user and failed pipelines of the default branch,
+in the project of this repo. It gives no output while there are no events.
 
 1. After the first status report, start the watch: run
    `~/.claude/skills/hub/hub-watch-gitlab.sh` as a background Bash task
    (`run_in_background: true`). Start it only if no watch task runs.
 2. When the task stops with exit `0`, each output line is one JSON event with the fields `kind`,
-   `iid`, `title`, `url`, `actor`, `detail`, and `branch`.
+   `iid`, `title`, `url`, `actor`, `detail`, and `branch`. A `default-failed` event is a failed
+   pipeline of the default branch. Its `iid` and `title` are null. All other events are MR
+   events.
    1. Send one notification. Replace each `'` in the text with a space.
-      - One event:
+      - One MR event:
         `herdr notification show '!<iid>: <kind> from @<actor>' --body '<detail>' --sound request`.
         If `actor` is empty, leave out `from @<actor>`.
-      - More events:
-        `herdr notification show '<n> MR events' --body '!<iid>, !<iid>' --sound request`.
+      - One `default-failed` event:
+        `herdr notification show '<branch> pipeline failed' --body '<detail>' --sound request`.
+      - More events: `herdr notification show '<n> hub events' --body '<id>, <id>' --sound request`.
+        The id of an MR event is `!<iid>`. The id of a `default-failed` event is `<branch>`.
    2. Run `~/.claude/skills/hub/hub-status.sh`. Output two lines for each event:
 
       ```text
@@ -60,7 +65,11 @@ output while there are no events.
       <url>
       ```
 
+      For a `default-failed` event, the first line is `<kind> <branch> - <detail>`.
+
       If `hub-status.sh` shows an agent on `branch`, add ` (agent <pane id>)` to the first line.
+      For a `merged` event, if `git worktree list` shows `branch`, add a third line:
+      `Worktree <path> can be removed.`
    3. Start the watch again.
 3. When the task stops with exit `1`, report its stderr text and run
    `herdr notification show 'Hub watch stopped' --body '<stderr text>' --sound request`. Do not
