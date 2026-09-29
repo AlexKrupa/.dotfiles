@@ -33,7 +33,7 @@ window_title = "{workspace} • {tab}"   # default
 
 # `$idx` is the slot number for the 1-9 focus binding, reported by the labels plugin.
 [ui.sidebar.spaces]
-rows = [["state_icon", "$idx", "workspace"], ["git_status"]]
+rows = [["state_icon", "$idx", "workspace"]]
 
 # Rows from the labels plugin, which also sets the panel order.
 # Line 1 - repo name, only above worktrees whose checkout runs no agent
