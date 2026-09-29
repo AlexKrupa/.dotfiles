@@ -32,7 +32,7 @@ if [ -z "$KANATA_BIN" ]; then
 fi
 SUDOERS_FILE="/etc/sudoers.d/kanata"
 SUDOERS_LINE="$USER ALL=(root) NOPASSWD: $KANATA_BIN"
-if [ ! -f "$SUDOERS_FILE" ] || ! grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE"; then
+if [ ! -f "$SUDOERS_FILE" ] || ! sudo grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE"; then
     echo "$SUDOERS_LINE" | sudo tee "$SUDOERS_FILE" > /dev/null
     sudo chmod 0440 "$SUDOERS_FILE"
     echo "Created $SUDOERS_FILE"
@@ -83,25 +83,46 @@ sudo install -o root -g wheel -m 0644 \
 sudo launchctl bootout "system/$KARABINER_DAEMON_LABEL" 2>/dev/null || true
 sudo launchctl bootstrap system "$KARABINER_DAEMON_PLIST"
 
-# 7. Bootstrap the LaunchAgent into the GUI domain, then restart it. Bootstrap
-#    fails with "Input/output error" when the agent is already loaded, so only
-#    report the error if the agent is absent afterwards.
+# 7. Stop the tray and every kanata process. A kanata that runs outside the
+#    tray holds the keyboard, and the tray's own kanata then exits.
 GUI_DOMAIN="gui/$(id -u)"
-launchctl bootstrap "$GUI_DOMAIN" "$HOME/Library/LaunchAgents/com.kanata-tray-macos.plist" \
-    > /dev/null 2>&1 || true
-if launchctl print "$GUI_DOMAIN/com.kanata-tray-macos" > /dev/null 2>&1; then
-    launchctl kickstart -k "$GUI_DOMAIN/com.kanata-tray-macos" > /dev/null
-else
-    echo "error: could not load the LaunchAgent. Start kanata-tray manually:" >&2
-    echo "  open $SCRIPT_DIR/kanata-tray-macos" >&2
+TRAY_LABEL="com.kanata-tray-macos"
+TRAY_PLIST="$HOME/Library/LaunchAgents/$TRAY_LABEL.plist"
+TRAY_LOG="$SCRIPT_DIR/kanata_tray_lastrun.log"
+launchctl bootout "$GUI_DOMAIN/$TRAY_LABEL" 2>/dev/null || true
+sudo pkill -x kanata || true
+
+# 8. Start the tray and wait until it connects to kanata. kanata runs under
+#    launchd, so macOS checks the permissions of kanata-tray-macos and kanata,
+#    not of this terminal. Both binaries are ad hoc signed. macOS can drop
+#    their grants while System Settings still shows them as enabled.
+start_tray() {
+    rm -f "$TRAY_LOG"
+    launchctl bootstrap "$GUI_DOMAIN" "$TRAY_PLIST"
+    for _ in $(seq 15); do
+        grep -q "Connected to kanata" "$TRAY_LOG" 2>/dev/null && return 0
+        sleep 1
+    done
+    launchctl bootout "$GUI_DOMAIN/$TRAY_LABEL" 2>/dev/null || true
+    return 1
+}
+
+if ! start_tray; then
+    cat <<EOF
+kanata did not start. Grant permissions in System Settings > Privacy & Security.
+Do these steps in Input Monitoring, then in Accessibility:
+  1. Remove kanata and kanata-tray-macos with the - button, if they are in the list.
+  2. Add these binaries with the + button. Press Cmd+Shift+G to type a path.
+     $(realpath "$KANATA_BIN")
+     $KANATA_TRAY_BIN
+EOF
+    open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+    read -r -p "Press Enter when done. "
+    if ! start_tray; then
+        echo "error: kanata still does not start. See $TRAY_LOG" >&2
+        echo "       To see the kanata error, run: $SCRIPT_DIR/kanata-sudo -c $SCRIPT_DIR/kanata.kbd" >&2
+        exit 1
+    fi
 fi
 
-cat <<'EOF'
-Done. Remaining manual steps:
-
-1. Grant macOS permissions in System Settings > Privacy & Security:
-   - Input Monitoring: add kanata (and maybe kanata-tray macos if kanata alone doesn't work)
-     /opt/homebrew/Cellar/kanata/<version>/bin/kanata  (real path, not the symlink)
-   - Accessibility: same two binaries
-   Use Cmd+Shift+G in the file picker to navigate to hidden paths.
-EOF
+echo "Done. kanata runs under kanata-tray."
