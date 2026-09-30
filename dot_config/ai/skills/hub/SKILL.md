@@ -77,8 +77,8 @@ in the project of this repo. It gives no output while there are no events.
    3. Start the watch again.
 3. When the task stops with exit `1`, report its stderr text and run
    `herdr notification show 'Hub watch stopped' --body '<stderr text>' --sound request`. Do not
-   start the watch again. If the text names a token scope, tell the user to add that scope to the
-   token of `glab`.
+   start the watch again. If the text names a token permission, tell the user to add that
+   permission to the fine-grained token of `glab`.
 4. If the user asks to stop the watch, stop the task. If the user asks to start it, start it.
 
 ## Pull

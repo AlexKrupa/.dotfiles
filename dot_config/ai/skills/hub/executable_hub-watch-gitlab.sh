@@ -42,10 +42,15 @@ remote=$(git remote get-url origin 2>/dev/null \
   || git remote get-url "$(git remote | head -n1)" 2>/dev/null) || die "no git remote in $repo"
 project=$(sed -E 's#\.git$##; s#^[a-z+]+://[^/]+/##; s#^[^@/]+@[^:]+:##' <<<"$remote")
 
-scope_for() {
+permission_for() {
   case "$1" in
-    user | users/*) echo read_user ;;
-    *) echo read_api ;;
+    user) echo 'User (user boundary)' ;;
+    users/*/events*) echo 'Event (user boundary)' ;;
+    todos*) echo 'Todo (user boundary)' ;;
+    projects/*/merge_requests/*/notes*) echo 'Work Item (group or project boundary)' ;;
+    projects/*/merge_requests*) echo 'Merge Request (group or project boundary)' ;;
+    projects/*/pipelines*) echo 'Pipeline (group or project boundary)' ;;
+    *) echo 'Project (group or project boundary)' ;;
   esac
 }
 
@@ -57,8 +62,8 @@ api() {
   local err
   err=$(paste -s -d ' ' "$tmp/stderr")
   if [[ $err =~ $http_re ]]; then
-    echo "HTTP ${BASH_REMATCH[1]} on $1. The token needs the $(scope_for "$1") scope." \
-      >"$tmp/error"
+    echo "HTTP ${BASH_REMATCH[1]} on $1." \
+      "The token needs the Read permission for $(permission_for "$1")." >"$tmp/error"
     return 2
   fi
   echo "$1: $err" >"$tmp/error"

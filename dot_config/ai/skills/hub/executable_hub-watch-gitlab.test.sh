@@ -85,7 +85,7 @@ export MOCK_FAIL='todos*' MOCK_FAIL_MSG='glab: 403 Forbidden (HTTP 403)'
 run
 check "HTTP 403: exit 1" 1 "$code"
 check "HTTP 403: message" \
-  "hub-watch-gitlab: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the read_api scope." \
+  "hub-watch-gitlab: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the Read permission for Todo (user boundary)." \
   "$err"
 
 export MOCK_FAIL_MSG='dial tcp: connection refused'
