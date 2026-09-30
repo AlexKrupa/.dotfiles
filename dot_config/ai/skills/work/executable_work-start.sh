@@ -8,7 +8,7 @@
 # git-spice. Opens it as a new herdr worktree workspace, starts Claude there, and submits the
 # prompt.
 # Mode "next" (linked worktree): creates the branch on top of the current branch with git-spice.
-# Then starts bin/herdr-clear-session.sh, which clears this Claude session after the turn and
+# Then starts bin/herdr-after-turn.sh, which clears this Claude session after the turn and
 # submits the prompt.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
 # creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
@@ -20,7 +20,7 @@ set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd -P)
 bin=$(cd "$here/../../bin" && pwd)
-WORK_NEXT=${WORK_NEXT:-$bin/herdr-clear-session.sh}
+WORK_NEXT=${WORK_NEXT:-$bin/herdr-after-turn.sh}
 spice_ref=refs/spice/data
 
 die() { echo "work-start: $1" >&2; exit 1; }
@@ -107,7 +107,7 @@ if [[ -z $existing && $(mode_of) == next ]]; then
   fi
 
   # Detached, so it lives after this turn. It waits until the turn ends.
-  nohup "$WORK_NEXT" "$pane" "$old" <<<"$prompt" >>"${TMPDIR:-/tmp}/work-next.log" 2>&1 &
+  nohup "$WORK_NEXT" "$pane" --clear "$old" <<<"$prompt" >>"${TMPDIR:-/tmp}/work-next.log" 2>&1 &
 
   jq -n --arg branch "$branch" --arg base "$old" --arg pane "$pane" \
     --arg worktree "$(git rev-parse --show-toplevel)" \

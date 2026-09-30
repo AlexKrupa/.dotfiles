@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks work-start.sh with real git repos, the real shared bin/ scripts, and fake herdr, glab,
-# git-spice, and herdr-clear-session.sh.
+# git-spice, and herdr-after-turn.sh.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -48,7 +48,7 @@ printf 'git-spice %s\n' "$*" >>"$MOCK_LOG"
 if [ -n "${MOCK_SPICE_FAIL:-}" ]; then echo "$MOCK_SPICE_FAIL" >&2; exit 1; fi
 if [ "$1 $2" = "branch create" ]; then git switch -q -c "$3"; fi
 EOF
-# Fake herdr-clear-session.sh: writes its arguments and stdin to $MOCK_NEXT.
+# Fake herdr-after-turn.sh: writes its arguments and stdin to $MOCK_NEXT.
 cat >"$tmp/bin/work-next" <<'EOF'
 #!/bin/sh
 { printf '%s\n' "$@"; cat; } >"$MOCK_NEXT.part" && mv "$MOCK_NEXT.part" "$MOCK_NEXT"
@@ -107,7 +107,7 @@ push_branch() {
 
 remote_tip() { git -C "$d/remote.git" rev-parse "refs/heads/$1"; }
 
-# wait_next: waits up to 5 s for the fake herdr-clear-session.sh, then prints what it got.
+# wait_next: waits up to 5 s for the fake herdr-after-turn.sh, then prints what it got.
 wait_next() {
   for _ in $(seq 50); do [ -f "$MOCK_NEXT" ] && break; sleep 0.1; done
   cat "$MOCK_NEXT" 2>/dev/null
@@ -265,7 +265,7 @@ fresh
 MOCK_START_FAIL='boom' run p ABC-0 'typo'
 check "start fails: exit 2" 2 "$code"
 
-# Next mode: a stacked branch in the same worktree, then herdr-clear-session.sh.
+# Next mode: a stacked branch in the same worktree, then herdr-after-turn.sh.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 cwd="$d/linked" run $'ABC-2\n\nFix `x` in "$HOME"' ABC-2 'Second part'
@@ -276,12 +276,12 @@ check "next: git-spice creates the branch" \
   "git-spice branch create ABC-2/second-part --no-commit" "$(grep '^git-spice' "$MOCK_LOG")"
 check "next: worktree now on the new branch" ABC-2/second-part \
   "$(git -C "$d/linked" branch --show-current)"
-check "next: herdr-clear-session.sh gets pane, old branch, and prompt" \
-  $'wL:p1\nABC-1/old\nABC-2\n\nFix `x` in "$HOME"' "$(wait_next)"
+check "next: herdr-after-turn.sh gets pane, --clear old branch, and prompt" \
+  $'wL:p1\n--clear\nABC-1/old\nABC-2\n\nFix `x` in "$HOME"' "$(wait_next)"
 check "next: no worktree create" "" "$(grep '^herdr worktree create' "$MOCK_LOG")"
 check "next: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
 
-# Next mode with changes in the worktree. The 5 s wait for herdr-clear-session.sh is expected here.
+# Next mode with changes in the worktree. The 5 s wait for herdr-after-turn.sh is expected here.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 echo draft >"$d/linked/draft.txt"
@@ -289,7 +289,7 @@ cwd="$d/linked" run p ABC-2 'Second part'
 check "next dirty: exit 1" 1 "$code"
 check "next dirty: message" "work-start: the worktree has changes: the old work is not done" "$err"
 check "next dirty: no branch" no "$(has_branch ABC-2/second-part)"
-check "next dirty: no herdr-clear-session.sh" "" "$(wait_next)"
+check "next dirty: no herdr-after-turn.sh" "" "$(wait_next)"
 
 # Next mode with --base or claude flags.
 fresh
