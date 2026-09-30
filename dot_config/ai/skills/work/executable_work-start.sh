@@ -8,7 +8,8 @@
 # git-spice. Opens it as a new herdr worktree workspace, starts Claude there, and submits the
 # prompt.
 # Mode "next" (linked worktree): creates the branch on top of the current branch with git-spice.
-# Then starts work-next.sh, which clears this Claude session after the turn and submits the prompt.
+# Then starts bin/herdr-clear-session.sh, which clears this Claude session after the turn and
+# submits the prompt.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
 # creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
 # NAME is used again. A workspace that is open already stops the script.
@@ -19,7 +20,7 @@ set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd -P)
 bin=$(cd "$here/../../bin" && pwd)
-WORK_NEXT=${WORK_NEXT:-$here/work-next.sh}
+WORK_NEXT=${WORK_NEXT:-$bin/herdr-clear-session.sh}
 spice_ref=refs/spice/data
 
 die() { echo "work-start: $1" >&2; exit 1; }
