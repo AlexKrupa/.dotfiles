@@ -314,6 +314,16 @@ unset MOCK_FAIL MOCK_FAIL_MSG
 out=$("$script" --repo "$d/app" --once 2>&1); code=$?
 check "--repo from a different folder: exit 0" 0 "$code"
 
+# The parent shell exits at once. The loop must stop after its next sleep.
+(cd "$d/app" && bash -c '"$0" --interval 1 >/dev/null 2>"$1" & echo $! >"$2"; sleep 1' \
+  "$script" "$d/orphan.err" "$d/orphan.pid")
+orphan=$(cat "$d/orphan.pid")
+for _ in 1 2 3 4 5 6 7 8 9 10; do ps -p "$orphan" >/dev/null || break; sleep 0.5; done
+check "parent gone: process stops" no "$(ps -p "$orphan" >/dev/null && echo yes || echo no)"
+check "parent gone: message" "hub-watch-gitlab: the parent process is gone" \
+  "$(cat "$d/orphan.err")"
+kill "$orphan" 2>/dev/null
+
 out=$("$script" --bogus 2>&1); code=$?
 check "unexpected argument: exit 1" 1 "$code"
 check "unexpected argument: message" "hub-watch-gitlab: unexpected argument: --bogus" "$out"

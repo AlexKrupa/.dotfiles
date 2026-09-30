@@ -42,6 +42,17 @@ tmp=$(mktemp -d)
 echo $$ >"$lock"
 trap 'rm -rf "$tmp" "$lock"' EXIT
 
+# The parent of this script can be a wrapper shell that stays alive after the agent is killed,
+# so the check covers all ancestors. `ps`, not `kill -0`: `kill -0` fails on processes of root.
+ancestors=()
+p=$PPID
+while ((p > 1)); do ancestors+=("$p"); p=$(ps -o ppid= -p "$p" | tr -d ' '); done
+parent_gone() {
+  local p
+  for p in "${ancestors[@]}"; do ps -p "$p" >/dev/null || return 0; done
+  return 1
+}
+
 # Fast-forwards the checkout to origin/$default, or dies. Returns with no change while a different
 # agent runs in the checkout.
 update() {
@@ -75,4 +86,5 @@ while :; do
   fi
   [[ $once == 0 ]] || exit 0
   sleep "$interval"
+  parent_gone && die "the parent process is gone"
 done

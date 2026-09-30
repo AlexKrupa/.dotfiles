@@ -38,6 +38,17 @@ tmp=$(mktemp -d)
 echo $$ >"$lock"
 trap 'rm -rf "$tmp" "$lock"' EXIT
 
+# The parent of this script can be a wrapper shell that stays alive after the agent is killed,
+# so the check covers all ancestors. `ps`, not `kill -0`: `kill -0` fails on processes of root.
+ancestors=()
+p=$PPID
+while ((p > 1)); do ancestors+=("$p"); p=$(ps -o ppid= -p "$p" | tr -d ' '); done
+parent_gone() {
+  local p
+  for p in "${ancestors[@]}"; do ps -p "$p" >/dev/null || return 0; done
+  return 1
+}
+
 remote=$(git remote get-url origin 2>/dev/null \
   || git remote get-url "$(git remote | head -n1)" 2>/dev/null) || die "no git remote in $repo"
 project=$(sed -E 's#\.git$##; s#^[a-z+]+://[^/]+/##; s#^[^@/]+@[^:]+:##' <<<"$remote")
@@ -214,4 +225,5 @@ while :; do
     [[ $once == 1 || $fails -ge 5 ]] && die "$(cat "$tmp/error")"
   fi
   sleep "$interval"
+  parent_gone && die "the parent process is gone"
 done
