@@ -28,8 +28,8 @@
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
 - Git: make commits (vertical slices), do not mention or suggest pushing or opening PRs
-- Finishing a development branch: read `~/.claude/skills/review-me/SKILL.md` and follow it in this
-  session
+- Finishing a development branch: read `~/.claude/skills/review-me/SKILL.md` and follow it in auto
+  mode in this session
 
 ### Memory
 

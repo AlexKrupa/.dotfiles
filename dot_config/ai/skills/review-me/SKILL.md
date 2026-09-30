@@ -11,7 +11,17 @@ disable-model-invocation: true
 This skill adds a fix loop to `review-branch`. `review-branch` does the audit and the report. This
 skill decides what to do with the findings. It folds the fixes into the commits that they fix, with
 `git absorb`. It never pushes. It rewrites history only through `history-rewrite.sh`, after the
-user confirms.
+user confirms. In auto mode, it also squashes the fixups with no prompt.
+
+## Auto mode
+
+Auto mode is on when the caller tells you to use auto mode, for example the Superpowers branch
+finish in `AGENTS.md`. A direct `/review-me` call is standalone mode.
+
+In auto mode, the history pass (step 10) always runs `history-rewrite.sh`, also with no squashes.
+The script squashes all `fixup!` and `amend!` commits in `<parent>..HEAD` into their targets. Do not
+ask before this rewrite. The repair squashes of "Commit history" still need a confirmation for each
+item.
 
 ## REQUIRED SUB-SKILLS
 
@@ -51,8 +61,8 @@ Only these five. All other git writes are forbidden.
 - `git commit --fixup=<sha>`, where `<sha>` is in `<parent>..HEAD`. A fixup for a SHA outside that
   range changes the parent history on autosquash. In that case, use a normal commit.
 - `git commit -m <msg>`, only when there is no fixup target.
-- `history-rewrite.sh` (see "Commit history"), only after the user confirms. It is the only
-  permitted history rewrite. Never run `git rebase` yourself.
+- `history-rewrite.sh` (see "Commit history"), only after the user confirms, or in auto mode. It
+  is the only permitted history rewrite. Never run `git rebase` yourself.
 - The git writes of the `deslop` pass (step 7), which include the `amend!` commits from
   `reword-fixup.sh`.
 
@@ -105,21 +115,22 @@ Write one line for each suggestion:
 ```
 
 Add `(reorder first)` if the two commits are not adjacent. Then ask one time. The user selects
-apply or skip for each item. If there are no suggestions, tell the user in one line and skip the
-rest of this section.
+apply or skip for each item. If there are no suggestions, tell the user in one line. In standalone
+mode, skip the rest of this section.
 
 ### Rewrite
 
-Only for the items that the user confirmed, and only with the helper:
+Only with the helper:
 
 ```
-~/.claude/skills/review-me/history-rewrite.sh <parent> <source>:<target>...
+~/.claude/skills/review-me/history-rewrite.sh <parent> [<repair>:<target>...]
 ```
 
-- Each spec is `<newer>:<older>`. Both SHAs must be in `<parent>..HEAD`.
-- The script checks the specs, saves a backup ref, and runs one
-  `git rebase -i --autosquash <parent>`. The reorder occurs in that rebase. Do not reorder as a
-  separate step before.
+- Give one squash for each item that the user confirmed. Each squash is `<repair>:<target>`. The
+  repair commit is newer than the target. Both SHAs must be in `<parent>..HEAD`.
+- The script checks the squashes, saves a backup ref, and runs one
+  `git rebase -i --autosquash <parent>`. This rebase also squashes all `fixup!` and `amend!`
+  commits. The reorder occurs in that rebase. Do not reorder as a separate step before.
 - On a conflict, the script stops the rebase, restores the branch, and exits `1`. Do not resolve
   the conflict and do not retry. Report the failure and the backup ref. Tell the user to squash by
   hand.
@@ -127,7 +138,8 @@ Only for the items that the user confirmed, and only with the helper:
   `result`. The final reply shows only `backup-ref`.
 - With `--dry-run` as the first argument, the script prints the plan and writes nothing.
 
-If the user declines all items, change nothing.
+If there are no confirmed items: in standalone mode, change nothing. In auto mode, run the script
+with no squashes.
 
 ## Loop
 
@@ -229,6 +241,7 @@ Add a line only in these cases:
   read.
 - You finish without the `deslop` pass, or you fix wording by hand.
 - You rewrite history without a confirmation for each item, or not through `history-rewrite.sh`.
+  The only exception is the fixup squash in auto mode.
 - You suggest a squash for a commit that has value by itself, or you suggest a split. Suggest only
   squashes of repair commits.
 - You resolve a conflict after `history-rewrite.sh` stops. Give it back to the user.
