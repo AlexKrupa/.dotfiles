@@ -107,6 +107,7 @@ $old[0] as $old | $todos[0] as $todos | ($watched[0] | by_iid) as $by
     state: {todos: [$todos[].id], mrs: $mrs, default_pipeline: $default_pipeline},
     events: (if $old == null then [] else [
       ($todos[] | select(.id as $id | $old.todos | any(. == $id) | not)
+        | select(.action_name == "assigned" and .target.author.username == $me | not)
         | {kind: "todo", iid: .target.iid, title: .target.title, url: .target_url,
            actor: .author.username, detail: .action_name, branch: .target.source_branch}),
       ($default[0][0] | select($old | has("default_pipeline"))

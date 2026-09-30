@@ -80,6 +80,12 @@ check "new to-do item" \
   "$out"
 run
 check "same to-do item: no events" "" "$out"
+fixture todos '[{"id": 12, "action_name": "assigned", "author": {"username": "me"},
+  "target": {"iid": 6, "title": "Add baz", "source_branch": "ABC-3/baz",
+    "author": {"username": "me"}},
+  "target_url": "'"$url"'/6"}]'
+run
+check "assigned to own MR: no events" "" "$out"
 
 export MOCK_FAIL='todos*' MOCK_FAIL_MSG='glab: 403 Forbidden (HTTP 403)'
 run
