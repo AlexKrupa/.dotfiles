@@ -131,7 +131,7 @@ only.
 **Keep old findings.** Copy every unresolved finding from the previous report into the new one -
 text, severity, and **id** unchanged. A scoped pass did not read that code. It cannot clear it.
 Give new findings the next free ordinal in their severity section. Never renumber a copied id. The
-caller already told the user "`B2` unresolved", and a pass that renumbers makes that reference point
+caller already told the user "`H2` unresolved", and a pass that renumbers makes that reference point
 somewhere else. Dropping a copied finding is a silent regression - the caller reads the new report
 as complete.
 
@@ -217,7 +217,7 @@ confirm.
   there: it adds or removes a layer, moves a boundary, or changes a public interface or its
   implementations. A branch that only edits function bodies stays at one hop.
 
-  A finding outside the diff takes the `(adjacent)` suffix in its title, is capped at `minor`, and
+  A finding outside the diff takes the `(adjacent)` suffix in its title, is capped at `medium`, and
   states its count as evidence - callers, implementations, or forwarding methods. No count, no
   finding.
 - **Public API / contracts** - breaking signature or schema changes, missing migration notes.
@@ -240,16 +240,40 @@ confirm.
 ## Severity
 
 - `critical` - must fix before merge: bugs, security holes, broken tests, data loss risk.
-- `major` - should fix: likely bug, missing test for new behavior, perf regression, breaking change
+- `high` - should fix: likely bug, missing test for new behavior, perf regression, breaking change
   without migration.
-- `minor` - worth fixing: small bug in unlikely edge case, mild duplication, unclear naming on a
+- `medium` - worth fixing: small bug in unlikely edge case, mild duplication, unclear naming on a
   public symbol.
-- `nit` - optional polish.
+- `low` - optional polish.
 
-An `(adjacent)` finding is capped at `minor`. Code the branch did not introduce cannot block a
+An `(adjacent)` finding is capped at `medium`. Code the branch did not introduce cannot block a
 merge.
 
 Empty buckets are fine. Do not invent findings to fill them.
+
+## Review guide
+
+The guide tells a human reviewer which files to read first, and in which order. Write it after the
+findings, because findings change the order.
+
+A focus file has one of these:
+
+- the core behavior change of the branch
+- a new or changed public API, schema, or contract
+- invasive or high-risk code: concurrency, security, data migration, a moved module boundary
+- a `critical` or `high` finding
+
+Select at most 5 focus files. Order them:
+
+1. Files with a `critical` or `high` finding, or with invasive or high-risk code.
+2. The other focus files in dependency order: types and contracts, then the logic that uses them,
+   then callers and wiring, then tests.
+
+If no file is a focus file (for example a rename, a version bump, or a one-function fix), the guide
+is one line: `Simple change - no file needs special focus.`
+
+In re-review mode, copy the previous report's guide. Remove the finding ids that the new report does
+not have.
 
 ## Report file
 
@@ -279,9 +303,9 @@ the main-repo grouping convention.
 # Review: <branch> (vs <parent>)
 
 **TL;DR:** <1-2 sentence verdict - merge / fix-then-merge / major rework, plus the single biggest
-risk, naming that risk's finding id, e.g. `A1`.>
+risk, naming that risk's finding id, e.g. `C1`.>
 
-**Counts:** <N> critical, <N> major, <N> minor, <N> nit
+**Counts:** <N> critical, <N> high, <N> medium, <N> low
 
 ---
 
@@ -292,35 +316,42 @@ risk, naming that risk's finding id, e.g. `A1`.>
 - Generated: <ISO date>
 - Convention docs consulted: <comma-separated paths | none found>
 
+## Review guide
+
+1. `<file>` - <why to read it, plus finding ids, e.g. "new retry logic, has `H1`">
+2. `<file>` - <why>
+
+Then: <one line for the other files, e.g. "tests for the above, 3 renames, DI wiring">
+
 ## Findings
 
-Each finding has an id: severity letter (`A` critical, `B` major, `C` minor, `D` nit) + ordinal
-within its section, e.g. `A1`, `B2`. Ordinals reset per section. An omitted section does not shift
-later letters (Major always starts at `B1`). Callers cite these ids.
+Each finding has an id: severity letter (`C` critical, `H` high, `M` medium, `L` low) + ordinal
+within its section, e.g. `C1`, `H2`. Ordinals reset per section. An omitted section does not shift
+later letters (High always starts at `H1`). Callers cite these ids.
 
 Conventions & docs findings cite the doc they derive from inline, e.g.
 `(violates docs/testing.md:L20)` appended to the What/Fix text.
 
 Simplicity findings outside the diff take the `(adjacent)` suffix in the title and sit in the
-`minor` or `nit` section, e.g. `**C1** \`Repo.kt:88\` - single-impl interface (adjacent)`.
+`medium` or `low` section, e.g. `**M1** \`Repo.kt:88\` - single-impl interface (adjacent)`.
 
 ### Critical
 
-- **A1** `<file>:<line>` - <short title>
+- **C1** `<file>:<line>` - <short title>
   What: <1-2 sentences> Fix: <prose, or ≤3-line snippet>
 
-### Major
+### High
 
-- **B1** `<file>:<line>` - <short title>
+- **H1** `<file>:<line>` - <short title>
   What: ... Fix: ...
 
-### Minor
+### Medium
 
-- **C1** `<file>:<line>` - <short title>
+- **M1** `<file>:<line>` - <short title>
 
-### Nit
+### Low
 
-- **D1** `<file>:<line>` - <short title>
+- **L1** `<file>:<line>` - <short title>
 
 ## Out of scope / mentions
 
@@ -337,14 +368,19 @@ A caller that invoked this skill writes its own reply with the same rules.
 ```markdown
 <the report's TL;DR>
 
-- **A1** `<file>:<line>` - <short title>
-- **B1** `<file>:<line>` - <short title>
+Review guide:
+1. `<file>` - <why>
+2. `<file>` - <why>
+
 - **C1** `<file>:<line>` - <short title>
-- **D1** `<file>:<line>` - <short title>
+- **H1** `<file>:<line>` - <short title>
+- **M1** `<file>:<line>` - <short title>
+- **L1** `<file>:<line>` - <short title>
 
 Report: `<path>`
 ```
 
+- Copy the guide's numbered list, or its one-line simple-change form. Omit the `Then:` line.
 - List all findings, one line each.
 - No counts. Add a line only when the user must act on it.
 
@@ -361,7 +397,7 @@ Report: `<path>`
 - Diffing the working tree instead of `<parent>...HEAD`.
 - Flagging code outside audit scope under a severity bucket. Only Simplicity's adjacent radius
   reaches outside the diff. Everything else belongs in "Out of scope".
-- An `(adjacent)` finding above `minor`, or one without its count as evidence.
+- An `(adjacent)` finding above `medium`, or one without its count as evidence.
 - Reading past one hop, or widening to the module on a branch that only edits function bodies.
 - Long code blocks in the report. Keep it scannable - TL;DR + Counts come first.
 - Filling buckets with manufactured findings.

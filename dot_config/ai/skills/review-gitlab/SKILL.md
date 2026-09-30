@@ -130,7 +130,7 @@ overwrite it.
 Add to the base report:
 
 1. **Header** - add the MR URL, target branch, labels, state, draft flag, and pipeline status.
-2. **Context** (new, between the header and Findings):
+2. **Context** (new, between the header and Review guide):
    - Write the MR description in one paragraph. If it is empty, write "no description provided".
    - Coverage check: compare the description with the changes in the diff. Write what the
      description does not tell.

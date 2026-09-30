@@ -189,14 +189,17 @@ Follow the rules in `review-branch` "Final reply", with this format:
 ```markdown
 <one-line verdict: ready to push | needs your decision on N items | validation failed>
 
+Review guide:
+1. `<file>` - <why>
+
 Needs decision:
-- **B2** `<file>:<line>` - <short title>
+- **H2** `<file>:<line>` - <short title>
 
 Fixed:
-- **C1** `<file>:<line>` - <short title>
+- **M1** `<file>:<line>` - <short title>
 
 Skipped:
-- **D1** `<file>:<line>` - <short title>
+- **L1** `<file>:<line>` - <short title>
 
 Report: `<path>`
 ```
