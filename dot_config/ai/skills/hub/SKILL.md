@@ -62,24 +62,54 @@ in the project of this repo. It gives no output while there are no events.
         `herdr notification show '<branch> pipeline failed' --body '<detail>' --sound request`.
       - More events: `herdr notification show '<n> hub events' --body '<id>, <id>' --sound request`.
         The id of an MR event is `!<iid>`. The id of a `default-failed` event is `<branch>`.
-   2. Run `~/.claude/skills/hub/hub-status.sh`. Output two lines for each event:
+   2. Run `~/.claude/skills/hub/hub-status.sh` and `date +%H:%M`. Output the events in one
+      block. Put the events of one MR in one group. Put the `default-failed` event of a branch
+      in one group.
 
       ```text
-      <kind> !<iid> <title> - @<actor>: <detail>
-      <url>
+      <HH:MM> - <n> events
+      !<iid> <title> (agent <pane id>)
+        - <event sentence>
+        - <event sentence>
+        <url>
+      <branch>
+        - Pipeline <id> failed
+        <url>
       ```
 
-      For a `default-failed` event, the first line is `<kind> <branch> - <detail>`.
+      - Header of a group: `!<iid> <title>`. For a `default-failed` event: `<branch>`.
+      - If `hub-status.sh` shows an agent on `branch`, add ` (agent <pane id>)` to the header.
+      - URL of a group: if the group has one event, use its `url`. Else use the `url` without
+        `#note_<id>`.
+      - For a `merged` event, if `git worktree list` shows `branch`, add a line after the URL:
+        `Worktree <path> can be removed.`
+      - Event sentences. Write the first letter of each sentence as a capital letter.
 
-      If `hub-status.sh` shows an agent on `branch`, add ` (agent <pane id>)` to the first line.
-      For a `merged` event, if `git worktree list` shows `branch`, add a third line:
-      `Worktree <path> can be removed.`
+        | Event                        | Sentence                                           |
+        | ---------------------------- | -------------------------------------------------- |
+        | `todo`, `review_requested`   | `@<actor> requested your review`                   |
+        | `todo`, `mentioned`          | `@<actor> mentioned you`                           |
+        | `todo`, `directly_addressed` | `@<actor> mentioned you`                           |
+        | `todo`, `approval_required`  | `@<actor> requested your approval`                 |
+        | `todo`, other `detail`       | `@<actor>: <detail>`, with `_` as a space          |
+        | `note`                       | `@<actor> commented: "<detail>"`                   |
+        | `approved`                   | `@<actor> approved`                                |
+        | `unapproved`                 | `@<actor> removed the approval`                    |
+        | `merged`, `closed`           | `@<actor> <kind>`, or `<Kind>` if `actor` is empty |
+        | all other kinds              | `<detail>`                                         |
+
+      - Sort the groups by their most urgent event. Urgency, from high to low:
+        1. `default-failed`, failed `pipeline`, `conflict`, `unapproved`
+        2. `note`, `todo`
+        3. All other events
    3. Start the watch again.
 3. When the task stops with exit `1`, report its stderr text and run
    `herdr notification show 'Hub watch stopped' --body '<stderr text>' --sound request`. Do not
    start the watch again. If the text names a token permission, tell the user to add that
    permission to the fine-grained token of `glab`.
-4. If the user asks to stop the watch, stop the task. If the user asks to start it, start it.
+4. When the task stops with exit `3`, a new hub session started its own watch. Do not start the
+   watch again. Do not send a notification.
+5. If the user asks to stop the watch, stop the task. If the user asks to start it, start it.
 
 ## Pull
 
@@ -91,4 +121,6 @@ while a different herdr agent runs in the main checkout. It gives no output.
 2. When the task stops with exit `1`, report its stderr text and run
    `herdr notification show 'Hub pull stopped' --body '<stderr text>' --sound request`. Do not
    start the pull again. The user fixes the cause, for example changes in the main checkout.
-3. If the user asks to stop the pull, stop the task. If the user asks to start it, start it.
+3. When the task stops with exit `3`, a new hub session started its own pull. Do not start the
+   pull again. Do not send a notification.
+4. If the user asks to stop the pull, stop the task. If the user asks to start it, start it.

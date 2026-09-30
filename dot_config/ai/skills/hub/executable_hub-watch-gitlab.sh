@@ -4,7 +4,8 @@
 # kind, iid, title, url, actor, detail, branch. The default-failed event of the default branch has
 # a null iid and title. With no state file, the first check only saves the state. --once: do one
 # check, then stop.
-# Exit codes: 0 events found or --once done, 1 error
+# A new instance stops an older instance of the same repo.
+# Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one
 set -euo pipefail
 
 die() { echo "hub-watch-gitlab: $1" >&2; exit 1; }
@@ -30,13 +31,25 @@ slug=$(~/.config/ai/bin/repo-slug.sh)
 state=$state_dir/$slug.json
 lock=$state_dir/$slug.lock
 mkdir -p "$state_dir"
-if [[ -f $lock ]] && kill -0 "$(cat "$lock")" 2>/dev/null; then
-  die "hub watch already runs for this repo (PID $(cat "$lock"))"
+# A new hub session replaces the old one: stop an older instance of this script that holds the lock.
+# The command check stops no different program that got the PID of a dead instance.
+old=$(cat "$lock" 2>/dev/null || true)
+if [[ -n $old ]] && ps -o command= -p "$old" 2>/dev/null | grep -q 'hub-watch-gitlab\.sh'; then
+  kill "$old" 2>/dev/null || true
+  for _ in {1..20}; do ps -p "$old" >/dev/null || break; sleep 0.5; done
+  kill -KILL "$old" 2>/dev/null || true
 fi
 glab auth status >/dev/null 2>&1 || die "glab is not authenticated, run: glab auth login"
 tmp=$(mktemp -d)
 echo $$ >"$lock"
-trap 'rm -rf "$tmp" "$lock"' EXIT
+sleeper=''
+cleanup() {
+  if [[ -n $sleeper ]]; then kill "$sleeper" 2>/dev/null || true; fi
+  rm -rf "$tmp"
+  if [[ $(cat "$lock" 2>/dev/null) == "$$" ]]; then rm -f "$lock"; fi
+}
+trap cleanup EXIT
+trap 'echo "hub-watch-gitlab: replaced by a new hub watch" >&2; exit 3' TERM
 
 # The parent of this script can be a wrapper shell that stays alive after the agent is killed,
 # so the check covers all ancestors. `ps`, not `kill -0`: `kill -0` fails on processes of root.
@@ -225,6 +238,10 @@ while :; do
     fails=$((fails + 1))
     [[ $once == 1 || $fails -ge 5 ]] && die "$(cat "$tmp/error")"
   fi
-  sleep "$interval"
+  # In the background: bash runs the TERM trap only after a foreground command ends.
+  sleep "$interval" &
+  sleeper=$!
+  wait "$sleeper"
+  sleeper=''
   parent_gone && die "the parent process is gone"
 done

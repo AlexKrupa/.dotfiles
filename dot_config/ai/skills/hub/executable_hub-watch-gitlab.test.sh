@@ -104,13 +104,33 @@ check "5 network errors: message" \
   "$(cat "$d/err")"
 unset MOCK_FAIL MOCK_FAIL_MSG
 
+# An older instance runs in its loop. A new instance stops it and takes the lock.
+start() { (cd "$d/app" && exec "$script" --interval 60 >/dev/null 2>"$d/$1.err") & }
+lock_is() {
+  for _ in $(seq 40); do [ "$(cat "$lock" 2>/dev/null)" = "$1" ] && return; sleep 0.25; done
+}
+start old
+old=$!
+lock_is "$old"
+start new
+new=$!
+(sleep 15; kill -9 "$old") 2>/dev/null &
+wait "$old"
+check "older instance: exit 3" 3 "$?"
+check "older instance: message" "hub-watch-gitlab: replaced by a new hub watch" "$(cat "$d/old.err")"
+lock_is "$new"
+check "new instance: lock" "$new" "$(cat "$lock" 2>/dev/null)"
+kill "$new"
+wait "$new"
+check "new instance stopped: lock removed" no "$([ -e "$lock" ] && echo yes || echo no)"
+
 sleep 30 &
 sleeper=$!
 echo "$sleeper" >"$lock"
 run
-check "lock of a live process: exit 1" 1 "$code"
-check "lock of a live process: message" \
-  "hub-watch-gitlab: hub watch already runs for this repo (PID $sleeper)" "$err"
+check "lock of a different program: exit 0" 0 "$code"
+check "lock of a different program: not stopped" yes \
+  "$(ps -p "$sleeper" >/dev/null && echo yes || echo no)"
 { kill "$sleeper"; wait "$sleeper"; } 2>/dev/null
 echo 999999 >"$lock"
 run

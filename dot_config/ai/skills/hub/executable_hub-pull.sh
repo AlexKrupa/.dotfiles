@@ -4,7 +4,8 @@
 # it fetches the branch and fast-forwards the checkout. It skips a round while a herdr agent other
 # than $HERDR_PANE_ID runs in the checkout. It gives no output. --once: do one round, then stop.
 # Exit codes: 0 --once done, 1 error: the checkout is on a different branch, has changes in
-# tracked files, or cannot fast-forward, or 5 fetches in sequence failed
+# tracked files, or cannot fast-forward, or 5 fetches in sequence failed, 3 a new instance replaced
+# this one. A new instance stops an older instance of the same repo.
 set -euo pipefail
 
 die() { echo "hub-pull: $1" >&2; exit 1; }
@@ -35,12 +36,24 @@ state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/hub
 slug=$(~/.config/ai/bin/repo-slug.sh)
 lock=$state_dir/$slug.pull.lock
 mkdir -p "$state_dir"
-if [[ -f $lock ]] && kill -0 "$(cat "$lock")" 2>/dev/null; then
-  die "hub pull already runs for this repo (PID $(cat "$lock"))"
+# A new hub session replaces the old one: stop an older instance of this script that holds the lock.
+# The command check stops no different program that got the PID of a dead instance.
+old=$(cat "$lock" 2>/dev/null || true)
+if [[ -n $old ]] && ps -o command= -p "$old" 2>/dev/null | grep -q 'hub-pull\.sh'; then
+  kill "$old" 2>/dev/null || true
+  for _ in {1..20}; do ps -p "$old" >/dev/null || break; sleep 0.5; done
+  kill -KILL "$old" 2>/dev/null || true
 fi
 tmp=$(mktemp -d)
 echo $$ >"$lock"
-trap 'rm -rf "$tmp" "$lock"' EXIT
+sleeper=''
+cleanup() {
+  if [[ -n $sleeper ]]; then kill "$sleeper" 2>/dev/null || true; fi
+  rm -rf "$tmp"
+  if [[ $(cat "$lock" 2>/dev/null) == "$$" ]]; then rm -f "$lock"; fi
+}
+trap cleanup EXIT
+trap 'echo "hub-pull: replaced by a new hub pull" >&2; exit 3' TERM
 
 # The parent of this script can be a wrapper shell that stays alive after the agent is killed,
 # so the check covers all ancestors. `ps`, not `kill -0`: `kill -0` fails on processes of root.
@@ -85,6 +98,10 @@ while :; do
     fi
   fi
   [[ $once == 0 ]] || exit 0
-  sleep "$interval"
+  # In the background: bash runs the TERM trap only after a foreground command ends.
+  sleep "$interval" &
+  sleeper=$!
+  wait "$sleeper"
+  sleeper=''
   parent_gone && die "the parent process is gone"
 done
