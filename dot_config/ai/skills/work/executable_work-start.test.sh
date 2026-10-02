@@ -40,13 +40,20 @@ case "$1 $2" in
   *) echo "unexpected herdr call: $*" >&2; exit 2 ;;
 esac
 EOF
-# Fake git-spice: logs each call. `branch create <name>` checks out a new branch, as git-spice
-# does. MOCK_SPICE_FAIL is the error text of a failed call.
+# Fake git-spice: logs each call. `branch create <name>` checks out a new branch on the current
+# branch or on --target, as git-spice does. `log short` prints MOCK_SPICE_LOG. MOCK_SPICE_FAIL is
+# the error text of a failed call.
 cat >"$tmp/bin/git-spice" <<'EOF'
 #!/bin/sh
 printf 'git-spice %s\n' "$*" >>"$MOCK_LOG"
 if [ -n "${MOCK_SPICE_FAIL:-}" ]; then echo "$MOCK_SPICE_FAIL" >&2; exit 1; fi
-if [ "$1 $2" = "branch create" ]; then git switch -q -c "$3"; fi
+case "$1 $2" in
+  "branch create")
+    name=$3 target=
+    while [ $# -gt 0 ]; do [ "$1" = --target ] && target=$2; shift; done
+    git switch -q -c "$name" $target ;;
+  "log short") printf '%s\n' "${MOCK_SPICE_LOG:-}" ;;
+esac
 EOF
 # Fake herdr-after-turn.sh: writes its arguments and stdin to $MOCK_NEXT.
 cat >"$tmp/bin/work-next" <<'EOF'
@@ -54,8 +61,11 @@ cat >"$tmp/bin/work-next" <<'EOF'
 { printf '%s\n' "$@"; cat; } >"$MOCK_NEXT.part" && mv "$MOCK_NEXT.part" "$MOCK_NEXT"
 EOF
 # Fake glab: fetch-gitlab-mr.sh needs it on PATH. The fetch subcommand makes no glab call.
+# `mr list` prints MOCK_GLAB_MRS, or fails if it is not set.
 cat >"$tmp/bin/glab" <<'EOF'
 #!/bin/sh
+printf 'glab %s\n' "$*" >>"$MOCK_LOG"
+if [ "$1 $2" = "mr list" ] && [ -n "${MOCK_GLAB_MRS:-}" ]; then echo "$MOCK_GLAB_MRS"; exit 0; fi
 echo "unexpected glab call: $*" >&2; exit 2
 EOF
 chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab"
@@ -86,11 +96,17 @@ fresh() {
   : >"$MOCK_LOG"
 }
 
-# run <stdin> <args...>: runs work-start.sh in ${cwd:-$work}. Sets $out, $err, $code.
+# run <stdin> <args...>: runs work-start.sh in ${cwd:-$work}. If $summary is set, it goes on
+# fd 3. Sets $out, $err, $code.
 run() {
   local input=$1; shift
-  out=$(cd "${cwd:-$work}" && printf '%s' "$input" | "$script" "$@" 2>"$tmp/err") \
-    && code=0 || code=$?
+  if [ -n "${summary+set}" ]; then
+    out=$(cd "${cwd:-$work}" && printf '%s' "$input" \
+      | "$script" "$@" 2>"$tmp/err" 3<<<"$summary") && code=0 || code=$?
+  else
+    out=$(cd "${cwd:-$work}" && printf '%s' "$input" | "$script" "$@" 2>"$tmp/err") \
+      && code=0 || code=$?
+  fi
   err=$(cat "$tmp/err")
 }
 
@@ -276,10 +292,120 @@ check "next: git-spice creates the branch" \
   "git-spice branch create ABC-2/second-part --no-commit" "$(grep '^git-spice' "$MOCK_LOG")"
 check "next: worktree now on the new branch" ABC-2/second-part \
   "$(git -C "$d/linked" branch --show-current)"
-check "next: herdr-after-turn.sh gets pane, --clear old branch, and prompt" \
-  $'wL:p1\n--clear\nABC-1/old\nABC-2\n\nFix `x` in "$HOME"' "$(wait_next)"
+check "next: herdr-after-turn.sh gets pane, --clear old branch, prompt, and fresh handoff" \
+  "wL:p1
+--clear
+ABC-1/old
+ABC-2
+
+Fix \`x\` in \"\$HOME\"
+
+---
+Handoff from the previous session in this worktree:
+- Branch \`ABC-2/second-part\` is stacked on \`ABC-1/old\` (git-spice). Compare against \
+\`ABC-1/old\`, not the default branch." "$(wait_next)"
 check "next: no worktree create" "" "$(grep '^herdr worktree create' "$MOCK_LOG")"
+check "next: no glab call" "" "$(grep '^glab' "$MOCK_LOG")"
 check "next: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
+
+# Stack tops above the current branch.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+MOCK_SPICE_LOG='{"name":"ABC-1/old","current":true}' cwd="$d/linked" run '' tops
+check "tops: no branch above: no output" "0 " "$code $out"
+MOCK_SPICE_LOG='{"name":"main","ups":[{"name":"ABC-1/old"}]}
+{"name":"ABC-1/old","current":true,"ups":[{"name":"ABC-1/a"}]}
+{"name":"ABC-1/a","ups":[{"name":"ABC-1/b"},{"name":"ABC-1/c"}]}
+{"name":"ABC-1/b"}
+{"name":"ABC-1/c","ups":[{"name":"ABC-1/d"}]}
+{"name":"ABC-1/d"}' cwd="$d/linked" run '' tops
+check "tops: each top of the upstack" $'ABC-1/b\nABC-1/d' "$out"
+check "tops: no change request lookup" \
+  "git-spice log short --json --no-cr-status --no-cr-comments" "$(tail -n1 "$MOCK_LOG")"
+
+# Next mode on a top branch of the stack.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+git -C "$work" branch -q ABC-1/top ABC-1/old
+cwd="$d/linked" run p ABC-2 'Second part' --onto ABC-1/top
+check "next --onto: exit 0" 0 "$code"
+check "next --onto: base" ABC-1/top "$(jq -r .base <<<"$out")"
+check "next --onto: git-spice creates the branch on the target" \
+  "git-spice branch create ABC-2/second-part --no-commit --target ABC-1/top" \
+  "$(grep '^git-spice' "$MOCK_LOG")"
+check "next --onto: handoff names the base, --clear names the old branch" \
+  $'wL:p1\n--clear\nABC-1/old' "$(wait_next | head -n3)"
+check "next --onto: stack line" \
+  "- Branch \`ABC-2/second-part\` is stacked on \`ABC-1/top\` (git-spice). Compare against \
+\`ABC-1/top\`, not the default branch." "$(tail -n1 "$MOCK_NEXT")"
+
+# Next mode, continue: session, MR from the caller, related files, summary.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+ai="$tmp/home$n/.ai/work"
+mkdir -p "$ai/specs" "$ai/plans" "$ai/reviews"
+touch "$ai/specs/2026-09-30-ABC-1-foo-design.md" "$ai/plans/2026-09-30-ABC-1-foo.md" \
+  "$ai/plans/2026-09-30-ABC-12-other.md" "$ai/reviews/2026-09-29-bar.md"
+HOME="$tmp/home$n" summary=$'Done: foo.\nOpen: bar.' cwd="$d/linked" run p ABC-2 'Second part' \
+  --continue sid-1 --mr https://gl/x/-/merge_requests/7
+check "continue: exit 0" 0 "$code"
+check "continue: handoff" "p
+
+---
+Handoff from the previous session in this worktree:
+- Branch \`ABC-2/second-part\` is stacked on \`ABC-1/old\` (git-spice). Compare against \
+\`ABC-1/old\`, not the default branch.
+- Previous session: \"ABC-1/old\", id sid-1
+- MR of \`ABC-1/old\`: https://gl/x/-/merge_requests/7
+- Related files:
+  - $ai/specs/2026-09-30-ABC-1-foo-design.md
+  - $ai/plans/2026-09-30-ABC-1-foo.md
+
+Summary of the previous session:
+Done: foo.
+Open: bar." "$(wait_next | tail -n +4)"
+check "continue: no glab call with --mr" "" "$(grep '^glab' "$MOCK_LOG")"
+
+# Next mode, continue: MR from glab, no related files.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+MOCK_GLAB_MRS='[{"iid":7,"web_url":"https://gl/x/-/merge_requests/7"}]' HOME="$tmp/home$n" \
+  summary=s cwd="$d/linked" run p ABC-2 'Second part' --continue sid-1
+check "continue glab: exit 0" 0 "$code"
+check "continue glab: MR line, no related files" \
+  $'- MR of `ABC-1/old`: https://gl/x/-/merge_requests/7\n\nSummary of the previous session:\ns' \
+  "$(wait_next | tail -n4)"
+check "continue glab: glab lists the MRs of the old branch" \
+  "glab mr list --source-branch ABC-1/old --output json" "$(grep '^glab' "$MOCK_LOG")"
+
+# Next mode, continue: glab fails, placeholder ticket.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-0/old
+ai="$tmp/home$n/.ai/work"
+mkdir -p "$ai/plans"
+touch "$ai/plans/2026-09-30-ABC-0-foo.md"
+HOME="$tmp/home$n" summary=s cwd="$d/linked" run p ABC-0 'Second part' \
+  --continue sid-1 --placeholder ABC-0
+check "continue placeholder: exit 0" 0 "$code"
+check "continue placeholder: no MR line, no related files" \
+  $'- Previous session: "ABC-0/old", id sid-1\n\nSummary of the previous session:\ns' \
+  "$(wait_next | tail -n4)"
+
+# Next mode, continue with no summary on fd 3.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+cwd="$d/linked" run p ABC-2 'Second part' --continue sid-1
+check "continue no summary: exit 1" 1 "$code"
+check "continue no summary: message" "work-start: --continue needs the summary on fd 3" "$err"
+check "continue no summary: no branch" no "$(has_branch ABC-2/second-part)"
+
+# Next-mode options in new mode.
+fresh
+run p ABC-0 'typo' --continue sid-1
+check "new --continue: exit 1" 1 "$code"
+run p ABC-0 'typo' --onto main
+check "new --onto: exit 1" 1 "$code"
+check "new next options: no herdr call" "" "$(cat "$MOCK_LOG")"
 
 # Next mode with changes in the worktree. The 5 s wait for herdr-after-turn.sh is expected here.
 fresh

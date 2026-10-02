@@ -32,8 +32,9 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 - Else, `~/.claude/skills/work/work-start.sh mode` prints the mode:
   - `new` (main checkout): the work starts in a new worktree from the default branch, with a new
     agent.
-  - `next` (linked worktree): the old work is done. The work starts on a new branch on top of the
-    current branch, in this worktree. This session clears after the turn and gets the new prompt.
+  - `next` (linked worktree): the old work is done. The work starts on a new branch in this
+    worktree, stacked on the current branch or on a top branch of its stack. This session clears
+    after the turn and gets the new prompt with a handoff from this session.
 
 ## Steps
 
@@ -55,7 +56,11 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. If the repo has
      no placeholder id, ask the user for a ticket id.
 3. Mode: existing mode if step 1 found a branch. Else, run
-   `~/.claude/skills/work/work-start.sh mode`.
+   `~/.claude/skills/work/work-start.sh mode`. Next mode: run
+   `~/.claude/skills/work/work-start.sh tops`. Each output line is a top branch of the stack
+   above the current branch. If there is output, ask the user: stack on the current branch, or
+   on a top branch? If there is more than one top branch, ask which. Then end the turn and
+   continue after the answer.
 4. Slug text, in English words. Existing mode has no slug text and no tracker read.
    - Real ticket id: read only the ticket title, with the tracker tool from the project
      instructions. The slug text is the title. If the context has no tool that reads the tracker,
@@ -75,8 +80,21 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      - `xhigh`: unclear investigation or design.
      - Never `max`, unless the user asks for it.
    - If the user gave no model, do not add `--model`.
-6. Next mode only: no base and no Claude flags. If the user gave a model or an effort, tell the
-   user to set it with `/model` after the clear.
+6. Next mode only:
+   - No base and no Claude flags. If the user gave a model or an effort, tell the user to set it
+     with `/model` after the clear.
+   - Handoff: the word `fresh` or `continue` in the message, as an option word like a model
+     word. If the message has neither word, use `continue`.
+     - `fresh`: the handoff has only the stack base. Add no handoff options.
+     - `continue`: add `--continue ${CLAUDE_SESSION_ID}`. If the MR URL of the current branch
+       is in this session, add `--mr <URL>`. Else the script finds it with `glab`. If the repo's
+       CLAUDE.md has a placeholder id, add `--placeholder <id>`. Write a summary of this session
+       for the new agent, 10 lines or fewer:
+       - the status of the current branch: done, pushed, or with open items
+       - decisions, with their reasons
+       - facts that this session found and the next work needs
+       - the related spec and plan files that are important, and why
+   - If the user selected a top branch in step 3, add `--onto <branch>`.
 7. Run the script. The prompt goes on stdin in a quoted heredoc: the user's message with no
    changes. Do not summarize, fix, or add to the message. Ticket URLs and option words such as
    "haiku" or "from `origin/release-1.2`" stay in the message. The slug text and the branch name
@@ -92,12 +110,16 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    ```
 
    Add `--base <ref>` before `--` only if the user named a base. Next mode: the same command with
-   the ticket id and the slug text, and no `--base` and no `--` part:
+   the ticket id, the slug text, and the handoff options from step 6, and no `--base` and no `--`
+   part. With `continue`, the summary goes on fd 3 in a second quoted heredoc:
 
    ```sh
-   ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' <<'PROMPT'
+   ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' --continue <session id> \
+     --placeholder ABC-0 <<'PROMPT' 3<<'SUMMARY'
    <the user's message>
    PROMPT
+   <the summary>
+   SUMMARY
    ```
 
    Existing mode: `--branch <name>` in place of the slug text, and no `--base`:
@@ -111,8 +133,9 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    calls after the report.
    - Exit `0`, new or existing mode: one line from the JSON:
      `<branch> - <worktree> - <model or "default model"> - <effort> (<picked or given>)`.
-   - Exit `0`, next mode: "`<branch>` on `<base>`. This session clears after this turn and starts
-     the new prompt. Do not type in this pane until the prompt shows."
+   - Exit `0`, next mode: "`<branch>` on `<base>`, `<fresh or continue>` handoff. This session
+     clears after this turn and starts the new prompt. Do not type in this pane until the prompt
+     shows."
    - Exit `1` or `2`: the stderr text, word for word. The error is a report for the user, not a
      task. The repo and the worktree stay as they are: the user fixes the cause, then runs
      `/work` again.

@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
 # Usage: work-start.sh mode
+#        work-start.sh tops
 #        work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]
+#        work-start.sh <ticket-id> <slug-text> [--onto BRANCH] [--continue SESSION-ID [--mr URL]
+#          [--placeholder ID]]
 #        work-start.sh <ticket-id> --branch NAME [-- <claude flags>...]
 # Starts work on a ticket. Reads the first prompt on stdin. Branch: <ticket-id>/<slug>.
 # Mode "new" (main checkout): creates the branch from the default branch of origin (origin/HEAD)
 # after a fast-forward, or from the remote ref REF. Tracks it on the default branch with
 # git-spice. Opens it as a new herdr worktree workspace, starts Claude there, and submits the
 # prompt.
-# Mode "next" (linked worktree): creates the branch on top of the current branch with git-spice.
-# Then starts bin/herdr-after-turn.sh, which clears this Claude session after the turn and
-# submits the prompt.
+# "tops" prints the top branches of the git-spice stack above the current branch, one on each
+# line. No output: no branch is above the current branch.
+# Mode "next" (linked worktree): creates the branch with git-spice on top of the current branch, or
+# on top of BRANCH. Adds a handoff to the prompt: the stack base. With --continue, the handoff also
+# has the session id, the MR of the current branch (URL, else from glab), the files in
+# ~/.ai/<repo>/{specs,plans,reviews} with the ticket key of the current branch (no search for the
+# placeholder ID), and the summary on fd 3. Then starts bin/herdr-after-turn.sh, which clears this
+# Claude session after the turn and submits the prompt.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
 # creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
 # NAME is used again. A workspace that is open already stops the script.
@@ -53,12 +61,26 @@ slugify() {
 
 git rev-parse --git-dir >/dev/null 2>&1 || die "not in a git repo: $PWD"
 if [[ ${1:-} == mode && $# -eq 1 ]]; then mode_of; exit 0; fi
+if [[ ${1:-} == tops && $# -eq 1 ]]; then
+  current=$(git branch --show-current)
+  log=$(git-spice log short --json --no-cr-status --no-cr-comments) \
+    || die "git-spice log short failed"
+  jq -rs --arg cur "$current" '
+    (map({key: .name, value: [.ups[]?.name]}) | from_entries) as $ups
+    | def tops: if ($ups[.] // []) == [] then . else $ups[.][] | tops end;
+    ($ups[$cur] // [])[] | tops' <<<"$log"
+  exit 0
+fi
 
-ticket="" text="" base="" existing="" claude_args=()
+ticket="" text="" base="" existing="" onto="" session="" mr="" placeholder="" claude_args=()
 while (($#)); do
   case "$1" in
     --base) [[ $# -ge 2 ]] || die "--base needs a ref"; base=$2; shift 2 ;;
     --branch) [[ $# -ge 2 ]] || die "--branch needs a name"; existing=$2; shift 2 ;;
+    --onto) [[ $# -ge 2 ]] || die "--onto needs a branch"; onto=$2; shift 2 ;;
+    --continue) [[ $# -ge 2 ]] || die "--continue needs a session id"; session=$2; shift 2 ;;
+    --mr) [[ $# -ge 2 ]] || die "--mr needs a URL"; mr=$2; shift 2 ;;
+    --placeholder) [[ $# -ge 2 ]] || die "--placeholder needs an id"; placeholder=$2; shift 2 ;;
     --) shift; claude_args=("$@"); break ;;
     -*) die "unknown option: $1" ;;
     *)
@@ -98,23 +120,57 @@ if [[ -z $existing && $(mode_of) == next ]]; then
   [[ -n $old ]] || die "detached HEAD: check out a branch first"
   pane=$(herdr pane current --current | jq -r '.result.pane.pane_id // empty') || true
   [[ -n $pane ]] || die "cannot find the herdr pane of this session"
+  if [[ -n $session ]]; then
+    summary=$(cat 2>/dev/null <&3) || true
+    [[ -n $summary ]] || die "--continue needs the summary on fd 3"
+  fi
 
-  if ! out=$(git-spice branch create "$branch" --no-commit 2>&1); then
+  base=${onto:-$old}
+  create=(git-spice branch create "$branch" --no-commit)
+  [[ -z $onto ]] || create+=(--target "$onto")
+  if ! out=$("${create[@]}" 2>&1); then
     if git show-ref --verify --quiet "refs/heads/$branch"; then
       fail "git-spice branch create failed: $out"
     fi
     die "git-spice branch create failed: $out"
   fi
 
+  handoff="---
+Handoff from the previous session in this worktree:
+- Branch \`$branch\` is stacked on \`$base\` (git-spice). Compare against \`$base\`, not the \
+default branch."
+  if [[ -n $session ]]; then
+    handoff+=$'\n'"- Previous session: \"$old\", id $session"
+    if [[ -z $mr ]]; then
+      mr=$(glab mr list --source-branch "$old" --output json 2>/dev/null \
+        | jq -r 'if length == 1 then .[0].web_url else empty end') || mr=""
+    fi
+    [[ -z $mr ]] || handoff+=$'\n'"- MR of \`$old\`: $mr"
+    key=${old%%/*}
+    if [[ $old == */* && $key != "$placeholder" ]]; then
+      ai="$HOME/.ai/$("$bin/repo-slug.sh")"
+      files=()
+      for f in "$ai"/{specs,plans,reviews}/*-"$key"-*; do [[ ! -e $f ]] || files+=("$f"); done
+      if ((${#files[@]})); then
+        handoff+=$'\n- Related files:'
+        for f in "${files[@]}"; do handoff+=$'\n'"  - $f"; done
+      fi
+    fi
+    handoff+=$'\n\nSummary of the previous session:\n'"$summary"
+  fi
+  prompt+=$'\n\n'"$handoff"
+
   # Detached, so it lives after this turn. It waits until the turn ends.
   nohup "$WORK_NEXT" "$pane" --clear "$old" <<<"$prompt" >>"${TMPDIR:-/tmp}/work-next.log" 2>&1 &
 
-  jq -n --arg branch "$branch" --arg base "$old" --arg pane "$pane" \
+  jq -n --arg branch "$branch" --arg base "$base" --arg pane "$pane" \
     --arg worktree "$(git rev-parse --show-toplevel)" \
     '{mode: "next", branch: $branch, base: $base, tracked: true, worktree: $worktree,
       pane_id: $pane}'
   exit 0
 fi
+[[ -z $onto$session$mr$placeholder ]] \
+  || die "--onto, --continue, --mr, and --placeholder apply only in a linked worktree"
 
 origin_head() { git symbolic-ref --quiet --short refs/remotes/origin/HEAD; }
 ref=$(origin_head || { git remote set-head origin --auto >/dev/null 2>&1 && origin_head; }) \
