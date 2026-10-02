@@ -1,0 +1,167 @@
+{
+  "skill_name": "review-branch",
+  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, and grade.py applies `common_checks` plus each eval's `checks`. `{key}` in a prompt is a `key=value` line from the fixture's stdout. Check types are in grade.py. `file` and `any`/`all` values are case-insensitive regexes. `lines` is an inclusive range that must overlap the finding's `file:line`.",
+  "common_checks": [
+    {"id": "one-report", "type": "report_count", "equals": 1, "text": "Exactly one report under ~/.ai/<repo>/reviews/"},
+    {"id": "title", "type": "report_regex", "patterns": ["^# Review: \\S+ \\(vs \\S+\\)$", "^\\*\\*TL;DR:\\*\\* ", "^\\*\\*Counts:\\*\\* \\d+ critical, \\d+ high, \\d+ medium, \\d+ low$"], "text": "Report starts with title, TL;DR, and Counts lines"},
+    {"id": "header", "type": "report_regex", "patterns": ["^- Author: ", "^- Base: ", "^- Commits: \\d+ Files: \\d+ ", "^- Uncommitted: ", "^- Generated: ", "^- Convention docs consulted: ", "^## Review guide$", "^## Findings$"], "text": "Report has all header lines and the Review guide and Findings sections"},
+    {"id": "ids", "type": "ids_valid", "contiguous": true, "text": "Each finding id has its section letter, ids are unique, ordinals run 1..n per section"},
+    {"id": "counts", "type": "counts_match", "text": "Counts line matches the number of findings per section"},
+    {"id": "adjacent", "type": "adjacent_capped", "text": "Each (adjacent) finding is medium or low and states a count"},
+    {"id": "reply-ids", "type": "reply_lists_findings", "text": "Final reply lists every finding id of the report"},
+    {"id": "reply-format", "type": "reply_not_regex", "patterns": ["\\*\\*Counts:\\*\\*", "^Then:"], "text": "Final reply has no Counts line and no `Then:` line"},
+    {"id": "reply-path", "type": "reply_regex", "patterns": ["^Report: `[^`]+\\.md`"], "text": "Final reply has the `Report: <path>` line"},
+    {"id": "writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_not_regex": "/\\.ai/[^/]+/reviews/", "max": 0, "text": "No file write except the report"},
+    {"id": "git-mutations", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\s+(add|commit|push|rebase|reset|checkout|switch|stash(?!\\s+(list|show))|merge|cherry-pick|branch\\s+-[dDmM])\\b", "max": 0, "text": "No git mutation commands"},
+    {"id": "repo-unchanged", "type": "repo_unchanged", "text": "Repo refs, HEAD, worktree, and stash did not change"}
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "name": "seeded-defects",
+      "fixture": "fixtures/seeded-defects.sh",
+      "prompt": "/review-branch",
+      "expected_output": "Base origin/main. Finds the off-by-one, the CONTRIBUTING.md time rule, the stale docs/pricing.md, the unused import, the what-comment, and the duplicate of util.truncate. Does not open docs/snapshot-testing.md.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-discounts-test-dev\\.md$", "text": "Report file is <date>-feat-discounts-test-dev.md"},
+        {"type": "report_regex", "patterns": ["^- Base: origin/main \\(default-branch\\)$"], "text": "Base is exactly origin/main (default-branch), no stale note"},
+        {"type": "report_regex", "patterns": ["^- Convention docs consulted: .*CONTRIBUTING\\.md", "^- Convention docs consulted: .*docs/pricing\\.md"], "text": "Convention docs line lists CONTRIBUTING.md and docs/pricing.md"},
+        {"type": "report_not_regex", "patterns": ["^- Convention docs consulted: .*snapshot-testing"], "text": "Convention docs line does not list docs/snapshot-testing.md"},
+        {"type": "tool_count", "tool": ".*", "input_regex": "snapshot-testing\\.md", "max": 0, "text": "Does not open docs/snapshot-testing.md"},
+        {"type": "report_regex", "patterns": ["^## Review guide\\s+1\\. `src/cart/Discounts\\.kt`"], "text": "Review guide item 1 is src/cart/Discounts.kt"},
+        {"type": "finding", "file": "src/cart/Discounts\\.kt", "lines": [17, 19], "severity": ["critical", "high"], "any": ["0\\.\\.count", "off-by-one", "until", "inclusive", "IndexOutOfBounds"], "text": "Off-by-one at Discounts.kt:18 is critical or high"},
+        {"type": "finding", "file": "src/cart/Discounts\\.kt", "lines": [12, 12], "any": ["CONTRIBUTING"], "text": "System.currentTimeMillis() at Discounts.kt:12 cites CONTRIBUTING.md"},
+        {"type": "finding", "any": ["docs/pricing\\.md"], "text": "A finding cites docs/pricing.md as not updated for discounts"},
+        {"type": "finding", "file": "src/cart/Discounts\\.kt", "lines": [3, 3], "any": ["UUID", "import"], "text": "Unused UUID import at Discounts.kt:3"},
+        {"type": "finding", "file": "src/cart/Discounts\\.kt", "lines": [10, 10], "any": ["comment"], "text": "Comment that restates the code at Discounts.kt:10"},
+        {"type": "finding", "file": "src/cart/TextUtils\\.kt", "any": ["src/util/Text\\.kt"], "text": "shorten() duplicates truncate() and cites src/util/Text.kt"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "stacked-branch",
+      "fixture": "fixtures/stacked-branch.sh",
+      "prompt": "/review-branch",
+      "expected_output": "Parent feat/median (ancestor-branch). The median bug from feat/median is not a severity finding. Finds maxBy on an empty list.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-mode-test-dev\\.md$", "text": "Report file is <date>-feat-mode-test-dev.md"},
+        {"type": "report_regex", "patterns": ["^- Base: feat/median \\(ancestor-branch\\)$"], "text": "Base is exactly feat/median (ancestor-branch), no stale note"},
+        {"type": "no_finding", "file": "src/math/Median\\.kt", "text": "No severity finding on src/math/Median.kt (parent branch code)"},
+        {"type": "no_finding", "any": ["\\beven[- ](size|length|number|count)", "two middle", "upper middle"], "text": "No severity finding about the even-size median bug"},
+        {"type": "finding", "file": "src/math/Mode\\.kt", "lines": [3, 4], "any": ["empty", "NoSuchElement"], "text": "maxBy on an empty list at Mode.kt:4"}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "trivial-change",
+      "fixture": "fixtures/trivial-change.sh",
+      "prompt": "/review-branch",
+      "expected_output": "No findings. One-line simple-change guide. Stale note on the Base line (no remote).",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-chore-release-1-3-0-test-dev\\.md$", "text": "Report file is <date>-chore-release-1-3-0-test-dev.md"},
+        {"type": "report_regex", "patterns": ["^\\*\\*Counts:\\*\\* 0 critical, 0 high, 0 medium"], "text": "No critical, high, or medium findings"},
+        {"type": "report_regex", "patterns": ["^Simple change - no file needs special focus\\.$"], "text": "Review guide is the one-line simple-change form"},
+        {"type": "report_regex", "patterns": ["^- Base: main \\(default-branch, stale"], "text": "Base is local main with a stale note"}
+      ]
+    },
+    {
+      "id": 4,
+      "name": "re-review",
+      "fixture": "fixtures/re-review.sh",
+      "prompt": "/review-branch re-review mode. Previous report: {previous_report}. Modified files: src/Totals.kt (behavior change: yes - fixed M1, removed runningTotals for L1), src/CsvImport.kt (comment typo only, no behavior change).",
+      "common_skip": ["ids"],
+      "expected_output": "Same report path. H1 copied unchanged. M1 and L1 gone. New findings: println at Totals.kt:5 and the now-unused addAmounts at Money.kt:3 (one hop). Only the short checklist on CsvImport.kt. No agents, no docs index.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-csv-import-test-dev\\.md$", "text": "Report overwrites the previous report path"},
+        {"type": "ids_valid", "contiguous": false, "text": "Each finding id has its section letter, ids are unique"},
+        {"type": "same_as_previous", "id": "H1", "text": "H1 is copied with id, title, and text unchanged"},
+        {"type": "no_finding", "file": "src/Totals\\.kt", "any": ["fold"], "text": "Resolved M1 (fold reinvents sumOf) is not a finding"},
+        {"type": "no_finding", "file": "src/Totals\\.kt", "any": ["runningTotals"], "text": "Resolved L1 (runningTotals) is not a finding"},
+        {"type": "finding", "file": "src/Totals\\.kt", "lines": [5, 5], "any": ["println", "debug", "stdout"], "text": "New finding: println at Totals.kt:5"},
+        {"type": "finding", "file": "src/Money\\.kt", "any": ["unused", "no (longer )?callers?", "dead", "not used", "nothing calls", "no longer used"], "text": "New finding: addAmounts at Money.kt is now unused (one hop)"},
+        {"type": "no_finding", "file": "src/CsvImport\\.kt", "except_ids": ["H1"], "text": "No new finding on CsvImport.kt (comment-only change gets the short checklist)"},
+        {"type": "report_regex", "patterns": ["^- Convention docs consulted: README\\.md$"], "text": "Convention docs line is copied from the previous report"},
+        {"type": "report_regex", "patterns": ["^- Commits: 2 "], "text": "Commits line shows 2 commits"},
+        {"type": "tool_count", "tool": "Agent|Task", "max": 0, "text": "Dispatches no agents"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "docs-index\\.sh", "max": 0, "text": "Does not run docs-index.sh"}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "cross-file",
+      "fixture": "fixtures/cross-file.sh",
+      "prompt": "/review-branch",
+      "expected_output": "Finds that expiresAt() now returns seconds while SessionGuard (not in the diff) compares millis. Flags the mocked Token value object. Lists the untracked DebugDump.kt as uncommitted but does not audit it.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-sync-expiry-test-dev\\.md$", "text": "Report file is <date>-feat-sync-expiry-test-dev.md"},
+        {"type": "finding", "severity": ["critical", "high"], "any": ["SessionGuard"], "all": ["second|millis|unit"], "text": "Critical/high: expiresAt() unit change breaks SessionGuard"},
+        {"type": "finding", "file": "TokenStoreTest\\.kt", "any": ["mock"], "text": "Test mocks the Token data class (value object)"},
+        {"type": "report_regex", "patterns": ["^- Uncommitted: yes.*DebugDump\\.kt"], "text": "Uncommitted line lists DebugDump.kt"},
+        {"type": "no_finding", "any": ["DebugDump"], "text": "No severity finding on the uncommitted DebugDump.kt"}
+      ]
+    },
+    {
+      "id": 6,
+      "name": "risky-code",
+      "fixture": "fixtures/risky-code.sh",
+      "prompt": "/review-branch",
+      "expected_output": "No docs: `none found`. Finds SQL injection, HashMap data race, overcautious requireNotNull, Thread.sleep in a suspend function. Does not flag the parameterized query or the AtomicLong.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-user-lookup-test-dev\\.md$", "text": "Report file is <date>-feat-user-lookup-test-dev.md"},
+        {"type": "report_regex", "patterns": ["^- Convention docs consulted: none found$"], "text": "Convention docs line is `none found`"},
+        {"type": "no_finding", "any": ["violates"], "text": "No docs-alignment finding"},
+        {"type": "finding", "file": "src/db/UserRepo\\.kt", "lines": [6, 7], "severity": ["critical", "high"], "any": ["inject", "SQL"], "text": "Critical/high: SQL injection at UserRepo.kt:7"},
+        {"type": "no_finding", "file": "src/db/UserRepo\\.kt", "lines": [9, 10], "any": ["inject"], "text": "No injection finding on the parameterized query at UserRepo.kt:10"},
+        {"type": "finding", "file": "src/cache/UserCache\\.kt", "lines": [9, 14], "severity": ["critical", "high", "medium"], "any": ["thread", "race", "HashMap", "concurren", "synchroni"], "text": "Data race on HashMap hitCounts in UserCache.kt"},
+        {"type": "no_finding", "file": "src/cache/UserCache\\.kt", "lines": [13, 13], "text": "No finding on the AtomicLong counter at UserCache.kt:13"},
+        {"type": "finding", "file": "src/cache/UserCache\\.kt", "lines": [16, 17], "any": ["requireNotNull", "null"], "text": "Overcautious requireNotNull at UserCache.kt:17"},
+        {"type": "finding", "file": "src/server/Server\\.kt", "lines": [24, 25], "any": ["sleep", "block", "delay"], "text": "Thread.sleep in a suspend function at Server.kt:25"}
+      ]
+    },
+    {
+      "id": 7,
+      "name": "adjacent-scope",
+      "fixture": "fixtures/adjacent-scope.sh",
+      "prompt": "/review-branch main",
+      "expected_output": "Base main (override). An (adjacent) medium-or-low finding on the single-impl OrderRepository with its count. Nothing on src/storage/ (more than one hop).",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-order-notes-test-dev\\.md$", "text": "Report file is <date>-feat-order-notes-test-dev.md"},
+        {"type": "report_regex", "patterns": ["^- Base: main \\(override\\)$"], "text": "Base is exactly main (override), no stale note"},
+        {"type": "finding", "file": "src/orders/OrderRepository\\.kt", "severity": ["medium", "low"], "all": ["\\(adjacent\\)", "\\b(1|one|single|only)\\b"], "text": "(adjacent) single-impl interface finding on OrderRepository.kt with its count"},
+        {"type": "no_finding", "file": "src/storage/", "text": "No severity finding on src/storage/ (beyond one hop)"}
+      ]
+    },
+    {
+      "id": 8,
+      "name": "no-diff",
+      "fixture": "fixtures/no-diff.sh",
+      "prompt": "/review-branch",
+      "common": false,
+      "expected_output": "Stops with the helper's message. No report.",
+      "checks": [
+        {"type": "report_count", "equals": 0, "text": "No report is written"},
+        {"type": "reply_regex", "patterns": ["(?i)no diff|nothing to review"], "text": "Final reply relays the no-diff message"},
+        {"type": "tool_count", "tool": "Write|Edit|NotebookEdit", "max": 0, "text": "No file write"},
+        {"type": "repo_unchanged", "text": "Repo refs, HEAD, worktree, and stash did not change"}
+      ]
+    },
+    {
+      "id": 9,
+      "name": "fan-out",
+      "fixture": "fixtures/fan-out.sh",
+      "prompt": "/review-branch",
+      "slow": true,
+      "expected_output": "23 files: dispatches the three review agents in one message, verifies and merges their findings, writes the report itself.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-catalog-test-dev\\.md$", "text": "Report file is <date>-feat-catalog-test-dev.md"},
+        {"type": "parallel_agents", "min": 3, "text": "Dispatches at least 3 agents in one message"},
+        {"type": "tool_count", "tool": "Agent|Task", "scope": "sub", "max": 0, "text": "Review agents dispatch no agents"},
+        {"type": "tool_count", "tool": "Write|Edit|NotebookEdit", "scope": "sub", "max": 0, "text": "Review agents write no files"},
+        {"type": "report_regex", "patterns": ["^- Convention docs consulted: .*CONTRIBUTING\\.md"], "text": "Convention docs line lists CONTRIBUTING.md"},
+        {"type": "finding", "file": "src/catalog/Paging\\.kt", "lines": [4, 4], "any": ["remainder", "partial", "round", "ceil", "last page", "division"], "text": "pageCount drops the last partial page (defect agent)"},
+        {"type": "finding", "file": "src/catalog/CatalogLog\\.kt", "lines": [3, 4], "any": ["CONTRIBUTING"], "text": "println cites CONTRIBUTING.md (docs agent)"},
+        {"type": "finding", "file": "src/catalog/Strings\\.kt", "any": ["src/util/Text\\.kt"], "text": "clip() duplicates truncate() and cites src/util/Text.kt (structure agent)"}
+      ]
+    }
+  ]
+}
