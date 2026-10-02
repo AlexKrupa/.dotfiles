@@ -1,0 +1,5 @@
+# Forward unknown commands to fish functions and aliases (for Claude Code)
+command_not_found_handler() {
+  fish -c 'functions -q -- $argv[1]' "$1" || { print -u2 "zsh: command not found: $1"; return 127 }
+  fish -c '$argv' -- "$@"
+}
