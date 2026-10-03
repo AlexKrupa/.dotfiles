@@ -288,4 +288,24 @@ type = "shell"
 command = "~/.config/herdr/bin/nvim-diff.sh codediff"
 description = "branch diff in nvim sidebar (codediff)"
 
+# --- Custom commands: tuicr ---
+
+[[keys.command]]
+key = "alt+a"
+type = "shell"
+command = "~/.config/herdr/bin/tuicr.sh branch"
+description = "tuicr: review branch vs its parent, next to the agent"
+
+[[keys.command]]
+key = "alt+A"
+type = "shell"
+command = "~/.config/herdr/bin/tuicr.sh send"
+description = "tuicr: send comments to the agent"
+
+[[keys.command]]
+key = "ctrl+alt+a"
+type = "shell"
+command = "~/.config/herdr/bin/tuicr.sh mr"
+description = "tuicr: target selector, for MRs"
+
 # Avoid alt+f/alt+b: some terminals send Opt+Right->ESC-f, Opt+Left->ESC-b for readline word-jump

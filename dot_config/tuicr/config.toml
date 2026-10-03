@@ -1,0 +1,11 @@
+theme = "dracula"
+leader = "'"
+
+diff_view = "side-by-side"
+diff_watch_interval_ms = 2000
+ignore_whitespace = true
+compact_folders = true
+scroll_offset = 5
+comment_vim = true
+pr_comments_visibility = "all"
+no_update_check = true

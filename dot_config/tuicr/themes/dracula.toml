@@ -1,0 +1,60 @@
+# Dracula for tuicr.
+# Palette: https://github.com/dracula/dracula-theme and https://draculatheme.com/spec
+# Role choices follow the official VS Code theme (dracula/visual-studio-code, src/dracula.yml).
+# Syntax: dracula-syntax.tmTheme from https://github.com/dracula/textmate
+
+# Background, Selection, Foreground, Comment
+panel_bg = "#282a36"
+bg_highlight = "#44475a"
+fg_primary = "#f8f8f2"
+fg_secondary = "#6272a4"
+fg_dim = "#6272a4"
+
+# VS Code diffEditor uses Green at alpha 0x20 and Red at alpha 0x50.
+# tuicr needs opaque colors, so the *_bg values are those blended over Background.
+diff_add = "#50fa7b"
+diff_add_bg = "#2d443f"
+diff_del = "#ff5555"
+diff_del_bg = "#6b3740"
+diff_context = "#f8f8f2"
+diff_hunk_header = "#bd93f9"
+expanded_context_fg = "#6272a4"
+
+syntax_add_bg = "#2d443f"
+syntax_del_bg = "#6b3740"
+syntax_theme = "dracula-syntax.tmTheme"
+
+# VS Code gitDecoration: untracked Green, modified Cyan, deleted Red
+file_added = "#50fa7b"
+file_modified = "#8be9fd"
+file_deleted = "#ff5555"
+file_renamed = "#bd93f9"
+
+reviewed = "#50fa7b"
+pending = "#ffb86c"
+
+comment_note = "#8be9fd"
+comment_suggestion = "#bd93f9"
+comment_issue = "#ff5555"
+comment_praise = "#50fa7b"
+
+# VS Code: editorGroup.border Purple, statusBar.background Background Darker
+border_focused = "#bd93f9"
+border_unfocused = "#44475a"
+status_bar_bg = "#191a21"
+cursor_color = "#f8f8f2"
+cursor_line_bg = "#44475a"
+branch_name = "#ff79c6"
+help_indicator = "#6272a4"
+
+message_info_fg = "#282a36"
+message_info_bg = "#8be9fd"
+message_warning_fg = "#282a36"
+message_warning_bg = "#ffb86c"
+message_error_fg = "#282a36"
+message_error_bg = "#ff5555"
+update_badge_fg = "#282a36"
+update_badge_bg = "#ff79c6"
+
+mode_fg = "#282a36"
+mode_bg = "#bd93f9"

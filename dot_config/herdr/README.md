@@ -27,10 +27,14 @@ the group the pane joined or left. `bin/balance.jq` holds the tree walks, covere
 `herdr-forks-sync` rebases only the clone. Uppercase hints open the match with `bin/pluck-open`
 instead of copying it.
 
+`bin/tuicr.sh` opens tuicr (https://tuicr.dev) in a split next to an agent pane and sends its
+comments to that agent while tuicr stays open. It finds the stack parent with
+`~/.config/ai/bin/git-branch-context.sh`.
+
 ## Setup
 
 ```bash
-brew install herdr jq fish fd neovim sesh television go bash yazi lazygit
+brew install herdr jq fish fd neovim sesh television go bash yazi lazygit tuicr
 ~/.config/herdr/setup.sh
 ```
 
