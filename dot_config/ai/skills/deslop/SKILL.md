@@ -155,7 +155,7 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
    a temp file. Then run:
 
    ```
-   ~/.claude/skills/deslop/reword-fixup.sh <parent> <sha> <message-file>
+   ~/.claude/skills/deslop/git-reword-fixup.sh <parent> <sha> <message-file>
    ```
 
    The script builds the `amend!` commit. It stops on an out-of-range sha, a duplicate subject, or a

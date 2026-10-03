@@ -14,8 +14,9 @@
 #      writes a conventional message and commits them. The script never invents messages.
 #
 # Emits a keyed text block on stdout for the caller's summary. Makes no other git writes
-# (no push/rebase/amend/reset). Aborts (exit 1) on: not a repo, bad parent, no files, or a
-# dirty tree with changes outside the given files (would risk staging unrelated work).
+# (no push/rebase/amend/reset). Changes outside the given files stay unstaged and uncommitted.
+# Aborts (exit 1) on: no files, git-absorb missing, not a repo, bad parent, HEAD == parent,
+# a non-empty index (would mix pre-staged work into the fixups), or a missing file.
 set -euo pipefail
 
 die() { printf '%s\n' "$1" >&2; exit 1; }

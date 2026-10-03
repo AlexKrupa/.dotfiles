@@ -20,7 +20,7 @@
       "expected_output": "Fixes docs/sync.md, deletes the 3 what-comments and the marketing KDoc, keeps the SYNC-412 why-comment, rewords commit 1 with an amend! commit, folds the edits into fixups. Code, README.md, and the Legacy comment do not change.",
       "checks": [
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-branch-context\\.sh", "min": 1, "text": "Finds the base with git-branch-context.sh"},
-        {"type": "tool_count", "tool": "Bash", "input_regex": "reword-fixup\\.sh", "min": 1, "text": "Rewords a message with reword-fixup.sh"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-reword-fixup\\.sh", "min": 1, "text": "Rewords a message with git-reword-fixup.sh"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh", "min": 1, "text": "Folds the edits with git-absorb-fixes.sh"},
         {"type": "worktree_clean", "text": "Worktree and index are clean at the end"},
         {"type": "new_commits", "all_regex": "^(fixup|amend)! ", "min": 2, "text": "All new commits are fixup! or amend! commits (at least 2)"},
