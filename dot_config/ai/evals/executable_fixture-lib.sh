@@ -1,4 +1,4 @@
-# Shared setup for review-branch eval fixtures. Source it from a fixture script.
+# Shared setup for skill eval fixtures. Source it from a fixture script.
 set -euo pipefail
 
 # Global config enables 1Password commit signing, which fails headless.
@@ -32,4 +32,12 @@ put() {
 commit() {
   git add -A
   git commit -q -m "$1"
+}
+
+# allow_commits - lets the skill under test commit in this repo. The exports above do not reach
+# the `claude -p` session, so the repo itself turns off the global 1Password signing.
+allow_commits() {
+  git config user.name "Test Dev"
+  git config user.email dev@example.com
+  git config commit.gpgsign false
 }

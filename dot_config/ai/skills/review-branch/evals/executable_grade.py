@@ -8,14 +8,17 @@ format that skill-creator's aggregate_benchmark and eval viewer read. A run dir 
 outputs/<report>.md, outputs/final_reply.md, transcript.jsonl, repo-diff.txt, and
 previous-report.md (re-review only).
 """
-import json
 import re
 import sys
 from pathlib import Path
 
-EVALS = Path(__file__).resolve().parent / "evals.json"
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parents[2] / "evals"))
+import harness  # noqa: E402
+
+EVALS = HERE / "evals.json"
 SECTIONS = {"critical": "C", "high": "H", "medium": "M", "low": "L"}
-FLAGS = re.IGNORECASE | re.MULTILINE
+FLAGS = harness.FLAGS
 
 
 def parse_findings(md):
@@ -65,16 +68,6 @@ def block(md, finding_id):
     return None
 
 
-def tool_uses(transcript):
-    """Yield (name, input, is_subagent, message_index) for each tool call in the transcript."""
-    for i, event in enumerate(transcript):
-        if event.get("type") != "assistant":
-            continue
-        for item in event.get("message", {}).get("content", []):
-            if item.get("type") == "tool_use":
-                yield item["name"], item.get("input", {}), bool(event.get("parent_tool_use_id")), i
-
-
 def matches(f, check):
     if check.get("file") and not re.search(check["file"], f["file"], re.IGNORECASE):
         return False
@@ -96,42 +89,12 @@ def matches(f, check):
 def run_check(check, run):
     """Return (passed, evidence)."""
     t, report, reply, findings = check["type"], run["report"], run["reply"], run["findings"]
+    common = harness.common_check(check, run)
+    if common is not None:
+        return common
     if t == "report_count":
         n = len(run["reports"])
         return n == check["equals"], f"{n} report(s): {[p.name for p in run['reports']]}"
-    if t == "repo_unchanged":
-        diff = run["repo_diff"]
-        return diff == "", "repo-diff.txt is empty" if diff == "" else diff[:300]
-    if t == "tool_count":
-        scope = check.get("scope", "all")
-        hits = []
-        for name, inp, sub, _ in run["tools"]:
-            if scope == "main" and sub or scope == "sub" and not sub:
-                continue
-            if not re.fullmatch(check["tool"], name):
-                continue
-            raw = json.dumps(inp)
-            if check.get("input_regex") and not re.search(check["input_regex"], raw):
-                continue
-            if check.get("input_not_regex") and re.search(check["input_not_regex"], raw):
-                continue
-            hits.append(f"{name} {raw[:120]}")
-        n = len(hits)
-        ok = n >= check.get("min", 0) and n <= check.get("max", n)
-        return ok, f"{n} call(s)" + (f": {hits[:3]}" if hits else "")
-    if t == "parallel_agents":
-        per_message = {}
-        for name, _, sub, i in run["tools"]:
-            if name in ("Agent", "Task") and not sub:
-                per_message[i] = per_message.get(i, 0) + 1
-        best = max(per_message.values(), default=0)
-        return best >= check["min"], f"max {best} agent call(s) in one message"
-    if t in ("reply_regex", "reply_not_regex"):
-        hit = [p for p in check["patterns"] if re.search(p, reply, re.MULTILINE)]
-        if t == "reply_regex":
-            missing = [p for p in check["patterns"] if p not in hit]
-            return not missing, "all patterns match" if not missing else f"missing: {missing}"
-        return not hit, "no pattern matches" if not hit else f"matched: {hit}"
     if t == "reply_lists_findings":
         missing = [f["id"] for f in findings if f["id"] and not re.search(rf"\b{f['id']}\b", reply)]
         return not missing, f"{len(findings)} finding(s)" + (f", missing {missing}" if missing else "")
@@ -141,11 +104,7 @@ def run_check(check, run):
         name = run["reports"][0].name
         return bool(re.search(check["pattern"], name)), name
     if t in ("report_regex", "report_not_regex"):
-        hit = [p for p in check["patterns"] if re.search(p, report, re.MULTILINE)]
-        if t == "report_regex":
-            missing = [p for p in check["patterns"] if p not in hit]
-            return not missing, "all patterns match" if not missing else f"missing: {missing}"
-        return not hit, "no pattern matches" if not hit else f"matched: {hit}"
+        return harness.regex_check(check, report, t == "report_regex")
     if t == "finding":
         hit = [f for f in findings if matches(f, check)]
         return bool(hit), hit[0]["head"] if hit else f"no match among {len(findings)} finding(s)"
@@ -191,70 +150,20 @@ def run_check(check, run):
 def load_run(run_dir):
     outputs = run_dir / "outputs"
     reports = sorted(p for p in outputs.glob("*.md") if p.name != "final_reply.md")
-    transcript = []
-    tpath = run_dir / "transcript.jsonl"
-    if tpath.exists():
-        for line in tpath.read_text().splitlines():
-            try:
-                transcript.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
     report = reports[0].read_text() if len(reports) == 1 else None
-    reply_path = outputs / "final_reply.md"
     previous = run_dir / "previous-report.md"
-    diff = run_dir / "repo-diff.txt"
     return {
+        **harness.load_common(run_dir),
         "reports": reports,
         "report": report,
         "findings": parse_findings(report) if report else [],
-        "reply": reply_path.read_text() if reply_path.exists() else "",
         "previous": previous.read_text() if previous.exists() else "",
-        "tools": list(tool_uses(transcript)),
-        "repo_diff": diff.read_text().strip() if diff.exists() else "missing repo-diff.txt",
     }
-
-
-def checks_for(spec, ev):
-    common = [] if ev.get("common") is False else spec["common_checks"]
-    skip = set(ev.get("common_skip", []))
-    return [c for c in common if c.get("id") not in skip] + ev["checks"]
 
 
 def grade_run(run_dir, checks):
-    run = load_run(run_dir)
-    expectations = []
-    for check in checks:
-        try:
-            passed, evidence = run_check(check, run)
-        except Exception as e:  # a broken check must not hide the other results
-            passed, evidence = False, f"check error: {e!r}"
-        expectations.append({"text": check["text"], "passed": bool(passed), "evidence": evidence})
-    n = sum(e["passed"] for e in expectations)
-    result = {
-        "expectations": expectations,
-        "summary": {"passed": n, "failed": len(expectations) - n, "total": len(expectations),
-                    "pass_rate": round(n / len(expectations), 2) if expectations else 0.0},
-    }
-    (run_dir / "grading.json").write_text(json.dumps(result, indent=2))
-    return result
-
-
-def main():
-    if len(sys.argv) != 2:
-        sys.exit(__doc__)
-    iteration = Path(sys.argv[1])
-    spec = json.loads(EVALS.read_text())
-    for ev in spec["evals"]:
-        eval_dir = iteration / f"eval-{ev['name']}"
-        if not eval_dir.is_dir():
-            continue
-        checks = checks_for(spec, ev)
-        for run_dir in sorted(eval_dir.glob("*/run-*")):
-            s = grade_run(run_dir, checks)["summary"]
-            failed = [e["text"] for e in json.loads((run_dir / "grading.json").read_text())["expectations"] if not e["passed"]]
-            rel = run_dir.relative_to(iteration)
-            print(f"{rel}: {s['passed']}/{s['total']}" + "".join(f"\n  FAIL {t}" for t in failed))
+    return harness.grade_run(run_dir, checks, load_run, run_check)
 
 
 if __name__ == "__main__":
-    main()
+    harness.grade_main(__doc__, EVALS, grade_run)

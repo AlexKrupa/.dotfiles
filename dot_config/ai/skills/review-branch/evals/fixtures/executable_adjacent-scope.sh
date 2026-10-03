@@ -6,7 +6,7 @@
 #   src/orders/OrderRepository.kt  single-impl interface in the same module, direct callee
 #                                  -> `(adjacent)` finding, medium at most, with the count
 #   src/storage/*                  forwarding layer 2+ hops away -> must not be flagged
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 init_repo "$1"
 
 put README.md <<'EOF'

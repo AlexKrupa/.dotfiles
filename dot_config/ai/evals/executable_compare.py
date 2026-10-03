@@ -14,17 +14,25 @@ from pathlib import Path
 
 
 def load(iteration):
-    """Return {eval: {"checks": {text: [passed...]}, "timing": [timing...]}}."""
+    """Return {eval: {"checks": {text: [passed...]}, "timing": [timing...]}}.
+
+    Leaves out runs that ended in an error (for example a usage limit), because their failed
+    checks say nothing about the skill.
+    """
     data = {}
     for grading in sorted(Path(iteration).glob("eval-*/*/run-*/grading.json")):
         run_dir = grading.parent
+        timing_path = run_dir / "timing.json"
+        timing = json.loads(timing_path.read_text()) if timing_path.exists() else {}
+        if timing.get("is_error"):
+            print(f"skipped {run_dir.relative_to(iteration)}: the run ended in an error")
+            continue
         name = run_dir.parent.parent.name.removeprefix("eval-")
         entry = data.setdefault(name, {"checks": {}, "timing": []})
         for e in json.loads(grading.read_text())["expectations"]:
             entry["checks"].setdefault(e["text"], []).append(e["passed"])
-        timing = run_dir / "timing.json"
-        if timing.exists():
-            entry["timing"].append(json.loads(timing.read_text()))
+        if timing:
+            entry["timing"].append(timing)
     return data
 
 

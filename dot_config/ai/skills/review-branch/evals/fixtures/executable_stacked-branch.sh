@@ -5,7 +5,7 @@
 #   src/math/Median.kt:5  wrong median for even sizes - introduced on feat/median, so out of scope
 #   src/math/Mode.kt:4    `maxBy` throws on an empty list - in scope
 # feat/mode calls `median()`, so Median.kt is a direct callee (adjacent radius, Simplicity only).
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 init_repo "$1"
 
 put README.md <<'EOF'

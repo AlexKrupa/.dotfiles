@@ -8,7 +8,7 @@
 # Correct code that must not be flagged:
 #   src/db/UserRepo.kt:10      parameterized query
 #   src/cache/UserCache.kt:13  AtomicLong counter
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 init_repo "$1"
 
 put src/model/User.kt <<'EOF'

@@ -10,9 +10,11 @@ reply, and the transcript with fixed checks.
   `"common": false` or lists ids in `common_skip`.
 - `fixtures/*.sh` - one repo builder per eval. The header comment lists the seeded defects.
 - `run.py` - builds the repos, runs `claude -p`, moves the reports out of `~/.ai/`, and grades.
-- `grade.py` - check types and grading. Writes `grading.json` for skill-creator's viewer.
-- `compare.py` - per-check pass rates of two iterations. Exits 1 on a regression.
-- `helpers.test.sh` - tests for `branch-context.sh`, `docs-index.sh`, `report-path.sh`. No LLM.
+- `grade.py` - report check types and grading. Writes `grading.json` for skill-creator's viewer.
+- `helpers.test.sh` - tests for `bin/git-branch-context.sh`, `docs-index.sh`, `report-path.sh`. No
+  LLM.
+
+The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/evals/`.
 
 ## Run
 
@@ -21,7 +23,7 @@ W=~/.ai/ai/evals/review-branch-workspace
 ./helpers.test.sh
 ./run.py $W/iteration-2              # 8 evals x 3 runs, live skill
 ./run.py $W/iteration-2 fan-out      # 23-file fan-out eval, slow
-./compare.py $W/iteration-1 $W/iteration-2
+~/.config/ai/evals/compare.py $W/iteration-1 $W/iteration-2
 ```
 
 Run the full set before and after a change to the skill, then compare the two iterations. A drop

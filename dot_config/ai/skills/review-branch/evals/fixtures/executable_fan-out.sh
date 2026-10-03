@@ -5,7 +5,7 @@
 #   defect:    src/catalog/Paging.kt:4     integer division drops the last partial page
 #   docs:      src/catalog/CatalogLog.kt:4 println - violates CONTRIBUTING.md "Logging"
 #   structure: src/catalog/Strings.kt:3    `clip` duplicates `truncate` in src/util/Text.kt:4
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 init_repo "$1"
 
 put CONTRIBUTING.md <<'EOF'

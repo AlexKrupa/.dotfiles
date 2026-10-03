@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: snapshot.sh <repo-dir>
-# Prints the repo state that review-branch must not change: refs, HEAD, worktree status,
+# Prints the repo state that a skill must not change: refs, HEAD, worktree status,
 # stash, and a hash of every non-ignored file. Diff a before and an after snapshot.
 set -euo pipefail
 cd "$1"

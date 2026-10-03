@@ -8,7 +8,7 @@
 #   src/cart/TextUtils.kt:3   `shorten` duplicates `truncate` in src/util/Text.kt:4
 #   docs/pricing.md           says discounts are not supported - the branch adds them, no doc update
 # docs/snapshot-testing.md does not apply to this branch - the review must not open it.
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 init_repo "$1"
 
 put README.md <<'EOF'

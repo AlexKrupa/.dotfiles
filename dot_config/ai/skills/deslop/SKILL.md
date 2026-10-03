@@ -28,7 +28,8 @@ Open these files at the start of **every** run, before you edit anything:
   these docs have priority over the personal rules.
 
 This skill defines no writing rules. Do not recall them - recall causes the defect that this skill
-must correct. If `~/.claude/CLAUDE.md` is missing, tell the user and stop.
+must correct. The files are in your context, but in a long session they are far from the task.
+Read them again. If `~/.claude/CLAUDE.md` is missing, tell the user and stop.
 
 ## Modes
 
@@ -115,8 +116,8 @@ A comment passes question 1 only for data that the code cannot show:
 Docstrings that the repo makes necessary (public API, a doc linter) do not use question 1. Start
 them at question 2 and reduce them to one line.
 
-Expected result: most comments stay deleted. Almost all of the comments that stay are one sentence.
-If most of the comments returned, pass 2 defended them instead of judged them. Do pass 2 again.
+Expected result: you delete most comments. Almost all kept comments are one sentence. If you kept
+most comments, pass 2 defended them instead of judging them. Do pass 2 again.
 
 Never prompt the user about a comment. Deletion is the default. The user sees each deletion in the
 fixups before the rebase.
@@ -136,10 +137,11 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
 0. **Precondition:** `git status --porcelain` must give no output. If it gives output, show the
    dirty paths to the user. Tell the user to commit or stash. Do not stash automatically.
 1. Read the rule files above.
-2. Find the base. Skip this step if the user gave path args.
+2. Find the base. Also do this step with path args - step 7 needs `<parent>`. Path args change
+   only the targets.
 
    ```
-   ~/.claude/skills/review-branch/branch-context.sh
+   ~/.config/ai/bin/git-branch-context.sh
    ```
 
    Use its `parent:` value as `<parent>`. Do not calculate it again.
@@ -162,7 +164,7 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
 7. Fold the file edits into their commits. Give only the files that you edited in this pass:
 
    ```
-   ~/.claude/skills/review-me/absorb-fixes.sh <parent> <file>...
+   ~/.config/ai/bin/git-absorb-fixes.sh <parent> <file>...
    ```
 
    Process its `needs-message` files as `review-me` does. Write one conventional-commit line for
@@ -174,11 +176,16 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
 
 ## Summary (git modes)
 
+Print only these lines, in this sequence. Then print the grouped prompt, if there are deferred
+items. Do not add an intro line, quoted comments, or other lists. The fixups show each edit.
+
 - Files changed: count and one line for each
 - Comments: N deleted, N kept as one sentence, N kept longer
 - Commit messages reworded: count and `<sha-short> <old subject>` -> `<new subject>`
 - Deferred (the fix would remove data): count and one line for each
 - Fixups: N by `git absorb`, N by blame, N as new commits
+- Linter: the command and its result, or `none in repo`
+- Out of scope: only if slop remains outside the targets - the paths, on one line
 - Next step: `git rebase -i --autosquash <parent>`
 
 ## Mistakes - stop

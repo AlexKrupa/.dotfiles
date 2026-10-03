@@ -2,7 +2,7 @@
 # Usage: trivial-change.sh <repo-dir>
 # Branch `chore/release-1.3.0` vs local `main`, no remote (parent-fetched: no).
 # Changes: version bump, changelog entry, README typo fix. Nothing to flag.
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 init_repo "$1"
 
 put README.md <<'EOF'

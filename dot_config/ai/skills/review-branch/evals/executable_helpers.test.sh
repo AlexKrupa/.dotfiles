@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Checks the deterministic review-branch helpers: branch-context.sh, docs-index.sh,
+# Checks the deterministic review-branch helpers: git-branch-context.sh, docs-index.sh,
 # report-path.sh. Uses scratch repos and a scratch HOME. No LLM.
 set -u
 
 skill=$(cd "$(dirname "$0")/.." && pwd)
+bin=$(cd "$skill/../../bin" && pwd)
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
 fail=0
@@ -22,13 +23,13 @@ today=$(date +%F)
 
 new_repo() { mkdir -p "$1" && git -C "$1" init -q -b main && commit_file "$1" README.md "# R"; }
 commit_file() { mkdir -p "$(dirname "$1/$2")"; printf '%s\n' "$3" >"$1/$2"; git -C "$1" add -A; git -C "$1" commit -q -m "$2"; }
-ctx() { (cd "$1" && shift && "$skill/branch-context.sh" "$@" 2>"$tmp/stderr"); }
+ctx() { (cd "$1" && shift && "$bin/git-branch-context.sh" "$@" 2>"$tmp/stderr"); }
 key() { sed -n "s/^$1: //p"; }
 
-# --- branch-context.sh ---
+# --- git-branch-context.sh ---
 
 mkdir -p "$tmp/plain"
-(cd "$tmp/plain" && "$skill/branch-context.sh" >/dev/null 2>"$tmp/stderr"); code=$?
+(cd "$tmp/plain" && "$bin/git-branch-context.sh" >/dev/null 2>"$tmp/stderr"); code=$?
 check "context: not a repo exits 1" 1 "$code"
 check "context: not a repo message" "Not inside a git work tree — nothing to review." "$(cat "$tmp/stderr")"
 

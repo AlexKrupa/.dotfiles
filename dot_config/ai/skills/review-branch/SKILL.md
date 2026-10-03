@@ -38,7 +38,7 @@ this skill only knows "current branch vs its parent".
 Run the helper. It resolves branch/parent deterministically and prints a keyed metadata block. Use
 an absolute path (skill cwd is the user's repo):
 
-    ~/.claude/skills/review-branch/branch-context.sh [parent-override]
+    ~/.config/ai/bin/git-branch-context.sh [parent-override]
 
 It runs cheap guards before any diff, in fail-fast order: repo check, branch name, parent detection
 by git topology, the branch-equals-parent guard (compares SHAs), `git status`, diffstat, commit log,
@@ -59,9 +59,10 @@ Output keys: `branch`, `parent`, `parent-source` (`ancestor-branch` | `default-b
 
 The script does **not** print the full diff (unbounded). Run the emitted `diff-command`
 (`git diff <parent>...HEAD`, three-dot - branch changes only, not parent drift) yourself to get the
-reviewable content. Surface `parent` and `parent-source` in the report header for all auto-detected
-cases (plus a stale-base note when `parent-fetched: no`), so the reader knows what the diff was
-anchored against and whether the mainline base may be outdated.
+reviewable content. Surface `parent` and `parent-source` in the report header, so the reader knows
+what the diff was anchored against. Add a stale-base note only when `parent-source: default-branch`
+and `parent-fetched: no` - the script fetches only a mainline base. A stack parent is a local tip,
+and an override is the caller's ref, so neither gets the note.
 
 ### Project docs / conventions
 
@@ -116,7 +117,7 @@ Re-review mode is always single-agent. Never fan out - the scope is too small to
 **Read the previous report first.** A same-day re-run resolves to the same path. Writing before
 reading destroys the findings you must keep.
 
-**Context.** Still run `branch-context.sh` - the header needs the post-fixup commit count and
+**Context.** Still run `git-branch-context.sh` - the header needs the post-fixup commit count and
 diffstat. Skip `docs-index.sh` and open no docs. Copy the previous report's
 `Convention docs consulted:` line as is.
 
@@ -310,7 +311,7 @@ risk, naming that risk's finding id, e.g. `C1`.>
 ---
 
 - Author: <name>
-- Base: <parent> (<parent-source><, stale: local mainline not fetched - when parent-fetched: no>)
+- Base: <parent> (<parent-source><, stale: local mainline not fetched - default-branch only>)
 - Commits: <n> Files: <n> +<add>/-<del>
 - Uncommitted: <no | yes - file1, file2>
 - Generated: <ISO date>

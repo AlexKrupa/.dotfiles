@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: branch-context.sh [parent-override]
+# Usage: git-branch-context.sh [parent-override]
 # Prints the branch-vs-parent review context as a keyed text block on stdout.
 # Cheap local guards abort before any diff.
 #

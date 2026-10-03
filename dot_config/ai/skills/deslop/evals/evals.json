@@ -1,0 +1,118 @@
+{
+  "skill_name": "deslop",
+  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then applies the fixups with `git rebase -i --autosquash <base>` in a clone. grade.py applies `common_checks` plus each eval's `checks`. File checks read the clone after the rebase. Check types are in grade.py and ~/.config/ai/evals/harness.py. Regexes are case-insensitive unless a check sets `case`, except `reply_*` checks. `@name` in `patterns` names a list in `pattern_sets`.",
+  "pattern_sets": {
+    "slop": ["(?i)\\brobust", "(?i)\\bleverag", "(?i)\\bgenuine", "(?i)\\bstreamlin", "(?i)\\bseamless", "(?i)battle-tested", "(?i)worth noting", "(?i)\\bimportantly\\b", "(?i)serves as", "(?i)\\bhonestly\\b", "—", "–"]
+  },
+  "common_checks": [
+    {"id": "rules-claude", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.claude/CLAUDE\\.md", "min": 1, "text": "Reads ~/.claude/CLAUDE.md"},
+    {"id": "rules-code", "type": "tool_count", "tool": "Read|Bash", "input_regex": "rules/code\\.md", "min": 1, "text": "Reads ~/.claude/rules/code.md"},
+    {"id": "rules-doc", "type": "tool_count", "tool": "Read|Bash", "input_regex": "rules/documenting\\.md", "min": 1, "text": "Reads ~/.claude/rules/documenting.md"},
+    {"id": "home-writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_regex": "\"file_path\": \"(/Users/|~)", "max": 0, "text": "No file write under the home dir"},
+    {"id": "git-forbidden", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\b[^|;&]*\\s(push|rebase|reset|stash|checkout|switch|merge|cherry-pick)\\b|--amend", "max": 0, "text": "No push, rebase, reset, stash, checkout, switch, merge, cherry-pick, or amend"}
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "name": "branch-slop",
+      "fixture": "fixtures/branch-slop.sh",
+      "prompt": "/deslop",
+      "expected_output": "Fixes docs/sync.md, deletes the 3 what-comments and the marketing KDoc, keeps the SYNC-412 why-comment, rewords commit 1 with an amend! commit, folds the edits into fixups. Code, README.md, and the Legacy comment do not change.",
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-branch-context\\.sh", "min": 1, "text": "Finds the base with git-branch-context.sh"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "reword-fixup\\.sh", "min": 1, "text": "Rewords a message with reword-fixup.sh"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh", "min": 1, "text": "Folds the edits with git-absorb-fixes.sh"},
+        {"type": "worktree_clean", "text": "Worktree and index are clean at the end"},
+        {"type": "new_commits", "all_regex": "^(fixup|amend)! ", "min": 2, "text": "All new commits are fixup! or amend! commits (at least 2)"},
+        {"type": "refs_same", "refs": ["refs/heads/main", "refs/remotes/origin/main"], "text": "main and origin/main do not move"},
+        {"type": "rebase_clean", "text": "The autosquash rebase applies with no conflict"},
+        {"type": "commit_count", "equals": 3, "text": "After the rebase, the branch still has 3 commits"},
+        {"type": "file_not_regex", "path": "docs/sync.md", "patterns": "@slop", "text": "docs/sync.md has no seeded slop"},
+        {"type": "file_regex", "path": "docs/sync.md", "patterns": ["30\\s+s(econds)?\\b", "\\b2\\.4\\b", "maxAttempts", "\\b0\\b", "\\]\\(https://example\\.com/sync/retry-design\\)"], "text": "docs/sync.md keeps the facts and the Markdown link"},
+        {"type": "file_not_regex", "path": "docs/sync.md", "case": true, "patterns": ["^# Sync Retry Behavior$", "^## How It Works$"], "text": "docs/sync.md headings are in sentence case"},
+        {"type": "line_max", "path": "docs/sync.md", "max": 100, "text": "docs/sync.md lines are 100 chars or less"},
+        {"type": "code_same", "path": "src/sync/RetryPolicy.kt", "text": "RetryPolicy.kt code is unchanged (robustLabel and its string literal stay)"},
+        {"type": "code_same", "path": "src/sync/SyncLoop.kt", "text": "SyncLoop.kt code is unchanged"},
+        {"type": "comments_not_regex", "path": "src/sync/RetryPolicy.kt", "patterns": "@slop", "text": "RetryPolicy.kt comments have no seeded slop"},
+        {"type": "comments_not_regex", "path": "src/sync/RetryPolicy.kt", "patterns": ["attempt counter", "Check if we can retry", "label for the current attempt"], "text": "The 3 what-comments in RetryPolicy.kt are deleted"},
+        {"type": "comments_regex", "path": "src/sync/RetryPolicy.kt", "patterns": ["SYNC-412"], "text": "The SYNC-412 why-comment stays"},
+        {"type": "comment_count", "path": "src/sync/RetryPolicy.kt", "max": 2, "text": "RetryPolicy.kt has at most 2 comment lines"},
+        {"type": "comments_not_regex", "path": "src/sync/SyncLoop.kt", "patterns": ["Loop until"], "text": "The new what-comment in SyncLoop.kt is deleted"},
+        {"type": "file_regex", "path": "src/sync/SyncLoop.kt", "case": true, "patterns": ["^    // Legacy: this robust loop leverages the old client API\\.$"], "text": "The Legacy comment on an unchanged line stays as it was"},
+        {"type": "file_same", "path": "README.md", "ref": "head", "text": "README.md (outside the diff) does not change"},
+        {"type": "log_not_regex", "patterns": "@slop", "text": "Commit messages after the rebase have no seeded slop"},
+        {"type": "log_regex", "case": true, "patterns": ["SYNC-412", "\\b30 ?s(econds)?\\b", "^[0-9a-f]+ Add sync guide$", "^[0-9a-f]+ Use retry policy in sync loop$"], "text": "Commit 1 keeps SYNC-412 and 30 s, commits 2 and 3 keep their subjects"},
+        {"type": "reply_regex", "patterns": ["git rebase -i --autosquash"], "text": "Final reply gives the autosquash rebase as the next step"},
+        {"type": "reply_regex", "patterns": ["Comments:\\W* \\d+ deleted, \\d+ kept as one sentence, \\d+ kept longer"], "text": "Final reply has the Comments line of the summary template"},
+        {"type": "reply_not_regex", "patterns": ["`//"], "text": "Final reply does not quote kept comments"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "path-mode",
+      "fixture": "fixtures/path-mode.sh",
+      "prompt": "/deslop docs/guide.md",
+      "expected_output": "Fixes all of docs/guide.md, also the lines from main. Does not touch docs/other.md or the commit message. Runs git-branch-context.sh only to get the absorb parent.",
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-branch-context\\.sh", "min": 1, "text": "Runs git-branch-context.sh for the absorb parent"},
+        {"type": "file_not_regex", "path": "docs/guide.md", "patterns": "@slop", "text": "docs/guide.md has no seeded slop, also in the lines from main"},
+        {"type": "file_regex", "path": "docs/guide.md", "patterns": ["--format csv", "10[ ,]?000", "--out", "\\b3\\.1\\b"], "text": "docs/guide.md keeps the facts"},
+        {"type": "file_not_regex", "path": "docs/guide.md", "case": true, "patterns": ["^# User Guide$"], "text": "docs/guide.md title is in sentence case"},
+        {"type": "file_same", "path": "docs/other.md", "ref": "head", "text": "docs/other.md (not a path arg) does not change"},
+        {"type": "new_commits", "none_regex": "^amend! ", "min": 1, "text": "No amend! commit (no commit-message pass), at least 1 new commit"},
+        {"type": "log_regex", "case": true, "patterns": ["^[0-9a-f]+ Add robust export docs that seamlessly streamline the workflow$"], "text": "The commit message does not change"},
+        {"type": "worktree_clean", "text": "Worktree and index are clean at the end"},
+        {"type": "refs_same", "refs": ["refs/heads/main"], "text": "main does not move"},
+        {"type": "rebase_clean", "text": "The autosquash rebase applies with no conflict"}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "dirty-tree",
+      "fixture": "fixtures/dirty-tree.sh",
+      "prompt": "/deslop",
+      "common_skip": ["rules-claude", "rules-code", "rules-doc"],
+      "expected_output": "Stops before any edit. Lists src/App.kt and scratch.txt. Tells the user to commit or stash. Does not stash.",
+      "checks": [
+        {"type": "repo_unchanged", "text": "Repo refs, HEAD, worktree, and stash did not change"},
+        {"type": "reply_regex", "patterns": ["src/App\\.kt", "(?i)\\b(commit|stash)"], "text": "Final reply lists src/App.kt and says to commit or stash"},
+        {"type": "tool_count", "tool": "Write|Edit|NotebookEdit", "max": 0, "text": "No file write"}
+      ]
+    },
+    {
+      "id": 4,
+      "name": "fact-removal",
+      "fixture": "fixtures/fact-removal.sh",
+      "prompt": "/deslop",
+      "expected_output": "Fixes the wording of the Known issues caveat and keeps its facts. Keeps the filler section and asks about it in one grouped prompt at the end.",
+      "checks": [
+        {"type": "file_regex", "path": "docs/setup.md", "patterns": ["^## Why this matters$"], "text": "The filler section stays until the user answers"},
+        {"type": "reply_regex", "patterns": ["(?i)why this matters"], "text": "Final reply asks about the filler section"},
+        {"type": "tool_count", "tool": "AskUserQuestion", "max": 1, "text": "At most one prompt tool call"},
+        {"type": "file_regex", "path": "docs/setup.md", "patterns": ["Android 12", "\\b2 min(ute)?s?\\b", "\\bdex\\b", "installDebug"], "text": "docs/setup.md keeps the caveat facts and the install command"},
+        {"type": "file_not_regex", "path": "docs/setup.md", "patterns": ["(?i)\\bhonestly\\b", "(?i)\\bgenuinely\\b", "—"], "text": "The caveat has no seeded slop"},
+        {"type": "worktree_clean", "text": "Worktree and index are clean at the end"},
+        {"type": "refs_same", "refs": ["refs/heads/main", "refs/remotes/origin/main"], "text": "main and origin/main do not move"},
+        {"type": "rebase_clean", "text": "The autosquash rebase applies with no conflict"},
+        {"type": "commit_count", "equals": 1, "text": "After the rebase, the branch still has 1 commit"}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "reply-pasted",
+      "fixture": "fixtures/reply-pasted.sh",
+      "prompt": "/deslop reply\n\nGreat question! It's worth noting that the new cache layer genuinely leverages a robust LRU strategy — it serves as the backbone of the read path. Importantly, the cache holds at most 512 entries and evicts the least recently used entry first. Entries expire after 15 minutes. If you call `Cache.clear()`, all entries are removed immediately. See the [cache docs](https://example.com/docs/cache) for tuning options. In conclusion, this streamlines reads and delivers a seamless experience.",
+      "expected_output": "Only the new text: no slop, all facts, the link as `cache docs (https://example.com/docs/cache)`. No git, no file writes.",
+      "checks": [
+        {"type": "new_text_not_regex", "patterns": "@slop", "text": "New text has no seeded slop (the Removed: line can quote it)"},
+        {"type": "reply_not_regex", "patterns": ["(?i)great question", "(?i)in conclusion"], "text": "Reply has no filler opener or closer"},
+        {"type": "reply_regex", "patterns": ["\\b512\\b", "\\b15 min", "Cache\\.clear\\(\\)", "(?i)\\bLRU\\b|least recently used", "https://example\\.com/docs/cache"], "text": "Reply keeps all facts and the URL"},
+        {"type": "reply_not_regex", "patterns": ["\\]\\(https?://"], "text": "Reply has no Markdown link syntax"},
+        {"type": "reply_not_regex", "patterns": ["\\A\\s*(?i:here|sure|below|okay|ok|rewritten|done)\\b"], "text": "Reply starts with the new text, no preamble"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\b", "max": 0, "text": "No git command"},
+        {"type": "tool_count", "tool": "Write|Edit|NotebookEdit", "max": 0, "text": "No file write"},
+        {"type": "repo_unchanged", "text": "Repo did not change"}
+      ]
+    }
+  ]
+}

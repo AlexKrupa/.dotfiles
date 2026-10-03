@@ -10,7 +10,7 @@
 #     edited, so only the one-hop rule finds the now-unused symbol.
 #   - fixes a comment typo in src/CsvImport.kt - a file with no behavior change.
 # Prints `previous_report=<path>` on stdout.
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 skill_dir="$(cd "$(dirname "$0")/../.." && pwd)"
 init_repo "$1"
 

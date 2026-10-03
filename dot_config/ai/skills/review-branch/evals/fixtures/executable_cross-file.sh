@@ -7,7 +7,7 @@
 #   src/test/session/TokenStoreTest.kt  mocks the `Token` data class (a value object).
 # Uncommitted: untracked src/session/DebugDump.kt prints the token. It must be listed in the
 # header, not audited.
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 init_repo "$1"
 
 put README.md <<'EOF'

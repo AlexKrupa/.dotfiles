@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: absorb-fixes.sh <parent> <file>...
+# Usage: git-absorb-fixes.sh <parent> <file>...
 # Folds already-applied fixes into the commits that introduced them, deterministically.
 # <parent> is the parent ref/SHA review-branch resolved (its report's `parent:` line).
 # <file>... are ONLY the files the skill modified this pass (never the whole tree).
@@ -20,7 +20,7 @@ set -euo pipefail
 
 die() { printf '%s\n' "$1" >&2; exit 1; }
 
-[ "$#" -ge 2 ] || die "Usage: absorb-fixes.sh <parent> <file>..."
+[ "$#" -ge 2 ] || die "Usage: git-absorb-fixes.sh <parent> <file>..."
 parent="$1"; shift
 files=("$@")
 

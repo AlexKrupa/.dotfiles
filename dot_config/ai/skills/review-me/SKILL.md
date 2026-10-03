@@ -161,7 +161,7 @@ with no squashes.
    blame, or fixup by hand:
 
    ```
-   ~/.claude/skills/review-me/absorb-fixes.sh <parent> <file>...
+   ~/.config/ai/bin/git-absorb-fixes.sh <parent> <file>...
    ```
 
    - `<parent>`: the `parent:` value from the context of `review-branch`. Do not calculate it
