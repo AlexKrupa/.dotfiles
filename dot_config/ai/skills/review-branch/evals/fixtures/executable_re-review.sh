@@ -11,7 +11,7 @@
 #   - fixes a comment typo in src/CsvImport.kt - a file with no behavior change.
 # Prints `previous_report=<path>` on stdout.
 source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
-skill_dir="$(cd "$(dirname "$0")/../.." && pwd)"
+bin="$(cd "$(dirname "$0")/../../../../bin" && pwd)"
 init_repo "$1"
 
 put README.md <<'EOF'
@@ -62,7 +62,7 @@ fun addAmounts(a: Int, b: Int): Int = Math.addExact(a, b)
 EOF
 commit "Add CSV import and totals"
 
-report="$("$skill_dir/report-path.sh" main)"
+report="$("$bin/review-report-path.sh" main)"
 put "$report" <<EOF
 # Review: feat/csv-import (vs origin/main)
 

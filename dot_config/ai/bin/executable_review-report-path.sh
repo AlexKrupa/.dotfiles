@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: report-path.sh <parent-ref> [prefix]
+# Usage: review-report-path.sh <parent-ref> [prefix]
 # Prints absolute path to the review report file under
 # ~/.ai/<repo>/reviews/<date>-[<prefix>-]<branch>-<author>.md and ensures the parent dir exists.
 set -euo pipefail
@@ -49,11 +49,7 @@ slugify() {
     | sed -E 's#[^a-z0-9]+#-#g; s#^-+##; s#-+$##'
 }
 
-# --git-common-dir with absolute path resolves to the main repo's .git even inside
-# a linked worktree. All worktrees of one repo then share one directory.
-common_git="$(git rev-parse --path-format=absolute --git-common-dir)"
-repo_root="$(cd "$common_git/.." && pwd)"
-repo_slug="$(slugify "$(basename "$repo_root")")"
+repo_slug="$("$(dirname "$0")/repo-slug.sh")"
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
 branch_slug="$(slugify "${branch//\//-}")"

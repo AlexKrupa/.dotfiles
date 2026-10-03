@@ -117,10 +117,10 @@ message. Do not include status messages. Write one line for each thread. Do not 
 ## Report
 
 Path: `~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`. Get it from the
-`review-branch` helper with `mr-<iid>` as the prefix. Do not make the slug yourself:
+`review-report-path.sh` helper with `mr-<iid>` as the prefix. Do not make the slug yourself:
 
 ```sh
-path="$(~/.claude/skills/review-branch/report-path.sh "$target_ref" "mr-<iid>")"
+path="$(~/.config/ai/bin/review-report-path.sh "$target_ref" "mr-<iid>")"
 ```
 
 `<author>` is the **majority git commit author** from the helper, not the GitLab MR user name. The

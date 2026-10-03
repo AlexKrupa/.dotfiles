@@ -281,7 +281,7 @@ not have.
 Run the helper to get the destination path (absolute path, since skill cwd is the user's repo, not
 this dir). Do not re-implement repo / author / branch resolution inline.
 
-    path="$(~/.claude/skills/review-branch/report-path.sh <parent>)"
+    path="$(~/.config/ai/bin/review-report-path.sh <parent>)"
 
 The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of
 `foo` writes under one directory regardless of the worktree folder's own name), slugification

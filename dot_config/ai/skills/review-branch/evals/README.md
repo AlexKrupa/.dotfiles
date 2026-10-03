@@ -11,8 +11,8 @@ reply, and the transcript with fixed checks.
 - `fixtures/*.sh` - one repo builder per eval. The header comment lists the seeded defects.
 - `run.py` - builds the repos, runs `claude -p`, moves the reports out of `~/.ai/`, and grades.
 - `grade.py` - report check types and grading. Writes `grading.json` for skill-creator's viewer.
-- `helpers.test.sh` - tests for `bin/git-branch-context.sh`, `docs-index.sh`, `report-path.sh`. No
-  LLM.
+- `helpers.test.sh` - tests for `bin/git-branch-context.sh`, `docs-index.sh`,
+  `bin/review-report-path.sh`. No LLM.
 
 The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/evals/`.
 

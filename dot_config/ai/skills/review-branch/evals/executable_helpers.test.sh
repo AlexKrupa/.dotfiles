@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks the deterministic review-branch helpers: git-branch-context.sh, docs-index.sh,
-# report-path.sh. Uses scratch repos and a scratch HOME. No LLM.
+# review-report-path.sh. Uses scratch repos and a scratch HOME. No LLM.
 set -u
 
 skill=$(cd "$(dirname "$0")/.." && pwd)
@@ -124,7 +124,7 @@ file: docs/guide.md
 file: sub/CLAUDE.md
   # Rules" "$(cd "$tmp/docs" && "$skill/docs-index.sh")"
 
-# --- report-path.sh ---
+# --- review-report-path.sh ---
 
 new_repo "$tmp/My Repo"
 git -C "$tmp/My Repo" switch -q -c feat/Some_Thing
@@ -133,14 +133,21 @@ GIT_AUTHOR_NAME="Józef Mąka" commit_file "$tmp/My Repo" b.txt b
 commit_file "$tmp/My Repo" c.txt c
 dir="$HOME/.ai/my-repo/reviews"
 check "path: slugs, diacritics, majority author" "$dir/$today-feat-some-thing-jozef-maka.md" \
-  "$(cd "$tmp/My Repo" && "$skill/report-path.sh" main)"
+  "$(cd "$tmp/My Repo" && "$bin/review-report-path.sh" main)"
 check "path: creates the reviews dir" "yes" "$([ -d "$dir" ] && echo yes || echo no)"
 check "path: prefix" "$dir/$today-mr-42-feat-some-thing-jozef-maka.md" \
-  "$(cd "$tmp/My Repo" && "$skill/report-path.sh" main "MR 42")"
+  "$(cd "$tmp/My Repo" && "$bin/review-report-path.sh" main "MR 42")"
 
 git -C "$tmp/My Repo" worktree add -q "$tmp/wt-folder" -b feat/wt main
 commit_file "$tmp/wt-folder" w.txt w
 check "path: worktree uses the main repo name" "$dir/$today-feat-wt-test-dev.md" \
-  "$(cd "$tmp/wt-folder" && "$skill/report-path.sh" main)"
+  "$(cd "$tmp/wt-folder" && "$bin/review-report-path.sh" main)"
+
+git clone -q --bare "$tmp/My Repo" "$tmp/bare/proj.git"
+git -C "$tmp/bare/proj.git" worktree add -q "$tmp/bare-wt" -b feat/bare main
+commit_file "$tmp/bare-wt" x.txt x
+check "path: worktree of a bare repo uses the repo name" \
+  "$HOME/.ai/proj/reviews/$today-feat-bare-test-dev.md" \
+  "$(cd "$tmp/bare-wt" && "$bin/review-report-path.sh" main)"
 
 exit "$fail"
