@@ -1,75 +1,99 @@
 ---
-name: review-branch
+name: review-diff
 description:
-  Diffs the current git branch against its parent and writes a read-only Markdown report under
-  ~/.ai/<repo>/reviews/. Called as a sub-skill by review-me (self-review + fixes) and review-gitlab
-  (MR context). Run directly only when the user names it. Do not pick it for a plain "review my
-  branch" request - use review-me or review-gitlab, which call it themselves. Platform-agnostic
-  (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
+  Audits a git diff and writes a read-only Markdown report under ~/.ai/<repo>/reviews/. The diff is
+  the current branch vs its parent (default), the branch plus uncommitted or staged changes, or a
+  commit or commit range. Called as a sub-skill by review-me (self-review + fixes) and
+  review-gitlab (MR context). Run directly only when the user names it. Do not pick it for a plain
+  "review my branch" or "review my changes" request - use review-me or review-gitlab, which call
+  it themselves. Platform-agnostic (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
 ---
 
-# review-branch
+# review-diff
 
 <SUBAGENT-STOP>
 Dispatched as a review agent by this skill? Skip "Run the audit", and skip "Gather context" except
-any subsection your assignment names. Your prompt already has the branch context. Run the emitted
+any subsection your assignment names. Your prompt already has the diff context. Run the emitted
 `diff-command`, audit only your assigned checklist items, and return the findings to the caller.
 Never dispatch agents. Never write a file.
 </SUBAGENT-STOP>
 
-Read-only audit of current branch vs parent. Output: single Markdown report at
-`~/.ai/<repo>/reviews/<date>-<branch>-<author>.md`. No fixes, commits, pushes, or PR comments.
+Read-only audit of a git diff. Output: single Markdown report at
+`~/.ai/<repo>/reviews/<date>-[<scope>-]<branch>-<author>.md`. No fixes, commits, pushes, or PR
+comments.
 
 ## When to use
 
 Shared audit step, not a standalone entry point. Run it when:
 
 - `review-me` or `review-gitlab` invoke it as their REQUIRED SUB-SKILL.
-- The user names it directly (slash command or "run review-branch").
+- The user names it directly (slash command or "run review-diff").
 
 Do not pick it on your own for a "review my branch" or "review the diff" request. Those go through
 `review-me` (self-review) or `review-gitlab` (MR), which call this skill themselves.
 
-**Do not use** for reviewing arbitrary commits, the working tree alone, or a specific PR number -
-this skill only knows "current branch vs its parent".
+**Do not use** for a PR or MR number - `review-gitlab` resolves the MR. This skill only reads
+local refs and the local working tree.
+
+## Diff scope
+
+Select the diff scope from the user's words or the caller's arguments. Pass the helper args below.
+
+| Request | Helper args | Diff |
+|---|---|---|
+| nothing, or a branch name | `[parent]` | branch commits vs parent |
+| "uncommitted", "working tree", "all my changes" | `--uncommitted [parent]` | branch commits + working tree + untracked files |
+| "staged", "index" | `--staged [parent]` | branch commits + index |
+| a commit SHA or ref that is not the parent, or a range `A..B` | `--rev <rev>` | one commit vs its first parent, or the commits in `B` not in `A` |
+
+A bare ref is ambiguous: `main` is a parent, `a1b2c3d` or `HEAD~2` is a commit. If you cannot tell,
+ask.
+
+Uncommitted edits in `branch` or `rev` scope, and unstaged edits in `staged` scope, are not in the
+diff. Mention them in the header. Do not audit them.
 
 ## Gather context
 
-Run the helper. It resolves branch/parent deterministically and prints a keyed metadata block. Use
-an absolute path (skill cwd is the user's repo):
+Run the helper with the args from "Diff scope". It resolves branch/parent deterministically and
+prints a keyed metadata block. Use an absolute path (skill cwd is the user's repo):
 
-    ~/.config/ai/bin/git-branch-context.sh [parent-override]
+    ~/.config/ai/bin/git-diff-context.sh [--uncommitted | --staged] [parent-override]
+    ~/.config/ai/bin/git-diff-context.sh --rev <rev | A..B>
 
 It runs cheap guards before any diff, in fail-fast order: repo check, branch name, parent detection
-by git topology, the branch-equals-parent guard (compares SHAs), `git status`, diffstat, commit log,
-and author shortlog. It aborts (exit 1, message on stderr) when not in a repo, when there is no diff
-vs parent, or when parent is unresolved - relay that message and stop.
+by git topology, the empty-diff guard, `git status`, diffstat, commit log, and author shortlog. It
+aborts (exit 1, message on stderr) when not in a repo, when the diff scope is empty, or when parent
+is unresolved - relay that message and stop.
 
-Parent detection (auto, no override arg): the nearest local branch that is a strict ancestor of HEAD
-is the immediate stack parent. If that branch is mainline (`main`/`master`/`develop` or a remote
-default branch), the base is mainline: the script fetches the remote copy (best-effort) and anchors
-on the remote-tracking ref (e.g. `origin/main`), so a stale local mainline does not pollute the
-diff with other people's commits. If fetch fails (offline) or there is no remote, it warns on stderr
-and falls back to the local mainline ref. An intermediate stack parent stays anchored on its local
-tip (its split point is your local tip), no fetch.
+Parent detection (all scopes except `rev`, no override arg): the nearest local branch that is a
+strict ancestor of HEAD is the immediate stack parent. If that branch is mainline
+(`main`/`master`/`develop` or a remote default branch), the base is mainline: the script fetches the
+remote copy (best-effort) and anchors on the remote-tracking ref (e.g. `origin/main`), so a stale
+local mainline does not pollute the diff with other people's commits. If fetch fails (offline) or
+there is no remote, it warns on stderr and falls back to the local mainline ref. An intermediate
+stack parent stays anchored on its local tip (its split point is your local tip), no fetch.
 
-Output keys: `branch`, `parent`, `parent-source` (`ancestor-branch` | `default-branch` |
-`override`), `parent-fetched` (`yes`/`no`), `uncommitted` (`yes`/`no`), `diff-command`, then
-`## Diffstat`, `## Commits`, `## Authors (shortlog)`, `## Uncommitted (not in audit scope)`.
+Output keys: `scope` (`branch` | `uncommitted` | `staged` | `rev`), `branch` (the current branch),
+`tip` (the branch, or the end of a `rev` range), `parent`, `parent-source` (`ancestor-branch` |
+`default-branch` | `override` | `rev`), `parent-fetched` (`yes`/`no`), `uncommitted` (`yes`/`no`),
+`log-range`, `report-prefix`, `diff-command`, then `## Diffstat`, `## Commits`, `## Authors
+(shortlog)`, `## Uncommitted` (`git status --porcelain`).
 
-The script does **not** print the full diff (unbounded). Run the emitted `diff-command`
-(`git diff <parent>...HEAD`, three-dot - branch changes only, not parent drift) yourself to get the
-reviewable content. Surface `parent` and `parent-source` in the report header, so the reader knows
-what the diff was anchored against. Add a stale-base note only when `parent-source: default-branch`
-and `parent-fetched: no` - the script fetches only a mainline base. A stack parent is a local tip,
-and an override is the caller's ref, so neither gets the note.
+The script does **not** print the full diff (unbounded). Run the emitted `diff-command` yourself to
+get the reviewable content. It always diffs from the merge base, so parent drift stays out of the
+diff. In `uncommitted` scope, `git diff` does not show untracked files: read each `??` file from
+`## Uncommitted` in full and audit it as a new file. Count these files in the diffstat file count.
+Surface `parent` and `parent-source` in the report header, so the reader knows what the diff was
+anchored against. Add a stale-base note only when `parent-source: default-branch` and
+`parent-fetched: no` - the script fetches only a mainline base. A stack parent is a local tip, and
+an override is the caller's ref, so neither gets the note.
 
 ### Project docs / conventions
 
 After resolving the diff, gather the project's own documented conventions so findings can be checked
 against them. Run the docs helper (absolute path - skill cwd is the user's repo):
 
-    ~/.claude/skills/review-branch/docs-index.sh
+    ~/.claude/skills/review-diff/docs-index.sh
 
 It enumerates tracked docs via `git ls-files` (so gitignored `build/`, `.gradle/`, `node_modules/`,
 and generated doc output are excluded automatically - no hardcoded skip list) across three groups:
@@ -96,13 +120,8 @@ name, by signature, and in the module where such a thing would already live. A d
 requires the existing symbol's `file:line`. If you did not find one, there is no finding. Skip this
 step entirely when the diff adds no reusable symbol.
 
-**Parent override:** pass the parent branch as the first arg (callers like `review-gitlab` do this).
+**Parent override:** pass the parent branch as the last arg (callers like `review-gitlab` do this).
 The script validates the ref exists locally and reports `parent-source: override`.
-
-## Scope
-
-Committed changes on the branch (`<parent>...HEAD`). Uncommitted edits are mentioned, not audited -
-suggest the user commit or stash and re-run.
 
 ## Run the audit
 
@@ -117,9 +136,9 @@ Re-review mode is always single-agent. Never fan out - the scope is too small to
 **Read the previous report first.** A same-day re-run resolves to the same path. Writing before
 reading destroys the findings you must keep.
 
-**Context.** Still run `git-branch-context.sh` - the header needs the post-fixup commit count and
-diffstat. Skip `docs-index.sh` and open no docs. Copy the previous report's
-`Convention docs consulted:` line as is.
+**Context.** Still run `git-diff-context.sh` with the same scope args - the header needs the
+post-fixup commit count and diffstat. Skip `docs-index.sh` and open no docs. Copy the previous
+report's `Convention docs consulted:` line as is.
 
 **Scope.** The named files, plus one hop out: direct callers and callees of any symbol the caller
 removed or renamed. Nothing else. A removed export can leave a now-unused symbol in a file nobody
@@ -147,8 +166,9 @@ Keep the context you already gathered - the agents do not re-run the helpers.
 
 ### The three agents
 
-Every agent prompt has the same preamble: the `parent` value, the `diff-command`, the diffstat, and
-this instruction - "Read `~/.claude/skills/review-branch/SKILL.md`. Audit only the checklist items
+Every agent prompt has the same preamble: the `parent` value, the `diff-command`, the diffstat, in
+`uncommitted` scope the untracked files to audit, and this instruction - "Read
+`~/.claude/skills/review-diff/SKILL.md`. Audit only the checklist items
 named below. Return each finding in the report bullet format with its severity. No ids. Write no
 files."
 
@@ -281,14 +301,17 @@ not have.
 Run the helper to get the destination path (absolute path, since skill cwd is the user's repo, not
 this dir). Do not re-implement repo / author / branch resolution inline.
 
-    path="$(~/.config/ai/bin/review-report-path.sh <parent>)"
+    path="$(~/.config/ai/bin/review-report-path.sh <log-range> [report-prefix])"
+
+Use the `log-range` and `report-prefix` values. Omit the prefix when `report-prefix` is empty.
 
 The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of
 `foo` writes under one directory regardless of the worktree folder's own name), slugification
 (including diacritic transliteration, e.g. `Józef Mąka` -> `jozef-maka`), branch-name `/`->`-`
-flattening, majority-author detection, a leading `<date>` prefix (today, ISO), and `mkdir -p` of the
-parent. Prints the absolute path on stdout. A cross-day re-run gets a new dated file. A same-day
-re-run resolves to the identical path and overwrites (re-runs supersede within a day).
+flattening, majority-author detection (the current git user when the range has no commits), a
+leading `<date>` prefix (today, ISO), and `mkdir -p` of the parent. Prints the absolute path on
+stdout. A cross-day re-run gets a new dated file. A same-day re-run resolves to the identical path
+and overwrites (re-runs supersede within a day).
 
 Optional second arg `prefix` -> `<date>-<prefix>-<branch>-<author>.md` (the prefix is slugified
 too).
@@ -301,7 +324,7 @@ the main-repo grouping convention.
 ## Report structure (BLUF)
 
 ```markdown
-# Review: <branch> (vs <parent>)
+# Review: <tip> (vs <parent>)
 
 **TL;DR:** <1-2 sentence verdict - merge / fix-then-merge / major rework, plus the single biggest
 risk, naming that risk's finding id, e.g. `C1`.>
@@ -311,6 +334,7 @@ risk, naming that risk's finding id, e.g. `C1`.>
 ---
 
 - Author: <name>
+- Scope: <branch | branch + uncommitted | branch + staged | commits <log-range>>
 - Base: <parent> (<parent-source><, stale: local mainline not fetched - default-branch only>)
 - Commits: <n> Files: <n> +<add>/-<del>
 - Uncommitted: <no | yes - file1, file2>
@@ -395,7 +419,7 @@ Report: `<path>`
 
 ## Red flags - stop and reconsider
 
-- Diffing the working tree instead of `<parent>...HEAD`.
+- Running a diff other than the emitted `diff-command`.
 - Flagging code outside audit scope under a severity bucket. Only Simplicity's adjacent radius
   reaches outside the diff. Everything else belongs in "Out of scope".
 - An `(adjacent)` finding above `medium`, or one without its count as evidence.

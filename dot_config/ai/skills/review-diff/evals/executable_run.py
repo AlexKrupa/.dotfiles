@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Run the review-branch evals with headless `claude -p`, then grade them.
+"""Run the review-diff evals with headless `claude -p`, then grade them.
 
 Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--timeout SEC] [EVAL ...]
 
 Runs every eval in evals.json except `slow` ones, or only the named evals. Each run gets its own
 fixture repo in a temp dir and its own ~/.ai/rbe-<eval>-<k>/ report dir. After the run, the
 report moves to <iteration-dir>/eval-<name>/with_skill/run-<k>/outputs/ and the report dir is
-removed. The runs use the live skill at ~/.claude/skills/review-branch.
+removed. The runs use the live skill at ~/.claude/skills/review-diff.
 """
 import shutil
 import sys

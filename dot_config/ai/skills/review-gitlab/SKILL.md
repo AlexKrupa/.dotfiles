@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 # review-gitlab
 
-This skill adds GitLab merge request context to `review-branch`. It has the same read-only
+This skill adds GitLab merge request context to `review-diff`. It has the same read-only
 constraints. The output is one Markdown report at
 `~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`.
 
@@ -18,10 +18,10 @@ An empty argument means "the MR of the current branch". Outside the MR's repo, o
 
 ## REQUIRED SUB-SKILL
 
-Use `review-branch` for the audit and the report. Give it the `target_ref` from `fetch` as the
-parent override (see "Parent override" in `review-branch`). `target_ref` is the fresh
+Use `review-diff` for the audit and the report. Give it the `target_ref` from `fetch` as the
+parent override (see "Parent override" in `review-diff`). `target_ref` is the fresh
 `<remote>/<target>` remote-tracking ref. Do not use the local `target_branch`, because it can be
-out of date. Do not do again what `review-branch` does: git discovery, severity buckets, and the
+out of date. Do not do again what `review-diff` does: git discovery, severity buckets, and the
 finding format. After it writes the report, add the MR context to that file (see "Report").
 
 ## Helper scripts
@@ -90,7 +90,7 @@ This is not an error.
    call `EnterWorktree` with `path`. If it rejects the path (the session started outside `clone`),
    start each later Bash command with `cd "$path" &&`, and give file tools absolute paths below
    `path`.
-7. Get the report path with the `mr-<iid>` prefix (see "Report"). Use `review-branch` with
+7. Get the report path with the `mr-<iid>` prefix (see "Report"). Use `review-diff` with
    `$target_ref` as the parent override, and tell it to write the report to that path. Do not
    rename the file after. Read the report before you add to it.
 8. `"$FMR" discussions "$iid" "$project_path"` - select the threads for the report (see
@@ -98,7 +98,7 @@ This is not an error.
 9. Optional: `"$FMR" diff-check "$iid" "$target_branch"`. If it exits `1`, write the difference in
    the report.
 10. Add the MR context to the report (see "Report").
-11. Reply as `review-branch` "Final reply" tells. Add a line with the worktree `path`. Keep the
+11. Reply as `review-diff` "Final reply" tells. Add a line with the worktree `path`. Keep the
     worktree. The user removes it as any other Herdr workspace.
 
 ## Discussion filtering
@@ -145,7 +145,7 @@ Add to the base report:
 
 ## Hard constraints
 
-All constraints of `review-branch`, and also:
+All constraints of `review-diff`, and also:
 
 - No `glab mr approve`, `glab mr note --message`/`-m`, `glab mr update`, `glab mr merge`,
   `glab mr close`, `glab mr revoke`, or other write subcommands.
@@ -156,13 +156,13 @@ All constraints of `review-branch`, and also:
 
 ## Red flags - stop and think again
 
-- You are about to use `review-branch` without the MR's `target_ref` as the parent override. The
+- You are about to use `review-diff` without the MR's `target_ref` as the parent override. The
   default parent detection selects the nearest local ancestor branch. For stacked MRs, the
   findings are then wrong.
 - You are about to call `glab mr` with `-m`, `--message`, `approve`, `merge`, `update`, or
   `note create`. This skill is read-only.
 - You copy full discussion text into the report. Write a summary.
-- You skip the worktree because "the diff is sufficient". `review-branch` needs the working tree to
+- You skip the worktree because "the diff is sufficient". `review-diff` needs the working tree to
   examine the files, not only the diff hunks.
 - You are about to run `git checkout` or `git switch` in the user's repo. Use the worktree from
   `"$HWT"`.

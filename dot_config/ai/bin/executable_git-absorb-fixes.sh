@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: git-absorb-fixes.sh <parent> <file>...
 # Folds already-applied fixes into the commits that introduced them, deterministically.
-# <parent> is the parent ref/SHA review-branch resolved (its report's `parent:` line).
+# <parent> is the parent ref/SHA review-diff resolved (its report's `parent:` line).
 # <file>... are ONLY the files the skill modified this pass (never the whole tree).
 #
 # Pipeline:

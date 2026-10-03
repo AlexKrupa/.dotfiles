@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# Usage: git-branch-context.sh [parent-override]
-# Prints the branch-vs-parent review context as a keyed text block on stdout.
+# Usage: git-diff-context.sh [--uncommitted | --staged] [parent-override]
+#        git-diff-context.sh --rev <rev | A..B | A...B>
+# Prints the review context of a diff as a keyed text block on stdout.
 # Cheap local guards abort before any diff.
+#
+# Scopes: default - branch commits vs parent. --uncommitted - branch commits plus the
+# working tree and untracked files. --staged - branch commits plus the index.
+# --rev - one commit vs its first parent, or a range (A..B and A...B both mean the
+# commits in B and not in A), independent of the current branch.
 #
 # With no arg, the parent is the nearest local branch that is a strict ancestor of
 # HEAD. When that branch is mainline (main/master/develop or the remote default
@@ -10,24 +16,56 @@
 # stack parents stay anchored on their local tip. With an arg, that ref is the
 # parent (validated to exist).
 #
-# Aborts (exit 1, message on stderr) when: not a repo, branch == parent, parent
+# Aborts (exit 1, message on stderr) when: not a repo, no diff in scope, parent
 # unresolved, override ref missing.
 #
 # Does NOT emit the full diff (unbounded). It prints the `git diff` command to run
 # for the reviewable content, plus bounded metadata (--stat, log, status).
 set -euo pipefail
 
-override="${1:-}"
-
 die() { printf '%s\n' "$1" >&2; exit 1; }
+
+scope=branch
+rev=""
+case "${1:-}" in
+  --uncommitted) scope=uncommitted; shift ;;
+  --staged) scope=staged; shift ;;
+  --rev)
+    scope=rev
+    rev="${2:?--rev needs a commit or a range}"
+    shift 2
+    [ $# -eq 0 ] || die "--rev takes no parent override."
+    ;;
+esac
+override="${1:-}"
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
   || die "Not inside a git work tree — nothing to review."
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
+tip="$branch"
 parent_fetched=no
 
-if [ -n "$override" ]; then
+verify_ref() {
+  git rev-parse --verify --quiet "$1^{commit}" >/dev/null || die "Ref '$1' not found."
+}
+
+if [ "$scope" = rev ]; then
+  if [[ "$rev" == *..* ]]; then
+    parent="${rev%%..*}"
+    tip="${rev#*..}"
+    tip="${tip#.}"
+    [ -n "$tip" ] || tip=HEAD
+    verify_ref "$parent"
+  else
+    tip="$rev"
+    parent="$rev^"
+    verify_ref "$tip"
+    git rev-parse --verify --quiet "$parent" >/dev/null || die "Commit '$rev' has no parent."
+  fi
+  verify_ref "$tip"
+  parent_source="rev"
+elif [ -n "$override" ]; then
   git rev-parse --verify --quiet "$override" >/dev/null \
     || die "Override parent ref '$override' not found."
   parent="$override"
@@ -103,16 +141,42 @@ else
   fi
 fi
 
-# Compare resolved SHAs, not names: branch may equal parent via a differently
-# named upstream that points at the same commit.
-if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$parent")" ]; then
-  die "Branch '$branch' has no diff vs parent '$parent' — nothing to review."
-fi
-
 status="$(git status --porcelain)"
-diffstat="$(git diff "$parent...HEAD" --stat)"
-log="$(git log "$parent..HEAD" --oneline)"
-shortlog="$(git shortlog -sn "$parent..HEAD")"
+log_range="$parent..HEAD"
+report_prefix="$scope"
+case "$scope" in
+  branch)
+    # Compare resolved SHAs, not names: branch may equal parent via a differently
+    # named upstream that points at the same commit.
+    if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$parent")" ]; then
+      die "Branch '$branch' has no diff vs parent '$parent' — nothing to review."
+    fi
+    diff_args=("$parent...HEAD")
+    report_prefix=""
+    ;;
+  uncommitted)
+    diff_args=(--merge-base "$parent")
+    # `git diff` does not show untracked files, so check them separately.
+    if git diff --quiet "${diff_args[@]}" && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+      die "No committed or uncommitted changes vs parent '$parent' — nothing to review."
+    fi
+    ;;
+  staged)
+    diff_args=(--cached --merge-base "$parent")
+    git diff --quiet "${diff_args[@]}" \
+      && die "No committed or staged changes vs parent '$parent' — nothing to review."
+    ;;
+  rev)
+    log_range="$parent..$tip"
+    report_prefix="$rev"
+    diff_args=("$parent...$tip")
+    git diff --quiet "${diff_args[@]}" && die "No diff in '$rev' — nothing to review."
+    ;;
+esac
+
+diffstat="$(git diff --stat "${diff_args[@]}")"
+log="$(git log "$log_range" --oneline)"
+shortlog="$(git shortlog -sn "$log_range")"
 
 emit_block() {
   local label="$1" body="$2"
@@ -121,15 +185,19 @@ emit_block() {
   printf '\n'
 }
 
+printf 'scope: %s\n' "$scope"
 printf 'branch: %s\n' "$branch"
+printf 'tip: %s\n' "$tip"
 printf 'parent: %s\n' "$parent"
 printf 'parent-source: %s\n' "$parent_source"
 printf 'parent-fetched: %s\n' "$parent_fetched"
 printf 'uncommitted: %s\n\n' "$([ -n "$status" ] && echo yes || echo no)"
 
-printf 'diff-command: git diff %s...HEAD\n\n' "$parent"
+printf 'log-range: %s\n' "$log_range"
+printf 'report-prefix: %s\n' "$report_prefix"
+printf 'diff-command: git diff %s\n\n' "${diff_args[*]}"
 
 emit_block "Diffstat" "$diffstat"
 emit_block "Commits" "$log"
 emit_block "Authors (shortlog)" "$shortlog"
-emit_block "Uncommitted (not in audit scope)" "$status"
+emit_block "Uncommitted" "$status"

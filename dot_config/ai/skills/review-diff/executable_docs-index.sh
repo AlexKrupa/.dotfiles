@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: docs-index.sh
 # Finds project documentation / convention files (tracked only) and prints a cheap
-# path+headings index on stdout for review-branch's docs-alignment check. Read-only.
+# path+headings index on stdout for review-diff's docs-alignment check. Read-only.
 # The caller decides which of the listed docs are relevant.
 #
 # Output:

@@ -19,7 +19,7 @@
       "prompt": "/deslop",
       "expected_output": "Fixes docs/sync.md, deletes the 3 what-comments and the marketing KDoc, keeps the SYNC-412 why-comment, rewords commit 1 with an amend! commit, folds the edits into fixups. Code, README.md, and the Legacy comment do not change.",
       "checks": [
-        {"type": "tool_count", "tool": "Bash", "input_regex": "git-branch-context\\.sh", "min": 1, "text": "Finds the base with git-branch-context.sh"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh", "min": 1, "text": "Finds the base with git-diff-context.sh"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-reword-fixup\\.sh", "min": 1, "text": "Rewords a message with git-reword-fixup.sh"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh", "min": 1, "text": "Folds the edits with git-absorb-fixes.sh"},
         {"type": "worktree_clean", "text": "Worktree and index are clean at the end"},
@@ -52,9 +52,9 @@
       "name": "path-mode",
       "fixture": "fixtures/path-mode.sh",
       "prompt": "/deslop docs/guide.md",
-      "expected_output": "Fixes all of docs/guide.md, also the lines from main. Does not touch docs/other.md or the commit message. Runs git-branch-context.sh only to get the absorb parent.",
+      "expected_output": "Fixes all of docs/guide.md, also the lines from main. Does not touch docs/other.md or the commit message. Runs git-diff-context.sh only to get the absorb parent.",
       "checks": [
-        {"type": "tool_count", "tool": "Bash", "input_regex": "git-branch-context\\.sh", "min": 1, "text": "Runs git-branch-context.sh for the absorb parent"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh", "min": 1, "text": "Runs git-diff-context.sh for the absorb parent"},
         {"type": "file_not_regex", "path": "docs/guide.md", "patterns": "@slop", "text": "docs/guide.md has no seeded slop, also in the lines from main"},
         {"type": "file_regex", "path": "docs/guide.md", "patterns": ["--format csv", "10[ ,]?000", "--out", "\\b3\\.1\\b"], "text": "docs/guide.md keeps the facts"},
         {"type": "file_not_regex", "path": "docs/guide.md", "case": true, "patterns": ["^# User Guide$"], "text": "docs/guide.md title is in sentence case"},

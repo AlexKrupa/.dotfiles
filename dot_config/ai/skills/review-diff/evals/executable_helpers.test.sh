@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks the deterministic review-branch helpers: git-branch-context.sh, docs-index.sh,
+# Checks the deterministic review-diff helpers: git-diff-context.sh, docs-index.sh,
 # review-report-path.sh. Uses scratch repos and a scratch HOME. No LLM.
 set -u
 
@@ -23,13 +23,13 @@ today=$(date +%F)
 
 new_repo() { mkdir -p "$1" && git -C "$1" init -q -b main && commit_file "$1" README.md "# R"; }
 commit_file() { mkdir -p "$(dirname "$1/$2")"; printf '%s\n' "$3" >"$1/$2"; git -C "$1" add -A; git -C "$1" commit -q -m "$2"; }
-ctx() { (cd "$1" && shift && "$bin/git-branch-context.sh" "$@" 2>"$tmp/stderr"); }
+ctx() { (cd "$1" && shift && "$bin/git-diff-context.sh" "$@" 2>"$tmp/stderr"); }
 key() { sed -n "s/^$1: //p"; }
 
-# --- git-branch-context.sh ---
+# --- git-diff-context.sh ---
 
 mkdir -p "$tmp/plain"
-(cd "$tmp/plain" && "$bin/git-branch-context.sh" >/dev/null 2>"$tmp/stderr"); code=$?
+(cd "$tmp/plain" && "$bin/git-diff-context.sh" >/dev/null 2>"$tmp/stderr"); code=$?
 check "context: not a repo exits 1" 1 "$code"
 check "context: not a repo message" "Not inside a git work tree — nothing to review." "$(cat "$tmp/stderr")"
 
@@ -90,6 +90,79 @@ check "context: stack - commits" "1" "$(sed -n '/^## Commits/,/^$/p' <<<"$out" |
 out=$(ctx "$tmp/stack" main)
 check "context: override - parent" "main" "$(key parent <<<"$out")"
 check "context: override - source" "override" "$(key parent-source <<<"$out")"
+check "context: branch - scope" "branch" "$(key scope <<<"$out")"
+check "context: branch - tip" "feat/b" "$(key tip <<<"$out")"
+check "context: branch - log-range" "main..HEAD" "$(key log-range <<<"$out")"
+check "context: branch - report-prefix" "" "$(key report-prefix <<<"$out")"
+
+# --uncommitted: branch commits plus working tree.
+printf 'b2\n' >"$tmp/stack/b.txt"
+printf 'n\n' >"$tmp/stack/new.txt"
+out=$(ctx "$tmp/stack" --uncommitted)
+check "context: uncommitted - scope" "uncommitted" "$(key scope <<<"$out")"
+check "context: uncommitted - parent" "feat/a" "$(key parent <<<"$out")"
+check "context: uncommitted - diff-command" "git diff --merge-base feat/a" "$(key diff-command <<<"$out")"
+check "context: uncommitted - log-range" "feat/a..HEAD" "$(key log-range <<<"$out")"
+check "context: uncommitted - report-prefix" "uncommitted" "$(key report-prefix <<<"$out")"
+check "context: uncommitted - diffstat has the edit" "1" \
+  "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep -c 'b.txt')"
+out=$(ctx "$tmp/stack" --uncommitted main)
+check "context: uncommitted - override" "git diff --merge-base main" "$(key diff-command <<<"$out")"
+
+# --staged: branch commits plus index, not the unstaged edit.
+git -C "$tmp/stack" add new.txt
+out=$(ctx "$tmp/stack" --staged)
+check "context: staged - scope" "staged" "$(key scope <<<"$out")"
+check "context: staged - diff-command" "git diff --cached --merge-base feat/a" "$(key diff-command <<<"$out")"
+check "context: staged - diffstat" " b.txt   | 1 +| new.txt | 1 +" \
+  "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep '|' | paste -sd'|' -)"
+git -C "$tmp/stack" reset -q && git -C "$tmp/stack" checkout -q -- b.txt && rm "$tmp/stack/new.txt"
+
+# Uncommitted edits on the parent itself: HEAD equals parent.
+git -C "$tmp/solo" switch -q main
+ctx "$tmp/solo" --uncommitted >/dev/null; code=$?
+check "context: uncommitted - nothing exits 1" 1 "$code"
+check "context: uncommitted - nothing message" \
+  "No committed or uncommitted changes vs parent 'main' — nothing to review." "$(tail -1 "$tmp/stderr")"
+printf 'u\n' >"$tmp/solo/untracked.txt"
+out=$(ctx "$tmp/solo" --uncommitted)
+check "context: uncommitted - untracked only is a diff" "uncommitted" "$(key scope <<<"$out")"
+ctx "$tmp/solo" --staged >/dev/null; code=$?
+check "context: staged - nothing exits 1" 1 "$code"
+check "context: staged - nothing message" \
+  "No committed or staged changes vs parent 'main' — nothing to review." "$(tail -1 "$tmp/stderr")"
+rm "$tmp/solo/untracked.txt"
+git -C "$tmp/solo" switch -q feat/empty
+
+# --rev: one commit or a range, independent of the current branch.
+a_sha=$(git -C "$tmp/stack" rev-parse --short feat/a)
+out=$(ctx "$tmp/stack" --rev "$a_sha")
+check "context: rev - scope" "rev" "$(key scope <<<"$out")"
+check "context: rev - parent" "$a_sha^" "$(key parent <<<"$out")"
+check "context: rev - parent-source" "rev" "$(key parent-source <<<"$out")"
+check "context: rev - tip" "$a_sha" "$(key tip <<<"$out")"
+check "context: rev - diff-command" "git diff $a_sha^...$a_sha" "$(key diff-command <<<"$out")"
+check "context: rev - log-range" "$a_sha^..$a_sha" "$(key log-range <<<"$out")"
+check "context: rev - report-prefix" "$a_sha" "$(key report-prefix <<<"$out")"
+check "context: rev - diffstat" " a.txt | 1 +" "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep '|')"
+out=$(ctx "$tmp/stack" --rev main..feat/b)
+check "context: range - parent" "main" "$(key parent <<<"$out")"
+check "context: range - tip" "feat/b" "$(key tip <<<"$out")"
+check "context: range - report-prefix" "main..feat/b" "$(key report-prefix <<<"$out")"
+check "context: range - diff-command" "git diff main...feat/b" "$(key diff-command <<<"$out")"
+check "context: range - commits" "2" "$(sed -n '/^## Commits/,/^$/p' <<<"$out" | grep -c '^[0-9a-f]\{7,\} ')"
+out=$(ctx "$tmp/stack" --rev feat/a...)
+check "context: range - three dots, empty tip" "git diff feat/a...HEAD" "$(key diff-command <<<"$out")"
+ctx "$tmp/stack" --rev main..main >/dev/null; code=$?
+check "context: range - empty exits 1" 1 "$code"
+check "context: range - empty message" "No diff in 'main..main' — nothing to review." "$(cat "$tmp/stderr")"
+ctx "$tmp/stack" --rev "$(git -C "$tmp/stack" rev-list --max-parents=0 HEAD)" >/dev/null; code=$?
+check "context: rev - root commit exits 1" 1 "$code"
+ctx "$tmp/stack" --rev nope >/dev/null; code=$?
+check "context: rev - missing ref exits 1" 1 "$code"
+check "context: rev - missing ref message" "Ref 'nope' not found." "$(cat "$tmp/stderr")"
+ctx "$tmp/stack" --rev main..feat/b main >/dev/null; code=$?
+check "context: rev - parent override exits 1" 1 "$code"
 
 # --- docs-index.sh ---
 
@@ -137,6 +210,11 @@ check "path: slugs, diacritics, majority author" "$dir/$today-feat-some-thing-jo
 check "path: creates the reviews dir" "yes" "$([ -d "$dir" ] && echo yes || echo no)"
 check "path: prefix" "$dir/$today-mr-42-feat-some-thing-jozef-maka.md" \
   "$(cd "$tmp/My Repo" && "$bin/review-report-path.sh" main "MR 42")"
+
+check "path: log range" "$dir/$today-feat-some-thing-test-dev.md" \
+  "$(cd "$tmp/My Repo" && "$bin/review-report-path.sh" HEAD~1..HEAD)"
+check "path: no commits falls back to the current user" "$dir/$today-uncommitted-feat-some-thing-test-dev.md" \
+  "$(cd "$tmp/My Repo" && "$bin/review-report-path.sh" HEAD uncommitted)"
 
 git -C "$tmp/My Repo" worktree add -q "$tmp/wt-folder" -b feat/wt main
 commit_file "$tmp/wt-folder" w.txt w

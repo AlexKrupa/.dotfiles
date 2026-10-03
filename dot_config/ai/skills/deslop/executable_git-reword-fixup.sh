@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: git-reword-fixup.sh <parent> <sha> <message-file>
-#   <parent>       the ref review-branch resolved (its `parent:` line)
+#   <parent>       the ref review-diff resolved (its `parent:` line)
 #   <message-file> the full new message: subject, blank line, optional body
 #
 # Queues the rewrite as an `amend!` commit for `git rebase -i --autosquash <parent>` to apply.

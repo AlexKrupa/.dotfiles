@@ -1,5 +1,5 @@
 {
-  "skill_name": "review-branch",
+  "skill_name": "review-diff",
   "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, and grade.py applies `common_checks` plus each eval's `checks`. `{key}` in a prompt is a `key=value` line from the fixture's stdout. Check types are in grade.py. `file` and `any`/`all` values are case-insensitive regexes. `lines` is an inclusive range that must overlap the finding's `file:line`.",
   "common_checks": [
     {"id": "one-report", "type": "report_count", "equals": 1, "text": "Exactly one report under ~/.ai/<repo>/reviews/"},
@@ -20,7 +20,7 @@
       "id": 1,
       "name": "seeded-defects",
       "fixture": "fixtures/seeded-defects.sh",
-      "prompt": "/review-branch",
+      "prompt": "/review-diff",
       "expected_output": "Base origin/main. Finds the off-by-one, the CONTRIBUTING.md time rule, the stale docs/pricing.md, the unused import, the what-comment, and the duplicate of util.truncate. Does not open docs/snapshot-testing.md.",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-discounts-test-dev\\.md$", "text": "Report file is <date>-feat-discounts-test-dev.md"},
@@ -41,7 +41,7 @@
       "id": 2,
       "name": "stacked-branch",
       "fixture": "fixtures/stacked-branch.sh",
-      "prompt": "/review-branch",
+      "prompt": "/review-diff",
       "expected_output": "Parent feat/median (ancestor-branch). The median bug from feat/median is not a severity finding. Finds maxBy on an empty list.",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-mode-test-dev\\.md$", "text": "Report file is <date>-feat-mode-test-dev.md"},
@@ -55,7 +55,7 @@
       "id": 3,
       "name": "trivial-change",
       "fixture": "fixtures/trivial-change.sh",
-      "prompt": "/review-branch",
+      "prompt": "/review-diff",
       "expected_output": "No findings. One-line simple-change guide. Stale note on the Base line (no remote).",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-chore-release-1-3-0-test-dev\\.md$", "text": "Report file is <date>-chore-release-1-3-0-test-dev.md"},
@@ -68,7 +68,7 @@
       "id": 4,
       "name": "re-review",
       "fixture": "fixtures/re-review.sh",
-      "prompt": "/review-branch re-review mode. Previous report: {previous_report}. Modified files: src/Totals.kt (behavior change: yes - fixed M1, removed runningTotals for L1), src/CsvImport.kt (comment typo only, no behavior change).",
+      "prompt": "/review-diff re-review mode. Previous report: {previous_report}. Modified files: src/Totals.kt (behavior change: yes - fixed M1, removed runningTotals for L1), src/CsvImport.kt (comment typo only, no behavior change).",
       "common_skip": ["ids"],
       "expected_output": "Same report path. H1 copied unchanged. M1 and L1 gone. New findings: println at Totals.kt:5 and the now-unused addAmounts at Money.kt:3 (one hop). Only the short checklist on CsvImport.kt. No agents, no docs index.",
       "checks": [
@@ -90,7 +90,7 @@
       "id": 5,
       "name": "cross-file",
       "fixture": "fixtures/cross-file.sh",
-      "prompt": "/review-branch",
+      "prompt": "/review-diff",
       "expected_output": "Finds that expiresAt() now returns seconds while SessionGuard (not in the diff) compares millis. Flags the mocked Token value object. Lists the untracked DebugDump.kt as uncommitted but does not audit it.",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-sync-expiry-test-dev\\.md$", "text": "Report file is <date>-feat-sync-expiry-test-dev.md"},
@@ -104,7 +104,7 @@
       "id": 6,
       "name": "risky-code",
       "fixture": "fixtures/risky-code.sh",
-      "prompt": "/review-branch",
+      "prompt": "/review-diff",
       "expected_output": "No docs: `none found`. Finds SQL injection, HashMap data race, overcautious requireNotNull, Thread.sleep in a suspend function. Does not flag the parameterized query or the AtomicLong.",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-user-lookup-test-dev\\.md$", "text": "Report file is <date>-feat-user-lookup-test-dev.md"},
@@ -122,7 +122,7 @@
       "id": 7,
       "name": "adjacent-scope",
       "fixture": "fixtures/adjacent-scope.sh",
-      "prompt": "/review-branch main",
+      "prompt": "/review-diff main",
       "expected_output": "Base main (override). An (adjacent) medium-or-low finding on the single-impl OrderRepository with its count. Nothing on src/storage/ (more than one hop).",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-order-notes-test-dev\\.md$", "text": "Report file is <date>-feat-order-notes-test-dev.md"},
@@ -135,7 +135,7 @@
       "id": 8,
       "name": "no-diff",
       "fixture": "fixtures/no-diff.sh",
-      "prompt": "/review-branch",
+      "prompt": "/review-diff",
       "common": false,
       "expected_output": "Stops with the helper's message. No report.",
       "checks": [
@@ -149,7 +149,7 @@
       "id": 9,
       "name": "fan-out",
       "fixture": "fixtures/fan-out.sh",
-      "prompt": "/review-branch",
+      "prompt": "/review-diff",
       "slow": true,
       "expected_output": "23 files: dispatches the three review agents in one message, verifies and merges their findings, writes the report itself.",
       "checks": [
@@ -161,6 +161,35 @@
         {"type": "finding", "file": "src/catalog/Paging\\.kt", "lines": [4, 4], "any": ["remainder", "partial", "round", "ceil", "last page", "division"], "text": "pageCount drops the last partial page (defect agent)"},
         {"type": "finding", "file": "src/catalog/CatalogLog\\.kt", "lines": [3, 4], "any": ["CONTRIBUTING"], "text": "println cites CONTRIBUTING.md (docs agent)"},
         {"type": "finding", "file": "src/catalog/Strings\\.kt", "any": ["src/util/Text\\.kt"], "text": "clip() duplicates truncate() and cites src/util/Text.kt (structure agent)"}
+      ]
+    },
+    {
+      "id": 10,
+      "name": "uncommitted-scope",
+      "fixture": "fixtures/uncommitted-scope.sh",
+      "prompt": "/review-diff uncommitted",
+      "expected_output": "Scope branch + uncommitted vs origin/main. Finds the committed off-by-one, the unstaged println, and the division by zero in the untracked Report.kt.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-uncommitted-feat-restock-test-dev\\.md$", "text": "Report file is <date>-uncommitted-feat-restock-test-dev.md"},
+        {"type": "report_regex", "patterns": ["^- Scope: branch \\+ uncommitted$", "^- Base: origin/main \\(default-branch\\)$"], "text": "Scope is branch + uncommitted, base is origin/main"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh --uncommitted", "min": 1, "text": "Runs the helper with --uncommitted"},
+        {"type": "finding", "file": "src/Restock\\.kt", "lines": [5, 6], "any": ["0\\.\\.items", "off-by-one", "until", "inclusive", "IndexOutOfBounds", "past the end"], "text": "Committed off-by-one at Restock.kt:5"},
+        {"type": "finding", "file": "src/Inventory\\.kt", "lines": [8, 8], "any": ["println", "debug"], "text": "Unstaged println at Inventory.kt:8"},
+        {"type": "finding", "file": "src/Report\\.kt", "lines": [3, 3], "any": ["zero", "empty", "ArithmeticException"], "text": "Untracked Report.kt:3 divides by zero on an empty list"}
+      ]
+    },
+    {
+      "id": 11,
+      "name": "rev-commit",
+      "fixture": "fixtures/rev-commit.sh",
+      "prompt": "/review-diff {rev}",
+      "expected_output": "Reviews only the middle commit. Finds the out-of-bounds read in Search.kt. No finding on MathUtil.kt from the first commit.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{7,}-feat-search-test-dev\\.md$", "text": "Report file is <date>-<sha>-feat-search-test-dev.md"},
+        {"type": "report_regex", "patterns": ["^- Scope: commits [0-9a-f]{7,}\\^\\.\\.[0-9a-f]{7,}$"], "text": "Scope is commits <sha>^..<sha>"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh --rev", "min": 1, "text": "Runs the helper with --rev"},
+        {"type": "finding", "file": "src/Search\\.kt", "lines": [5, 9], "any": ["IndexOutOfBounds", "size", "<=", "off-by-one", "bounds", "past the end"], "text": "Out-of-bounds read in Search.kt"},
+        {"type": "no_finding", "file": "src/MathUtil\\.kt", "text": "No severity finding on MathUtil.kt (other commit)"}
       ]
     }
   ]

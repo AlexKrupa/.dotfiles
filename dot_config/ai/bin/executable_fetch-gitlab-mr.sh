@@ -105,7 +105,7 @@ worktree_of() {
 # fetch <source_branch> [target_branch [project_path]]
 # Brings the local <source> branch to the remote tip without a checkout in the current
 # worktree, and refreshes the target's remote-tracking ref (does NOT touch the user's
-# local target branch). review-branch then diffs against a fresh base.
+# local target branch). review-diff then diffs against a fresh base.
 # Emits JSON: remote, source_branch, and with a target: target_branch, target_ref.
 cmd_fetch() {
   local source="${1-}" target="${2-}" project="${3-}"

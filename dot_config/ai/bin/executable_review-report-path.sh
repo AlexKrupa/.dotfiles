@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Usage: review-report-path.sh <parent-ref> [prefix]
+# Usage: review-report-path.sh <parent-ref | log-range> [prefix]
 # Prints absolute path to the review report file under
 # ~/.ai/<repo>/reviews/<date>-[<prefix>-]<branch>-<author>.md and ensures the parent dir exists.
+# The author is the majority author of the range (<parent-ref>..HEAD), or the current user when
+# the range has no commits.
 set -euo pipefail
 
-parent="${1:?parent ref required}"
+range="${1:?parent ref or log range required}"
+[[ "$range" == *..* ]] || range="$range..HEAD"
 prefix="${2:-}"
 
 # Transliterate common Latin-script diacritics to ASCII base letters (both cases -> lowercase).
@@ -54,7 +57,8 @@ repo_slug="$("$(dirname "$0")/repo-slug.sh")"
 branch="$(git rev-parse --abbrev-ref HEAD)"
 branch_slug="$(slugify "${branch//\//-}")"
 
-author="$(git shortlog -sn "$parent..HEAD" | head -1 | sed -E 's/^ *[0-9]+\t//')"
+author="$(git shortlog -sn "$range" | head -1 | sed -E 's/^ *[0-9]+\t//')"
+[ -n "$author" ] || author="$(git var GIT_AUTHOR_IDENT | sed 's/ <.*//')"
 author_slug="$(slugify "$author")"
 
 date_prefix="$(date +%F)"

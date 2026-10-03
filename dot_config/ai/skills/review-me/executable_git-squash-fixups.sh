@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: git-squash-fixups.sh [--dry-run] <parent> [<repair>:<target>...]
 # Squashes over-fragmented commits into the commits they belong to, deterministically.
-# <parent> is the parent ref/SHA review-branch resolved (its report's `parent:` line).
+# <parent> is the parent ref/SHA review-diff resolved (its report's `parent:` line).
 # Each squash means: commit <repair> is a repair of commit <target>. Fold repair into target.
 # <repair> must be NEWER than <target>. Both must lie strictly within <parent>..HEAD.
 # With no squashes, the script only squashes the pending fixup!/amend! commits.

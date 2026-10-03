@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 # review-me
 
-This skill adds a fix loop to `review-branch`. `review-branch` does the audit and the report. This
+This skill adds a fix loop to `review-diff`. `review-diff` does the audit and the report. This
 skill decides what to do with the findings. It folds the fixes into the commits that they fix, with
 `git absorb`. It never pushes. It rewrites history only through `git-squash-fixups.sh`, after the
 user confirms. In auto mode, it also squashes the fixups with no prompt.
@@ -25,7 +25,7 @@ item.
 
 ## REQUIRED SUB-SKILLS
 
-- `review-branch` - does the audit and writes the report. Do not do its git discovery, checklist,
+- `review-diff` - does the audit and writes the report. Do not do its git discovery, checklist,
   severity scheme, or report yourself. Read the report file before you continue.
 - `deslop` - the writing pass on prose, comments, and commit messages (loop step 7). This pass is
   necessary. Do not edit wording or messages yourself. Do not skip it because the diff "has no
@@ -51,7 +51,7 @@ item.
 - A dependency that you add, upgrade, or remove.
 - A change to code that this branch did not add (out-of-scope cleanup).
 - A concurrency change. Concurrency changes are almost never low risk. This rule is about edits
-  only. `review-branch` finds concurrency problems in its "Concurrency & data races" bucket.
+  only. `review-diff` finds concurrency problems in its "Concurrency & data races" bucket.
 
 ### Permitted git writes
 
@@ -74,7 +74,7 @@ Forbidden: `git push`, `git rebase` by hand, `git commit --amend`, `git reset --
 
 ## Commit history
 
-Only for a self-review. `review-branch` does not do this check, because it also reviews the
+Only for a self-review. `review-diff` does not do this check, because it also reviews the
 branches of other people. Their history is not yours to change.
 
 Goal: each commit on the branch has value by itself. Find only commits that must be squashed.
@@ -146,7 +146,7 @@ with no squashes.
 0. **Precondition:** run `git status --porcelain`. If the output is not empty, stop. Show the
    changed paths and tell the user to stash or commit, then try again. Do not stash. The user's
    work and the work of this skill must stay separate.
-1. Use `review-branch`. Read the report.
+1. Use `review-diff`. Read the report.
 2. Put the findings in two groups: apply with no prompt, and ask first.
 3. Apply the no-prompt fixes, file by file. If the files are independent, edit them in parallel.
 4. For the ask-first findings, show **one** grouped prompt:
@@ -164,7 +164,7 @@ with no squashes.
    ~/.config/ai/bin/git-absorb-fixes.sh <parent> <file>...
    ```
 
-   - `<parent>`: the `parent:` value from the context of `review-branch`. Do not calculate it
+   - `<parent>`: the `parent:` value from the context of `review-diff`. Do not calculate it
      again.
    - `<file>...`: only the files that this skill changed in this pass. The script stages only these
      files (never `git add -A`) and runs `git absorb`. For each file that absorb does not fold, it
@@ -181,7 +181,7 @@ with no squashes.
 8. **Re-review.** If this pass changed no file, skip this step. The report on disk is still
    correct. Tell the user and go to step 10.
 
-   Else, use `review-branch` again in **re-review mode** with three inputs: each file that this
+   Else, use `review-diff` again in **re-review mode** with three inputs: each file that this
    pass changed (the files of step 6 and the files that `deslop` changed in step 7), the files
    among them that got a behavior change, and the path of the previous report. It audits that
    scope plus one hop, and keeps the unresolved findings. Pass 1 can dispatch review agents. Later
@@ -196,7 +196,7 @@ with no squashes.
 
 ## Final reply
 
-Follow the rules in `review-branch` "Final reply", with this format:
+Follow the rules in `review-diff` "Final reply", with this format:
 
 ```markdown
 <one-line verdict: ready to push | needs your decision on N items | validation failed>
@@ -233,7 +233,7 @@ Add a line only in these cases:
 - You run a git write that is not in "Permitted git writes".
 - You start the next pass with a dirty working tree. Stop and show the remaining changes.
 - You do more than 3 passes. Stop and ask the user.
-- You let `review-branch` dispatch review agents in a re-review pass. Only pass 1 can do this.
+- You let `review-diff` dispatch review agents in a re-review pass. Only pass 1 can do this.
 - You run the full audit in pass 2 or 3 and not re-review mode.
 - You do a re-review after a pass that changed nothing, or you do not include the files of `deslop`
   in the scope list.

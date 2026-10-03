@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grade review-branch eval runs against the checks in evals.json.
+"""Grade review-diff eval runs against the checks in evals.json.
 
 Usage: grade.py <iteration-dir>
 
