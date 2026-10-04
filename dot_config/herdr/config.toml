@@ -162,6 +162,20 @@ type = "shell"
 command = "~/.config/herdr/bin/lazygit.sh"
 description = "lazygit in a new tab, or focus the one for this directory"
 
+# The sidebar dialog blocks the UI until git has deleted the checkout. This
+# removes the active worktree in the background and shows a toast at the end.
+[[keys.command]]
+key = "prefix+alt+q"
+type = "shell"
+command = "~/.config/herdr/bin/remove-worktree.sh"
+description = "remove worktree in the background"
+
+[[keys.command]]
+key = "prefix+alt+shift+q"
+type = "shell"
+command = "~/.config/herdr/bin/remove-worktree.sh --force"
+description = "remove worktree in the background, with its changes"
+
 # --- Custom commands: panes ---
 
 [[keys.command]]
