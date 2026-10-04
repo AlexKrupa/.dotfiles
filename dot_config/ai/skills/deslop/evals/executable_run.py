@@ -5,10 +5,13 @@ Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--timeout SEC
 
 Each run gets its own fixture repo in a temp dir. After the run, a clone of the repo gets
 `git rebase -i --autosquash <base>` in <run-dir>/applied/, so the checks read the history that the
-user gets after the fixups. The runs use the live skill at ~/.claude/skills/deslop.
+user gets after the fixups. An eval with `"output": "worktree"` gets a copy of the repo with its
+working tree in applied/ instead, and no rebase. The runs use the live skill at
+~/.claude/skills/deslop.
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -41,8 +44,11 @@ def setup(ev, k, repos, run_dir):
     repo = repos / f"dse-{ev['name']}-{k}"
     values = harness.run_fixture(HERE / ev["fixture"], repo)
     ctx = {"repo": str(repo), "prompt": harness.fill(ev["prompt"], values),
-           "base": values.get("base"), "head": git(repo, "rev-parse", "HEAD").stdout.strip()}
+           "base": values.get("base"), "head": git(repo, "rev-parse", "HEAD").stdout.strip(),
+           "index": git(repo, "diff", "--no-ext-diff", "--cached").stdout}
     (run_dir / "ctx.json").write_text(json.dumps(ctx, indent=2))
+    # Checks with `"ref": "before"` read the working tree from before the run.
+    shutil.copytree(repo, run_dir / "before-tree", symlinks=True, ignore=shutil.ignore_patterns(".git"))
     return ctx
 
 
@@ -53,6 +59,13 @@ def collect(ev, ctx, run_dir):
     (out / "status.txt").write_text(git(repo, "status", "--porcelain").stdout)
     (out / "new-commits.txt").write_text(git(repo, "log", LOG, f"{head}..HEAD").stdout)
     (out / "fixups.diff").write_text(git(repo, "diff", "--no-ext-diff", head).stdout)
+    (out / "index.txt").write_text(git(repo, "diff", "--no-ext-diff", "--cached").stdout)
+
+    if ev.get("output") == "worktree":
+        # The fsmonitor daemon socket in .git cannot be copied.
+        shutil.copytree(repo, run_dir / "applied", symlinks=True,
+                        ignore=shutil.ignore_patterns("fsmonitor--daemon.ipc"))
+        return
 
     applied = run_dir / "applied"
     git(run_dir, "clone", "-q", repo, "applied")

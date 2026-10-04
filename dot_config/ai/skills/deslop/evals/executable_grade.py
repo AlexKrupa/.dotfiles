@@ -4,9 +4,10 @@
 Usage: grade.py <iteration-dir>
 
 Reads each <iteration-dir>/eval-<name>/<config>/run-<k>/ and writes grading.json there. A run dir
-has: ctx.json (base and head sha), applied/ (a clone after the autosquash rebase), rebase.txt,
-outputs/ (final reply, logs, diffs, status), transcript.jsonl, before.txt, after.txt, and
-repo-diff.txt. A `patterns` value that starts with `@` names a list in `pattern_sets`.
+has: ctx.json (base and head sha, index diff), applied/ (a clone after the autosquash rebase, or a
+copy of the working tree), rebase.txt, outputs/ (final reply, logs, diffs, status, index),
+transcript.jsonl, before.txt, after.txt, repo-diff.txt, and before-tree/ (the working tree before
+the run). A `patterns` value that starts with `@` names a list in `pattern_sets`.
 """
 import json
 import re
@@ -82,6 +83,9 @@ def run_check(check, run):
         # Reply mode adds one line below the new text that names the removed data.
         text = "\n".join(ln for ln in run["reply"].splitlines() if not ln.startswith("Removed"))
         return regex(check, text, False)
+    if t == "index_same":
+        same = run["outputs"].get("index.txt") == run["ctx"]["index"]
+        return same, "index unchanged" if same else f"index now: {run['outputs'].get('index.txt', '')[:300]!r}"
     if t == "refs_same":
         changed = [r for r in check["refs"] if run["refs_before"].get(r) != run["refs_after"].get(r)]
         return not changed, "unchanged" if not changed else f"changed: {changed}"
@@ -103,7 +107,12 @@ def run_check(check, run):
     if t == "comment_count":
         return len(comments) <= check["max"], f"{len(comments)} comment line(s): {comments}"
     if t == "code_same":
-        old_code, _ = split_comments(git_show(run["applied"], run["ctx"]["head"], check["path"]) or "")
+        if check.get("ref") == "before":
+            old_path = run["dir"] / "before-tree" / check["path"]
+            old = old_path.read_text() if old_path.exists() else ""
+        else:
+            old = git_show(run["applied"], run["ctx"]["head"], check["path"]) or ""
+        old_code, _ = split_comments(old)
         if code == old_code:
             return True, "code lines identical"
         diff = [ln for ln in code if ln not in old_code] + [ln for ln in old_code if ln not in code]
@@ -135,6 +144,7 @@ def load_run(run_dir):
     texts = {p.name: p.read_text() for p in outputs.glob("*.txt")}
     return {
         **harness.load_common(run_dir),
+        "dir": run_dir,
         "ctx": json.loads((run_dir / "ctx.json").read_text()),
         "applied": run_dir / "applied",
         "rebase": rebase.read_text() if rebase.exists() else "",

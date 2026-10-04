@@ -167,12 +167,12 @@
       "id": 10,
       "name": "uncommitted-scope",
       "fixture": "fixtures/uncommitted-scope.sh",
-      "prompt": "/review-diff uncommitted",
+      "prompt": "/review-diff uncommitted, with the branch commits",
       "expected_output": "Scope branch + uncommitted vs origin/main. Finds the committed off-by-one, the unstaged println, and the division by zero in the untracked Report.kt.",
       "checks": [
-        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-uncommitted-feat-restock-test-dev\\.md$", "text": "Report file is <date>-uncommitted-feat-restock-test-dev.md"},
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-branch-uncommitted-feat-restock-test-dev\\.md$", "text": "Report file is <date>-branch-uncommitted-feat-restock-test-dev.md"},
         {"type": "report_regex", "patterns": ["^- Scope: branch \\+ uncommitted$", "^- Base: origin/main \\(default-branch\\)$"], "text": "Scope is branch + uncommitted, base is origin/main"},
-        {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh --uncommitted", "min": 1, "text": "Runs the helper with --uncommitted"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh --uncommitted --with-branch", "min": 1, "text": "Runs the helper with --uncommitted --with-branch"},
         {"type": "finding", "file": "src/Restock\\.kt", "lines": [5, 6], "any": ["0\\.\\.items", "off-by-one", "until", "inclusive", "IndexOutOfBounds", "past the end"], "text": "Committed off-by-one at Restock.kt:5"},
         {"type": "finding", "file": "src/Inventory\\.kt", "lines": [8, 8], "any": ["println", "debug"], "text": "Unstaged println at Inventory.kt:8"},
         {"type": "finding", "file": "src/Report\\.kt", "lines": [3, 3], "any": ["zero", "empty", "ArithmeticException"], "text": "Untracked Report.kt:3 divides by zero on an empty list"}

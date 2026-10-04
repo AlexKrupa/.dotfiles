@@ -95,41 +95,85 @@ check "context: branch - tip" "feat/b" "$(key tip <<<"$out")"
 check "context: branch - log-range" "main..HEAD" "$(key log-range <<<"$out")"
 check "context: branch - report-prefix" "" "$(key report-prefix <<<"$out")"
 
-# --uncommitted: branch commits plus working tree.
+# --uncommitted: working tree and untracked files vs HEAD, no branch commits.
 printf 'b2\n' >"$tmp/stack/b.txt"
 printf 'n\n' >"$tmp/stack/new.txt"
 out=$(ctx "$tmp/stack" --uncommitted)
 check "context: uncommitted - scope" "uncommitted" "$(key scope <<<"$out")"
-check "context: uncommitted - parent" "feat/a" "$(key parent <<<"$out")"
-check "context: uncommitted - diff-command" "git diff --merge-base feat/a" "$(key diff-command <<<"$out")"
-check "context: uncommitted - log-range" "feat/a..HEAD" "$(key log-range <<<"$out")"
+check "context: uncommitted - parent" "HEAD" "$(key parent <<<"$out")"
+check "context: uncommitted - source" "head" "$(key parent-source <<<"$out")"
+check "context: uncommitted - diff-command" "git diff HEAD" "$(key diff-command <<<"$out")"
+check "context: uncommitted - log-range" "HEAD..HEAD" "$(key log-range <<<"$out")"
 check "context: uncommitted - report-prefix" "uncommitted" "$(key report-prefix <<<"$out")"
-check "context: uncommitted - diffstat has the edit" "1" \
-  "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep -c 'b.txt')"
-out=$(ctx "$tmp/stack" --uncommitted main)
-check "context: uncommitted - override" "git diff --merge-base main" "$(key diff-command <<<"$out")"
+check "context: uncommitted - no commits" "(none)" "$(sed -n '/^## Commits/{n;p;}' <<<"$out")"
+check "context: uncommitted - diffstat is the edit only" " b.txt | 2 +-" \
+  "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep '|' | paste -sd'|' -)"
+ctx "$tmp/stack" --uncommitted main >/dev/null; code=$?
+check "context: uncommitted - override needs --with-branch" 1 "$code"
+check "context: uncommitted - override message" "A parent override needs --with-branch." \
+  "$(cat "$tmp/stderr")"
 
-# --staged: branch commits plus index, not the unstaged edit.
+# --uncommitted --with-branch: branch commits plus working tree.
+out=$(ctx "$tmp/stack" --uncommitted --with-branch)
+check "context: branch-uncommitted - scope" "branch-uncommitted" "$(key scope <<<"$out")"
+check "context: branch-uncommitted - parent" "feat/a" "$(key parent <<<"$out")"
+check "context: branch-uncommitted - diff-command" "git diff --merge-base feat/a" "$(key diff-command <<<"$out")"
+check "context: branch-uncommitted - log-range" "feat/a..HEAD" "$(key log-range <<<"$out")"
+check "context: branch-uncommitted - report-prefix" "branch-uncommitted" "$(key report-prefix <<<"$out")"
+check "context: branch-uncommitted - diffstat has the commit and the edit" " b.txt | 1 +" \
+  "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep '|' | paste -sd'|' -)"
+out=$(ctx "$tmp/stack" --uncommitted --with-branch main)
+check "context: branch-uncommitted - override" "git diff --merge-base main" "$(key diff-command <<<"$out")"
+
+# --staged: index vs HEAD, not the unstaged edit, no branch commits.
 git -C "$tmp/stack" add new.txt
 out=$(ctx "$tmp/stack" --staged)
 check "context: staged - scope" "staged" "$(key scope <<<"$out")"
-check "context: staged - diff-command" "git diff --cached --merge-base feat/a" "$(key diff-command <<<"$out")"
-check "context: staged - diffstat" " b.txt   | 1 +| new.txt | 1 +" \
+check "context: staged - parent" "HEAD" "$(key parent <<<"$out")"
+check "context: staged - diff-command" "git diff --cached" "$(key diff-command <<<"$out")"
+check "context: staged - diffstat" " new.txt | 1 +" \
+  "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep '|' | paste -sd'|' -)"
+
+# --staged --with-branch: branch commits plus index.
+out=$(ctx "$tmp/stack" --staged --with-branch)
+check "context: branch-staged - scope" "branch-staged" "$(key scope <<<"$out")"
+check "context: branch-staged - diff-command" "git diff --cached --merge-base feat/a" "$(key diff-command <<<"$out")"
+check "context: branch-staged - diffstat" " b.txt   | 1 +| new.txt | 1 +" \
   "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep '|' | paste -sd'|' -)"
 git -C "$tmp/stack" reset -q && git -C "$tmp/stack" checkout -q -- b.txt && rm "$tmp/stack/new.txt"
 
+# --with-branch alone is not a scope.
+ctx "$tmp/stack" --with-branch >/dev/null; code=$?
+check "context: with-branch alone exits 1" 1 "$code"
+check "context: with-branch alone message" "--with-branch needs --uncommitted or --staged." \
+  "$(cat "$tmp/stderr")"
+
+# No local changes.
+ctx "$tmp/stack" --uncommitted >/dev/null; code=$?
+check "context: uncommitted - nothing exits 1" 1 "$code"
+check "context: uncommitted - nothing message" "No uncommitted changes — nothing to review." \
+  "$(tail -1 "$tmp/stderr")"
+ctx "$tmp/stack" --staged >/dev/null; code=$?
+check "context: staged - nothing exits 1" 1 "$code"
+check "context: staged - nothing message" "No staged changes — nothing to review." \
+  "$(tail -1 "$tmp/stderr")"
+
 # Uncommitted edits on the parent itself: HEAD equals parent.
 git -C "$tmp/solo" switch -q main
-ctx "$tmp/solo" --uncommitted >/dev/null; code=$?
-check "context: uncommitted - nothing exits 1" 1 "$code"
-check "context: uncommitted - nothing message" \
+ctx "$tmp/solo" --uncommitted --with-branch >/dev/null; code=$?
+check "context: branch-uncommitted - nothing exits 1" 1 "$code"
+check "context: branch-uncommitted - nothing message" \
   "No committed or uncommitted changes vs parent 'main' — nothing to review." "$(tail -1 "$tmp/stderr")"
 printf 'u\n' >"$tmp/solo/untracked.txt"
 out=$(ctx "$tmp/solo" --uncommitted)
 check "context: uncommitted - untracked only is a diff" "uncommitted" "$(key scope <<<"$out")"
-ctx "$tmp/solo" --staged >/dev/null; code=$?
-check "context: staged - nothing exits 1" 1 "$code"
-check "context: staged - nothing message" \
+check "context: uncommitted - untracked file listed" "?? untracked.txt" \
+  "$(sed -n '/^## Uncommitted/{n;p;}' <<<"$out")"
+out=$(ctx "$tmp/solo" --uncommitted --with-branch)
+check "context: branch-uncommitted - untracked only is a diff" "branch-uncommitted" "$(key scope <<<"$out")"
+ctx "$tmp/solo" --staged --with-branch >/dev/null; code=$?
+check "context: branch-staged - nothing exits 1" 1 "$code"
+check "context: branch-staged - nothing message" \
   "No committed or staged changes vs parent 'main' — nothing to review." "$(tail -1 "$tmp/stderr")"
 rm "$tmp/solo/untracked.txt"
 git -C "$tmp/solo" switch -q feat/empty

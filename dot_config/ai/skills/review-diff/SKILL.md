@@ -2,8 +2,8 @@
 name: review-diff
 description:
   Audits a git diff and writes a read-only Markdown report under ~/.ai/<repo>/reviews/. The diff is
-  the current branch vs its parent (default), the branch plus uncommitted or staged changes, or a
-  commit or commit range. Called as a sub-skill by review-me (self-review + fixes) and
+  the current branch vs its parent (default), uncommitted or staged changes (optionally with the
+  branch), or a commit or commit range. Called as a sub-skill by review-me (self-review + fixes) and
   review-gitlab (MR context). Run directly only when the user names it. Do not pick it for a plain
   "review my branch" or "review my changes" request - use review-me or review-gitlab, which call
   it themselves. Platform-agnostic (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
@@ -42,22 +42,25 @@ Select the diff scope from the user's words or the caller's arguments. Pass the 
 | Request | Helper args | Diff |
 |---|---|---|
 | nothing, or a branch name | `[parent]` | branch commits vs parent |
-| "uncommitted", "working tree", "all my changes" | `--uncommitted [parent]` | branch commits + working tree + untracked files |
-| "staged", "index" | `--staged [parent]` | branch commits + index |
+| "uncommitted", "working tree", "my changes" | `--uncommitted` | working tree + untracked files vs HEAD |
+| "staged", "index" | `--staged` | index vs HEAD |
+| "uncommitted" plus "with the branch" | `--uncommitted --with-branch [parent]` | branch commits + working tree + untracked files |
+| "staged" plus "with the branch" | `--staged --with-branch [parent]` | branch commits + index |
 | a commit SHA or ref that is not the parent, or a range `A..B` | `--rev <rev>` | one commit vs its first parent, or the commits in `B` not in `A` |
 
 A bare ref is ambiguous: `main` is a parent, `a1b2c3d` or `HEAD~2` is a commit. If you cannot tell,
 ask.
 
-Uncommitted edits in `branch` or `rev` scope, and unstaged edits in `staged` scope, are not in the
-diff. Mention them in the header. Do not audit them.
+Uncommitted edits in `branch` or `rev` scope, and unstaged edits in the staged scopes, are not in
+the diff. Mention them in the header. Do not audit them.
 
 ## Gather context
 
 Run the helper with the args from "Diff scope". It resolves branch/parent deterministically and
 prints a keyed metadata block. Use an absolute path (skill cwd is the user's repo):
 
-    ~/.config/ai/bin/git-diff-context.sh [--uncommitted | --staged] [parent-override]
+    ~/.config/ai/bin/git-diff-context.sh [parent-override]
+    ~/.config/ai/bin/git-diff-context.sh --uncommitted | --staged [--with-branch [parent-override]]
     ~/.config/ai/bin/git-diff-context.sh --rev <rev | A..B>
 
 It runs cheap guards before any diff, in fail-fast order: repo check, branch name, parent detection
@@ -65,23 +68,25 @@ by git topology, the empty-diff guard, `git status`, diffstat, commit log, and a
 aborts (exit 1, message on stderr) when not in a repo, when the diff scope is empty, or when parent
 is unresolved - relay that message and stop.
 
-Parent detection (all scopes except `rev`, no override arg): the nearest local branch that is a
-strict ancestor of HEAD is the immediate stack parent. If that branch is mainline
+Parent detection (`branch` and the `branch-*` scopes, no override arg): the nearest local branch
+that is a strict ancestor of HEAD is the immediate stack parent. If that branch is mainline
 (`main`/`master`/`develop` or a remote default branch), the base is mainline: the script fetches the
 remote copy (best-effort) and anchors on the remote-tracking ref (e.g. `origin/main`), so a stale
 local mainline does not pollute the diff with other people's commits. If fetch fails (offline) or
 there is no remote, it warns on stderr and falls back to the local mainline ref. An intermediate
 stack parent stays anchored on its local tip (its split point is your local tip), no fetch.
 
-Output keys: `scope` (`branch` | `uncommitted` | `staged` | `rev`), `branch` (the current branch),
-`tip` (the branch, or the end of a `rev` range), `parent`, `parent-source` (`ancestor-branch` |
-`default-branch` | `override` | `rev`), `parent-fetched` (`yes`/`no`), `uncommitted` (`yes`/`no`),
-`log-range`, `report-prefix`, `diff-command`, then `## Diffstat`, `## Commits`, `## Authors
-(shortlog)`, `## Uncommitted` (`git status --porcelain`).
+Output keys: `scope` (`branch` | `uncommitted` | `staged` | `branch-uncommitted` | `branch-staged`
+| `rev`), `branch` (the current branch), `tip` (the branch, or the end of a `rev` range), `parent`,
+`parent-source` (`ancestor-branch` | `default-branch` | `override` | `head` | `rev`),
+`parent-fetched` (`yes`/`no`), `uncommitted` (`yes`/`no`), `log-range`, `report-prefix`,
+`diff-command`, then `## Diffstat`, `## Commits`, `## Authors (shortlog)`, `## Uncommitted`
+(`git status --porcelain`).
 
 The script does **not** print the full diff (unbounded). Run the emitted `diff-command` yourself to
-get the reviewable content. It always diffs from the merge base, so parent drift stays out of the
-diff. In `uncommitted` scope, `git diff` does not show untracked files: read each `??` file from
+get the reviewable content. In the scopes with branch commits, it diffs from the merge base, so
+parent drift stays out of the diff. The `uncommitted` and `staged` scopes diff against `HEAD`. In
+the uncommitted scopes, `git diff` does not show untracked files: read each `??` file from
 `## Uncommitted` in full and audit it as a new file. Count these files in the diffstat file count.
 Surface `parent` and `parent-source` in the report header, so the reader knows what the diff was
 anchored against. Add a stale-base note only when `parent-source: default-branch` and
@@ -167,7 +172,7 @@ Keep the context you already gathered - the agents do not re-run the helpers.
 ### The three agents
 
 Every agent prompt has the same preamble: the `parent` value, the `diff-command`, the diffstat, in
-`uncommitted` scope the untracked files to audit, and this instruction - "Read
+the uncommitted scopes the untracked files to audit, and this instruction - "Read
 `~/.claude/skills/review-diff/SKILL.md`. Audit only the checklist items
 named below. Return each finding in the report bullet format with its severity. No ids. Write no
 files."
@@ -334,7 +339,8 @@ risk, naming that risk's finding id, e.g. `C1`.>
 ---
 
 - Author: <name>
-- Scope: <branch | branch + uncommitted | branch + staged | commits <log-range>>
+- Scope: <branch | uncommitted | staged | branch + uncommitted | branch + staged | commits
+  <log-range>>
 - Base: <parent> (<parent-source><, stale: local mainline not fetched - default-branch only>)
 - Commits: <n> Files: <n> +<add>/-<del>
 - Uncommitted: <no | yes - file1, file2>

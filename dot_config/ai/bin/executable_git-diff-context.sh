@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-# Usage: git-diff-context.sh [--uncommitted | --staged] [parent-override]
+# Usage: git-diff-context.sh [parent-override]
+#        git-diff-context.sh --uncommitted | --staged
+#        git-diff-context.sh --uncommitted | --staged --with-branch [parent-override]
 #        git-diff-context.sh --rev <rev | A..B | A...B>
 # Prints the review context of a diff as a keyed text block on stdout.
 # Cheap local guards abort before any diff.
 #
-# Scopes: default - branch commits vs parent. --uncommitted - branch commits plus the
-# working tree and untracked files. --staged - branch commits plus the index.
-# --rev - one commit vs its first parent, or a range (A..B and A...B both mean the
-# commits in B and not in A), independent of the current branch.
+# Scopes: default - branch commits vs parent. --uncommitted - the working tree and
+# untracked files vs HEAD. --staged - the index vs HEAD. --with-branch adds the branch
+# commits vs parent to --uncommitted or --staged. --rev - one commit vs its first
+# parent, or a range (A..B and A...B both mean the commits in B and not in A),
+# independent of the current branch.
 #
-# With no arg, the parent is the nearest local branch that is a strict ancestor of
+# The --uncommitted and --staged scopes use HEAD as the parent. In the other scopes,
+# with no arg, the parent is the nearest local branch that is a strict ancestor of
 # HEAD. When that branch is mainline (main/master/develop or the remote default
 # branch), the remote copy is fetched (best-effort) and the remote-tracking ref is
 # the base. A stale local mainline would otherwise pollute the diff. Intermediate
@@ -30,6 +34,7 @@ rev=""
 case "${1:-}" in
   --uncommitted) scope=uncommitted; shift ;;
   --staged) scope=staged; shift ;;
+  --with-branch) die "--with-branch needs --uncommitted or --staged." ;;
   --rev)
     scope=rev
     rev="${2:?--rev needs a commit or a range}"
@@ -37,7 +42,14 @@ case "${1:-}" in
     [ $# -eq 0 ] || die "--rev takes no parent override."
     ;;
 esac
+if [ "${1:-}" = --with-branch ]; then
+  scope="branch-$scope"
+  shift
+fi
 override="${1:-}"
+if [ -n "$override" ] && { [ "$scope" = uncommitted ] || [ "$scope" = staged ]; }; then
+  die "A parent override needs --with-branch."
+fi
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
   || die "Not inside a git work tree — nothing to review."
@@ -65,6 +77,9 @@ if [ "$scope" = rev ]; then
   fi
   verify_ref "$tip"
   parent_source="rev"
+elif [ "$scope" = uncommitted ] || [ "$scope" = staged ]; then
+  parent=HEAD
+  parent_source="head"
 elif [ -n "$override" ]; then
   git rev-parse --verify --quiet "$override" >/dev/null \
     || die "Override parent ref '$override' not found."
@@ -155,13 +170,25 @@ case "$scope" in
     report_prefix=""
     ;;
   uncommitted)
+    log_range="HEAD..HEAD"
+    diff_args=(HEAD)
+    if git diff --quiet HEAD && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+      die "No uncommitted changes — nothing to review."
+    fi
+    ;;
+  staged)
+    log_range="HEAD..HEAD"
+    diff_args=(--cached)
+    git diff --quiet --cached && die "No staged changes — nothing to review."
+    ;;
+  branch-uncommitted)
     diff_args=(--merge-base "$parent")
     # `git diff` does not show untracked files, so check them separately.
     if git diff --quiet "${diff_args[@]}" && [ -z "$(git ls-files --others --exclude-standard)" ]; then
       die "No committed or uncommitted changes vs parent '$parent' — nothing to review."
     fi
     ;;
-  staged)
+  branch-staged)
     diff_args=(--cached --merge-base "$parent")
     git diff --quiet "${diff_args[@]}" \
       && die "No committed or staged changes vs parent '$parent' — nothing to review."

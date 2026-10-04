@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: uncommitted-scope.sh <repo-dir>
-# Branch `feat/restock` vs `origin/main`, reviewed with the `uncommitted` scope.
+# Branch `feat/restock` vs `origin/main`, reviewed with the `branch-uncommitted` scope.
 #   src/Restock.kt:5    `0..items.size` reads past the end - committed
 #   src/Inventory.kt:8  debug `println` - unstaged edit of a tracked file
 #   src/Report.kt:3     division by zero on an empty list - untracked file

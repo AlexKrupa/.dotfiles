@@ -31,7 +31,7 @@ Run the full set before and after a change to the skill, then compare the two it
 of one run in three can be noise. Run that eval again before you act on it.
 
 The checks look for the words that the fixtures seed, not for the live banned list in
-`~/.claude/CLAUDE.md`. Add a word to `pattern_sets.slop` and to a fixture to cover it.
+`~/.config/ai/AGENTS.md`. Add a word to `pattern_sets.slop` and to a fixture to cover it.
 
 `run.py` needs `claude -p` with `--permission-mode dontAsk` and an allowlist (`ALLOWED_TOOLS`).
 Start it from your own shell, or with `!` in Claude Code.

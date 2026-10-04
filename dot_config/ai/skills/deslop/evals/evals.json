@@ -5,9 +5,9 @@
     "slop": ["(?i)\\brobust", "(?i)\\bleverag", "(?i)\\bgenuine", "(?i)\\bstreamlin", "(?i)\\bseamless", "(?i)battle-tested", "(?i)worth noting", "(?i)\\bimportantly\\b", "(?i)serves as", "(?i)\\bhonestly\\b", "—", "–"]
   },
   "common_checks": [
-    {"id": "rules-claude", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.claude/CLAUDE\\.md", "min": 1, "text": "Reads ~/.claude/CLAUDE.md"},
-    {"id": "rules-code", "type": "tool_count", "tool": "Read|Bash", "input_regex": "rules/code\\.md", "min": 1, "text": "Reads ~/.claude/rules/code.md"},
-    {"id": "rules-doc", "type": "tool_count", "tool": "Read|Bash", "input_regex": "rules/documenting\\.md", "min": 1, "text": "Reads ~/.claude/rules/documenting.md"},
+    {"id": "rules-claude", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/ai/AGENTS\\.md", "min": 1, "text": "Reads ~/.config/ai/AGENTS.md"},
+    {"id": "rules-code", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/ai/rules/code\\.md", "min": 1, "text": "Reads ~/.config/ai/rules/code.md"},
+    {"id": "rules-doc", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/ai/rules/documenting\\.md", "min": 1, "text": "Reads ~/.config/ai/rules/documenting.md"},
     {"id": "home-writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_regex": "\"file_path\": \"(/Users/|~)", "max": 0, "text": "No file write under the home dir"},
     {"id": "git-forbidden", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\b[^|;&]*\\s(push|rebase|reset|stash|checkout|switch|merge|cherry-pick)\\b|--amend", "max": 0, "text": "No push, rebase, reset, stash, checkout, switch, merge, cherry-pick, or amend"}
   ],
@@ -43,7 +43,7 @@
         {"type": "log_not_regex", "patterns": "@slop", "text": "Commit messages after the rebase have no seeded slop"},
         {"type": "log_regex", "case": true, "patterns": ["SYNC-412", "\\b30 ?s(econds)?\\b", "^[0-9a-f]+ Add sync guide$", "^[0-9a-f]+ Use retry policy in sync loop$"], "text": "Commit 1 keeps SYNC-412 and 30 s, commits 2 and 3 keep their subjects"},
         {"type": "reply_regex", "patterns": ["git rebase -i --autosquash"], "text": "Final reply gives the autosquash rebase as the next step"},
-        {"type": "reply_regex", "patterns": ["Comments:\\W* \\d+ deleted, \\d+ kept as one sentence, \\d+ kept longer"], "text": "Final reply has the Comments line of the summary template"},
+        {"type": "reply_regex", "patterns": ["Comments:\\W* \\d+ deleted(?: \\([^)]*\\))?, \\d+ kept as one sentence(?: \\([^)]*\\))?, \\d+ kept longer"], "text": "Final reply has the Comments line of the summary template"},
         {"type": "reply_not_regex", "patterns": ["`//"], "text": "Final reply does not quote kept comments"}
       ]
     },
@@ -112,6 +112,52 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\b", "max": 0, "text": "No git command"},
         {"type": "tool_count", "tool": "Write|Edit|NotebookEdit", "max": 0, "text": "No file write"},
         {"type": "repo_unchanged", "text": "Repo did not change"}
+      ]
+    },
+    {
+      "id": 6,
+      "name": "uncommitted-only",
+      "fixture": "fixtures/uncommitted-only.sh",
+      "prompt": "/deslop my uncommitted changes",
+      "output": "worktree",
+      "expected_output": "Fixes the uncommitted edit in src/Cache.kt (deletes the what-comment, keeps the CACHE-77 why-comment), the untracked docs/cache.md, and the staged docs/staged.md in the working tree. Does not touch docs/committed.md from the branch commit. Makes no commit and does not change the index.",
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh --uncommitted", "min": 1, "text": "Runs the helper with --uncommitted"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "--with-branch", "max": 0, "text": "Does not add the branch commits"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\\bgit\\b[^|;&]*\\s(add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
+        {"type": "refs_same", "refs": ["refs/heads/feat/cache", "refs/heads/main"], "text": "No new commits"},
+        {"type": "index_same", "text": "The index does not change"},
+        {"type": "file_same", "path": "docs/committed.md", "ref": "head", "text": "docs/committed.md (branch commit, out of scope) does not change"},
+        {"type": "file_not_regex", "path": "docs/cache.md", "patterns": "@slop", "text": "Untracked docs/cache.md has no seeded slop"},
+        {"type": "file_regex", "path": "docs/cache.md", "patterns": ["\\b512\\b", "\\b15 min", "Cache\\.clear\\(\\)"], "text": "docs/cache.md keeps the facts"},
+        {"type": "file_not_regex", "path": "docs/staged.md", "patterns": "@slop", "text": "Staged docs/staged.md has no seeded slop in the working tree"},
+        {"type": "code_same", "path": "src/Cache.kt", "ref": "before", "text": "Cache.kt code is unchanged"},
+        {"type": "comments_not_regex", "path": "src/Cache.kt", "patterns": ["puts the value"], "text": "The what-comment is deleted"},
+        {"type": "comments_regex", "path": "src/Cache.kt", "patterns": ["CACHE-77"], "text": "The CACHE-77 why-comment stays"},
+        {"type": "comments_not_regex", "path": "src/Cache.kt", "patterns": "@slop", "text": "Cache.kt comments have no seeded slop"},
+        {"type": "reply_regex", "patterns": ["git diff"], "text": "Final reply gives git diff as the next step"},
+        {"type": "reply_not_regex", "patterns": ["autosquash"], "text": "Final reply does not give the rebase step"}
+      ]
+    },
+    {
+      "id": 7,
+      "name": "target-text",
+      "fixture": "fixtures/target-text.sh",
+      "prompt": "/deslop the comments in src/Exporter.kt",
+      "output": "worktree",
+      "expected_output": "Examines all comments in src/Exporter.kt in the working tree. Keeps the old BOM comment unchanged, deletes or fixes the old slop comment, deletes the added Count comment, keeps the EXP-9 fact. Does not touch docs/export.md or scratch.txt. Does not stop on the dirty tree. Makes no commit.",
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\\bgit\\b[^|;&]*\\s(add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
+        {"type": "refs_same", "refs": ["refs/heads/feat/export", "refs/heads/main"], "text": "No new commits"},
+        {"type": "index_same", "text": "The index does not change"},
+        {"type": "code_same", "path": "src/Exporter.kt", "ref": "before", "text": "Exporter.kt code is unchanged"},
+        {"type": "file_regex", "path": "src/Exporter.kt", "case": true, "patterns": ["^    // Windows Excel reads a file as UTF-8 only if it starts with a BOM\\.$"], "text": "The old BOM comment with no slop does not change"},
+        {"type": "comments_not_regex", "path": "src/Exporter.kt", "patterns": "@slop", "text": "Exporter.kt comments have no seeded slop, also the old comment"},
+        {"type": "comments_not_regex", "path": "src/Exporter.kt", "patterns": ["Count the rows"], "text": "The added what-comment is deleted"},
+        {"type": "comments_regex", "path": "src/Exporter.kt", "patterns": ["EXP-9", "\\b500\\b"], "text": "The EXP-9 why-comment keeps its facts"},
+        {"type": "file_same", "path": "docs/export.md", "ref": "head", "text": "docs/export.md (not in the target) does not change"},
+        {"type": "file_regex", "path": "scratch.txt", "case": true, "patterns": ["^This robust draft leverages nothing\\.$"], "text": "Untracked scratch.txt does not change"},
+        {"type": "reply_regex", "patterns": ["git diff"], "text": "Final reply gives git diff as the next step"}
       ]
     }
   ]
