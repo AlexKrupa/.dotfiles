@@ -1,0 +1,98 @@
+{
+  "skill_name": "draft-ticket",
+  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then copies the ticket files from ~/.ai/<repo-slug>/tickets/ to outputs/tickets/ and deletes ~/.ai/<repo-slug>/. grade.py applies `common_checks` plus each eval's `checks`. `ticket_*` checks read all ticket files joined. Regexes are case-insensitive unless a check sets `case`, except `reply_*` checks. `@name` in `patterns` names a list in `pattern_sets`.",
+  "pattern_sets": {
+    "slop": ["(?i)\\brobust", "(?i)\\bleverag", "(?i)\\bgenuine", "(?i)\\bstreamlin", "(?i)\\bseamless", "(?i)worth noting", "(?i)\\bimportantly\\b", "(?i)serves as", "—", "–"],
+    "polish": ["[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]"],
+    "done": ["\\b(implemented|already)\\b", "\\b(was|were|has been|have been|is now) (added|implemented|changed|created|updated|built)\\b", "\\bthis branch\\b", "\\bcommits?\\b"]
+  },
+  "common_checks": [
+    {"id": "repo", "type": "repo_unchanged", "text": "The fixture repo does not change"},
+    {"id": "one-ticket", "type": "ticket_count", "equals": 1, "text": "Writes exactly 1 ticket file to ~/.ai/<repo>/tickets/"},
+    {"id": "file-name", "type": "ticket_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-[a-z0-9-]+\\.md$", "text": "File name is <date>-<slug>.md"},
+    {"id": "frontmatter", "type": "ticket_regex", "case": true, "patterns": ["\\A---\\ntype: (task|bug|spike)\\n---\\n"], "text": "Frontmatter has only `type`"},
+    {"id": "title", "type": "ticket_regex", "case": true, "patterns": ["^# [A-Z]"], "text": "Has an H1 title"},
+    {"id": "title-prefix", "type": "ticket_not_regex", "patterns": ["^# *[\\[(]?(task|bug|spike)\\b"], "text": "Title has no type prefix"},
+    {"id": "english", "type": "ticket_not_regex", "case": true, "patterns": "@polish", "text": "Ticket has no Polish characters"},
+    {"id": "slop", "type": "ticket_not_regex", "case": true, "patterns": "@slop", "text": "Ticket has no seeded slop words or long dashes"},
+    {"id": "no-decisions", "type": "ticket_not_regex", "case": true, "patterns": ["^## Decisions"], "text": "Has no Decisions section"},
+    {"id": "no-wrap", "type": "ticket_not_regex", "case": true, "patterns": ["^ {2,}[a-z]", "[a-z,;]\\n[a-z(]"], "text": "Has no hard line breaks in paragraphs or list items"}
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "name": "task-from-brainstorm",
+      "fixture": "fixtures/notes-app.sh",
+      "prompt": "/draft-ticket from this brainstorm summary:\n\nUsers ask for a way to get their notes out of the app. Support gets about 20 requests a month, mostly from people who switch phones or want a backup. Today the only way is to copy each note by hand.\n\nWe agreed:\n- Export all notes to one CSV file (title, body, created date, tags).\n- No PDF export for now, too much layout work.\n- The export starts from Settings > Data.\n- Large exports (1000+ notes) must not block the UI. Show progress.\n- Implementation idea: an ExportWorker on WorkManager writes the file through the Storage Access Framework, and CsvWriter streams the rows.\n\nNot decided: should the export include deleted notes from the trash?",
+      "expected_output": "A task ticket with Context, Requirements, Out of scope (PDF), and Open questions (trash). No implementation names. Written without questions.",
+      "checks": [
+        {"type": "ticket_regex", "case": true, "patterns": ["^type: task$"], "text": "Type is task"},
+        {"type": "ticket_regex", "case": true, "patterns": ["^## Context$", "^## Requirements$"], "text": "Has the required task sections"},
+        {"type": "ticket_not_regex", "case": true, "patterns": ["^## Acceptance criteria"], "text": "Has no Acceptance criteria section, because Requirements are the checks"},
+        {"type": "ticket_regex", "case": true, "patterns": ["^## Out of scope$", "^## Open questions$"], "text": "Has Out of scope and Open questions"},
+        {"type": "ticket_regex", "patterns": ["\\bCSV\\b", "\\bPDF\\b", "Settings", "\\btrash\\b", "progress"], "text": "Keeps the facts: CSV, no PDF, Settings, trash question, progress"},
+        {"type": "ticket_not_regex", "patterns": ["ExportWorker", "WorkManager", "CsvWriter", "Storage Access Framework"], "text": "Has no implementation names from the brainstorm"},
+        {"type": "ticket_not_regex", "case": true, "patterns": ["^## Implementation notes"], "text": "Has no Implementation notes section"},
+        {"type": "ticket_not_regex", "patterns": ["\\bcancel", "\\bemoji", "non-ASCII"], "text": "Has no invented edge cases (cancel, emoji, non-ASCII)"},
+        {"type": "ticket_not_regex", "case": true, "patterns": ["^## Open questions\\n\\n(- |\\d+\\. ).*\\n(- |\\d+\\. )"], "text": "Open questions has only the trash question from the source"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "post-factum-branch",
+      "fixture": "fixtures/csv-export-branch.sh",
+      "prompt": "/draft-ticket for the work on this branch. Users asked for a way to back up their notes.",
+      "expected_output": "A task ticket for a CSV export from Settings > Data, written as work to do. No code names, no past tense about the implementation.",
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git[^|;&]*\\s(diff|log|show)\\b", "min": 1, "text": "Reads the branch diff or log"},
+        {"type": "ticket_regex", "case": true, "patterns": ["^type: task$"], "text": "Type is task"},
+        {"type": "ticket_not_regex", "case": true, "patterns": ["^## Acceptance criteria"], "text": "Has no Acceptance criteria section, because Requirements are the checks"},
+        {"type": "ticket_regex", "patterns": ["\\bCSV\\b", "Settings"], "text": "Describes a CSV export from Settings"},
+        {"type": "ticket_not_regex", "patterns": ["CsvExporter", "exportNotes", "ExportRow", "ExportNotesRow", "SettingsScreen", "\\.kt\\b"], "text": "Has no code names from the branch"},
+        {"type": "ticket_not_regex", "patterns": "@done", "text": "Does not say that the work is done"},
+        {"type": "ticket_not_regex", "case": true, "patterns": ["^## Open questions"], "text": "Has no Open questions, because the sources leave nothing open"},
+        {"type": "ticket_not_regex", "patterns": ["\\bimport"], "text": "Has no invented import feature"}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "bug-polish-prompt",
+      "fixture": "fixtures/notes-app.sh",
+      "prompt": "/draft-ticket Aplikacja się zamyka, gdy użytkownik obraca ekran podczas edycji notatki. Pixel 7, Android 14, wersja aplikacji 3.2.0. Dzieje się za każdym razem. W wersji 3.1.4 działało poprawnie. Kroki: otwórz notatkę, zacznij pisać, obróć telefon. Oczekiwane: notatka zostaje otwarta i wpisany tekst nie znika.",
+      "expected_output": "A bug ticket in English. Environment has device, OS, app version, frequency, and last working version. No Impact, Logs, or Workaround sections, because the prompt gives no data for them.",
+      "checks": [
+        {"type": "ticket_regex", "case": true, "patterns": ["^type: bug$"], "text": "Type is bug"},
+        {"type": "ticket_regex", "case": true, "patterns": ["^## Environment$", "^## Steps to reproduce$", "^## Actual behavior$", "^## Expected behavior$"], "text": "Has the required bug sections"},
+        {"type": "ticket_regex", "patterns": ["Pixel 7", "Android 14", "3\\.2\\.0", "3\\.1\\.4", "rotat"], "text": "Keeps the facts: device, OS, both versions, rotation"},
+        {"type": "ticket_not_regex", "case": true, "patterns": ["^## (Frequency|Last working version)"], "text": "Frequency and last working version are in Environment, not separate sections"},
+        {"type": "ticket_not_regex", "case": true, "patterns": ["^## (Impact|Logs and screenshots|Workaround)"], "text": "Has no optional sections without data"}
+      ]
+    },
+    {
+      "id": 4,
+      "name": "spike",
+      "fixture": "fixtures/notes-app.sh",
+      "prompt": "/draft-ticket spike: we need to pick a way to sync notes between a user's devices. Options people mentioned: Firebase, our own REST backend, a CRDT library like Automerge. The main concern is offline edits and conflicts. Output should be a short comparison doc with a recommendation.",
+      "expected_output": "A spike ticket with Context, Questions to answer, Expected output, Acceptance criteria. No time limit section, no requirements section.",
+      "checks": [
+        {"type": "ticket_regex", "case": true, "patterns": ["^type: spike$"], "text": "Type is spike"},
+        {"type": "ticket_regex", "case": true, "patterns": ["^## Context$", "^## Questions to answer$", "^## Expected output$", "^## Acceptance criteria$"], "text": "Has the required spike sections"},
+        {"type": "ticket_regex", "patterns": ["Firebase", "REST", "Automerge|CRDT", "conflict", "recommend"], "text": "Keeps the options, the conflict concern, and the recommendation"},
+        {"type": "ticket_not_regex", "case": true, "patterns": ["^## (Time limit|Timebox|Requirements|Implementation notes)"], "text": "Has no time limit, requirements, or implementation sections"}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "no-context-asks",
+      "fixture": "fixtures/notes-app.sh",
+      "prompt": "/draft-ticket add dark mode",
+      "expected_output": "No ticket file yet. The reply asks questions about the missing context.",
+      "common": false,
+      "checks": [
+        {"type": "repo_unchanged", "text": "The fixture repo does not change"},
+        {"type": "ticket_count", "equals": 0, "text": "Writes no ticket file before the interview"},
+        {"type": "reply_regex", "patterns": ["\\?"], "text": "Reply asks questions"}
+      ]
+    }
+  ]
+}
