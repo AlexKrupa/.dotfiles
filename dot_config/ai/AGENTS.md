@@ -126,3 +126,6 @@ Layout:
 
 - MacOS, Fish shell, Ghostty terminal, tmux
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.
+- Run Gradle commands in quiet mode (`-q`), unless output is needed for debugging
+- Android devices, emulators, SDK, screenshots, UI inspection: use the `android` CLI
+  (`android-cli` skill), not `adb`, `emulator`, or `sdkmanager`

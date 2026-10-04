@@ -3,7 +3,6 @@ paths:
   - "**/{init,build,settings}.gradle*"
 ---
 
-- Run Gradle commands in quiet mode (`-q`), unless output is needed for debugging
 - Preserve build cache and configuration cache compatibility:
   - No non-deterministic task inputs/outputs (timestamps, absolute paths, random values)
   - At configuration time, use `providers` APIs (e.g., `providers.fileContents()`,
