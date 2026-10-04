@@ -40,12 +40,14 @@ def fill(prompt, values):
     return re.sub(r"\{(\w+)\}", lambda m: values[m.group(1)], prompt)
 
 
-def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout):
+def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, effort=None):
     cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
            "--permission-mode", "dontAsk", "--allowedTools", allowed_tools,
            "--add-dir", *map(str, add_dirs), "--no-session-persistence"]
     if model:
         cmd += ["--model", model]
+    if effort:
+        cmd += ["--effort", effort]
     # CLAUDECODE blocks a nested session when the runner starts from inside Claude Code.
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     start = time.time()
@@ -57,10 +59,12 @@ def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout):
     return time.time() - start
 
 
-def collect_result(run_dir, wall_seconds):
-    """Write outputs/final_reply.md and timing.json from the transcript's result event."""
-    result = {}
+def collect_result(run_dir, wall_seconds, effort):
+    """Write outputs/final_reply.md and timing.json from the transcript's init and result events."""
+    model, result = None, {}
     for event in load_transcript(run_dir):
+        if event.get("type") == "system" and event.get("subtype") == "init":
+            model = event.get("model")
         if event.get("type") == "result":
             result = event
     (run_dir / "outputs" / "final_reply.md").write_text(result.get("result", ""))
@@ -75,6 +79,9 @@ def collect_result(run_dir, wall_seconds):
         "cost_usd": result.get("total_cost_usd"),
         "num_turns": result.get("num_turns"),
         "is_error": result.get("is_error", True),
+        "model": model,
+        # No --effort flag: the run used effortLevel from the user's settings.
+        "effort": effort or "default",
     }, indent=2))
 
 
@@ -214,7 +221,8 @@ def grade_main(doc, evals_path, grade):
 def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, grade):
     """CLI for a skill's run.py.
 
-    Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--timeout SEC] [EVAL ...]
+    Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--effort LEVEL]
+                  [--timeout SEC] [EVAL ...]
 
     `setup(ev, k, repos, run_dir)` builds the fixture and returns a dict with `repo` (the
     cwd for claude) and `prompt`. `collect(ev, ctx, run_dir)` saves the skill-specific outputs.
@@ -226,6 +234,7 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, gr
     p.add_argument("-n", "--runs", type=int, default=3)
     p.add_argument("-j", "--jobs", type=int, default=4)
     p.add_argument("--model")
+    p.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"])
     p.add_argument("--timeout", type=int, default=900)
     args = p.parse_args()
 
@@ -260,8 +269,8 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, gr
     def work(job):
         ev, k, run_dir, ctx = job
         seconds = run_claude(ctx["prompt"], ctx["repo"], run_dir, allowed_tools, add_dirs,
-                             args.model, args.timeout)
-        collect_result(run_dir, seconds)
+                             args.model, args.timeout, args.effort)
+        collect_result(run_dir, seconds, args.effort)
         collect(ev, ctx, run_dir)
         snapshot(ctx["repo"], run_dir, "after.txt")
         write_repo_diff(run_dir)

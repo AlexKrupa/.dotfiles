@@ -3,9 +3,10 @@
 
 Usage: compare.py <old-iteration-dir> <new-iteration-dir>
 
-Prints each check whose pass rate changed, the pass rate per eval, and the mean tokens, time, and
-cost. A check that passed in more runs before than now is a REGRESSION. With 3 runs per eval, a
-drop of one run can be noise. Rerun that eval before you act on it.
+Prints the model and effort of each iteration, each check whose pass rate changed, the pass rate
+per eval, and the mean tokens, time, and cost. A check that passed in more runs before than now is
+a REGRESSION. With 3 runs per eval, a drop of one run can be noise. Rerun that eval before you act
+on it.
 """
 import json
 import statistics
@@ -49,10 +50,18 @@ def mean(timings, key):
     return statistics.mean(values) if values else 0
 
 
+def setup(data):
+    """Return the model and effort pairs of the runs, for example `claude-opus-5-5/medium`."""
+    pairs = {f"{t.get('model', 'unknown')}/{t.get('effort', 'unknown')}"
+             for entry in data.values() for t in entry["timing"]}
+    return ", ".join(sorted(pairs)) or "-"
+
+
 def main():
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     old, new = load(sys.argv[1]), load(sys.argv[2])
+    print(f"model/effort: {setup(old)} -> {setup(new)}")
     regressions = 0
     for name in sorted(set(old) | set(new)):
         o, n = old.get(name, {"checks": {}, "timing": []}), new.get(name, {"checks": {}, "timing": []})
