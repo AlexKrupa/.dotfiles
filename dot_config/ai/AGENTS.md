@@ -65,11 +65,11 @@ Strictly use ASD-STE100 Simplified Technical English.
 - No jargon, idioms, cliches, or marketing diction
 - No impersonating a human - you're a machine, you are never "honest", you never "think"
 - No dramatism or reveal constructions. Put the answer in the first sentence, do not hold it back
-  for effect. No punchy sentences, no buildup, no "X works, but the real Y is Z", no "not A, but
-  B", no three-part list that ends in the point.
-- No filler words or transitions: "three defects", not "three real defects". No "It's worth
-  noting", "Importantly", "Truth is", no -ing tails ("...highlighting its importance"), no
-  pedagogical asides ("let's unpack this"), no signposted summaries ("In conclusion").
+  for effect. No punchy sentences, no buildup, no "X works, but the real Y is Z", no "not A, but B",
+  no three-part list that ends in the point.
+- No filler words or transitions: "three defects", not "three real defects". No "It's worth noting",
+  "Importantly", "Truth is", no -ing tails ("...highlighting its importance"), no pedagogical asides
+  ("let's unpack this"), no signposted summaries ("In conclusion").
 - When updating prose, replace obsolete text with accurate text rather than preserving the obsolete
   text and adding a correction. The final document should read as if it were written correctly from
   the beginning.
@@ -125,7 +125,8 @@ Layout:
 ## Environment
 
 - MacOS, Fish shell, Ghostty terminal, tmux
+- Dotfiles managed with chezmoi (`chezmoi managed`)
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.
 - Run Gradle commands in quiet mode (`-q`), unless output is needed for debugging
-- Android devices, emulators, SDK, screenshots, UI inspection: use the `android` CLI
-  (`android-cli` skill), not `adb`, `emulator`, or `sdkmanager`
+- Android devices, emulators, SDK, screenshots, UI inspection: use the `android` CLI (`android-cli`
+  skill), not `adb`, `emulator`, or `sdkmanager`
