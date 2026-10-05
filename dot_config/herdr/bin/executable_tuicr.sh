@@ -6,15 +6,16 @@
 #   tuicr.sh send     from a `branch` pane: send its comments to the agent
 #
 # `branch` and `mr` split the focused pane. A `branch` split runs `tuicr.sh
-# pane`, which keeps the agent pane ID, the repo and the tuicr stderr in a state
-# dir named by its own pane ID. `send` looks up that dir from the focused pane,
-# so it ignores `mr` panes and any tuicr that this script did not open.
+# pane`, which keeps the agent pane ID, the repo and its own PID in a state dir
+# named by its own pane ID. `send` looks up that dir from the focused pane, so
+# it ignores `mr` panes and any tuicr that this script did not open.
 #
 # tuicr 0.27.0 has no hooks and no custom keys, and `--stdout` exports only on
 # quit. So `send` reads the saved session with `tuicr review comments`. tuicr
 # saves the session on each comment change. tuicr prints the session slug to
-# stderr at startup. `tuicr review list` marks the open session `active`, but
-# tuicr does not promise to keep that field (agavra/tuicr#368).
+# stderr only at startup, and `:commits` can switch to a new session later.
+# $active_sessions holds the open session of each tuicr process, so `send`
+# looks it up by the PID of the tuicr child.
 #
 # `send` sends only comments that are new or changed since the last send. It
 # records them per session in $sent_root, so the record outlives the pane.
@@ -26,6 +27,7 @@
 
 state_root=${TMPDIR:-/tmp}/herdr-tuicr
 sent_root=${XDG_STATE_HOME:-$HOME/.local/state}/herdr-tuicr/sent
+active_sessions="$HOME/Library/Application Support/tuicr/reviews/active_sessions.json"
 
 state_dir() { printf '%s/%s' "$state_root" "$(printf '%s' "$1" | tr : _)"; }
 
@@ -56,19 +58,24 @@ case $1 in
     trap 'rm -rf "$dir"' EXIT
     printf '%s\n' "$2" >"$dir/agent"
     printf '%s\n' "$PWD" >"$dir/repo"
+    printf '%s\n' "$$" >"$dir/pid"
 
     ctx=$(~/.config/ai/bin/git-diff-context.sh 2>&1) || fail "$ctx"
     parent=$(printf '%s\n' "$ctx" | sed -n 's/^parent: //p')
     [ -n "$parent" ] || fail "$ctx"
 
-    tuicr -r "$parent..HEAD" 2>"$dir/stderr" || fail "$(cat "$dir/stderr")"
+    # Three dots: tuicr diffs from the merge base. With two dots it diffs from
+    # the parent tip, so new parent commits show up as reverted.
+    tuicr -r "$parent...HEAD" 2>"$dir/stderr" || fail "$(cat "$dir/stderr")"
     ;;
 
   send)
     dir=$(state_dir "$HERDR_ACTIVE_PANE_ID")
     [ -f "$dir/agent" ] || exit 0
     agent=$(cat "$dir/agent")
-    slug=$(sed -n 's/^tuicr-session: //p' "$dir/stderr" | tail -n 1)
+    tuicr_pid=$(pgrep -P "$(cat "$dir/pid")" -x tuicr) || exit 0
+    slug=$(jq -r --argjson pid "$tuicr_pid" \
+      '.sessions[] | select(.pid == $pid) | .slug' "$active_sessions") || exit 1
     [ -n "$slug" ] || exit 0
     repo=$(cat "$dir/repo")
     # A local slug resolves only inside its repo.
