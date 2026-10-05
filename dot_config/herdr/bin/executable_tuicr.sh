@@ -57,7 +57,7 @@ case $1 in
     printf '%s\n' "$2" >"$dir/agent"
     printf '%s\n' "$PWD" >"$dir/repo"
 
-    ctx=$(~/.config/ai/bin/git-branch-context.sh 2>&1) || fail "$ctx"
+    ctx=$(~/.config/ai/bin/git-diff-context.sh 2>&1) || fail "$ctx"
     parent=$(printf '%s\n' "$ctx" | sed -n 's/^parent: //p')
     [ -n "$parent" ] || fail "$ctx"
 
