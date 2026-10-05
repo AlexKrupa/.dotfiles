@@ -46,6 +46,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      `git show-ref --verify refs/heads/<name>` or `git ls-remote --exit-code --heads origin <name>`
      finds it.
    - Else, there is no existing branch.
+   - If the branch is the current branch (`git branch --show-current`), there is no existing
+     branch. The URL or name in the message is context for the new work.
 2. Ticket id:
    - An issue key of the repo's tracker in the message, as a key or in a tracker URL, for example
      `ABC-123` or `https://<site>.atlassian.net/browse/ABC-123`. The project instructions tell the
