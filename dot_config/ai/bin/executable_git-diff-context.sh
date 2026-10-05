@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Usage: git-diff-context.sh [parent-override]
-#        git-diff-context.sh --uncommitted | --staged
-#        git-diff-context.sh --uncommitted | --staged --with-branch [parent-override]
-#        git-diff-context.sh --rev <rev | A..B | A...B>
+# Usage: git-diff-context.sh [--parent-only] [parent-override]
+#        git-diff-context.sh [--parent-only] --uncommitted | --staged
+#        git-diff-context.sh [--parent-only] --uncommitted | --staged --with-branch [parent-override]
+#        git-diff-context.sh [--parent-only] --rev <rev | A..B | A...B>
 # Prints the review context of a diff as a keyed text block on stdout.
-# Cheap local guards abort before any diff.
+# Cheap local guards abort before any diff. --parent-only prints only the lines from
+# `scope:` to `parent-fetched:`, and skips the slow status, diffstat, and log commands.
 #
 # Scopes: default - branch commits vs parent. --uncommitted - the working tree and
 # untracked files vs HEAD. --staged - the index vs HEAD. --with-branch adds the branch
@@ -14,7 +15,8 @@
 #
 # The --uncommitted and --staged scopes use HEAD as the parent. In the other scopes,
 # with no arg, the parent is the nearest local branch that is a strict ancestor of
-# HEAD. When that branch is mainline (main/master/develop or the remote default
+# HEAD. If git-spice tracks the current branch, its base branch is used instead. When
+# that branch is mainline (main/master/develop or the remote default
 # branch), the remote copy is fetched (best-effort) and the remote-tracking ref is
 # the base. A stale local mainline would otherwise pollute the diff. Intermediate
 # stack parents stay anchored on their local tip. With an arg, that ref is the
@@ -29,6 +31,11 @@ set -euo pipefail
 
 die() { printf '%s\n' "$1" >&2; exit 1; }
 
+parent_only=no
+if [ "${1:-}" = --parent-only ]; then
+  parent_only=yes
+  shift
+fi
 scope=branch
 rev=""
 case "${1:-}" in
@@ -107,19 +114,29 @@ else
     return 1
   }
 
-  # The nearest strict-ancestor local branch is the immediate stack parent.
+  # git-spice keeps the base of each tracked branch, so no scan of all branches.
+  # Without refs/spice/data, git-spice initializes the repo, so check it first.
+  # --no-prompt: stdin can be a terminal, and a prompt would stop the script.
   nearest=""
-  nearest_count=""
-  while IFS= read -r cand; do
-    [ "$cand" = "$branch" ] && continue
-    git merge-base --is-ancestor "$cand" HEAD 2>/dev/null || continue  # guard non-zero under set -e
-    count="$(git rev-list --count "$cand..HEAD")"
-    [ "$count" -gt 0 ] || continue  # same commit - the SHA guard below covers it
-    if [ -z "$nearest_count" ] || [ "$count" -lt "$nearest_count" ]; then
-      nearest="$cand"
-      nearest_count="$count"
-    fi
-  done < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+  if [ "$branch" != HEAD ] && command -v git-spice >/dev/null \
+    && git show-ref --verify --quiet refs/spice/data; then
+    nearest="$(git-spice --no-prompt down -n 2>/dev/null)" || nearest=""
+  fi
+
+  # Else the nearest strict-ancestor local branch is the immediate stack parent.
+  if [ -z "$nearest" ]; then
+    nearest_count=""
+    while IFS= read -r cand; do
+      [ "$cand" = "$branch" ] && continue
+      git merge-base --is-ancestor "$cand" HEAD 2>/dev/null || continue  # guard non-zero under set -e
+      count="$(git rev-list --count "$cand..HEAD")"
+      [ "$count" -gt 0 ] || continue  # same commit - the SHA guard below covers it
+      if [ -z "$nearest_count" ] || [ "$count" -lt "$nearest_count" ]; then
+        nearest="$cand"
+        nearest_count="$count"
+      fi
+    done < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+  fi
 
   if [ -n "$nearest" ] && ! is_mainline "$nearest"; then
     # Intermediate stack parent: the split point is your local tip. No fetch.
@@ -156,7 +173,6 @@ else
   fi
 fi
 
-status="$(git status --porcelain)"
 log_range="$parent..HEAD"
 report_prefix="$scope"
 case "$scope" in
@@ -201,6 +217,15 @@ case "$scope" in
     ;;
 esac
 
+printf 'scope: %s\n' "$scope"
+printf 'branch: %s\n' "$branch"
+printf 'tip: %s\n' "$tip"
+printf 'parent: %s\n' "$parent"
+printf 'parent-source: %s\n' "$parent_source"
+printf 'parent-fetched: %s\n' "$parent_fetched"
+[ "$parent_only" = no ] || exit 0
+
+status="$(git status --porcelain)"
 diffstat="$(git diff --stat "${diff_args[@]}")"
 log="$(git log "$log_range" --oneline)"
 shortlog="$(git shortlog -sn "$log_range")"
@@ -212,12 +237,6 @@ emit_block() {
   printf '\n'
 }
 
-printf 'scope: %s\n' "$scope"
-printf 'branch: %s\n' "$branch"
-printf 'tip: %s\n' "$tip"
-printf 'parent: %s\n' "$parent"
-printf 'parent-source: %s\n' "$parent_source"
-printf 'parent-fetched: %s\n' "$parent_fetched"
 printf 'uncommitted: %s\n\n' "$([ -n "$status" ] && echo yes || echo no)"
 
 printf 'log-range: %s\n' "$log_range"

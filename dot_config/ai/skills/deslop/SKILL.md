@@ -175,7 +175,7 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
    only the targets.
 
    ```
-   ~/.config/ai/bin/git-diff-context.sh
+   ~/.config/ai/bin/git-diff-context.sh --parent-only
    ```
 
    Use its `parent:` value as `<parent>`. Do not calculate it again.

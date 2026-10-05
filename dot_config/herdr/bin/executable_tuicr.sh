@@ -60,7 +60,7 @@ case $1 in
     printf '%s\n' "$PWD" >"$dir/repo"
     printf '%s\n' "$$" >"$dir/pid"
 
-    ctx=$(~/.config/ai/bin/git-diff-context.sh 2>&1) || fail "$ctx"
+    ctx=$(~/.config/ai/bin/git-diff-context.sh --parent-only 2>&1) || fail "$ctx"
     parent=$(printf '%s\n' "$ctx" | sed -n 's/^parent: //p')
     [ -n "$parent" ] || fail "$ctx"
 

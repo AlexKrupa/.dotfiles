@@ -208,6 +208,42 @@ check "context: rev - missing ref message" "Ref 'nope' not found." "$(cat "$tmp/
 ctx "$tmp/stack" --rev main..feat/b main >/dev/null; code=$?
 check "context: rev - parent override exits 1" 1 "$code"
 
+# --parent-only: the header lines only, no metadata blocks.
+out=$(ctx "$tmp/stack" --parent-only)
+check "context: parent-only - parent" "feat/a" "$(key parent <<<"$out")"
+check "context: parent-only - no blocks" "0" "$(grep -c '^## ' <<<"$out")"
+check "context: parent-only - no uncommitted line" "0" "$(grep -c '^uncommitted: ' <<<"$out")"
+new_repo "$tmp/same"
+git -C "$tmp/same" switch -q -c feat/same
+ctx "$tmp/same" --parent-only >/dev/null; code=$?
+check "context: parent-only - no diff exits 1" 1 "$code"
+
+# git-spice: a repo without git-spice data stays without it.
+check "context: no git-spice data written" "1" \
+  "$(git -C "$tmp/stack" show-ref --verify --quiet refs/spice/data; echo $?)"
+
+# git-spice: its base wins over the nearest ancestor branch.
+# main <- feat/a <- feat/b <- feat/c, with feat/c tracked onto feat/a.
+if command -v git-spice >/dev/null; then
+  new_repo "$tmp/spice"
+  git -C "$tmp/spice" switch -q -c feat/a
+  commit_file "$tmp/spice" a.txt a
+  git -C "$tmp/spice" switch -q -c feat/b
+  commit_file "$tmp/spice" b.txt b
+  git -C "$tmp/spice" switch -q -c feat/c
+  commit_file "$tmp/spice" c.txt c
+  (cd "$tmp/spice" && git-spice repo init --trunk main && git-spice branch track --base main feat/a \
+    && git-spice branch track --base feat/a feat/c) >/dev/null 2>&1
+  out=$(ctx "$tmp/spice")
+  check "context: git-spice - parent" "feat/a" "$(key parent <<<"$out")"
+  check "context: git-spice - source" "ancestor-branch" "$(key parent-source <<<"$out")"
+  git -C "$tmp/spice" switch -q -c feat/untracked
+  commit_file "$tmp/spice" u.txt u
+  out=$(ctx "$tmp/spice")
+  check "context: git-spice - untracked branch uses the nearest ancestor" "feat/c" \
+    "$(key parent <<<"$out")"
+fi
+
 # --- docs-index.sh ---
 
 new_repo "$tmp/nodocs"

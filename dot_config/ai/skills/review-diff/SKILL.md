@@ -63,13 +63,14 @@ prints a keyed metadata block. Use an absolute path (skill cwd is the user's rep
     ~/.config/ai/bin/git-diff-context.sh --uncommitted | --staged [--with-branch [parent-override]]
     ~/.config/ai/bin/git-diff-context.sh --rev <rev | A..B>
 
-It runs cheap guards before any diff, in fail-fast order: repo check, branch name, parent detection
-by git topology, the empty-diff guard, `git status`, diffstat, commit log, and author shortlog. It
+It runs cheap guards before any diff, in fail-fast order: repo check, branch name, parent detection,
+the empty-diff guard, `git status`, diffstat, commit log, and author shortlog. It
 aborts (exit 1, message on stderr) when not in a repo, when the diff scope is empty, or when parent
 is unresolved - relay that message and stop.
 
-Parent detection (`branch` and the `branch-*` scopes, no override arg): the nearest local branch
-that is a strict ancestor of HEAD is the immediate stack parent. If that branch is mainline
+Parent detection (`branch` and the `branch-*` scopes, no override arg): if git-spice tracks the
+current branch, its base branch is the immediate stack parent. Else the nearest local branch that
+is a strict ancestor of HEAD is the immediate stack parent. If that branch is mainline
 (`main`/`master`/`develop` or a remote default branch), the base is mainline: the script fetches the
 remote copy (best-effort) and anchors on the remote-tracking ref (e.g. `origin/main`), so a stale
 local mainline does not pollute the diff with other people's commits. If fetch fails (offline) or
