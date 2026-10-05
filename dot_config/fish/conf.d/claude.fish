@@ -132,7 +132,7 @@ function __claude_pane_send --description 'Run <cmd> in <target>'
     end
 end
 
-function claude-upgrade --description 'Quit interactive claude sessions, upgrade the cask, relaunch each resuming its conversation'
+function claude-upgrade --description 'Upgrade the cask, quit interactive claude sessions, relaunch each resuming its conversation'
     set -l dry_run 0
     for arg in $argv
         switch $arg
@@ -278,9 +278,15 @@ function claude-upgrade --description 'Quit interactive claude sessions, upgrade
         return 0
     end
 
-    read -l -P "Quit these $n session(s), upgrade, relaunch? [y/N] " reply
+    read -l -P "Upgrade, quit these $n session(s), relaunch? [y/N] " reply
     if not string match -rqi '^y(es)?$' -- $reply
         echo "Aborted."
+        return 1
+    end
+
+    # Upgrade before quitting, so a failed upgrade leaves every session running.
+    if not __claude_upgrade_cask
+        echo "claude-upgrade: not quitting sessions" >&2
         return 1
     end
 
@@ -304,12 +310,6 @@ function claude-upgrade --description 'Quit interactive claude sessions, upgrade
         else
             echo "claude-upgrade: pane $pane (pid $pid) did not exit in 15s; skipping its relaunch" >&2
         end
-    end
-
-    # Upgrade. Abort relaunch on failure.
-    if not __claude_upgrade_cask
-        echo "claude-upgrade: not relaunching" >&2
-        return 1
     end
 
     # Relaunch each successfully-quit session, resuming its conversation.
