@@ -1,6 +1,6 @@
 {
   "skill_name": "review-diff",
-  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, and grade.py applies `common_checks` plus each eval's `checks`. `{key}` in a prompt is a `key=value` line from the fixture's stdout. Check types are in grade.py. `file` and `any`/`all` values are case-insensitive regexes. `lines` is an inclusive range that must overlap the finding's `file:line`.",
+  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, and grade.py applies `common_checks` plus each eval's `checks`. `{key}` in a prompt is a `key=value` line from the fixture's stdout. Check types are in grade.py. `file` and `any`/`all`/`none` values are case-insensitive regexes. A finding matches when it matches `any` and `all`, and no `none` pattern. `lines` is an inclusive range that must overlap the finding's `file:line`.",
   "common_checks": [
     {"id": "one-report", "type": "report_count", "equals": 1, "text": "Exactly one report under ~/.ai/<repo>/reviews/"},
     {"id": "title", "type": "report_regex", "patterns": ["^# Review: \\S+ \\(vs \\S+\\)$", "^\\*\\*TL;DR:\\*\\* ", "^\\*\\*Counts:\\*\\* \\d+ critical, \\d+ high, \\d+ medium, \\d+ low$"], "text": "Report starts with title, TL;DR, and Counts lines"},
@@ -11,6 +11,7 @@
     {"id": "reply-ids", "type": "reply_lists_findings", "text": "Final reply lists every finding id of the report"},
     {"id": "reply-format", "type": "reply_not_regex", "patterns": ["\\*\\*Counts:\\*\\*", "^Then:"], "text": "Final reply has no Counts line and no `Then:` line"},
     {"id": "reply-path", "type": "reply_regex", "patterns": ["^Report: `[^`]+\\.md`"], "text": "Final reply has the `Report: <path>` line"},
+    {"id": "impact-format", "type": "impact_format", "text": "High-impact section is omitted when empty, and the final reply lists its items"},
     {"id": "writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_not_regex": "/\\.ai/[^/]+/reviews/", "max": 0, "text": "No file write except the report"},
     {"id": "git-mutations", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\s+(add|commit|push|rebase|reset|checkout|switch|stash(?!\\s+(list|show))|merge|cherry-pick|branch\\s+-[dDmM])\\b", "max": 0, "text": "No git mutation commands"},
     {"id": "repo-unchanged", "type": "repo_unchanged", "text": "Repo refs, HEAD, worktree, and stash did not change"}
@@ -34,7 +35,8 @@
         {"type": "finding", "any": ["docs/pricing\\.md"], "text": "A finding cites docs/pricing.md as not updated for discounts"},
         {"type": "finding", "file": "src/cart/Discounts\\.kt", "lines": [3, 3], "any": ["UUID", "import"], "text": "Unused UUID import at Discounts.kt:3"},
         {"type": "finding", "file": "src/cart/Discounts\\.kt", "lines": [10, 10], "any": ["comment"], "text": "Comment that restates the code at Discounts.kt:10"},
-        {"type": "finding", "file": "src/cart/TextUtils\\.kt", "any": ["src/util/Text\\.kt"], "text": "shorten() duplicates truncate() and cites src/util/Text.kt"}
+        {"type": "finding", "file": "src/cart/TextUtils\\.kt", "any": ["src/util/Text\\.kt"], "text": "shorten() duplicates truncate() and cites src/util/Text.kt"},
+        {"type": "impact_count", "max": 0, "text": "No High-impact changes section"}
       ]
     },
     {
@@ -48,7 +50,8 @@
         {"type": "report_regex", "patterns": ["^- Base: feat/median \\(ancestor-branch\\)$"], "text": "Base is exactly feat/median (ancestor-branch), no stale note"},
         {"type": "no_finding", "file": "src/math/Median\\.kt", "text": "No severity finding on src/math/Median.kt (parent branch code)"},
         {"type": "no_finding", "any": ["\\beven[- ](size|length|number|count)", "two middle", "upper middle"], "text": "No severity finding about the even-size median bug"},
-        {"type": "finding", "file": "src/math/Mode\\.kt", "lines": [3, 4], "any": ["empty", "NoSuchElement"], "text": "maxBy on an empty list at Mode.kt:4"}
+        {"type": "finding", "file": "src/math/Mode\\.kt", "lines": [3, 4], "any": ["empty", "NoSuchElement"], "text": "maxBy on an empty list at Mode.kt:4"},
+        {"type": "impact_count", "max": 0, "text": "No High-impact changes section"}
       ]
     },
     {
@@ -61,7 +64,8 @@
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-chore-release-1-3-0-test-dev\\.md$", "text": "Report file is <date>-chore-release-1-3-0-test-dev.md"},
         {"type": "report_regex", "patterns": ["^\\*\\*Counts:\\*\\* 0 critical, 0 high, 0 medium"], "text": "No critical, high, or medium findings"},
         {"type": "report_regex", "patterns": ["^Simple change - no file needs special focus\\.$"], "text": "Review guide is the one-line simple-change form"},
-        {"type": "report_regex", "patterns": ["^- Base: main \\(default-branch, stale"], "text": "Base is local main with a stale note"}
+        {"type": "report_regex", "patterns": ["^- Base: main \\(default-branch, stale"], "text": "Base is local main with a stale note"},
+        {"type": "impact_count", "max": 0, "text": "No High-impact changes section"}
       ]
     },
     {
@@ -115,7 +119,8 @@
         {"type": "finding", "file": "src/cache/UserCache\\.kt", "lines": [9, 14], "severity": ["critical", "high", "medium"], "any": ["thread", "race", "HashMap", "concurren", "synchroni"], "text": "Data race on HashMap hitCounts in UserCache.kt"},
         {"type": "no_finding", "file": "src/cache/UserCache\\.kt", "lines": [13, 13], "text": "No finding on the AtomicLong counter at UserCache.kt:13"},
         {"type": "finding", "file": "src/cache/UserCache\\.kt", "lines": [16, 17], "any": ["requireNotNull", "null"], "text": "Overcautious requireNotNull at UserCache.kt:17"},
-        {"type": "finding", "file": "src/server/Server\\.kt", "lines": [24, 25], "any": ["sleep", "block", "delay"], "text": "Thread.sleep in a suspend function at Server.kt:25"}
+        {"type": "finding", "file": "src/server/Server\\.kt", "lines": [24, 25], "any": ["sleep", "block", "delay"], "text": "Thread.sleep in a suspend function at Server.kt:25"},
+        {"type": "impact_count", "max": 0, "text": "No High-impact changes section"}
       ]
     },
     {
@@ -190,6 +195,41 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh --rev", "min": 1, "text": "Runs the helper with --rev"},
         {"type": "finding", "file": "src/Search\\.kt", "lines": [5, 9], "any": ["IndexOutOfBounds", "size", "<=", "off-by-one", "bounds", "past the end"], "text": "Out-of-bounds read in Search.kt"},
         {"type": "no_finding", "file": "src/MathUtil\\.kt", "text": "No severity finding on MathUtil.kt (other commit)"}
+      ]
+    },
+    {
+      "id": 12,
+      "name": "one-way-door",
+      "fixture": "fixtures/one-way-door.sh",
+      "prompt": "/review-diff",
+      "expected_output": "High-impact: the V7 migration drops users.address, the cache key format change (one item), and the renamed stored fontSize field. The fontSize rename is also a critical or high finding, and its item cites the finding id. The nullable GraphQL field and the ProfileFormatter change are not high-impact.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-profile-v2-test-dev\\.md$", "text": "Report file is <date>-feat-profile-v2-test-dev.md"},
+        {"type": "impact_item", "any": ["V7__move_address", "DROP COLUMN", "users\\.address"], "text": "High-impact item: V7 migration drops users.address"},
+        {"type": "impact_item", "any": ["CacheKeys"], "text": "High-impact item: cache key format change"},
+        {"type": "impact_count", "any": ["CacheKeys"], "max": 1, "text": "The cache key changes are one item, not one per key"},
+        {"type": "impact_item", "all": ["Settings\\.kt|fontSize|textScale", "\\b[CH]\\d+\\b"], "text": "High-impact item: renamed stored field, cites its finding id"},
+        {"type": "finding", "file": "src/prefs/Settings\\.kt", "severity": ["critical", "high"], "any": ["fontSize", "SerialName", "migrat", "stored", "persist", "lost", "reset"], "text": "Critical/high: renamed stored field loses the saved fontSize"},
+        {"type": "no_impact_item", "any": ["schema\\.graphqls", "nickname"], "text": "No high-impact item for the nullable GraphQL field"},
+        {"type": "no_impact_item", "any": ["ProfileFormatter"], "text": "No high-impact item for the ProfileFormatter change"},
+        {"type": "no_finding", "file": "src/cache/CacheKeys\\.kt", "text": "No defect finding for the intended cache key change"},
+        {"type": "impact_count", "min": 3, "max": 4, "text": "3-4 high-impact items (cache keys are one item)"}
+      ]
+    },
+    {
+      "id": 13,
+      "name": "wide-reach",
+      "fixture": "fixtures/wide-reach.sh",
+      "prompt": "/review-diff",
+      "expected_output": "High-impact: formatPrice output change with its call-site count. Not high-impact: the cart-local CartModule and the new ellipsize() with one caller. ellipsize() is a Simplicity finding.",
+      "checks": [
+        {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-compact-prices-test-dev\\.md$", "text": "Report file is <date>-feat-compact-prices-test-dev.md"},
+        {"type": "impact_item", "all": ["formatPrice|Prices\\.kt", "\\b(1[0-9]|twelve|six|[3-9])\\b"], "text": "High-impact item: formatPrice change states its caller or module count"},
+        {"type": "no_impact_item", "any": ["CartModule"], "text": "No high-impact item for the cart-local DI module"},
+        {"type": "no_finding", "file": "core/util/Prices\\.kt", "any": ["every (caller|price|module)", "all (\\d+ )?(callers|modules|prices)", "app-wide", "\\b12\\b", "applies to"], "none": ["\\btests?\\b"], "text": "No defect finding for the intended reach of formatPrice (a missing-test finding is fine)"},
+        {"type": "no_impact_item", "any": ["ellipsize", "Strings\\.kt"], "text": "No high-impact item for ellipsize() with one caller"},
+        {"type": "finding", "any": ["ellipsize", "Strings\\.kt"], "text": "ellipsize() in the shared module with one caller is a finding"},
+        {"type": "impact_count", "min": 1, "max": 1, "text": "Exactly 1 high-impact item"}
       ]
     }
   ]

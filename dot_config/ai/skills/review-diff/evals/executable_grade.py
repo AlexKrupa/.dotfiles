@@ -61,6 +61,24 @@ def parse_findings(md):
     return findings
 
 
+def parse_impact(md):
+    """Return the numbered items under `## High-impact changes`, or None when there is no section."""
+    items, in_section = None, False
+    for line in md.splitlines():
+        if line.startswith("## "):
+            in_section = line.strip().lower() == "## high-impact changes"
+            if in_section:
+                items = []
+            continue
+        if not in_section:
+            continue
+        if re.match(r"\d+\. ", line):
+            items.append(line)
+        elif items and (line.startswith(" ") or not line.strip()):
+            items[-1] += "\n" + line
+    return items
+
+
 def block(md, finding_id):
     for f in parse_findings(md):
         if f["id"] == finding_id:
@@ -82,6 +100,8 @@ def matches(f, check):
     if check.get("any") and not any(re.search(p, f["text"], FLAGS) for p in check["any"]):
         return False
     if check.get("all") and not all(re.search(p, f["text"], FLAGS) for p in check["all"]):
+        return False
+    if any(re.search(p, f["text"], FLAGS) for p in check.get("none", [])):
         return False
     return True
 
@@ -139,6 +159,29 @@ def run_check(check, run):
         ]
         n = sum("(adjacent)" in f["head"] for f in findings)
         return not bad, f"{n} adjacent finding(s)" + (f", bad: {bad}" if bad else "")
+    if t in ("impact_item", "no_impact_item"):
+        items = parse_impact(report) or []
+        hit = [
+            i for i in items
+            if (not check.get("any") or any(re.search(p, i, FLAGS) for p in check["any"]))
+            and all(re.search(p, i, FLAGS) for p in check.get("all", []))
+        ]
+        found = hit[0].splitlines()[0] if hit else f"no match among {len(items)} item(s)"
+        return bool(hit) == (t == "impact_item"), found
+    if t == "impact_count":
+        items = parse_impact(report)
+        n = sum(1 for i in items or [] if not check.get("any") or any(re.search(p, i, FLAGS) for p in check["any"]))
+        ok = check.get("min", 0) <= n <= check.get("max", n)
+        return ok, f"{n} item(s)" + ("" if items is not None else ", no section")
+    if t == "impact_format":
+        items = parse_impact(report)
+        if items is None:
+            return True, "no section"
+        if not items:
+            return False, "empty section - omit it instead"
+        if not re.search(r"(?i)high-impact", reply):
+            return False, f"{len(items)} item(s), final reply does not list them"
+        return True, f"{len(items)} item(s), listed in the final reply"
     if t == "same_as_previous":
         old, new = block(run["previous"], check["id"]), block(report, check["id"])
         if new is None:

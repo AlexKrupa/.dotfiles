@@ -201,6 +201,9 @@ Follow the rules in `review-diff` "Final reply", with this format:
 ```markdown
 <one-line verdict: ready to push | needs your decision on N items | validation failed>
 
+High-impact changes:
+1. `<file>:<line>` - <what changes>
+
 Review guide:
 1. `<file>` - <why>
 

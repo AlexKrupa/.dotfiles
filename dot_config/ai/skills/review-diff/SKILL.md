@@ -182,15 +182,16 @@ files."
 |---|---|---|
 | defect | none | Correctness, Concurrency & data races, Error handling & edge cases, Tests, Security, Performance, Public API / contracts |
 | docs | the `docs-index.sh` output | Conventions & docs alignment, Docs & comments, Style & consistency, Dependencies |
-| structure | none | Simplicity (with its adjacent radius), Dead code, and the "Existing implementations" search |
+| structure | none | Simplicity (with its adjacent radius), Dead code, the "Existing implementations" search, and "High-impact changes" |
 
 The docs agent also returns the docs it opened, for the `Convention docs consulted:` header line.
-Only the structure agent runs the repo-wide symbol search.
+Only the structure agent runs the repo-wide symbol search. It also returns the high-impact items in
+the report item format.
 
 ### Merge
 
-1. Verify every returned finding yourself against the diff: the `file:line` exists and the claim
-   holds. Agent output is unverified. Drop what you cannot confirm.
+1. Verify every returned finding and high-impact item yourself against the diff: the `file:line`
+   exists and the claim holds. Agent output is unverified. Drop what you cannot confirm.
 2. Two findings on the same `file:line` with the same claim are one finding. Keep the higher
    severity and the clearer text.
 3. Assign ids after dedup, per "Report structure".
@@ -278,6 +279,40 @@ merge.
 
 Empty buckets are fine. Do not invent findings to fill them.
 
+## High-impact changes
+
+Findings are defects. This section is different. It names correct and intended changes that a
+reader must know about before merge, because they are hard to undo or affect many places. The
+commit messages and the diff tell you if a change is intended.
+
+An intended change is not a finding only because it is hard to undo or affects many places. Put it
+here, not under a severity. When the change also has a defect (for example, a renamed stored field
+with no migration), write the finding too, and cite its id in the item.
+
+Mark a change only when it is one of these, with its evidence:
+
+- **One-way door** - the change alters or removes data that stays after a deploy, and an undo needs
+  a migration or loses data: DB schema and migrations, serialized or stored fields, storage keys,
+  cache keys or cached formats, file formats, analytics event names, deep links, flag names, data
+  deletion. Evidence: the stored artifact and the line that writes it.
+- **Wide reach** - the change alters the behavior of an existing shared utility, base class, shared
+  DI module, or build logic that many places use. Evidence: the call-site or module count from a
+  search. Use judgment for "many". A new shared symbol with few callers is not wide reach -
+  Simplicity covers it.
+- **Contract break** - a network or schema contract (GraphQL, REST, protobuf) changes so that older
+  or newer clients cannot read it. Evidence: the contract and its consumer. A compatible change,
+  such as a new optional field, is not an item. A slow mobile release is not a reason by itself.
+
+Not an item: new tables, fields, or keys with no existing data, internal refactors, test code,
+changes behind a flag that is off, a DI module that provides only local dependencies.
+
+Be conservative. Most diffs have no item - then omit the section. The usual count is 0-3. This is
+a soft limit: write more when the diff has more independent one-way doors. Put related changes in
+one item: three cache keys that get one new format are one item.
+
+In re-review mode, copy the previous report's items. Change an item only when a modified file
+changes it.
+
 ## Review guide
 
 The guide tells a human reviewer which files to read first, and in which order. Write it after the
@@ -288,6 +323,7 @@ A focus file has one of these:
 - the core behavior change of the branch
 - a new or changed public API, schema, or contract
 - invasive or high-risk code: concurrency, security, data migration, a moved module boundary
+- a high-impact item
 - a `critical` or `high` finding
 
 Select at most 5 focus files. Order them:
@@ -348,6 +384,11 @@ risk, naming that risk's finding id, e.g. `C1`.>
 - Generated: <ISO date>
 - Convention docs consulted: <comma-separated paths | none found>
 
+## High-impact changes
+
+1. `<file>:<line>` - <what changes>
+   Impact: <why it is hard to undo or how far it reaches, with the evidence, plus finding ids>
+
 ## Review guide
 
 1. `<file>` - <why to read it, plus finding ids, e.g. "new retry logic, has `H1`">
@@ -390,8 +431,8 @@ Simplicity findings outside the diff take the `(adjacent)` suffix in the title a
 Pre-existing issues noticed but not introduced by this branch - mention, don't fix.
 ```
 
-Omit empty severity sections. Reference `file:line`, do not paste surrounding context. Snippets only
-when prose is unclear.
+Omit the High-impact changes section and empty severity sections when they have no items. Reference
+`file:line`, do not paste surrounding context. Snippets only when prose is unclear.
 
 ## Final reply
 
@@ -399,6 +440,9 @@ A caller that invoked this skill writes its own reply with the same rules.
 
 ```markdown
 <the report's TL;DR>
+
+High-impact changes:
+1. `<file>:<line>` - <what changes>
 
 Review guide:
 1. `<file>` - <why>
@@ -412,6 +456,8 @@ Review guide:
 Report: `<path>`
 ```
 
+- Copy the high-impact items, without their `Impact:` lines. Omit the block when the report has no
+  items.
 - Copy the guide's numbered list, or its one-line simple-change form. Omit the `Then:` line.
 - List all findings, one line each.
 - No counts. Add a line only when the user must act on it.
@@ -433,6 +479,9 @@ Report: `<path>`
 - Reading past one hop, or widening to the module on a branch that only edits function bodies.
 - Long code blocks in the report. Keep it scannable - TL;DR + Counts come first.
 - Filling buckets with manufactured findings.
+- A finding whose only claim is that an intended change is hard to undo or affects many places.
+  That is a high-impact item.
+- A high-impact item without its evidence, or one for a local, compatible, or easy-to-undo change.
 - Writing a finding without confirming its `file:line` and claim against the actual diff. Unverified
   findings are fabrications - drop them.
 - Dispatching review agents for a diff of 20 files or fewer, or in re-review mode. Audit it
