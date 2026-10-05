@@ -94,6 +94,7 @@ cask "zulu-jdk17"
 cask "zulu-jdk21"
 cask "zulu-jdk25"
 brew "kotlin"
+brew "JetBrains/utils/kotlin-lsp"
 # brew "jadx" # Java decompiler
 
 # Android
