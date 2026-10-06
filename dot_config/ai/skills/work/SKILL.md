@@ -97,11 +97,23 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
        - facts that this session found and the next work needs
        - the related spec and plan files that are important, and why
    - If the user selected a top branch in step 3, add `--onto <branch>`.
-7. Run the script. The prompt goes on stdin in a quoted heredoc: the user's message with no
-   changes. Do not summarize, fix, or add to the message. Ticket URLs and option words such as
-   "haiku" or "from `origin/release-1.2`" stay in the message. The slug text and the branch name
-   go in single quotes, with each `'` in the slug text replaced by a space. A ticket title can
-   contain `` ` `` or `$`, and the shell runs these in double quotes.
+7. Run the script. The prompt goes on stdin in a quoted heredoc. The prompt starts with the
+   user's message, word for word:
+   - Claude Code loads each slash command that comes after `/work` as a skill in this session. It
+     removes the skill names from `$ARGUMENTS`. If this turn loaded other skills next to `/work`,
+     write their names from the `<command-name>` tags first, in the same order, on one line with
+     spaces between them, for example `/plugin:skill-a /skill-b`. Then write
+     `$ARGUMENTS` on the same line. Do not run these skills in this session. They are for the new
+     agent.
+   - Do not summarize or fix the message. Ticket URLs and option words such as "haiku" or
+     "from `origin/release-1.2`" stay in the message.
+   - If this session found facts that the new agent needs and cannot easily get itself, for
+     example tracker data, add them after the message, after an empty line. This is not usual.
+     The user's message is the most important part of the prompt.
+
+   The slug text and the branch name go in single quotes, with each `'` in the slug text replaced
+   by a space. A ticket title can contain `` ` `` or `$`, and the shell runs these in double
+   quotes.
 
    New mode:
 
