@@ -29,7 +29,8 @@ instead of copying it.
 
 `bin/tuicr.sh` opens tuicr (https://tuicr.dev) in a split next to an agent pane and sends its
 comments to that agent while tuicr stays open. It finds the stack parent with
-`~/.config/ai/bin/git-diff-context.sh`.
+`~/.config/ai/bin/git-diff-context.sh`. Press `alt+a` again in the tuicr pane or its agent pane to
+refresh it after new commits or an amend. The refresh sends the unsent comments first.
 
 ## Setup
 
