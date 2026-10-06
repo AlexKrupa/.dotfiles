@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Usage: git-diff-context.sh [--parent-only] [parent-override]
-#        git-diff-context.sh [--parent-only] --uncommitted | --staged
-#        git-diff-context.sh [--parent-only] --uncommitted | --staged --with-branch [parent-override]
-#        git-diff-context.sh [--parent-only] --rev <rev | A..B | A...B>
+# Usage: git-diff-context.sh [--parent-only] [--fetch] [parent-override]
+#        git-diff-context.sh [--parent-only] [--fetch] --uncommitted | --staged
+#        git-diff-context.sh [--parent-only] [--fetch] --uncommitted | --staged --with-branch [parent-override]
+#        git-diff-context.sh [--parent-only] [--fetch] --rev <rev | A..B | A...B>
 # Prints the review context of a diff as a keyed text block on stdout.
 # Cheap local guards abort before any diff. --parent-only prints only the lines from
-# `scope:` to `parent-fetched:`, and skips the slow status, diffstat, and log commands.
+# `scope:` to `parent-source:`, and skips the slow status, diffstat, and log commands.
 #
 # Scopes: default - branch commits vs parent. --uncommitted - the working tree and
 # untracked files vs HEAD. --staged - the index vs HEAD. --with-branch adds the branch
@@ -17,8 +17,11 @@
 # with no arg, the parent is the nearest local branch that is a strict ancestor of
 # HEAD. If git-spice tracks the current branch, its base branch is used instead. When
 # that branch is mainline (main/master/develop or the remote default
-# branch), the remote copy is fetched (best-effort) and the remote-tracking ref is
-# the base. A stale local mainline would otherwise pollute the diff. Intermediate
+# branch), the remote-tracking ref is the base, because the local mainline can be far
+# behind. If the remote-tracking ref does not exist, the local mainline is the base.
+# The script does not fetch, because a fetch on a slow network takes seconds. The
+# diffs start at the merge base, so an older remote-tracking ref gives the same diff.
+# --fetch fetches the mainline first (best-effort). Intermediate
 # stack parents stay anchored on their local tip. With an arg, that ref is the
 # parent (validated to exist).
 #
@@ -32,10 +35,14 @@ set -euo pipefail
 die() { printf '%s\n' "$1" >&2; exit 1; }
 
 parent_only=no
-if [ "${1:-}" = --parent-only ]; then
-  parent_only=yes
-  shift
-fi
+fetch=no
+while :; do
+  case "${1:-}" in
+    --parent-only) parent_only=yes; shift ;;
+    --fetch) fetch=yes; shift ;;
+    *) break ;;
+  esac
+done
 scope=branch
 rev=""
 case "${1:-}" in
@@ -63,7 +70,6 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
 tip="$branch"
-parent_fetched=no
 
 verify_ref() {
   git rev-parse --verify --quiet "$1^{commit}" >/dev/null || die "Ref '$1' not found."
@@ -152,23 +158,22 @@ else
     [ -n "$mainline" ] \
       || die "Could not resolve parent branch (no ancestor branch, no main/master/develop)."
 
-    # A fresh remote-tracking ref keeps other people's commits out of the diff.
     remote="$(git config "branch.$mainline.remote" 2>/dev/null || true)"
     [ -n "$remote" ] || remote="$(git remote | head -1)"
     parent_source="default-branch"
-    if [ -n "$remote" ] && git fetch "$remote" "$mainline" >/dev/null 2>&1; then
-      parent="$remote/$mainline"
-      parent_fetched=yes
-    else
-      parent="$mainline"
-      parent_fetched=no
-      if [ -n "$remote" ]; then
-        printf 'warning: could not fetch %s/%s (offline?); using possibly-stale local %s\n' \
-          "$remote" "$mainline" "$mainline" >&2
-      else
-        printf 'warning: no remote for %s; using local %s (may be stale)\n' \
-          "$mainline" "$mainline" >&2
+    parent="$mainline"
+    if [ -z "$remote" ]; then
+      [ "$fetch" = no ] || printf 'warning: no remote for %s; using local %s (may be stale)\n' \
+        "$mainline" "$mainline" >&2
+    elif [ "$fetch" = no ]; then
+      if git rev-parse --verify --quiet "$remote/$mainline^{commit}" >/dev/null; then
+        parent="$remote/$mainline"
       fi
+    elif git fetch "$remote" "$mainline" >/dev/null 2>&1; then
+      parent="$remote/$mainline"
+    else
+      printf 'warning: could not fetch %s/%s (offline?); using possibly-stale local %s\n' \
+        "$remote" "$mainline" "$mainline" >&2
     fi
   fi
 fi
@@ -222,7 +227,6 @@ printf 'branch: %s\n' "$branch"
 printf 'tip: %s\n' "$tip"
 printf 'parent: %s\n' "$parent"
 printf 'parent-source: %s\n' "$parent_source"
-printf 'parent-fetched: %s\n' "$parent_fetched"
 [ "$parent_only" = no ] || exit 0
 
 status="$(git status --porcelain)"

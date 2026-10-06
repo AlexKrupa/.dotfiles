@@ -44,8 +44,10 @@ commit_file "$tmp/solo" a.txt a
 out=$(ctx "$tmp/solo")
 check "context: no remote - parent" "main" "$(key parent <<<"$out")"
 check "context: no remote - source" "default-branch" "$(key parent-source <<<"$out")"
-check "context: no remote - fetched" "no" "$(key parent-fetched <<<"$out")"
-check "context: no remote - warning" "warning: no remote for main; using local main (may be stale)" "$(cat "$tmp/stderr")"
+check "context: no remote - no warning" "" "$(cat "$tmp/stderr")"
+check "context: no parent-fetched key" "" "$(grep '^parent-fetched:' <<<"$out")"
+ctx "$tmp/solo" --fetch >/dev/null
+check "context: --fetch, no remote - warning" "warning: no remote for main; using local main (may be stale)" "$(cat "$tmp/stderr")"
 check "context: diff-command" "git diff main...HEAD" "$(key diff-command <<<"$out")"
 check "context: clean tree" "no" "$(key uncommitted <<<"$out")"
 
@@ -60,7 +62,12 @@ ctx "$tmp/solo" nope >/dev/null; code=$?
 check "context: missing override exits 1" 1 "$code"
 check "context: missing override message" "Override parent ref 'nope' not found." "$(cat "$tmp/stderr")"
 
-# Remote mainline: local main is stale, origin/main has a newer commit.
+# A remote with no remote-tracking ref: local main is the parent.
+git -C "$tmp/solo" remote add origin "$tmp/none.git"
+out=$(ctx "$tmp/solo")
+check "context: no remote ref - parent" "main" "$(key parent <<<"$out")"
+
+# Remote mainline: origin has a newer commit than origin/main.
 new_repo "$tmp/remote"
 git init -q --bare -b main "$tmp/remote.git"
 git -C "$tmp/remote" remote add origin "$tmp/remote.git"
@@ -71,10 +78,13 @@ commit_file "$tmp/other" other.txt other
 git -C "$tmp/other" push -q origin main
 git -C "$tmp/remote" switch -q -c feat/x
 commit_file "$tmp/remote" x.txt x
+old=$(git -C "$tmp/remote" rev-parse origin/main)
 out=$(ctx "$tmp/remote")
 check "context: remote - parent" "origin/main" "$(key parent <<<"$out")"
-check "context: remote - fetched" "yes" "$(key parent-fetched <<<"$out")"
-check "context: remote - fetched the new commit" "$(git -C "$tmp/other" rev-parse HEAD)" \
+check "context: remote - no fetch" "$old" "$(git -C "$tmp/remote" rev-parse origin/main)"
+out=$(ctx "$tmp/remote" --parent-only --fetch)
+check "context: --fetch - parent" "origin/main" "$(key parent <<<"$out")"
+check "context: --fetch - fetched the new commit" "$(git -C "$tmp/other" rev-parse HEAD)" \
   "$(git -C "$tmp/remote" rev-parse origin/main)"
 
 # Stack: main <- feat/a <- feat/b.

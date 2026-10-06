@@ -71,16 +71,16 @@ is unresolved - relay that message and stop.
 Parent detection (`branch` and the `branch-*` scopes, no override arg): if git-spice tracks the
 current branch, its base branch is the immediate stack parent. Else the nearest local branch that
 is a strict ancestor of HEAD is the immediate stack parent. If that branch is mainline
-(`main`/`master`/`develop` or a remote default branch), the base is mainline: the script fetches the
-remote copy (best-effort) and anchors on the remote-tracking ref (e.g. `origin/main`), so a stale
-local mainline does not pollute the diff with other people's commits. If fetch fails (offline) or
-there is no remote, it warns on stderr and falls back to the local mainline ref. An intermediate
-stack parent stays anchored on its local tip (its split point is your local tip), no fetch.
+(`main`/`master`/`develop` or a remote default branch), the base is mainline: the script anchors on
+the remote-tracking ref from the last fetch (e.g. `origin/main`), so a stale local mainline does not
+pollute the diff with other people's commits. It does not fetch. If the remote-tracking ref does
+not exist, it falls back to the local mainline ref. An intermediate stack parent stays anchored on
+its local tip (its split point is your local tip).
 
 Output keys: `scope` (`branch` | `uncommitted` | `staged` | `branch-uncommitted` | `branch-staged`
 | `rev`), `branch` (the current branch), `tip` (the branch, or the end of a `rev` range), `parent`,
 `parent-source` (`ancestor-branch` | `default-branch` | `override` | `head` | `rev`),
-`parent-fetched` (`yes`/`no`), `uncommitted` (`yes`/`no`), `log-range`, `report-prefix`,
+`uncommitted` (`yes`/`no`), `log-range`, `report-prefix`,
 `diff-command`, then `## Diffstat`, `## Commits`, `## Authors (shortlog)`, `## Uncommitted`
 (`git status --porcelain`).
 
@@ -90,9 +90,7 @@ parent drift stays out of the diff. The `uncommitted` and `staged` scopes diff a
 the uncommitted scopes, `git diff` does not show untracked files: read each `??` file from
 `## Uncommitted` in full and audit it as a new file. Count these files in the diffstat file count.
 Surface `parent` and `parent-source` in the report header, so the reader knows what the diff was
-anchored against. Add a stale-base note only when `parent-source: default-branch` and
-`parent-fetched: no` - the script fetches only a mainline base. A stack parent is a local tip, and
-an override is the caller's ref, so neither gets the note.
+anchored against.
 
 ### Project docs / conventions
 
@@ -388,7 +386,7 @@ risk, naming that risk's finding id, e.g. `C1`.>
 - Author: <name>
 - Scope: <branch | uncommitted | staged | branch + uncommitted | branch + staged | commits
   <log-range>>
-- Base: <parent> (<parent-source><, stale: local mainline not fetched - default-branch only>)
+- Base: <parent> (<parent-source>)
 - Commits: <n> Files: <n> +<add>/-<del>
 - Uncommitted: <no | yes - file1, file2>
 - Generated: <ISO date>

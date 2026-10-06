@@ -26,7 +26,7 @@
       "expected_output": "Base origin/main. Finds the off-by-one, the CONTRIBUTING.md time rule, the stale docs/pricing.md, the unused import, the what-comment, and the duplicate of util.truncate. Does not open docs/snapshot-testing.md.",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-discounts-test-dev\\.md$", "text": "Report file is <date>-feat-discounts-test-dev.md"},
-        {"type": "report_regex", "patterns": ["^- Base: origin/main \\(default-branch\\)$"], "text": "Base is exactly origin/main (default-branch), no stale note"},
+        {"type": "report_regex", "patterns": ["^- Base: origin/main \\(default-branch\\)$"], "text": "Base is exactly origin/main (default-branch)"},
         {"type": "report_regex", "patterns": ["^- Convention docs consulted: .*CONTRIBUTING\\.md", "^- Convention docs consulted: .*docs/pricing\\.md"], "text": "Convention docs line lists CONTRIBUTING.md and docs/pricing.md"},
         {"type": "report_not_regex", "patterns": ["^- Convention docs consulted: .*snapshot-testing"], "text": "Convention docs line does not list docs/snapshot-testing.md"},
         {"type": "tool_count", "tool": ".*", "input_regex": "snapshot-testing\\.md", "max": 0, "text": "Does not open docs/snapshot-testing.md"},
@@ -48,7 +48,7 @@
       "expected_output": "Parent feat/median (ancestor-branch). The median bug from feat/median is not a severity finding. Finds maxBy on an empty list.",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-mode-test-dev\\.md$", "text": "Report file is <date>-feat-mode-test-dev.md"},
-        {"type": "report_regex", "patterns": ["^- Base: feat/median \\(ancestor-branch\\)$"], "text": "Base is exactly feat/median (ancestor-branch), no stale note"},
+        {"type": "report_regex", "patterns": ["^- Base: feat/median \\(ancestor-branch\\)$"], "text": "Base is exactly feat/median (ancestor-branch)"},
         {"type": "no_finding", "file": "src/math/Median\\.kt", "text": "No severity finding on src/math/Median.kt (parent branch code)"},
         {"type": "no_finding", "any": ["\\beven[- ](size|length|number|count)", "two middle", "upper middle"], "text": "No severity finding about the even-size median bug"},
         {"type": "finding", "file": "src/math/Mode\\.kt", "lines": [3, 4], "any": ["empty", "NoSuchElement"], "text": "maxBy on an empty list at Mode.kt:4"},
@@ -60,12 +60,12 @@
       "name": "trivial-change",
       "fixture": "fixtures/trivial-change.sh",
       "prompt": "/review-diff",
-      "expected_output": "No findings. One-line simple-change guide. Stale note on the Base line (no remote).",
+      "expected_output": "No findings. One-line simple-change guide. Base is local main (no remote).",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-chore-release-1-3-0-test-dev\\.md$", "text": "Report file is <date>-chore-release-1-3-0-test-dev.md"},
         {"type": "report_regex", "patterns": ["^\\*\\*Counts:\\*\\* 0 critical, 0 high, 0 medium"], "text": "No critical, high, or medium findings"},
         {"type": "report_regex", "patterns": ["^Simple change - no file needs special focus\\.$"], "text": "Review guide is the one-line simple-change form"},
-        {"type": "report_regex", "patterns": ["^- Base: main \\(default-branch, stale"], "text": "Base is local main with a stale note"},
+        {"type": "report_regex", "patterns": ["^- Base: main \\(default-branch\\)$"], "text": "Base is exactly main (default-branch)"},
         {"type": "impact_count", "max": 0, "text": "No High-impact changes section"}
       ]
     },
@@ -133,7 +133,7 @@
       "expected_output": "Base main (override). An (adjacent) medium-or-low finding on the single-impl OrderRepository with its count. Nothing on src/storage/ (more than one hop).",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-order-notes-test-dev\\.md$", "text": "Report file is <date>-feat-order-notes-test-dev.md"},
-        {"type": "report_regex", "patterns": ["^- Base: main \\(override\\)$"], "text": "Base is exactly main (override), no stale note"},
+        {"type": "report_regex", "patterns": ["^- Base: main \\(override\\)$"], "text": "Base is exactly main (override)"},
         {"type": "finding", "file": "src/orders/OrderRepository\\.kt", "severity": ["medium", "low"], "all": ["\\(adjacent\\)", "\\b(1|one|single|only)\\b"], "text": "(adjacent) single-impl interface finding on OrderRepository.kt with its count"},
         {"type": "no_finding", "file": "src/storage/", "text": "No severity finding on src/storage/ (beyond one hop)"}
       ]
