@@ -17,16 +17,18 @@
 - Delegate to subagents only for large, parallel tracks: wide multi-file investigation, independent
   features. Not for simple work finishable in a few tool calls, never to verify your own output. One
   agent over several.
+- Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
+  capability is better than a non-functional layer.
+- Git commits: each commit is an atomic change that has value alone
 
 #### Non-Superpowers-driven plans
 
 - TDD for bugs: write a failing test first, then fix
-- Git: do not commit, push or open PRs unless requested
+- Git: commit a change only after the user approves it, in a plan or in a discussion. Do not push
+  or open PRs unless requested.
 
 #### Superpowers
 
-- Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
-  capability is better than a non-functional layer.
 - Git: make commits (vertical slices), do not mention or suggest pushing or opening PRs
 - Finishing a development branch: read `~/.claude/skills/review-me/SKILL.md` and follow it in auto
   mode in this session
