@@ -11,6 +11,7 @@
     {"id": "reply-ids", "type": "reply_lists_findings", "text": "Final reply lists every finding id of the report"},
     {"id": "reply-format", "type": "reply_not_regex", "patterns": ["\\*\\*Counts:\\*\\*", "^Then:"], "text": "Final reply has no Counts line and no `Then:` line"},
     {"id": "reply-path", "type": "reply_regex", "patterns": ["^Report: `[^`]+\\.md`"], "text": "Final reply has the `Report: <path>` line"},
+    {"id": "structure-format", "type": "structure_format", "text": "Structure section, when present, has a legend line, no code, no mixed edge marks, no text lines, at most 4 nodes in a row, and the final reply has the diagram"},
     {"id": "impact-format", "type": "impact_format", "text": "High-impact section is omitted when empty, and the final reply lists its items"},
     {"id": "writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_not_regex": "/\\.ai/[^/]+/reviews/", "max": 0, "text": "No file write except the report"},
     {"id": "git-mutations", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\s+(add|commit|push|rebase|reset|checkout|switch|stash(?!\\s+(list|show))|merge|cherry-pick|branch\\s+-[dDmM])\\b", "max": 0, "text": "No git mutation commands"},
@@ -111,6 +112,7 @@
       "prompt": "/review-diff",
       "expected_output": "No docs: `none found`. Finds SQL injection, HashMap data race, overcautious requireNotNull, Thread.sleep in a suspend function. Does not flag the parameterized query or the AtomicLong.",
       "checks": [
+        {"type": "structure_regex", "patterns": ["\\[\\+ Server\\]", "\\[\\+ UserCache\\]", "\\[\\+ UserRepo\\]", "==>|\\|\\|"], "if_present": true, "text": "If there is a diagram, it marks the 3 new classes `+` and their calls new"},
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-user-lookup-test-dev\\.md$", "text": "Report file is <date>-feat-user-lookup-test-dev.md"},
         {"type": "report_regex", "patterns": ["^- Convention docs consulted: none found$"], "text": "Convention docs line is `none found`"},
         {"type": "no_finding", "any": ["violates"], "text": "No docs-alignment finding"},
@@ -230,6 +232,64 @@
         {"type": "no_impact_item", "any": ["ellipsize", "Strings\\.kt"], "text": "No high-impact item for ellipsize() with one caller"},
         {"type": "finding", "any": ["ellipsize", "Strings\\.kt"], "text": "ellipsize() in the shared module with one caller is a finding"},
         {"type": "impact_count", "min": 1, "max": 1, "text": "Exactly 1 high-impact item"}
+      ]
+    },
+    {
+      "id": 14,
+      "name": "structure-module-deps",
+      "fixture": "fixtures/module-deps.sh",
+      "prompt": "/review-diff",
+      "expected_output": "Module diagram: new :core:payments -> :core:network, :feature:checkout -> :core:payments new, -> :core:legacy removed. No search, profile, or ui.",
+      "checks": [
+        {"type": "structure_present", "equals": true, "text": "Report has a Structure section"},
+        {"type": "structure_regex", "patterns": ["\\[\\+ :core:payments\\]", "\\[\\* :feature:checkout\\]", ":core:legacy", ":core:network", "-x->|^\\s*x\\s*$"], "text": "Diagram marks :core:payments new, :feature:checkout changed, and the removed :core:legacy edge"},
+        {"type": "structure_not_regex", "patterns": [":feature:search", ":feature:profile", ":feature:cart"], "text": "Diagram omits the unrelated feature modules"}
+      ]
+    },
+    {
+      "id": 15,
+      "name": "structure-convention-plugin",
+      "fixture": "fixtures/convention-plugin.sh",
+      "prompt": "/review-diff",
+      "expected_output": "Module diagram: the shop.feature plugin gives all 4 feature modules a new edge to the new :core:analytics.",
+      "checks": [
+        {"type": "structure_present", "equals": true, "text": "Report has a Structure section"},
+        {"type": "structure_regex", "patterns": ["\\[\\+ :core:analytics\\]", "==>|\\|\\|"], "text": "Diagram marks :core:analytics new and has new edges"},
+        {"type": "structure_regex", "patterns": ["(?i)(cart.*checkout.*search.*profile|\\b(4|four) feature)"], "text": "Diagram shows the reach: all 4 feature modules, or a 4 feature modules node"}
+      ]
+    },
+    {
+      "id": 16,
+      "name": "structure-single-module",
+      "fixture": "fixtures/single-module.sh",
+      "prompt": "/review-diff",
+      "expected_output": "No diagram: one function body in one module.",
+      "checks": [
+        {"type": "structure_present", "equals": false, "text": "No Structure section for a one-function change"}
+      ]
+    },
+    {
+      "id": 17,
+      "name": "structure-class-flow",
+      "fixture": "fixtures/class-flow.sh",
+      "prompt": "/review-diff",
+      "expected_output": "No module diagram. Class diagram: CheckoutViewModel -> CheckoutEvents -> PaymentProcessor -> PaymentGateway and PaymentStatusStore -> CheckoutViewModel.",
+      "checks": [
+        {"type": "structure_present", "equals": true, "text": "Report has a Structure section"},
+        {"type": "structure_regex", "patterns": ["CheckoutViewModel", "\\[\\+ CheckoutEvents\\]", "\\[\\+ PaymentProcessor\\]", "\\[\\+ PaymentStatusStore\\]", "PaymentGateway"], "text": "Class diagram has the 5 classes, the 3 new ones marked new"},
+        {"type": "structure_not_regex", "patterns": [":core:network", ":app\\b"], "text": "No module nodes - the branch changes no module dependency"}
+      ]
+    },
+    {
+      "id": 18,
+      "name": "structure-npm-workspaces",
+      "fixture": "fixtures/npm-workspaces.sh",
+      "prompt": "/review-diff",
+      "expected_output": "Module diagram: new @shop/auth -> @shop/shared, new edges from web and api to auth. No docs-site.",
+      "checks": [
+        {"type": "structure_present", "equals": true, "text": "Report has a Structure section"},
+        {"type": "structure_regex", "patterns": ["\\[\\+ @shop/auth\\]", "@shop/web", "@shop/api", "@shop/shared"], "text": "Diagram marks @shop/auth new and shows web, api, and shared"},
+        {"type": "structure_not_regex", "patterns": ["docs-site"], "text": "Diagram omits @shop/docs-site"}
       ]
     }
   ]

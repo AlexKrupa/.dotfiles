@@ -313,6 +313,16 @@ one item: three cache keys that get one new format are one item.
 In re-review mode, copy the previous report's items. Change an item only when a modified file
 changes it.
 
+## Structure
+
+Read `~/.claude/skills/review-diff/structure-diagram.md`. It says when to draw an ASCII diagram of
+the modules or classes that the diff changes, and how. Draw it yourself after the findings, because
+the diagram shows finding ids. Most small diffs get no diagram - then omit the section.
+
+In re-review mode, copy the previous report's diagram. Remove the finding ids that the new report
+does not have. Draw it again only when a modified file changes a module dependency or a class flow
+that the diagram shows.
+
 ## Review guide
 
 The guide tells a human reviewer which files to read first, and in which order. Write it after the
@@ -389,6 +399,14 @@ risk, naming that risk's finding id, e.g. `C1`.>
 1. `<file>:<line>` - <what changes>
    Impact: <why it is hard to undo or how far it reaches, with the evidence, plus finding ids>
 
+## Structure
+
+```
+<diagram from structure-diagram.md>
+
+<legend line>
+```
+
 ## Review guide
 
 1. `<file>` - <why to read it, plus finding ids, e.g. "new retry logic, has `H1`">
@@ -431,8 +449,9 @@ Simplicity findings outside the diff take the `(adjacent)` suffix in the title a
 Pre-existing issues noticed but not introduced by this branch - mention, don't fix.
 ```
 
-Omit the High-impact changes section and empty severity sections when they have no items. Reference
-`file:line`, do not paste surrounding context. Snippets only when prose is unclear.
+Omit the High-impact changes section, the Structure section, and empty severity sections when they
+have no items. Reference `file:line`, do not paste surrounding context. Snippets only when prose is
+unclear.
 
 ## Final reply
 
@@ -443,6 +462,10 @@ A caller that invoked this skill writes its own reply with the same rules.
 
 High-impact changes:
 1. `<file>:<line>` - <what changes>
+
+```
+<the report's Structure diagrams and legend lines>
+```
 
 Review guide:
 1. `<file>` - <why>
@@ -458,6 +481,8 @@ Report: `<path>`
 
 - Copy the high-impact items, without their `Impact:` lines. Omit the block when the report has no
   items.
+- Copy the Structure diagrams as they are. Omit the block when the report has no Structure
+  section.
 - Copy the guide's numbered list, or its one-line simple-change form. Omit the `Then:` line.
 - List all findings, one line each.
 - No counts. Add a line only when the user must act on it.
@@ -491,5 +516,7 @@ Report: `<path>`
 - Letting a review agent write the report, or dispatch its own agents.
 - Copying a returned finding into the report without verifying it against the diff.
 - Touching any file other than the report.
+- A Structure diagram with code in it (signatures, bodies, build-file lines), or a diagram for a
+  diff that changes no module dependency and no non-obvious class flow.
 - Recommending an inline/simplification that loses clarity or reuse - simpler must be clearer, not
   just fewer lines.

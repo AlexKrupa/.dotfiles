@@ -79,6 +79,16 @@ def parse_impact(md):
     return items
 
 
+def parse_structure(md):
+    """Return the text under `## Structure`, or None when there is no section."""
+    m = re.search(r"^## Structure\n(.*?)(?=^## |\Z)", md, re.MULTILINE | re.DOTALL)
+    return m.group(1) if m else None
+
+
+STRUCTURE_CODE = r"\b(fun|val|var|import|interface|suspend)\b|implementation\(|project\(|https?://|/v\d/|\w\(\w+: "
+LEGEND = r"^\s*(\+ new|\* changed|- removed|==> new|-x-> removed)(\s{2,}\S.*)?$"
+
+
 def block(md, finding_id):
     for f in parse_findings(md):
         if f["id"] == finding_id:
@@ -182,6 +192,36 @@ def run_check(check, run):
         if not re.search(r"(?i)high-impact", reply):
             return False, f"{len(items)} item(s), final reply does not list them"
         return True, f"{len(items)} item(s), listed in the final reply"
+    if t == "structure_present":
+        found = parse_structure(report) is not None
+        return found == check["equals"], "section" if found else "no section"
+    if t in ("structure_regex", "structure_not_regex"):
+        section = parse_structure(report)
+        if section is None:
+            return check.get("if_present", False), "no Structure section"
+        return harness.regex_check(check, section, t == "structure_regex")
+    if t == "structure_format":
+        section = parse_structure(report)
+        if section is None:
+            return True, "no section"
+        bad = []
+        if not re.search(LEGEND, section, re.MULTILINE):
+            bad.append("no legend line")
+        code = re.search(STRUCTURE_CODE, section)
+        if code:
+            bad.append(f"code in diagram: {code.group(0)!r}")
+        diagrams = "\n".join(re.findall(r"```\w*\n(.*?)```", section, re.DOTALL))
+        for line in diagrams.splitlines():
+            if re.search(r"--[^\s>]*==>|==[^\s>]*-->", line):
+                bad.append(f"mixed edge marks: {line.strip()[:60]!r}")
+            if re.match(r"\s*\w+ -x-> \w+", line) or re.match(r"\s*(\w+: )?([CHML]\d+ ?)+[\s|\\/^v]*$", line):
+                bad.append(f"text line in diagram: {line.strip()[:60]!r}")
+            if line.count("[") > 4:
+                bad.append(f"more than 4 nodes in a row: {line.strip()[:60]!r}")
+        lines = [l for l in re.findall(r"```\w*\n(.*?)```", section, re.DOTALL)[:1] for l in l.splitlines() if l.strip()]
+        if not lines or lines[0].strip() not in reply:
+            bad.append("final reply does not have the diagram")
+        return not bad, "ok" if not bad else "; ".join(bad)
     if t == "same_as_previous":
         old, new = block(run["previous"], check["id"]), block(report, check["id"])
         if new is None:

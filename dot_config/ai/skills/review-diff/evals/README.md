@@ -26,8 +26,15 @@ W=~/.ai/ai/evals/review-diff-workspace
 ~/.config/ai/evals/compare.py $W/iteration-1 $W/iteration-2
 ```
 
-Run the full set before and after a change to the skill, then compare the two iterations. A drop
-of one run in three can be noise. Run that eval again before you act on it.
+Each run is a full audit, so select the evals for the change:
+
+- Evals for the changed rules: 3 runs (`-n 3`). Name them on the command line.
+- Other evals, as a regression check for a change to `SKILL.md`: 1 run (`-n 1`).
+- A change only to a rules file that one step reads (e.g. `structure-diagram.md`): its evals only.
+- The full set at `-n 3`: only for a large change to the audit flow.
+
+Compare the iteration with the last one. A drop of one run in three can be noise. Run that eval
+again before you act on it.
 
 `run.py` needs `claude -p` with `--permission-mode dontAsk` and an allowlist (`ALLOWED_TOOLS`).
 Start it from your own shell, or with `!` in Claude Code.
