@@ -63,11 +63,12 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    above the current branch. If there is output, ask the user: stack on the current branch, or
    on a top branch? If there is more than one top branch, ask which. Then end the turn and
    continue after the answer.
-4. Slug text, in English words. Existing mode has no slug text and no tracker read.
+4. Slug text, in English words. The script also makes the session name from it.
    - Real ticket id: read only the ticket title, with the tracker tool from the project
      instructions. The slug text is the title. If the context has no tool that reads the tracker,
      use the placeholder rule below.
    - Placeholder id: 3 to 6 words that tell what the message asks for. Do not read the tracker.
+     Existing mode has no slug text.
    - If the tracker read fails or the ticket does not exist, stop and report it. Do not run the
      script.
 5. New and existing mode:
@@ -89,9 +90,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      word. If the message has neither word, use `continue`.
      - `fresh`: the handoff has only the stack base. Add no handoff options.
      - `continue`: add `--continue ${CLAUDE_SESSION_ID}`. If the MR URL of the current branch
-       is in this session, add `--mr <URL>`. Else the script finds it with `glab`. If the repo's
-       CLAUDE.md has a placeholder id, add `--placeholder <id>`. Write a summary of this session
-       for the new agent, 10 lines or fewer:
+       is in this session, add `--mr <URL>`. Else the script finds it with `glab`. Write a
+       summary of this session for the new agent, 10 lines or fewer:
        - the status of the current branch: done, pushed, or with open items
        - decisions, with their reasons
        - facts that this session found and the next work needs
@@ -123,9 +123,10 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    PROMPT
    ```
 
-   Add `--base <ref>` before `--` only if the user named a base. Next mode: the same command with
-   the ticket id, the slug text, and the handoff options from step 6, and no `--base` and no `--`
-   part. With `continue`, the summary goes on fd 3 in a second quoted heredoc:
+   Add `--base <ref>` before `--` only if the user named a base. In new and next mode, if the
+   repo's CLAUDE.md has a placeholder id, add `--placeholder <id>` before `--`. Next mode: the
+   same command with the ticket id, the slug text, and the handoff options from step 6, and no
+   `--base` and no `--` part. With `continue`, the summary goes on fd 3 in a second quoted heredoc:
 
    ```sh
    ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' --continue <session id> \
@@ -136,10 +137,12 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    SUMMARY
    ```
 
-   Existing mode: `--branch <name>` in place of the slug text, and no `--base`:
+   Existing mode: the slug text only if it is a ticket title, then `--branch <name>`, and no
+   `--base`:
 
    ```sh
-   ~/.claude/skills/work/work-start.sh ABC-123 --branch 'ABC-123/foo' -- --effort low <<'PROMPT'
+   ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' --branch 'ABC-123/foo' \
+     -- --effort low <<'PROMPT'
    <the user's message>
    PROMPT
    ```

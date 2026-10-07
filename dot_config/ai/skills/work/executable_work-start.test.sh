@@ -139,7 +139,7 @@ check "mode: linked worktree is next" next "$out"
 
 # New mode, default base: main after a fast-forward.
 fresh
-run 'ABC-0 fix the typo' ABC-0 'Fix README typo!'
+run 'ABC-0 fix the typo' ABC-0 'Fix README typo!' --placeholder ABC-0
 check "new: exit 0" 0 "$code"
 check "new: branch name from the slug" "ABC-0/fix-readme-typo" "$(jq -r .branch <<<"$out")"
 check "new: main is fast-forwarded to origin/main" \
@@ -154,8 +154,8 @@ check "new: git-spice tracks the branch on main" \
 check "new: worktree opened from the main checkout" \
   "herdr worktree create --cwd $work --branch ABC-0/fix-readme-typo --no-focus" \
   "$(grep '^herdr worktree create' "$MOCK_LOG")"
-check "new: agent started with no claude flags" \
-  "herdr agent start abc-0-fix-readme-typo --kind claude --pane wT:p1" \
+check "new: agent started with the slug text as session name for a placeholder ticket" \
+  "herdr agent start abc-0-fix-readme-typo --kind claude --pane wT:p1 -- --name Fix README typo!" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "new: prompt from stdin" "ABC-0 fix the typo" "$(cat "$MOCK_PROMPT")"
 check "new: output has pane, worktree, and agent" "wT:p1 /wt/path abc-0-fix-readme-typo" \
@@ -178,9 +178,9 @@ fresh
 run $'ABC-7\n\nFix `x` in "$HOME" dir' ABC-7 'Add: --base support (v2)' \
   -- --model opus --effort high
 check "flags: slug drops symbols" "ABC-7/add-base-support-v2" "$(jq -r .branch <<<"$out")"
-check "flags: claude flags passed" \
-  "herdr agent start abc-7-add-base-support-v2 --kind claude --pane wT:p1 -- --model opus \
---effort high" \
+check "flags: session name with the ticket and claude flags passed" \
+  "herdr agent start abc-7-add-base-support-v2 --kind claude --pane wT:p1 -- --name [ABC-7] Add: \
+--base support (v2) --model opus --effort high" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "flags: prompt arrives with no changes" $'ABC-7\n\nFix `x` in "$HOME" dir' \
   "$(cat "$MOCK_PROMPT")"
@@ -292,10 +292,11 @@ check "next: git-spice creates the branch" \
   "git-spice branch create ABC-2/second-part --no-commit" "$(grep '^git-spice' "$MOCK_LOG")"
 check "next: worktree now on the new branch" ABC-2/second-part \
   "$(git -C "$d/linked" branch --show-current)"
-check "next: herdr-after-turn.sh gets pane, --clear old branch, prompt, and fresh handoff" \
+check "next: herdr-after-turn.sh gets pane, --clear old branch, /rename, prompt, fresh handoff" \
   "wL:p1
 --clear
 ABC-1/old
+/rename [ABC-2] Second part
 ABC-2
 
 Fix \`x\` in \"\$HOME\"
@@ -363,7 +364,7 @@ Handoff from the previous session in this worktree:
 
 Summary of the previous session:
 Done: foo.
-Open: bar." "$(wait_next | tail -n +4)"
+Open: bar." "$(wait_next | tail -n +5)"
 check "continue: no glab call with --mr" "" "$(grep '^glab' "$MOCK_LOG")"
 
 # Next mode, continue: MR from glab, no related files.
@@ -387,6 +388,8 @@ touch "$ai/plans/2026-09-30-ABC-0-foo.md"
 HOME="$tmp/home$n" summary=s cwd="$d/linked" run p ABC-0 'Second part' \
   --continue sid-1 --placeholder ABC-0
 check "continue placeholder: exit 0" 0 "$code"
+check "continue placeholder: /rename with the slug text only" "/rename Second part" \
+  "$(wait_next | sed -n 4p)"
 check "continue placeholder: no MR line, no related files" \
   $'- Previous session: "ABC-0/old", id sid-1\n\nSummary of the previous session:\ns' \
   "$(wait_next | tail -n4)"
@@ -439,7 +442,7 @@ check "next untracked: message has the git-spice error" \
 fresh
 push_branch ABC-5/review-me
 before=$(git -C "$work" rev-parse main)
-run $'ABC-5\n\nReview it' ABC-5 --branch ABC-5/review-me
+run $'ABC-5\n\nReview it' ABC-5 'Review me' --branch ABC-5/review-me
 check "existing: exit 0" 0 "$code"
 check "existing: mode, branch, base, tracked" "existing ABC-5/review-me null false" \
   "$(jq -r '"\(.mode) \(.branch) \(.base) \(.tracked)"' <<<"$out")"
@@ -448,8 +451,8 @@ check "existing: local branch at the remote tip" \
 check "existing: worktree opened for the branch" \
   "herdr worktree create --cwd $work --branch ABC-5/review-me --no-focus" \
   "$(grep '^herdr worktree create' "$MOCK_LOG")"
-check "existing: agent started in the root pane" \
-  "herdr agent start abc-5-review-me --kind claude --pane wT:p1" \
+check "existing: agent started in the root pane, with the ticket title as session name" \
+  "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name [ABC-5] Review me" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "existing: prompt from stdin" $'ABC-5\n\nReview it' "$(cat "$MOCK_PROMPT")"
 check "existing: output has pane, worktree, and workspace" "wT:p1 /wt/path wT" \
@@ -519,8 +522,8 @@ MOCK_WT_LIST='{"result":{"worktrees":[{"branch":"ABC-5/review-me","path":"/wt/ol
 check "existing closed: exit 0" 0 "$code"
 check "existing closed: worktree opened" "herdr worktree open --cwd $work --path /wt/old --no-focus" \
   "$(grep '^herdr worktree open' "$MOCK_LOG")"
-check "existing closed: agent started in the root pane" \
-  "herdr agent start abc-5-review-me --kind claude --pane wO:p1" \
+check "existing closed: agent started in the root pane, with the branch as session name" \
+  "herdr agent start abc-5-review-me --kind claude --pane wO:p1 -- --name ABC-5/review-me" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "existing closed: output has the worktree" "/wt/old wO" \
   "$(jq -r '"\(.worktree) \(.workspace_id)"' <<<"$out")"
@@ -536,16 +539,15 @@ check "existing from linked: worktree opened from the main checkout" \
   "herdr worktree create --cwd $work --branch ABC-5/review-me --no-focus" \
   "$(grep '^herdr worktree create' "$MOCK_LOG")"
 check "existing from linked: claude flags passed" \
-  "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --effort low" \
+  "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name ABC-5/review-me \
+--effort low" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "existing from linked: linked worktree stays on its branch" ABC-1/old \
   "$(git -C "$d/linked" branch --show-current)"
 
-# Existing branch with slug text or --base.
+# Existing branch with --base.
 fresh
 push_branch ABC-5/review-me
-run p ABC-5 'Review' --branch ABC-5/review-me
-check "existing with slug text: exit 1" 1 "$code"
 run p ABC-5 --branch ABC-5/review-me --base origin/main
 check "existing with --base: exit 1" 1 "$code"
 check "existing bad options: no herdr call" "" "$(cat "$MOCK_LOG")"

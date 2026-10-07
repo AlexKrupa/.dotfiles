@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Usage: work-start.sh mode
 #        work-start.sh tops
-#        work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]
-#        work-start.sh <ticket-id> <slug-text> [--onto BRANCH] [--continue SESSION-ID [--mr URL]
-#          [--placeholder ID]]
-#        work-start.sh <ticket-id> --branch NAME [-- <claude flags>...]
+#        work-start.sh <ticket-id> <slug-text> [--base REF] [--placeholder ID]
+#          [-- <claude flags>...]
+#        work-start.sh <ticket-id> <slug-text> [--onto BRANCH] [--placeholder ID]
+#          [--continue SESSION-ID [--mr URL]]
+#        work-start.sh <ticket-id> [<title>] --branch NAME [-- <claude flags>...]
 # Starts work on a ticket. Reads the first prompt on stdin. Branch: <ticket-id>/<slug>.
+# Session name: "[<ticket-id>] <slug-text>", only "<slug-text>" for the placeholder ID. In
+# existing mode: "[<ticket-id>] <title>", or NAME with no title.
 # Mode "new" (main checkout): creates the branch from the default branch of origin (origin/HEAD)
 # after a fast-forward, or from the remote ref REF. Tracks it on the default branch with
 # git-spice. Opens it as a new herdr worktree workspace, starts Claude there, and submits the
@@ -17,7 +20,7 @@
 # has the session id, the MR of the current branch (URL, else from glab), the files in
 # ~/.ai/<repo>/{specs,plans,reviews} with the ticket key of the current branch (no search for the
 # placeholder ID), and the summary on fd 3. Then starts bin/herdr-after-turn.sh, which clears this
-# Claude session after the turn and submits the prompt.
+# Claude session after the turn, renames it, and submits the prompt.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
 # creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
 # NAME is used again. A workspace that is open already stops the script.
@@ -92,15 +95,17 @@ while (($#)); do
 done
 
 if [[ -n $existing ]]; then
-  [[ -n $ticket && -z $text && -z $base ]] \
-    || die "usage: work-start.sh <ticket-id> --branch NAME [-- <claude flags>...]"
+  [[ -n $ticket && -z $base ]] \
+    || die "usage: work-start.sh <ticket-id> [<title>] --branch NAME [-- <claude flags>...]"
   branch=$existing
+  if [[ -n $text ]]; then title="[$ticket] $text"; else title=$branch; fi
 else
   [[ -n $ticket && -n $text ]] \
     || die "usage: work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]"
   slug=$(slugify "$text" 40)
   [[ -n $slug ]] || die "slug text has no letters or digits: $text"
   branch="$ticket/$slug"
+  if [[ $ticket == "$placeholder" ]]; then title=$text; else title="[$ticket] $text"; fi
 fi
 git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "not a valid branch name: $branch"
 prompt=$(cat)
@@ -161,7 +166,8 @@ default branch."
   prompt+=$'\n\n'"$handoff"
 
   # Detached, so it lives after this turn. It waits until the turn ends.
-  nohup "$WORK_NEXT" "$pane" --clear "$old" <<<"$prompt" >>"${TMPDIR:-/tmp}/work-next.log" 2>&1 &
+  nohup "$WORK_NEXT" "$pane" --clear "$old" "/rename $title" <<<"$prompt" \
+    >>"${TMPDIR:-/tmp}/work-next.log" 2>&1 &
 
   jq -n --arg branch "$branch" --arg base "$base" --arg pane "$pane" \
     --arg worktree "$(git rev-parse --show-toplevel)" \
@@ -169,8 +175,7 @@ default branch."
       pane_id: $pane}'
   exit 0
 fi
-[[ -z $onto$session$mr$placeholder ]] \
-  || die "--onto, --continue, --mr, and --placeholder apply only in a linked worktree"
+[[ -z $onto$session$mr ]] || die "--onto, --continue, and --mr apply only in a linked worktree"
 
 origin_head() { git symbolic-ref --quiet --short refs/remotes/origin/HEAD; }
 ref=$(origin_head || { git remote set-head origin --auto >/dev/null 2>&1 && origin_head; }) \
@@ -234,8 +239,8 @@ fi
 # herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max.
 name=$(slugify "$branch" 32)
 
-start=(herdr agent start "$name" --kind claude --pane "$pane")
-((${#claude_args[@]} == 0)) || start+=(-- "${claude_args[@]}")
+start=(herdr agent start "$name" --kind claude --pane "$pane" \
+  -- --name "$title" "${claude_args[@]}")
 if ! out=$("${start[@]}" 2>&1); then
   if grep -q agent_not_ready <<<"$out"; then
     echo "work-start: agent not ready in pane $pane (branch $branch stays)" >&2
