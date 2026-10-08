@@ -1,10 +1,11 @@
 #!/bin/sh
 # tuicr in a split next to an agent pane, and its comments sent back to it.
 #
-#   tuicr.sh branch   review the branch against its stack parent, or refresh
-#                     the open `branch` pane
+#   tuicr.sh branch   review the branch against its stack parent in a zoomed
+#                     pane, or refresh the open `branch` pane
 #   tuicr.sh mr       open the tuicr target selector, for MRs and `:submit`
-#   tuicr.sh send     from a `branch` pane: send its comments to the agent
+#   tuicr.sh send     from a `branch` pane: send its comments to the agent and
+#                     unzoom the pane
 #
 # `branch` and `mr` split the focused pane. A `branch` split runs `tuicr.sh
 # pane`, which keeps the agent pane ID, the repo and its own PID in a state dir
@@ -122,9 +123,11 @@ case $1 in
       cmd="exec tuicr"
     fi
     # PATH because HERDR_PANE_CMD skips conf.d (see lazygit.sh).
-    exec herdr pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction right --focus \
+    split=$(herdr pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction right --focus \
       --cwd "${HERDR_ACTIVE_PANE_CWD:-$PWD}" --env "PATH=$PATH" \
-      --env "HERDR_PANE_CMD=$cmd" >/dev/null
+      --env "HERDR_PANE_CMD=$cmd") || exit 1
+    [ "$1" = branch ] || exit 0
+    exec herdr pane zoom "$(printf '%s' "$split" | jq -r .result.pane.pane_id)" --on >/dev/null
     ;;
 
   pane)
@@ -150,7 +153,10 @@ case $1 in
     ;;
 
   send)
-    send_comments "$(state_dir "$HERDR_ACTIVE_PANE_ID")"
+    dir=$(state_dir "$HERDR_ACTIVE_PANE_ID")
+    send_comments "$dir" || exit 1
+    [ -f "$dir/agent" ] || exit 0
+    exec herdr pane zoom "$HERDR_ACTIVE_PANE_ID" --off >/dev/null
     ;;
 
   *)

@@ -27,8 +27,9 @@ the group the pane joined or left. `bin/balance.jq` holds the tree walks, covere
 `herdr-forks-sync` rebases only the clone. Uppercase hints open the match with `bin/pluck-open`
 instead of copying it.
 
-`bin/tuicr.sh` opens tuicr (https://tuicr.dev) in a split next to an agent pane and sends its
-comments to that agent while tuicr stays open. It finds the stack parent with
+`bin/tuicr.sh` opens tuicr (https://tuicr.dev) in a zoomed split next to an agent pane and sends
+its comments to that agent while tuicr stays open. `alt+shift+a` sends the comments and unzooms the
+tuicr pane. It finds the stack parent with
 `~/.config/ai/bin/git-diff-context.sh`. Press `alt+a` again in the tuicr pane or its agent pane to
 refresh it after new commits or an amend. The refresh sends the unsent comments first.
 
