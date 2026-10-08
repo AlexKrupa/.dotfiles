@@ -22,8 +22,6 @@ urlencode_path() { jq -nRr --arg s "$1" '$s|@uri'; }
 # preflight: deterministic prereqs in fail-fast order (cheap local -> network).
 # glab/jq presence already verified by top-level preflight().
 cmd_preflight() {
-  [[ "${HERDR_ENV-}" == 1 ]] \
-    || die "not in a Herdr pane, the review needs a Herdr worktree workspace" "$E_DEP"
   glab auth status >/dev/null 2>&1 \
     || die "glab not authenticated, run: glab auth login" "$E_DEP"
   echo "ok"
