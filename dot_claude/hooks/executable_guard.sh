@@ -56,34 +56,35 @@ fi
 
 # rm: allow only targets inside the directory where the session started.
 # A target that the hook cannot resolve is blocked.
+# Return codes: 1 - outside, 2 - `~` or expansion, 3 - `cd` in command, 4 - no parent dir.
 rm_target_ok() {
   local t=$1 parent dir
-  [[ $t == *['$`']* || $t == '~'* ]] && return 1
+  [[ $t == *['$`']* || $t == '~'* ]] && return 2
   if [[ $t != /* ]]; then
     # A `cd` in the same command changes the base of relative paths.
-    [[ -n $has_cd ]] && return 1
+    [[ -n $has_cd ]] && return 3
     t=$cwd/$t
   fi
   if [[ $t == *['*?[']* ]]; then
     dir=${t%%['*?[']*}
     dir=${dir%/*}
-    dir=$(cd "${dir:-/}" 2>/dev/null && pwd -P) || return 1
+    dir=$(cd "${dir:-/}" 2>/dev/null && pwd -P) || return 4
     [[ $dir == "$project" || $dir == "$project"/* ]]
     return
   fi
   if [[ $t == */ && -d $t ]]; then
     # A trailing slash makes rm follow a symlink.
-    dir=$(cd "$t" 2>/dev/null && pwd -P) || return 1
+    dir=$(cd "$t" 2>/dev/null && pwd -P) || return 4
     [[ $dir == "$project"/* ]]
     return
   fi
   while [[ $t == */ && $t != / ]]; do t=${t%/}; done
   case ${t##*/} in
-    . | .. | '') dir=$(cd "${t:-/}" 2>/dev/null && pwd -P) || return 1 ;;
+    . | .. | '') dir=$(cd "${t:-/}" 2>/dev/null && pwd -P) || return 4 ;;
     *)
       # Resolve only the parent: `rm` removes a symlink, not its target.
       parent=${t%/*}
-      dir=$(cd "${parent:-/}" 2>/dev/null && pwd -P)/${t##*/} || return 1
+      dir=$(cd "${parent:-/}" 2>/dev/null && pwd -P)/${t##*/} || return 4
       ;;
   esac
   [[ $dir == "$project"/* ]]
@@ -108,8 +109,14 @@ if [[ -n $rm_lines ]]; then
       fi
       if [[ -n $opts && $w == -- ]]; then opts=''; continue; fi
       [[ -n $opts && $w == -* ]] && continue
-      rm_target_ok "$w" \
-        || deny "Blocked: rm on \`$w\`. Remove only paths inside $project. Use paths without \`~\`, variables, or a \`cd\` in the same command."
+      rc=0
+      rm_target_ok "$w" || rc=$?
+      case $rc in
+        1) deny "Blocked: rm on \`$w\`. The path is not inside $project." ;;
+        2) deny "Blocked: rm on \`$w\`. Use a path without \`~\`, variables, or command substitution." ;;
+        3) deny "Blocked: rm on \`$w\`. The command also uses \`cd\`. Use an absolute path." ;;
+        4) deny "Blocked: rm on \`$w\`. The parent directory does not exist." ;;
+      esac
     done
   done <<<"$rm_lines"
 fi

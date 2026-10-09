@@ -88,9 +88,7 @@
       "Read(**/.env)",
       "Read(**/.env.*)",
       "Read(~/.ssh/id_ed25519)",
-      "Read(~/.gnupg/private-keys-v1.d/**)",
-      "Edit(**/build/**)",
-      "Edit(**/generated/**)"
+      "Read(~/.gnupg/private-keys-v1.d/**)"
     ],
     "ask": [],
     "defaultMode": "auto"
@@ -110,6 +108,15 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/guard-edit.sh"
           }
         ]
       }
