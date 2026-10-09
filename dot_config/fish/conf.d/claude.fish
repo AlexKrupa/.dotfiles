@@ -163,6 +163,14 @@ function claude-upgrade --description 'Upgrade the cask, quit interactive claude
     end
     echo "New version: $outdated"
 
+    # Upgrade before quitting, so a failed upgrade leaves every session running.
+    if test $dry_run -eq 0
+        if not __claude_upgrade_cask
+            echo "claude-upgrade: not quitting sessions" >&2
+            return 1
+        end
+    end
+
     # Map pane shell pid -> pane target, once.
     set -l pane_pids
     set -l pane_targets
@@ -230,15 +238,11 @@ function claude-upgrade --description 'Upgrade the cask, quit interactive claude
 
     set -l n (count $rec_pid)
     if test $n -eq 0
-        echo "No claude sessions to quit; upgrading only."
+        echo "No claude sessions to relaunch."
         for s in $skipped
             echo "  skip: $s"
         end
-        if test $dry_run -eq 1
-            return 0
-        end
-        __claude_upgrade_cask
-        return
+        return 0
     end
 
     # List sessions: location line, then claude-info line with colored status.
@@ -278,15 +282,9 @@ function claude-upgrade --description 'Upgrade the cask, quit interactive claude
         return 0
     end
 
-    read -l -P "Upgrade, quit these $n session(s), relaunch? [y/N] " reply
+    read -l -P "Quit these $n session(s) and relaunch? [y/N] " reply
     if not string match -rqi '^y(es)?$' -- $reply
         echo "Aborted."
-        return 1
-    end
-
-    # Upgrade before quitting, so a failed upgrade leaves every session running.
-    if not __claude_upgrade_cask
-        echo "claude-upgrade: not quitting sessions" >&2
         return 1
     end
 
