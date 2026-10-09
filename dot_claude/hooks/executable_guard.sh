@@ -54,4 +54,64 @@ if grep -E "(^|$b)security$b" <<<"$segments" | grep -E "${b}dump-keychain($b|$)"
   deny "Blocked: printing all Keychain secrets. Omit \`-d\`."
 fi
 
+# rm: allow only targets inside the directory where the session started.
+# A target that the hook cannot resolve is blocked.
+rm_target_ok() {
+  local t=$1 parent dir
+  [[ $t == *['$`']* || $t == '~'* ]] && return 1
+  if [[ $t != /* ]]; then
+    # A `cd` in the same command changes the base of relative paths.
+    [[ -n $has_cd ]] && return 1
+    t=$cwd/$t
+  fi
+  if [[ $t == *['*?[']* ]]; then
+    dir=${t%%['*?[']*}
+    dir=${dir%/*}
+    dir=$(cd "${dir:-/}" 2>/dev/null && pwd -P) || return 1
+    [[ $dir == "$project" || $dir == "$project"/* ]]
+    return
+  fi
+  if [[ $t == */ && -d $t ]]; then
+    # A trailing slash makes rm follow a symlink.
+    dir=$(cd "$t" 2>/dev/null && pwd -P) || return 1
+    [[ $dir == "$project"/* ]]
+    return
+  fi
+  while [[ $t == */ && $t != / ]]; do t=${t%/}; done
+  case ${t##*/} in
+    . | .. | '') dir=$(cd "${t:-/}" 2>/dev/null && pwd -P) || return 1 ;;
+    *)
+      # Resolve only the parent: `rm` removes a symlink, not its target.
+      parent=${t%/*}
+      dir=$(cd "${parent:-/}" 2>/dev/null && pwd -P)/${t##*/} || return 1
+      ;;
+  esac
+  [[ $dir == "$project"/* ]]
+}
+
+rm_lines=$(grep -E '^[[:space:]]*(sudo[[:space:]]+)?(command[[:space:]]+)?\\?(/usr)?(/bin/)?rm([[:space:]]|$)' \
+  <<<"$segments" || true)
+if [[ -n $rm_lines ]]; then
+  project=$(cd "${CLAUDE_PROJECT_DIR:-/nonexistent}" 2>/dev/null && pwd -P) \
+    || deny "Blocked: rm. The session start directory is not known."
+  cwd=$(jq -r '.cwd // empty' <<<"$input")
+  cwd=${cwd:-$PWD}
+  has_cd=$(grep -Eq '^[[:space:]]*(cd|pushd)([[:space:]]|$)' <<<"$segments" && echo 1 || true)
+  while read -r line; do
+    read -ra words <<<"$line"
+    started='' opts=1
+    for w in "${words[@]}"; do
+      w=${w//[\'\"]/}
+      if [[ -z $started ]]; then
+        [[ ${w##*[/\\]} == rm ]] && started=1
+        continue
+      fi
+      if [[ -n $opts && $w == -- ]]; then opts=''; continue; fi
+      [[ -n $opts && $w == -* ]] && continue
+      rm_target_ok "$w" \
+        || deny "Blocked: rm on \`$w\`. Remove only paths inside $project. Use paths without \`~\`, variables, or a \`cd\` in the same command."
+    done
+  done <<<"$rm_lines"
+fi
+
 exit 0
