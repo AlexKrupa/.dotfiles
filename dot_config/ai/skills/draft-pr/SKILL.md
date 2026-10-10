@@ -73,7 +73,7 @@ example with no network, continue, and tell it in the 🧹 line. `stack restack`
 of the stack on its base. For a branch with no stack, it rebases only that branch. If it fails, for
 example on a conflict, stop. Show its output. Do not resolve the conflict.
 
-Then run `git-spice --no-prompt log short --json` again. `repo sync` can delete the lower branch
+Then run `git-spice log short --json --no-prompt` again. `repo sync` can delete the lower branch
 and move the current branch onto mainline. Then the first output is out of date.
 
 ### 3. Commit cleanup
@@ -91,9 +91,10 @@ A PR branch is always clean. Do this step with no confirmation.
    ```
 
    Give one `<repair>:<target>` for each flagged commit. The script also squashes all `fixup!` and
-   `amend!` commits. If it exits non-zero, stop. Show its output and the backup ref.
+   `amend!` commits. If it exits non-zero, stop. Show its output and the backup ref. A `fixup!`
+   commit whose target is below `parent` stays. Name it in the 🧹 line.
 4. If the script changed commits, and the object of the current branch in the second
-   `log short --json` output has `ups`, run `git-spice --no-prompt upstack restack`. Else the
+   `log short --json` output has `ups`, run `git-spice upstack restack --no-prompt`. Else the
    branches above stay on the old commits.
 
 ### 4. Analysis

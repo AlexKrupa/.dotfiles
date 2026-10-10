@@ -1,0 +1,68 @@
+{
+  "skill_name": "draft-pr",
+  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then copies the PR files from ~/.ai/<repo-slug>/prs/ to outputs/prs/, writes outputs/git-state.txt, and deletes ~/.ai/<repo-slug>/. `pr_*` checks read all PR files joined. `pr_body_*` checks read them without the frontmatter. `state_*` checks read git-state.txt: `main-head <subject>`, then for each branch except main, `branch <name>`, then `subject <s>` for each commit in main..<name>, then `ancestors <refs>`. Regexes are case-insensitive unless a check sets `case`, except `reply_*` checks. `@name` in `patterns` names a list in `pattern_sets`.",
+  "pattern_sets": {
+    "slop": ["(?i)\\brobust", "(?i)\\bleverag", "(?i)\\bgenuine", "(?i)\\bstreamlin", "(?i)\\bseamless", "(?i)worth noting", "(?i)\\bimportantly\\b", "(?i)serves as", "—", "–"]
+  },
+  "common_checks": [
+    {"id": "one-pr", "type": "pr_count", "equals": 1, "text": "Writes exactly 1 PR file to ~/.ai/<repo>/prs/"},
+    {"id": "frontmatter", "type": "pr_regex", "case": true, "patterns": ["\\A---\\n", "^type: (feature|fix|refactor|chore|docs|test|build|perf)$", "^draft: (true|false)$", "^base: \\S+$", "^breaking: (true|false)$"], "text": "Frontmatter has type, draft, base, and breaking"},
+    {"id": "title", "type": "pr_body_regex", "case": true, "patterns": ["\\A\\s*# [A-Z]"], "text": "Body starts with an H1 title"},
+    {"id": "sections", "type": "pr_body_regex", "case": true, "patterns": ["^## Context$", "^## Changes$"], "text": "Has Context and Changes"},
+    {"id": "link-text", "type": "pr_body_not_regex", "patterns": ["(?<![(<\"])https?://"], "text": "Has no bare URLs"},
+    {"id": "one-item-list", "type": "pr_body_not_regex", "case": true, "patterns": ["\\n\\n(?:[-*]|\\d+\\.) [^\\n]*(?:\\n\\n|\\n?\\Z)"], "text": "Has no list with only one item"},
+    {"id": "no-wrap", "type": "pr_body_not_regex", "case": true, "patterns": ["^ {2,}[a-z]", "[a-z,;]\\n[a-z(]"], "text": "Has no hard line breaks in paragraphs or list items"},
+    {"id": "slop", "type": "pr_not_regex", "case": true, "patterns": "@slop", "text": "Has no seeded slop words or long dashes"},
+    {"id": "no-push", "type": "tool_count", "tool": "Bash", "input_regex": "git(-spice)?[^|;&]*\\s(push|submit)\\b", "max": 0, "text": "Does not push or submit"}
+  ],
+  "evals": [
+    {
+      "id": 1,
+      "name": "small-fix",
+      "fixture": "fixtures/search-fix.sh",
+      "prompt": "/draft-pr I tested it on an emulator: a search for \"milk\" now finds the note \"Milk and eggs\".",
+      "expected_output": "A short fix PR: Context, Changes, Testing with the emulator check. No How to review, no High-impact changes, at most 1 review comment. The reply says that git-spice preparation was skipped.",
+      "checks": [
+        {"type": "repo_unchanged", "text": "The fixture repo does not change"},
+        {"type": "pr_name", "pattern": "^fix-search-case\\.md$", "text": "File name is the branch slug"},
+        {"type": "pr_regex", "case": true, "patterns": ["^type: fix$", "^draft: false$", "^base: main$", "^breaking: false$"], "text": "Metadata: fix, not draft, base main, not breaking"},
+        {"type": "pr_not_regex", "case": true, "patterns": ["^ticket:"], "text": "Has no ticket field, because there is no ticket"},
+        {"type": "pr_regex", "case": true, "patterns": ["^## Testing$", "emulator"], "text": "Testing has the emulator check from the prompt"},
+        {"type": "pr_not_regex", "case": true, "patterns": ["^#+ (How to review|High-impact changes)"], "text": "Has no review guide and no high-impact section"},
+        {"type": "pr_not_regex", "case": true, "patterns": ["(?s)^# Review comments.*?^## .*?^## "], "text": "Has at most 1 review comment"},
+        {"type": "pr_body_not_regex", "case": true, "patterns": ["\\A\\s*# .*(NoteRepository|ignoreCase)"], "text": "Title has no code names"},
+        {"type": "reply_regex", "patterns": ["🧹"], "text": "Reply has the 🧹 line"},
+        {"type": "reply_not_regex", "patterns": ["🧪", "✂", "🚧"], "text": "Reply has no manual check, split, or draft suggestion"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "ui-screenshot-test",
+      "fixture": "fixtures/settings-export-row.sh",
+      "prompt": "/draft-pr",
+      "expected_output": "A feature PR. The description does not embed the changed reference image and tells that the image diff is in the changed files. The reply has no capture suggestion.",
+      "checks": [
+        {"type": "repo_unchanged", "text": "The fixture repo does not change"},
+        {"type": "pr_regex", "case": true, "patterns": ["^type: feature$"], "text": "Type is feature"},
+        {"type": "pr_not_regex", "patterns": ["(<img|!\\[)[^\\n]*snapshots"], "text": "Does not embed the reference image"},
+        {"type": "pr_body_regex", "patterns": ["screenshot|snapshot|reference image|image diff"], "text": "Tells about the screenshot test image diff"},
+        {"type": "reply_not_regex", "patterns": ["📸"], "text": "Reply has no capture suggestion"}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "stack-fixup",
+      "fixture": "fixtures/tags-stack.sh",
+      "prompt": "/draft-pr",
+      "expected_output": "The skill syncs, restacks, squashes the fixup! commit, and restacks the upper branch. The PR for tags-model has base main and an Out of scope that names the tags in the note list.",
+      "checks": [
+        {"type": "pr_name", "pattern": "^tags-model\\.md$", "text": "File name is the branch slug"},
+        {"type": "pr_regex", "case": true, "patterns": ["^base: main$"], "text": "Base is main"},
+        {"type": "state_not_regex", "patterns": ["fixup!"], "text": "No fixup! commit is left"},
+        {"type": "state_regex", "case": true, "patterns": ["^main-head Rename README title$", "^branch tags-model\\n(subject .*\\n)+ancestors .*\\bmain\\b", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\bmain\\b", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\btags-model\\b"], "text": "main has the upstream commit, both branches contain main, and tags-in-list contains tags-model"},
+        {"type": "pr_regex", "case": true, "patterns": ["(?s)^## Out of scope$.*(note list|tags-in-list)"], "text": "Out of scope names the next branch of the stack"},
+        {"type": "reply_regex", "patterns": ["🧹"], "text": "Reply has the 🧹 line"}
+      ]
+    }
+  ]
+}
