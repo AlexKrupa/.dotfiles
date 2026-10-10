@@ -26,6 +26,20 @@ if [ "$1" = auth ]; then [ -z "${MOCK_NOAUTH:-}" ]; exit; fi
 if [ -n "${MOCK_FAIL:-}" ]; then
   case "$2" in $MOCK_FAIL) echo "$MOCK_FAIL_MSG" >&2; exit 1 ;; esac
 fi
+if [ "$2" = graphql ]; then
+  for a; do case $a in iid=*) iid=${a#iid=} ;; esac; done
+  f="$MOCK_DIR/gql_$iid.json"
+  if [ ! -f "$f" ]; then
+    echo '{"data": {"currentUser": {"username": "me"}, "project": {"mergeRequest": null}}}'; exit
+  fi
+  cat "$f"
+  # Like glab --paginate: the other pages follow the first page.
+  case " $* " in *" --paginate "*) cat "$MOCK_DIR/gql_${iid}_p"[0-9].json 2>/dev/null ;; esac
+  # Like glab: a response with errors also goes to stderr, and the exit code is 1.
+  msg=$(jq -r '[.errors[]?.message] | join("; ")' "$f")
+  if [ -n "$msg" ]; then echo "glab: $msg" >&2; exit 1; fi
+  exit
+fi
 iid=$(echo "$2" | cut -d/ -f4 | cut -d'?' -f1)
 case "$2" in
   user) f=user ;;
@@ -148,10 +162,10 @@ git -C "$d/app2" remote add origin git@gitlab.example.com:group/sub/app.git
 out=$(cd "$d/app2" && "$script" --once 2>&1); code=$?
 check "scp-style SSH remote: same project" "0 " "$code $out"
 
-# reset_mock: removes the state file and all fixtures except user and project.
+# reset_mock: removes the state files and all fixtures except user and project.
 reset_mock() {
   find "$d/mock" -name '*.json' ! -name user.json ! -name project.json -delete
-  rm -f "$state"
+  rm -f "$state" "$d"/state/watch-gitlab/app-*.json
 }
 mr() { # iid title state updated_at author branch [extra fields as a JSON object]
   local extra=${7:-}
@@ -242,6 +256,171 @@ check "network error at the start: 5 tries" 5 "$(grep -c '^api user' "$MOCK_LOG"
 check "network error at the start: message" \
   "watch-gitlab: user: dial tcp: connection refused" "$(cat "$d/err")"
 unset MOCK_FAIL MOCK_FAIL_MSG
+
+wt=$(printf %s "$d/app" | shasum | cut -c1-12)
+sstate="$d/state/watch-gitlab/app-$wt.json"
+gql() { # iid, jq filter that changes the default MR
+  jq -n --arg iid "$1" --arg u "$url/$1" '{data: {currentUser: {username: "me"},
+    project: {mergeRequest: ({iid: $iid, title: "Add foo", webUrl: $u, sourceBranch: "ABC-1/foo",
+      state: "opened", author: {username: "me"}, mergeUser: null, headPipeline: null,
+      approvedBy: {nodes: []}, detailedMergeStatus: "NOT_APPROVED", conflicts: false,
+      mergeable: false, awardEmoji: {nodes: []}, discussions: {nodes: []}} | '"${2:-.}"')}}}' \
+    >"$d/mock/gql_$1.json"
+}
+note() { # id author body [position]
+  jq -nc --argjson id "$1" --arg a "$2" --arg b "$3" --arg u "$url/5#note_$1" \
+    --argjson p "${4:-null}" \
+    '{id: "gid://gitlab/DiffNote/\($id)", body: $b, system: false, url: $u,
+      author: {username: $a}, position: $p, awardEmoji: {nodes: []}}'
+}
+thread() { # resolved, notes...
+  local r=$1; shift
+  jq -nc --argjson r "$r" '{resolvable: true, resolved: $r, notes: {nodes: $ARGS.positional}}' \
+    --jsonargs "$@"
+}
+srun() { out=$(cd "$d/app" && "$script" --once "$@" 2>"$d/err"); code=$?; err=$(cat "$d/err"); }
+sev() { # kind iid actor detail [url] [path line]
+  jq -nc --arg k "$1" --argjson i "$2" --arg a "$3" --arg dt "$4" --arg u "${5:-$url/$2}" \
+    --arg p "${6:-}" --arg l "${7:-}" \
+    '{kind: $k, iid: $i, title: "Add foo", url: $u, actor: $a, detail: $dt, branch: "ABC-1/foo"}
+     + if $p == "" then {} else {path: $p, line: ($l | tonumber)} end'
+}
+pos='{"newPath": "app/Foo.kt", "newLine": 42}'
+
+reset_mock
+gql 5
+: >"$MOCK_LOG"
+srun --mr 5
+check "stack: first check: exit 0" 0 "$code"
+check "stack: first check: no events" "" "$out"
+check "stack: own state file" yes "$([ -f "$sstate" ] && echo yes || echo no)"
+check "stack: no REST calls" "" "$(grep -v '^api graphql' "$MOCK_LOG" | grep '^api ')"
+: >"$MOCK_LOG"
+
+gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/50", status: "FAILED"}'
+srun --mr 5
+check "stack: pipeline failed" "$(sev pipeline 5 '' 'pipeline 50 failed')" "$out"
+srun --mr 5
+check "stack: same pipeline: no events" "" "$out"
+gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/51", status: "RUNNING"}'
+srun --mr 5
+check "stack: running pipeline: no events" "" "$out"
+gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/51", status: "SUCCESS"}'
+srun --mr '!5'
+check "stack: pipeline passed, iid with !" "$(sev pipeline 5 '' 'pipeline 51 passed')" "$out"
+
+gql 5 '.approvedBy.nodes = [{username: "anna"}]'
+srun --mr 5
+check "stack: approved" "$(sev approved 5 anna approved)" "$out"
+gql 5
+srun --mr 5
+check "stack: unapproved" "$(sev unapproved 5 anna 'approval removed')" "$out"
+
+gql 5 '.conflicts = true | .detailedMergeStatus = "CONFLICT"'
+srun --mr 5
+check "stack: conflict" "$(sev conflict 5 '' 'merge conflict')" "$out"
+gql 5 '.detailedMergeStatus = "CHECKING"'
+srun --mr 5
+check "stack: transient status: no events" "" "$out"
+check "stack: transient status: old conflict value stays" true \
+  "$(jq -r '.mrs["5"].conflicts' "$sstate")"
+gql 5 '.detailedMergeStatus = "MERGEABLE" | .mergeable = true
+  | .discussions.nodes = [{resolvable: true, resolved: false, notes: {nodes: []}}]'
+srun --mr 5
+check "stack: mergeable with open threads" "$(sev mergeable 5 '' 'now mergeable, 1 open thread(s)')" "$out"
+
+reset_mock
+gql 5 ".discussions.nodes = [$(thread false "$(note 100 anna old)")]"
+srun --mr 5
+check "stack: old comments of a new MR: no events" "" "$out"
+gql 5 ".discussions.nodes = [$(thread false "$(note 100 anna old)" "$(note 101 anna 'Why
+not X?' "$pos")")]"
+srun --mr 5
+check "stack: new comment and its thread" \
+  "$(sev comment 5 anna 'Why not X?' "$url/5#note_101" app/Foo.kt 42)
+$(sev unaddressed 5 anna 'Why not X?' "$url/5#note_101")" "$out"
+gql 5 ".discussions.nodes = [$(thread false "$(note 100 anna old)" "$(note 101 anna 'Why
+not X?' "$pos")" "$(note 102 me 'Because Y.')")]"
+srun --mr 5
+check "stack: own reply: no events" "" "$out"
+gql 5 ".discussions.nodes = [$(thread true "$(note 103 bob 'Done?' "$pos")"),
+  $(thread false "$(note 104 bob Typo "$pos")")]
+  | .discussions.nodes[0].notes.nodes += [{id: \"gid://gitlab/Note/105\", body: \"added 1 commit\",
+    system: true, url: \"x\", author: {username: \"anna\"}, position: null, awardEmoji: {nodes: []}}]"
+srun --mr 5
+check "stack: resolved thread and system note: no unaddressed line for them" \
+  "$(sev comment 5 bob 'Done?' "$url/5#note_103" app/Foo.kt 42)
+$(sev comment 5 bob Typo "$url/5#note_104" app/Foo.kt 42)
+$(sev unaddressed 5 bob Typo "$url/5#note_104" app/Foo.kt 42)" "$out"
+
+reset_mock
+gql 5 ".discussions.nodes = [$(thread false "$(note 110 me 'See this' "$pos")")]"
+srun --mr 5
+gql 5 ".awardEmoji.nodes = [{name: \"thumbsup\", user: {username: \"bob\"}},
+    {name: \"eyes\", user: {username: \"me\"}}]
+  | .discussions.nodes = [$(thread false "$(note 110 me 'See this' "$pos")")]
+  | .discussions.nodes[0].notes.nodes[0].awardEmoji.nodes = [{name: \"tada\", user: {username: \"anna\"}}]"
+srun --mr 5
+check "stack: reactions on the MR and on an own comment, not own reactions" \
+  "$(sev reaction 5 bob ':thumbsup: on the MR')
+$(sev reaction 5 anna ':tada: on your comment' "$url/5#note_110" app/Foo.kt 42)" "$out"
+srun --mr 5
+check "stack: same reactions: no events" "" "$out"
+
+gql 5 '.state = "merged" | .mergeUser = {username: "anna"}'
+srun --mr 5
+check "stack: merged" "$(sev merged 5 anna merged)" "$out"
+reset_mock
+gql 5
+srun --mr 5
+gql 5 '.state = "closed"'
+srun --mr 5
+check "stack: closed" "$(sev closed 5 '' closed)" "$out"
+
+reset_mock
+gql 5
+gql 6 '.iid = "6"'
+srun --mr 5 --mr 6
+gql 5 '.approvedBy.nodes = [{username: "anna"}]'
+gql 6 '.iid = "6" | .approvedBy.nodes = [{username: "bob"}]'
+srun --mr 6 --mr 5
+check "stack: two MRs in the order of the options" \
+  "$(sev approved 6 bob approved)
+$(sev approved 5 anna approved)" "$out"
+
+reset_mock
+gql 5 ".discussions.nodes = [$(thread false "$(note 120 anna old)")]"
+srun --mr 5
+jq -n --argjson t "$(thread false "$(note 121 bob 'On page 2')")" \
+  '{data: {currentUser: {username: "me"}, project: {mergeRequest: {discussions: {nodes: [$t]}}}}}' \
+  >"$d/mock/gql_5_p2.json"
+srun --mr 5
+check "stack: comment on the second page of discussions" \
+  "$(sev comment 5 bob 'On page 2' "$url/5#note_121")
+$(sev unaddressed 5 anna old "$url/5#note_120")
+$(sev unaddressed 5 bob 'On page 2' "$url/5#note_121")" "$out"
+
+srun --mr 7
+check "stack: unknown MR: exit 1" 1 "$code"
+check "stack: unknown MR: message" "watch-gitlab: MR !7 not found in group/sub/app" "$err"
+echo '{"errors": [{"message": "Field '"'"'awardEmoji'"'"' does not exist"}]}' >"$d/mock/gql_5.json"
+srun --mr 5
+check "stack: GraphQL error: exit 1" 1 "$code"
+check "stack: GraphQL error: message" \
+  "watch-gitlab: graphql: Field 'awardEmoji' does not exist" "$err"
+: >"$MOCK_LOG"
+out=$(cd "$d/app" && "$script" --mr 5 --interval 0 2>&1); code=$?
+check "stack: GraphQL error: no new try" "1 1" "$code $(grep -c '^api graphql' "$MOCK_LOG")"
+srun --mr x
+check "stack: bad MR: message" "watch-gitlab: --mr needs an MR number" "$err"
+
+gql 5
+(cd "$d/app" && exec "$script" --interval 60 >/dev/null 2>"$d/hub.err") &
+hub=$!
+lock_is "$hub"
+srun --mr 5
+check "stack and hub: hub watch still runs" yes "$(ps -p "$hub" >/dev/null && echo yes || echo no)"
+kill "$hub"; wait "$hub" 2>/dev/null
 
 out=$("$script" --repo "$d/app" --once 2>&1); code=$?
 check "--repo from a different folder: exit 0" 0 "$code"
