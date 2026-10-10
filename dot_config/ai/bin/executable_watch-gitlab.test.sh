@@ -425,6 +425,23 @@ kill "$hub"; wait "$hub" 2>/dev/null
 out=$("$script" --repo "$d/app" --once 2>&1); code=$?
 check "--repo from a different folder: exit 0" 0 "$code"
 
+reset_mock
+gql 5
+srun --mr 5
+out=$(cd "$d/app" && "$script" --mr 5 --interval 0 --deadline 1 2>&1); code=$?
+check "stack: deadline: exit 4" "4 watch-gitlab: deadline reached" "$code $out"
+
+git init -q "$d/gone"
+git -C "$d/gone" remote add origin https://gitlab.example.com/group/sub/app.git
+(cd "$d/gone" && exec "$script" --interval 1 >/dev/null 2>"$d/gone.err") &
+gone=$!
+sleep 0.5
+rm -rf "$d/gone"
+for _ in 1 2 3 4 5 6 7 8 9 10; do ps -p "$gone" >/dev/null || break; sleep 0.5; done
+wait "$gone"
+check "worktree gone: exit 1" 1 "$?"
+check "worktree gone: message" "watch-gitlab: the worktree is gone: $d/gone" "$(cat "$d/gone.err")"
+
 # The parent shell exits at once. The loop must stop after its next sleep.
 (cd "$d/app" && bash -c '"$0" --interval 1 >/dev/null 2>"$1" & echo $! >"$2"; sleep 1' \
   "$script" "$d/orphan.err" "$d/orphan.pid")

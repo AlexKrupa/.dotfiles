@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once] [--mr IID]...
+#   [--deadline EPOCH]
 # Stops at the first check with new events and prints one JSON line for each event: kind, iid,
 # title, url, actor, detail, branch. With no state file, the first check only saves the state.
 # --once: do one check, then stop.
@@ -11,7 +12,10 @@
 # line for each open thread whose last comment is not from the user.
 # A new instance stops an older instance of the same repo and mode. A stack watch has one
 # instance for each worktree.
-# Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one
+# Stack mode stops at the deadline: 09:00 local time on the day after the start, or --deadline.
+# Both modes stop when the parent process or the repo directory is gone.
+# Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one,
+# 4 deadline reached
 set -euo pipefail
 
 die() { echo "watch-gitlab: $1" >&2; exit 1; }
@@ -20,6 +24,7 @@ repo=$PWD
 interval=120
 once=0
 mrs=()
+deadline=''
 while (($#)); do
   case "$1" in
     --repo) [[ $# -ge 2 ]] || die "--repo needs a path"; repo=$2; shift 2 ;;
@@ -27,6 +32,8 @@ while (($#)); do
     --once) once=1; shift ;;
     --mr) [[ $# -ge 2 && ${2#!} =~ ^[0-9]+$ ]] || die "--mr needs an MR number"
       mrs+=("${2#!}"); shift 2 ;;
+    --deadline) [[ $# -ge 2 && $2 =~ ^[0-9]+$ ]] || die "--deadline needs epoch seconds"
+      deadline=$2; shift 2 ;;
     *) die "unexpected argument: $1" ;;
   esac
 done
@@ -43,6 +50,8 @@ key=$slug
 ((${#mrs[@]})) && key=$slug-$(printf %s "$top" | shasum | cut -c1-12)
 state=$state_dir/$key.json
 lock=$state_dir/$key.lock
+# The deadline counts from the start, because each event restarts the watch.
+if ((${#mrs[@]})) && [[ -z $deadline ]]; then deadline=$(date -v+1d -v9H -v0M -v0S +%s); fi
 mkdir -p "$state_dir"
 # A new watch replaces the old one: stop an older instance of this script that holds the lock.
 # The command check stops no different program that got the PID of a dead instance.
@@ -329,10 +338,15 @@ while :; do
     fails=$((fails + 1))
     [[ $once == 1 || $fails -ge 5 ]] && die "$(cat "$tmp/error")"
   fi
+  if [[ -n $deadline ]] && (($(date +%s) >= deadline)); then
+    echo "watch-gitlab: deadline reached" >&2
+    exit 4
+  fi
   # In the background: bash runs the TERM trap only after a foreground command ends.
   sleep "$interval" &
   sleeper=$!
   wait "$sleeper"
   sleeper=''
   parent_gone && die "the parent process is gone"
+  [[ -d $top ]] || die "the worktree is gone: $top"
 done
