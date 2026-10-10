@@ -279,34 +279,17 @@ Empty buckets are fine. Do not invent findings to fill them.
 
 ## High-impact changes
 
-Findings are defects. This section is different. It names correct and intended changes that a
-reader must know about before merge, because they are hard to undo or affect many places. The
-commit messages and the diff tell you if a change is intended.
+Read `~/.config/ai/references/review-guide.md`, section "High-impact changes". It has the criteria
+and the soft limit.
 
-An intended change is not a finding only because it is hard to undo or affects many places. Put it
-here, not under a severity. When the change also has a defect (for example, a renamed stored field
-with no migration), write the finding too, and cite its id in the item.
+Findings are defects. High-impact items are correct and intended changes. An intended change is not
+a finding only because it is hard to undo or affects many places. Put it here, not under a
+severity. When the change also has a defect (for example, a renamed stored field with no
+migration), write the finding too, and cite its id in the item.
 
-Mark a change only when it is one of these, with its evidence:
+A new shared symbol with few callers is not wide reach. Simplicity covers it.
 
-- **One-way door** - the change alters or removes data that stays after a deploy, and an undo needs
-  a migration or loses data: DB schema and migrations, serialized or stored fields, storage keys,
-  cache keys or cached formats, file formats, analytics event names, deep links, flag names, data
-  deletion. Evidence: the stored artifact and the line that writes it.
-- **Wide reach** - the change alters the behavior of an existing shared utility, base class, shared
-  DI module, or build logic that many places use. Evidence: the call-site or module count from a
-  search. Use judgment for "many". A new shared symbol with few callers is not wide reach -
-  Simplicity covers it.
-- **Contract break** - a network or schema contract (GraphQL, REST, protobuf) changes so that older
-  or newer clients cannot read it. Evidence: the contract and its consumer. A compatible change,
-  such as a new optional field, is not an item. A slow mobile release is not a reason by itself.
-
-Not an item: new tables, fields, or keys with no existing data, internal refactors, test code,
-changes behind a flag that is off, a DI module that provides only local dependencies.
-
-Be conservative. Most diffs have no item - then omit the section. The usual count is 0-3. This is
-a soft limit: write more when the diff has more independent one-way doors. Put related changes in
-one item: three cache keys that get one new format are one item.
+When the diff has no item, omit the section.
 
 In re-review mode, copy the previous report's items. Change an item only when a modified file
 changes it.
@@ -326,22 +309,11 @@ that the diagram shows.
 The guide tells a human reviewer which files to read first, and in which order. Write it after the
 findings, because findings change the order.
 
-A focus file has one of these:
+Select and order the focus files with `~/.config/ai/references/review-guide.md`, section "Focus
+files". A file with a `critical` or `high` finding is also a focus file, and it counts toward the
+limit of 5. It goes first, together with the files that have invasive or high-risk code.
 
-- the core behavior change of the branch
-- a new or changed public API, schema, or contract
-- invasive or high-risk code: concurrency, security, data migration, a moved module boundary
-- a high-impact item
-- a `critical` or `high` finding
-
-Select at most 5 focus files. Order them:
-
-1. Files with a `critical` or `high` finding, or with invasive or high-risk code.
-2. The other focus files in dependency order: types and contracts, then the logic that uses them,
-   then callers and wiring, then tests.
-
-If no file is a focus file (for example a rename, a version bump, or a one-function fix), the guide
-is one line: `Simple change - no file needs special focus.`
+For a simple change, the guide is one line: `Simple change - no file needs special focus.`
 
 In re-review mode, copy the previous report's guide. Remove the finding ids that the new report does
 not have.
