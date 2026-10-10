@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Checks hub-watch-gitlab.sh with a real git repo and a fake glab.
+# Checks watch-gitlab.sh with a real git repo and a fake glab.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
-script="$here/hub-watch-gitlab.sh"
+script="$here/watch-gitlab.sh"
 d=$(cd "$(mktemp -d)" && pwd -P) || exit 1
 trap 'rm -rf "$d"' EXIT
 fail=0
@@ -56,8 +56,8 @@ git init -q "$d/app"
 git -C "$d/app" remote add origin https://gitlab.example.com/group/sub/app.git
 echo '{"id": 1, "username": "me"}' >"$d/mock/user.json"
 echo '{"id": 7, "default_branch": "dev/x"}' >"$d/mock/project.json"
-state="$d/state/hub/app.json"
-lock="$d/state/hub/app.lock"
+state="$d/state/watch-gitlab/app.json"
+lock="$d/state/watch-gitlab/app.lock"
 url=https://gitlab.example.com/group/sub/app/-/merge_requests
 
 fixture() { printf '%s\n' "$2" >"$d/mock/$1.json"; }
@@ -91,7 +91,7 @@ export MOCK_FAIL='todos*' MOCK_FAIL_MSG='glab: 403 Forbidden (HTTP 403)'
 run
 check "HTTP 403: exit 1" 1 "$code"
 check "HTTP 403: message" \
-  "hub-watch-gitlab: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the Read permission for Todo (user boundary)." \
+  "watch-gitlab: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the Read permission for Todo (user boundary)." \
   "$err"
 
 export MOCK_FAIL_MSG='dial tcp: connection refused'
@@ -100,7 +100,7 @@ out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
 check "5 network errors: exit 1" 1 "$code"
 check "5 network errors: 5 tries" 5 "$(grep -c '^api todos' "$MOCK_LOG")"
 check "5 network errors: message" \
-  "hub-watch-gitlab: todos?project_id=7&type=MergeRequest&state=pending&per_page=100: dial tcp: connection refused" \
+  "watch-gitlab: todos?project_id=7&type=MergeRequest&state=pending&per_page=100: dial tcp: connection refused" \
   "$(cat "$d/err")"
 unset MOCK_FAIL MOCK_FAIL_MSG
 
@@ -117,7 +117,7 @@ new=$!
 (sleep 15; kill -9 "$old") 2>/dev/null &
 wait "$old"
 check "older instance: exit 3" 3 "$?"
-check "older instance: message" "hub-watch-gitlab: replaced by a new hub watch" "$(cat "$d/old.err")"
+check "older instance: message" "watch-gitlab: replaced by a new watch" "$(cat "$d/old.err")"
 lock_is "$new"
 check "new instance: lock" "$new" "$(cat "$lock" 2>/dev/null)"
 kill "$new"
@@ -140,7 +140,7 @@ export MOCK_NOAUTH=1
 run
 check "glab not authenticated: exit 1" 1 "$code"
 check "glab not authenticated: message" \
-  "hub-watch-gitlab: glab is not authenticated, run: glab auth login" "$err"
+  "watch-gitlab: glab is not authenticated, run: glab auth login" "$err"
 unset MOCK_NOAUTH
 
 git init -q "$d/app2"
@@ -334,7 +334,7 @@ export MOCK_FAIL='user' MOCK_FAIL_MSG='dial tcp: connection refused'
 out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
 check "network error at the start: 5 tries" 5 "$(grep -c '^api user' "$MOCK_LOG")"
 check "network error at the start: message" \
-  "hub-watch-gitlab: user: dial tcp: connection refused" "$(cat "$d/err")"
+  "watch-gitlab: user: dial tcp: connection refused" "$(cat "$d/err")"
 unset MOCK_FAIL MOCK_FAIL_MSG
 
 out=$("$script" --repo "$d/app" --once 2>&1); code=$?
@@ -346,12 +346,12 @@ check "--repo from a different folder: exit 0" 0 "$code"
 orphan=$(cat "$d/orphan.pid")
 for _ in 1 2 3 4 5 6 7 8 9 10; do ps -p "$orphan" >/dev/null || break; sleep 0.5; done
 check "parent gone: process stops" no "$(ps -p "$orphan" >/dev/null && echo yes || echo no)"
-check "parent gone: message" "hub-watch-gitlab: the parent process is gone" \
+check "parent gone: message" "watch-gitlab: the parent process is gone" \
   "$(cat "$d/orphan.err")"
 kill "$orphan" 2>/dev/null
 
 out=$("$script" --bogus 2>&1); code=$?
 check "unexpected argument: exit 1" 1 "$code"
-check "unexpected argument: message" "hub-watch-gitlab: unexpected argument: --bogus" "$out"
+check "unexpected argument: message" "watch-gitlab: unexpected argument: --bogus" "$out"
 
 exit $fail

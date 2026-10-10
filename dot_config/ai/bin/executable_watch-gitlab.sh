@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: hub-watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once]
+# Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once]
 # Stops at the first check with new GitLab MR events and prints one JSON line for each event:
 # kind, iid, title, url, actor, detail, branch. The default-failed event of the default branch has
 # a null iid and title. With no state file, the first check only saves the state. --once: do one
@@ -8,7 +8,7 @@
 # Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one
 set -euo pipefail
 
-die() { echo "hub-watch-gitlab: $1" >&2; exit 1; }
+die() { echo "watch-gitlab: $1" >&2; exit 1; }
 
 repo=$PWD
 interval=120
@@ -26,15 +26,15 @@ command -v glab >/dev/null || die "glab is not installed"
 command -v jq >/dev/null || die "jq is not installed"
 cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $repo"
 
-state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/hub
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab
 slug=$(~/.config/ai/bin/repo-slug.sh)
 state=$state_dir/$slug.json
 lock=$state_dir/$slug.lock
 mkdir -p "$state_dir"
-# A new hub session replaces the old one: stop an older instance of this script that holds the lock.
+# A new watch replaces the old one: stop an older instance of this script that holds the lock.
 # The command check stops no different program that got the PID of a dead instance.
 old=$(cat "$lock" 2>/dev/null || true)
-if [[ -n $old ]] && ps -o command= -p "$old" 2>/dev/null | grep -q 'hub-watch-gitlab\.sh'; then
+if [[ -n $old ]] && ps -o command= -p "$old" 2>/dev/null | grep -q 'watch-gitlab\.sh'; then
   kill "$old" 2>/dev/null || true
   for _ in {1..20}; do ps -p "$old" >/dev/null || break; sleep 0.5; done
   kill -KILL "$old" 2>/dev/null || true
@@ -49,7 +49,7 @@ cleanup() {
   if [[ $(cat "$lock" 2>/dev/null) == "$$" ]]; then rm -f "$lock"; fi
 }
 trap cleanup EXIT
-trap 'echo "hub-watch-gitlab: replaced by a new hub watch" >&2; exit 3' TERM
+trap 'echo "watch-gitlab: replaced by a new watch" >&2; exit 3' TERM
 
 # The parent of this script can be a wrapper shell that stays alive after the agent is killed,
 # so the check covers all ancestors. `ps`, not `kill -0`: `kill -0` fails on processes of root.
