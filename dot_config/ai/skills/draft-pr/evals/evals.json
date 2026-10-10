@@ -63,6 +63,19 @@
         {"type": "pr_regex", "case": true, "patterns": ["(?s)^## Out of scope$.*(note list|tags-in-list)"], "text": "Out of scope names the next branch of the stack"},
         {"type": "reply_regex", "patterns": ["🧹"], "text": "Reply has the 🧹 line"}
       ]
+    },
+    {
+      "id": 4,
+      "name": "pr-template",
+      "fixture": "fixtures/template-pr.sh",
+      "prompt": "/draft-pr I tested it on an emulator: a search for \"milk\" now finds the note \"Milk and eggs\".",
+      "expected_output": "The description uses the sections of docs/pull_request_template.md (Summary, How was this tested?, Checklist), not Context and Changes.",
+      "common_skip": ["sections"],
+      "checks": [
+        {"type": "repo_unchanged", "text": "The fixture repo does not change"},
+        {"type": "pr_body_regex", "case": true, "patterns": ["^## Summary$", "^## How was this tested\\?$"], "text": "Uses the template sections"},
+        {"type": "pr_body_not_regex", "case": true, "patterns": ["^## Context$"], "text": "Does not use the skill Context section"}
+      ]
     }
   ]
 }
