@@ -2,17 +2,18 @@
 name: hub
 description: >-
   Use when the user runs /hub in a repo's main checkout to manage the herdr worktree agents of
-  that repo, watch its GitLab MR and pipeline events, and keep the main checkout on the newest
-  commit, or asks the hub for the status of its agents.
+  that repo, watch its GitLab review requests, mentions, and default branch pipelines, and keep
+  the main checkout on the newest commit, or asks the hub for the status of its agents.
 disable-model-invocation: true
 ---
 
 # hub
 
 This session is the hub of the repo. The hub manages the Claude agents in the repo's herdr
-worktree workspaces, and tells the user about GitLab events for the MRs of the user and the
-default branch. The session runs in the main checkout, which stays on the default branch. The pull
-task keeps the checkout on the newest commit of that branch.
+worktree workspaces, and tells the user about GitLab events for MRs of other people and the
+default branch. The draft-pr watch reports the user's own MRs. The session runs in the main
+checkout, which stays on the default branch. The pull task keeps the checkout on the newest commit
+of that branch.
 
 The watch task and the pull task are background Bash tasks (`run_in_background: true`). Each task
 does one round each 120 seconds: give each script `--interval 120`.
@@ -44,8 +45,8 @@ Give the status when `/hub` starts, and each time the user asks for it.
 
 ## Watch
 
-The watch finds GitLab events for the MRs of the user and failed pipelines of the default branch,
-in the project of this repo. It gives no output while there are no events.
+The watch finds to-do items, comments on MRs of other people, and failed pipelines of the default
+branch, in the project of this repo. It gives no output while there are no events.
 
 1. After the first status report, start the watch: run
    `~/.config/ai/bin/watch-gitlab.sh --interval 120` as a background Bash task. Start it
@@ -81,8 +82,6 @@ in the project of this repo. It gives no output while there are no events.
       - If `hub-status.sh` shows an agent on `branch`, add ` (agent <pane id>)` to the header.
       - URL of a group: if the group has one event, use its `url`. Else use the `url` without
         `#note_<id>`.
-      - For a `merged` event, if `git worktree list` shows `branch`, add a line after the URL:
-        `Worktree <path> can be removed.`
       - Event sentences. Write the first letter of each sentence as a capital letter.
 
         | Event                        | Sentence                                           |
@@ -93,13 +92,10 @@ in the project of this repo. It gives no output while there are no events.
         | `todo`, `approval_required`  | `@<actor> requested your approval`                 |
         | `todo`, other `detail`       | `@<actor>: <detail>`, with `_` as a space          |
         | `note`                       | `@<actor> commented: "<detail>"`                   |
-        | `approved`                   | `@<actor> approved`                                |
-        | `unapproved`                 | `@<actor> removed the approval`                    |
-        | `merged`, `closed`           | `@<actor> <kind>`, or `<Kind>` if `actor` is empty |
         | all other kinds              | `<detail>`                                         |
 
       - Sort the groups by their most urgent event. Urgency, from high to low:
-        1. `default-failed`, failed `pipeline`, `conflict`, `unapproved`
+        1. `default-failed`
         2. `note`, `todo`
         3. All other events
    3. Start the watch again.

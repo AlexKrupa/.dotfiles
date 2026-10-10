@@ -31,8 +31,8 @@ case "$2" in
   user) f=user ;;
   projects/group%2Fsub%2Fapp) f=project ;;
   todos\?*) f=todos ;;
-  projects/7/merge_requests\?author_username=*) f=mine ;;
   users/1/events\?*) f=events ;;
+  projects/7/merge_requests\?author_username=*) echo "own MRs call: $2" >&2; exit 2 ;;
   projects/7/merge_requests\?*) f=commented ;;
   projects/7/merge_requests/*/approvals) f=approvals_$iid ;;
   projects/7/merge_requests/*/notes\?*) f=notes_$iid ;;
@@ -164,7 +164,6 @@ mr() { # iid title state updated_at author branch [extra fields as a JSON object
 
 reset_mock
 echo '{"todos": []}' >"$state"
-fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
 fixture events '[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}},
   {"project_id": 8, "note": {"noteable_type": "MergeRequest", "noteable_iid": 4}},
   {"project_id": 7, "note": {"noteable_type": "Issue", "noteable_iid": 3}}]'
@@ -186,14 +185,9 @@ check "new note from a different user" \
   '{"kind":"note","iid":9,"title":"Fix bar","url":"'"$url"'/9#note_101","actor":"anna","detail":"Please rename this","branch":"ABC-2/bar"}' \
   "$out"
 
-fixture mine "[$(mr 5 'Add foo' opened t2 me ABC-1/foo)]"
-fixture notes_5 '[{"id": 103, "system": false, "body": "done", "author": {"username": "me"}}]'
-run
-check "own note: no events" "" "$out"
-
 long=$(printf 'x%.0s' $(seq 300))
-fixture mine "[$(mr 5 'Add foo' opened t3 me ABC-1/foo)]"
-fixture notes_5 '[{"id": 104, "system": false, "body": "'"$long"'",
+fixture commented "[$(mr 9 'Fix bar' merged t3 bob ABC-2/bar)]"
+fixture notes_9 '[{"id": 104, "system": false, "body": "'"$long"'",
   "author": {"username": "anna"}}]'
 run
 check "long note: one line" 1 "$(printf %s "$out" | grep -c "")"
@@ -203,110 +197,22 @@ check "long note: detail has 100 characters" 100 "$(jq -r '.detail | length' <<<
 run
 check "same updated_at: no notes call" "" "$(grep '/notes' "$MOCK_LOG")"
 
-ev() { # kind iid title actor detail branch
-  jq -nc --arg k "$1" --argjson i "$2" --arg t "$3" --arg a "$4" --arg dt "$5" --arg b "$6" \
-    --arg u "$url/$2" \
-    '{kind: $k, iid: $i, title: $t, url: $u, actor: $a, detail: $dt, branch: $b}'
-}
+fixture events '[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}},
+  {"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 5}}]'
+fixture commented "[$(mr 9 'Fix bar' merged t3 bob ABC-2/bar), $(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
+run
+fixture commented "[$(mr 9 'Fix bar' merged t3 bob ABC-2/bar), $(mr 5 'Add foo' opened t2 me ABC-1/foo)]"
+fixture notes_5 '[{"id": 105, "system": false, "body": "Why?", "author": {"username": "anna"}}]'
+run
+check "note on an own MR: no events" "" "$out"
+check "own MRs: no own MRs call" "" "$(grep 'own MRs call' "$d/err")"
 
-reset_mock
-fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
-fixture mr_5 '{"iid": 5, "head_pipeline": {"id": 50, "status": "running"}}'
-fixture approvals_5 '{"approved_by": []}'
+fixture todos '[{"id": 13, "action_name": "mentioned", "author": {"username": "anna"},
+  "target": {"iid": 5, "title": "Add foo", "source_branch": "ABC-1/foo",
+    "author": {"username": "me"}},
+  "target_url": "'"$url"'/5"}]'
 run
-check "MR state: first check has no events" "" "$out"
-
-fixture mr_5 '{"iid": 5, "head_pipeline": {"id": 50, "status": "success"}}'
-run
-check "pipeline passed" "$(ev pipeline 5 'Add foo' '' 'pipeline 50 passed' ABC-1/foo)" "$out"
-run
-check "same pipeline: no events" "" "$out"
-
-fixture approvals_5 '{"approved_by": [{"user": {"username": "anna"}}]}'
-run
-check "approval added" "$(ev approved 5 'Add foo' anna approved ABC-1/foo)" "$out"
-fixture approvals_5 '{"approved_by": []}'
-run
-check "approval removed" "$(ev unapproved 5 'Add foo' anna 'approval removed' ABC-1/foo)" "$out"
-
-fixture approvals_5 '{"approved_by": [{"user": {"username": "anna"}}]}'
-run
-fixture mine "[$(mr 5 'Add foo' merged t2 me ABC-1/foo '{"merge_user": {"username": "anna"}}')]"
-run
-check "merged by a different user: one event, no approval event" \
-  "$(ev merged 5 'Add foo' anna merged ABC-1/foo)" "$out"
-
-reset_mock
-fixture mine "[$(mr 6 'Add baz' opened t1 me ABC-3/baz)]"
-fixture mr_6 '{"iid": 6, "head_pipeline": null}'
-fixture approvals_6 '{"approved_by": []}'
-run
-fixture mine "[$(mr 6 'Add baz' merged t2 me ABC-3/baz '{"merge_user": {"username": "me"}}')]"
-run
-check "merged by the user: no events" "" "$out"
-
-reset_mock
-fixture mine "[$(mr 6 'Add baz' opened t1 me ABC-3/baz)]"
-run
-fixture mine "[$(mr 6 'Add baz' closed t2 me ABC-3/baz '{"closed_by": {"username": "bob"}}')]"
-run
-check "closed by a different user" "$(ev closed 6 'Add baz' bob closed ABC-3/baz)" "$out"
-
-reset_mock
-fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
-fixture mr_5 '{"iid": 5, "head_pipeline": {"id": 50, "status": "running"}}'
-run
-fixture mr_5 '{"iid": 5, "head_pipeline": {"id": 50, "status": "failed"}}'
-run
-check "pipeline failed" "$(ev pipeline 5 'Add foo' '' 'pipeline 50 failed' ABC-1/foo)" "$out"
-
-merge_mr() { # merge status, pipeline status, approver or ''
-  fixture mr_5 "$(jq -nc --arg m "$1" --arg p "$2" \
-    '{iid: 5, detailed_merge_status: $m, head_pipeline: {id: 50, status: $p}}')"
-  fixture approvals_5 "$(jq -nc --arg a "$3" \
-    '{approved_by: [$a | select(. != "") | {user: {username: .}}]}')"
-}
-reset_mock
-fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
-merge_mr not_approved running ''
-run
-merge_mr checking success anna
-run
-check "transient merge status: approval and pipeline events" \
-  "$(ev pipeline 5 'Add foo' '' 'pipeline 50 passed' ABC-1/foo)
-$(ev approved 5 'Add foo' anna approved ABC-1/foo)" "$out"
-check "transient merge status: old status stays" not_approved \
-  "$(jq -r '.mrs["5"].merge_status' "$state")"
-merge_mr mergeable success anna
-run
-check "mergeable after a transient status" \
-  "$(ev mergeable 5 'Add foo' '' 'now mergeable' ABC-1/foo)" "$out"
-
-reset_mock
-fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
-merge_mr not_approved running ''
-run
-merge_mr mergeable success anna
-run
-check "mergeable in the same check as approval and pipeline: one event" \
-  "$(ev mergeable 5 'Add foo' anna 'approved by @anna, pipeline 50 passed, now mergeable' ABC-1/foo)" \
-  "$out"
-merge_mr conflict success anna
-run
-check "merge conflict" "$(ev conflict 5 'Add foo' '' 'merge conflict' ABC-1/foo)" "$out"
-merge_mr need_rebase success anna
-run
-check "needs rebase" "$(ev conflict 5 'Add foo' '' 'needs rebase' ABC-1/foo)" "$out"
-run
-check "same merge status: no events" "" "$out"
-
-reset_mock
-fixture mine "[$(mr 5 'Add foo' opened t1 me ABC-1/foo)]"
-merge_mr mergeable success ''
-echo '{"todos": [], "mrs": {"5": {"updated_at": "t1", "state": "opened", "last_note_id": 0,
-  "pipeline": {"id": 50, "status": "success"}, "approved_by": []}}}' >"$state"
-run
-check "state with no merge status: no events" "" "$out"
+check "to-do item on an own MR: no events" "" "$out"
 
 pipelines="$(dirname "$url")/pipelines"
 reset_mock

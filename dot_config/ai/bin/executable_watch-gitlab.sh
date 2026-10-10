@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once]
-# Stops at the first check with new GitLab MR events and prints one JSON line for each event:
-# kind, iid, title, url, actor, detail, branch. The default-failed event of the default branch has
-# a null iid and title. With no state file, the first check only saves the state. --once: do one
-# check, then stop.
+# Stops at the first check with new events and prints one JSON line for each event: kind, iid,
+# title, url, actor, detail, branch. The default-failed event of the default branch has a null iid
+# and title. With no state file, the first check only saves the state. --once: do one check, then
+# stop.
+# Hub mode watches to-do items, comments on MRs of other people, and the default branch.
 # A new instance stops an older instance of the same repo.
 # Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one
 set -euo pipefail
@@ -98,72 +99,33 @@ pid=''
 
 PROGRAM=$(cat <<'JQ'
 def by_iid: map({key: (.iid | tostring), value: .}) | from_entries;
-def event($kind; $mr; $actor; $detail; $url):
-  {kind: $kind, iid: $mr.iid, title: $mr.title, url: $url, actor: $actor, detail: $detail,
-   branch: $mr.source_branch};
 
-$old[0] as $old | $todos[0] as $todos | ($watched[0] | by_iid) as $by
-| ($open | by_iid) as $open_by
+$old[0] as $old | $todos[0] as $todos
+| ($watched[0] | map(select(.author.username != $me)) | by_iid) as $by
 | ($notes | map({key: (.iid | tostring), value: .notes}) | from_entries) as $notes_by
 | ($default[0][0] | if . then {id, status} else null end) as $default_pipeline
 | ($by | with_entries(.key as $k | ($old.mrs[$k] // {}) as $o | .value |= {
-    updated_at, state,
-    last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max),
-    pipeline: $open_by[$k].pipeline,
-    approved_by: ($open_by[$k].approved_by // []),
-    # GitLab computes the merge status async: a transient status keeps the last stable status.
-    merge_status: ($open_by[$k].merge_status
-      | if . == null or IN("checking", "unchecked", "preparing", "approvals_syncing")
-        then $o.merge_status else . end)
+    updated_at,
+    last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max)
   })) as $mrs
 | {
     state: {todos: [$todos[].id], mrs: $mrs, default_pipeline: $default_pipeline},
     events: (if $old == null then [] else [
       ($todos[] | select(.id as $id | $old.todos | any(. == $id) | not)
-        | select(.action_name == "assigned" and .target.author.username == $me | not)
+        | select(.target.author.username != $me)
         | {kind: "todo", iid: .target.iid, title: .target.title, url: .target_url,
            actor: .author.username, detail: .action_name, branch: .target.source_branch}),
       ($default[0][0] | select($old | has("default_pipeline"))
         | select(. != null and .id != $old.default_pipeline.id and .status == "failed")
         | {kind: "default-failed", iid: null, title: null, url: .web_url, actor: "",
            detail: "pipeline \(.id) failed", branch: $default_branch}),
-      ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k] as $o | $mrs[$k] as $n
+      ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k] as $o
         | select($o != null)
-        | ((($notes_by[$k] // [])[]
-             | select(.id > $o.last_note_id and (.system | not) and .author.username != $me)
-             | event("note"; $mr; .author.username; (.body | gsub("\\s+"; " ") | .[0:100]);
-                 "\($mr.web_url)#note_\(.id)")),
-           (select($mr.author.username == $me and $mr.state == "opened")
-             | ($n.pipeline != $o.pipeline) as $new_pipeline
-             | ($new_pipeline and $n.pipeline.status == "success") as $passed
-             | ($n.approved_by - ($o.approved_by // [])) as $added
-             | (($o | has("merge_status")) and $n.merge_status != $o.merge_status) as $merge_changed
-             | ($merge_changed and $n.merge_status == "mergeable") as $mergeable
-             | (select($new_pipeline and $n.pipeline.status == "failed")
-                 | event("pipeline"; $mr; ""; "pipeline \($n.pipeline.id) failed"; $mr.web_url)),
-               # A new mergeable status holds the approvals and the passed pipeline of this check.
-               (select($mergeable | not)
-                 | (select($passed)
-                     | event("pipeline"; $mr; ""; "pipeline \($n.pipeline.id) passed";
-                         $mr.web_url)),
-                   ($added[] | event("approved"; $mr; .; "approved"; $mr.web_url))),
-               (select($mergeable)
-                 | event("mergeable"; $mr; $added[0] // "";
-                     [(select($added != []) | "approved by \($added | map("@" + .) | join(", "))"),
-                      (select($passed) | "pipeline \($n.pipeline.id) passed"), "now mergeable"]
-                     | join(", "); $mr.web_url)),
-               (select($merge_changed and ($n.merge_status | IN("conflict", "need_rebase")))
-                 | event("conflict"; $mr; "";
-                     if $n.merge_status == "conflict" then "merge conflict" else "needs rebase" end;
-                     $mr.web_url)),
-               ((($o.approved_by // []) - $n.approved_by)[]
-                 | event("unapproved"; $mr; .; "approval removed"; $mr.web_url))),
-           (select($mr.author.username == $me and $o.state == "opened"
-               and ($mr.state == "merged" or $mr.state == "closed"))
-             | ((if $mr.state == "merged" then $mr.merge_user // $mr.merged_by
-                 else $mr.closed_by end) | .username // "") as $actor
-             | select($actor != $me)
-             | event($mr.state; $mr; $actor; $mr.state; $mr.web_url))))
+        | ($notes_by[$k] // [])[]
+        | select(.id > $o.last_note_id and (.system | not) and .author.username != $me)
+        | {kind: "note", iid: $mr.iid, title: $mr.title, url: "\($mr.web_url)#note_\(.id)",
+           actor: .author.username, detail: (.body | gsub("\\s+"; " ") | .[0:100]),
+           branch: $mr.source_branch})
     ] end)
   }
 JQ
@@ -184,8 +146,6 @@ check() {
   since=$(jq -nr 'now | floor - 14 * 86400 | todate')
   api "todos?project_id=$pid&type=MergeRequest&state=pending&per_page=100" >"$tmp/todos.json" \
     || return
-  api "projects/$pid/merge_requests?author_username=$me&state=all&updated_after=$since&per_page=100" \
-    >"$tmp/mine.json" || return
   api "users/$me_id/events?target_type=note&after=${since%%T*}&per_page=100" \
     >"$tmp/events.json" || return
   iids=$(jq -r --argjson pid "$pid" '[.[] | select(.project_id == $pid
@@ -196,7 +156,7 @@ check() {
     api "projects/$pid/merge_requests?state=all&$iids&per_page=100" >"$tmp/commented.json" \
       || return
   fi
-  jq -s 'add | unique_by(.iid)' "$tmp/mine.json" "$tmp/commented.json" >"$tmp/watched.json"
+  cp "$tmp/commented.json" "$tmp/watched.json"
   # Only MRs with a changed updated_at get a notes call: a new note changes updated_at.
   : >"$tmp/notes.jsonl"
   for iid in $(jq -r --slurpfile old "$old" \
@@ -206,21 +166,11 @@ check() {
       >"$tmp/notes.json" || return
     jq -c --argjson iid "$iid" '{iid: $iid, notes: .}' "$tmp/notes.json" >>"$tmp/notes.jsonl"
   done
-  # Pipeline and approval changes do not change updated_at.
-  : >"$tmp/open.jsonl"
-  for iid in $(jq -r '.[] | select(.state == "opened") | .iid' "$tmp/mine.json"); do
-    api "projects/$pid/merge_requests/$iid" >"$tmp/mr.json" || return
-    api "projects/$pid/merge_requests/$iid/approvals" >"$tmp/approvals.json" || return
-    jq -c --argjson iid "$iid" --slurpfile a "$tmp/approvals.json" \
-      '{iid: $iid, pipeline: (.head_pipeline | if . then {id, status} else null end),
-        approved_by: [$a[0].approved_by[].user.username], merge_status: .detailed_merge_status}' \
-      "$tmp/mr.json" >>"$tmp/open.jsonl"
-  done
   api "projects/$pid/pipelines?ref=$default_ref&scope=finished&per_page=1" >"$tmp/default.json" \
     || return
   jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
       --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
-      --slurpfile open "$tmp/open.jsonl" --slurpfile default "$tmp/default.json" \
+      --slurpfile default "$tmp/default.json" \
       --arg me "$me" --arg default_branch "$default_branch" "$PROGRAM" >"$tmp/result.json" \
     || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
   jq '.state' "$tmp/result.json" >"$state.tmp" && mv "$state.tmp" "$state"
