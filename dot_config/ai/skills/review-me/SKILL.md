@@ -123,7 +123,7 @@ mode, skip the rest of this section.
 Only with the helper:
 
 ```
-~/.claude/skills/review-me/git-squash-fixups.sh <parent> [<repair>:<target>...]
+~/.config/ai/bin/git-squash-fixups.sh <parent> [<repair>:<target>...]
 ```
 
 - Give one squash for each item that the user confirmed. Each squash is `<repair>:<target>`. The
