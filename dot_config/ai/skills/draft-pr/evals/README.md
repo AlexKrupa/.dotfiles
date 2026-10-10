@@ -1,8 +1,8 @@
 # draft-pr evals
 
 Regression evals for the `draft-pr` skill. Each eval builds a small notes-app repo, runs
-`/draft-pr` in it with headless `claude -p`, and grades the PR file, the branch state, the final
-reply, and the transcript with fixed checks.
+`/draft-pr` in it with headless `claude -p`, and grades the PR file, the branch state, the reply
+of the first turn, and the transcript with fixed checks.
 
 ## Files
 

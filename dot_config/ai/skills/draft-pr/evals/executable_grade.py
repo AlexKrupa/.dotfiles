@@ -5,8 +5,9 @@ Usage: grade.py <iteration-dir>
 
 Reads each <iteration-dir>/eval-<name>/<config>/run-<k>/ and writes grading.json there. A run dir
 has: outputs/prs/*.md (the PR files), outputs/git-state.txt, outputs/branch-log.txt,
-outputs/final_reply.md, transcript.jsonl, and repo-diff.txt. A `patterns` or `input_regex` value
-that starts with `@` names a list in `pattern_sets`.
+outputs/final_reply.md, transcript.jsonl, and repo-diff.txt. `reply_*` checks read the reply of
+the first turn in transcript.jsonl. A `patterns` or `input_regex` value that starts with `@` names
+a list in `pattern_sets`.
 """
 import json
 import re
@@ -58,11 +59,20 @@ def regex(check, text, positive):
     return not hit, "no pattern matches" if not hit else f"matched: {found}"
 
 
+def first_reply(run_dir):
+    """`claude -p` adds a turn when a background task stops. The skill reply is the first turn."""
+    for event in harness.load_transcript(run_dir):
+        if event.get("type") == "result":
+            return event.get("result", "")
+    return ""
+
+
 def load_run(run_dir):
     state = run_dir / "outputs" / "git-state.txt"
     log = run_dir / "outputs" / "branch-log.txt"
     return {
         **harness.load_common(run_dir),
+        "reply": first_reply(run_dir),
         "prs": sorted((run_dir / "outputs" / "prs").glob("*.md")),
         "state": state.read_text() if state.exists() else "",
         "log": log.read_text() if log.exists() else "",
