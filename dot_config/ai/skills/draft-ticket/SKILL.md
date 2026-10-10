@@ -12,7 +12,8 @@ argument-hint: "<what the ticket is about>"
 
 Writes one ticket draft as a Markdown file. The file is input for a later step: a person or another
 skill copies it, translates it, or publishes it to an issue tracker. This skill does not know the
-tracker and does not publish.
+tracker and does not publish. After the publish, the caller can give the real ticket id. Then this
+skill puts the real id in place of the placeholder id (see "Real ticket id").
 
 ## Output rules
 
@@ -129,3 +130,37 @@ Sections that more than one type uses:
 
 6. Show the path and the full content of the file. When the user asks for changes, edit the same
    file.
+
+## Real ticket id
+
+Conditions for these steps:
+
+- The caller gives the real id of the ticket that you wrote.
+- The name of the current branch starts with the placeholder ticket id and `/`, for example
+  `ABC-0/`. The project instructions give the placeholder id.
+
+If the two conditions are true, do these steps. Do not ask before you start.
+
+1. Select the branches. The current branch is always one of them. You can add a branch below it
+   in the git-spice stack (`git-spice log short --json`). If its name also starts with the
+   placeholder id and its commits were a source of the ticket, add it.
+2. Run the script. It renames the branches, puts the id in the commit messages and in the lines
+   that the branches added, and renames the herdr workspace and the Claude session. Put the
+   ticket title in single quotes, with each `'` replaced by a space.
+
+   ```sh
+   ~/.config/ai/bin/ticket-id-rename.sh <placeholder> <ticket-id> <branch>... --title '<title>'
+   ```
+
+3. Exit `2`: the branches are pushed. Each `pushed:` line gives a branch and its upstream. If
+   git-spice knows the MR of the branch, the line also gives the MR URL. Look for an open MR in
+   the line, or with the code host tool from the project instructions.
+   - If a branch has an open MR, stop and ask the user. After a rename, the MR stays on the old
+     remote branch.
+   - If no branch has an open MR, run the same command again with `--push`.
+   - If you cannot find out, ask the user.
+4. Exit `1` or `3`: show the stderr text to the user, word for word, and stop.
+5. Rename each file in `~/.ai/<repo>/{specs,plans,reviews}` that this session read or wrote and
+   that has the placeholder id in its name. Put the real id in place of the placeholder id.
+6. Show the output lines of the script and the renamed files. If a line starts with
+   `session: manual`, tell the user to type the command in that line.

@@ -3,7 +3,7 @@
 # Runs detached after a Claude turn. Waits until the Claude agent in <pane> ends its turn. With
 # --clear, clears the session with /clear <name>: the old conversation gets <name> as its title in
 # the /resume list. Then submits each command, then the prompt. A command is a slash command that
-# makes no agent turn, for example "/effort medium".
+# makes no agent turn, for example "/effort medium". With a command, the prompt can be empty.
 # Exit codes: 0 ok, 1 error
 set -euo pipefail
 
@@ -20,7 +20,7 @@ if [[ ${1:-} == --clear ]]; then
   shift 2
 fi
 prompt=$(cat)
-[[ -n $prompt ]] || die "no prompt text on stdin"
+[[ -n $prompt || $# -gt 0 ]] || die "no prompt text on stdin and no command"
 pause=${HERDR_AFTER_TURN_SLEEP:-2}
 
 herdr agent wait "$pane" --until idle --until "done" --timeout 600000 >/dev/null \
@@ -35,5 +35,5 @@ for command in "$@"; do
   herdr agent prompt "$pane" "$command" >/dev/null || die "$command failed in $pane"
   sleep "$pause"
 done
-herdr agent prompt "$pane" "$prompt" >/dev/null || die "prompt failed in $pane"
-echo "herdr-after-turn: $(date '+%F %T') $pane${name:+ cleared,} prompt submitted"
+[[ -z $prompt ]] || herdr agent prompt "$pane" "$prompt" >/dev/null || die "prompt failed in $pane"
+echo "herdr-after-turn: $(date '+%F %T') $pane${name:+ cleared,} submitted"

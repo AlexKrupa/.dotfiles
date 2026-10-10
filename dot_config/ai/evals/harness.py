@@ -48,8 +48,10 @@ def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, ef
         cmd += ["--model", model]
     if effort:
         cmd += ["--effort", effort]
-    # CLAUDECODE blocks a nested session when the runner starts from inside Claude Code.
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+    # CLAUDECODE blocks a nested session when the runner starts from inside Claude Code. With the
+    # HERDR_ variables of the runner's pane, a skill under test changes that pane and its workspace.
+    env = {k: v for k, v in os.environ.items()
+           if k != "CLAUDECODE" and not k.startswith("HERDR_")}
     start = time.time()
     with open(run_dir / "transcript.jsonl", "w") as out, open(run_dir / "stderr.txt", "w") as err:
         try:

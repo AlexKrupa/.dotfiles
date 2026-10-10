@@ -93,6 +93,48 @@
         {"type": "ticket_count", "equals": 0, "text": "Writes no ticket file before the interview"},
         {"type": "reply_regex", "patterns": ["\\?"], "text": "Reply asks questions"}
       ]
+    },
+    {
+      "id": 6,
+      "name": "ticket-id-rename",
+      "fixture": "fixtures/placeholder-branch.sh",
+      "prompt": "/draft-ticket for the work on this branch. Users asked for a way to back up their notes.\n\nThis call comes from my tracker skill. After you write the file, the tracker publishes it as NOTES-142. Continue with the real ticket id NOTES-142.",
+      "expected_output": "A task ticket for the CSV export. Then the branch, its commit messages, and its TODO get NOTES-142 instead of NOTES-0. The TODO on main keeps NOTES-0.",
+      "common_skip": ["repo"],
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "ticket-id-rename\\.sh", "min": 1, "text": "Runs ticket-id-rename.sh"},
+        {"type": "repo_regex", "case": true, "cmd": "git branch --format='%(refname:short)'", "patterns": ["^NOTES-142/csv-export$", "^main$"], "text": "Renames the branch to NOTES-142/csv-export"},
+        {"type": "repo_not_regex", "case": true, "cmd": "git branch --format='%(refname:short)'", "patterns": ["^NOTES-0/"], "text": "Has no branch with the placeholder id"},
+        {"type": "repo_regex", "case": true, "cmd": "git log --format=%s main..HEAD", "patterns": ["^NOTES-142: Add CSV exporter$", "^NOTES-142: Add export row to Settings > Data$"], "text": "Branch commit messages have the real id"},
+        {"type": "repo_not_regex", "case": true, "cmd": "git log --format=%B main..HEAD", "patterns": ["NOTES-0\\b"], "text": "Branch commit messages have no placeholder id"},
+        {"type": "repo_regex", "case": true, "cmd": "git grep -h TODO HEAD -- app", "patterns": ["TODO\\(NOTES-142\\): Add the tags column", "TODO\\(NOTES-0\\): Search the tags too"], "text": "Changes the TODO that the branch added, not the TODO on main"},
+        {"type": "repo_regex", "case": true, "cmd": "git log --format=%s main", "patterns": ["\\AAdd project instructions and search TODO\\nAdd notes app\\n\\Z"], "text": "Does not change main"},
+        {"type": "repo_regex", "case": true, "cmd": "git-spice log short --json", "patterns": ["\"name\":\"NOTES-142/csv-export\",\"current\":true,\"down\":\\{\"name\":\"main\"\\}\\}"], "text": "git-spice tracks the new branch on main, with no restack needed"},
+        {"type": "repo_not_regex", "case": true, "cmd": "git status --porcelain", "patterns": ["."], "text": "Working tree is clean"}
+      ]
+    },
+    {
+      "id": 7,
+      "name": "ticket-id-rename-pushed",
+      "fixture": "fixtures/placeholder-branch-pushed.sh",
+      "prompt": "/draft-ticket for the work on this branch. Users asked for a way to back up their notes.\n\nThis call comes from my tracker skill. After you write the file, the tracker publishes it as NOTES-142. Continue with the real ticket id NOTES-142.",
+      "expected_output": "The same as ticket-id-rename. The branch has no MR, so origin also gets the new branch name and loses the old one.",
+      "common_skip": ["repo"],
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "ticket-id-rename\\.sh", "min": 1, "text": "Runs ticket-id-rename.sh"},
+        {"type": "repo_regex", "case": true, "cmd": "git branch --format='%(refname:short)'", "patterns": ["^NOTES-142/csv-export$", "^main$"], "text": "Renames the branch to NOTES-142/csv-export"},
+        {"type": "repo_not_regex", "case": true, "cmd": "git branch --format='%(refname:short)'", "patterns": ["^NOTES-0/"], "text": "Has no branch with the placeholder id"},
+        {"type": "repo_regex", "case": true, "cmd": "git log --format=%s main..HEAD", "patterns": ["^NOTES-142: Add CSV exporter$", "^NOTES-142: Add export row to Settings > Data$"], "text": "Branch commit messages have the real id"},
+        {"type": "repo_not_regex", "case": true, "cmd": "git log --format=%B main..HEAD", "patterns": ["NOTES-0\\b"], "text": "Branch commit messages have no placeholder id"},
+        {"type": "repo_regex", "case": true, "cmd": "git grep -h TODO HEAD -- app", "patterns": ["TODO\\(NOTES-142\\): Add the tags column", "TODO\\(NOTES-0\\): Search the tags too"], "text": "Changes the TODO that the branch added, not the TODO on main"},
+        {"type": "repo_regex", "case": true, "cmd": "git log --format=%s main", "patterns": ["\\AAdd project instructions and search TODO\\nAdd notes app\\n\\Z"], "text": "Does not change main"},
+        {"type": "repo_regex", "case": true, "cmd": "git-spice log short --json", "patterns": ["\"name\":\"NOTES-142/csv-export\",\"current\":true,\"down\":\\{\"name\":\"main\"\\}\\}"], "text": "git-spice tracks the new branch on main, with no restack needed"},
+        {"type": "repo_not_regex", "case": true, "cmd": "git status --porcelain", "patterns": ["."], "text": "Working tree is clean"},
+        {"type": "repo_regex", "case": true, "cmd": "git ls-remote --heads origin", "patterns": ["refs/heads/NOTES-142/csv-export$"], "text": "Pushes the new branch name"},
+        {"type": "repo_not_regex", "case": true, "cmd": "git ls-remote --heads origin", "patterns": ["refs/heads/NOTES-0/"], "text": "Deletes the old remote branch"},
+        {"type": "repo_regex", "case": true, "cmd": "git rev-parse --abbrev-ref @{upstream}", "patterns": ["^origin/NOTES-142/csv-export$"], "text": "Upstream is the new remote branch"},
+        {"type": "repo_regex", "case": true, "cmd": "git rev-parse HEAD origin/NOTES-142/csv-export | sort -u | wc -l", "patterns": ["^\\s*1$"], "text": "Remote branch has the rewritten commits"}
+      ]
     }
   ]
 }

@@ -4,11 +4,13 @@
 Usage: grade.py <iteration-dir>
 
 Reads each <iteration-dir>/eval-<name>/<config>/run-<k>/ and writes grading.json there. A run dir
-has: outputs/tickets/*.md (the ticket files), outputs/final_reply.md, transcript.jsonl, and
-repo-diff.txt. A `patterns` value that starts with `@` names a list in `pattern_sets`.
+has: outputs/tickets/*.md (the ticket files), outputs/final_reply.md, transcript.jsonl,
+repo-diff.txt, and ctx.json. `repo_*` checks run `cmd` in the fixture repo and match its output.
+A `patterns` value that starts with `@` names a list in `pattern_sets`.
 """
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -26,6 +28,9 @@ def run_check(check, run):
         return common
     t = check["type"]
     tickets = run["tickets"]
+    if t in ("repo_regex", "repo_not_regex"):
+        p = subprocess.run(check["cmd"], shell=True, cwd=run["repo"], capture_output=True, text=True)
+        return regex(check, p.stdout + p.stderr, t == "repo_regex")
     if t == "ticket_count":
         return len(tickets) == check["equals"], f"{len(tickets)} file(s): {[p.name for p in tickets]}"
     if not tickets:
@@ -54,6 +59,7 @@ def load_run(run_dir):
     return {
         **harness.load_common(run_dir),
         "tickets": sorted((run_dir / "outputs" / "tickets").glob("*.md")),
+        "repo": json.loads((run_dir / "ctx.json").read_text())["repo"],
     }
 
 

@@ -66,8 +66,16 @@ check "wait fails: exit 1" 1 "$code"
 check "wait fails: no prompt" "" "$(grep 'agent prompt' "$MOCK_LOG")"
 
 : >"$MOCK_LOG"
+"$script" wL:p1 '/rename [ABC-2] Fix x' </dev/null >/dev/null 2>&1; code=$?
+check "commands, no prompt: exit 0" 0 "$code"
+check "commands, no prompt: only the commands" \
+  "herdr agent wait wL:p1 --until idle --until done --timeout 600000
+herdr agent prompt wL:p1 /rename [ABC-2] Fix x" \
+  "$(cat "$MOCK_LOG")"
+
+: >"$MOCK_LOG"
 "$script" wL:p1 --clear ABC-1/old </dev/null >/dev/null 2>&1; code=$?
-check "no prompt text: exit 1" 1 "$code"
-check "no prompt text: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "no prompt text and no command: exit 1" 1 "$code"
+check "no prompt text and no command: no herdr call" "" "$(cat "$MOCK_LOG")"
 
 exit $fail
