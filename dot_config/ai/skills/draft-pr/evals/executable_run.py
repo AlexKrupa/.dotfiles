@@ -10,6 +10,7 @@ goes to <run-dir>/outputs/git-state.txt, and ~/.ai/<repo-slug>/ is deleted. The 
 skill at ~/.claude/skills/draft-pr.
 """
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -22,8 +23,9 @@ import grade  # noqa: E402
 
 HOME = Path.home()
 REPO_SLUG = HERE.parents[2] / "bin" / "repo-slug.sh"
-# Edit rules also cover Write.
-ALLOWED_TOOLS = "Bash Read Grep Glob Skill Edit(~/.ai/**)"
+SHIMS = HERE / "shims"
+# Edit rules also cover Write. The watch evals fix code in the fixture repos in the temp dir.
+ALLOWED_TOOLS = "Bash Read Grep Glob Skill Edit(~/.ai/**) Edit(//private/var/folders/**) Edit(//var/folders/**)"
 
 
 def setup(ev, k, repos, run_dir):
@@ -61,10 +63,15 @@ def collect(ev, ctx, run_dir):
     for pr in (work_dir / "prs").glob("*.md"):
         shutil.copy(pr, out)
     (run_dir / "outputs" / "git-state.txt").write_text(git_state(ctx["repo"]))
+    (run_dir / "outputs" / "branch-log.txt").write_text(subprocess.run(
+        ["git", "-C", ctx["repo"], "log", "-p", "--format=commit %s", "main..tags-in-list"],
+        capture_output=True, text=True).stdout)
     shutil.rmtree(work_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
+    # The watch evals need the git-spice shim. For all other commands, it runs the real git-spice.
+    os.environ["PATH"] = f"{SHIMS}:{os.environ['PATH']}"
     harness.run_main(__doc__, HERE, "dpr-", ALLOWED_TOOLS,
                      [HOME / ".claude", HOME / ".config" / "ai", HOME / ".ai"],
                      setup, collect, grade.grade_run)

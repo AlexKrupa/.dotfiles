@@ -4,9 +4,9 @@
 Usage: grade.py <iteration-dir>
 
 Reads each <iteration-dir>/eval-<name>/<config>/run-<k>/ and writes grading.json there. A run dir
-has: outputs/prs/*.md (the PR files), outputs/git-state.txt, outputs/final_reply.md,
-transcript.jsonl, and repo-diff.txt. A `patterns` value that starts with `@` names a list in
-`pattern_sets`.
+has: outputs/prs/*.md (the PR files), outputs/git-state.txt, outputs/branch-log.txt,
+outputs/final_reply.md, transcript.jsonl, and repo-diff.txt. A `patterns` or `input_regex` value
+that starts with `@` names a list in `pattern_sets`.
 """
 import json
 import re
@@ -29,6 +29,8 @@ def run_check(check, run):
     t = check["type"]
     if t in ("state_regex", "state_not_regex"):
         return regex(check, run["state"], t == "state_regex")
+    if t in ("log_regex", "log_not_regex"):
+        return regex(check, run["log"], t == "log_regex")
     prs = run["prs"]
     if t == "pr_count":
         return len(prs) == check["equals"], f"{len(prs)} file(s): {[p.name for p in prs]}"
@@ -58,10 +60,12 @@ def regex(check, text, positive):
 
 def load_run(run_dir):
     state = run_dir / "outputs" / "git-state.txt"
+    log = run_dir / "outputs" / "branch-log.txt"
     return {
         **harness.load_common(run_dir),
         "prs": sorted((run_dir / "outputs" / "prs").glob("*.md")),
         "state": state.read_text() if state.exists() else "",
+        "log": log.read_text() if log.exists() else "",
     }
 
 
@@ -71,6 +75,8 @@ def expand(checks):
     for c in checks:
         if isinstance(c.get("patterns"), str) and c["patterns"].startswith("@"):
             c = {**c, "patterns": sets[c["patterns"][1:]]}
+        if isinstance(c.get("input_regex"), str) and c["input_regex"].startswith("@"):
+            c = {**c, "input_regex": "|".join(sets[c["input_regex"][1:]])}
         out.append(c)
     return out
 

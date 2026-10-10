@@ -1,0 +1,17 @@
+#!/bin/sh
+# Eval shim for git-spice. The fixture repos have no forge. `submit` succeeds with no network.
+# `log ... --json` gets the `change` objects from <repo>.changes.json. All else is the real
+# git-spice.
+here=$(cd "$(dirname "$0")" && pwd -P)
+real=$(PATH=$(printf %s "$PATH" | tr : '\n' | grep -vx "$here" | paste -sd: -); command -v git-spice)
+case " $* " in
+  *" submit "*) echo "INF Updated change requests (eval shim)"; exit 0 ;;
+  *" log "*--json*)
+    changes="$(git rev-parse --show-toplevel).changes.json"
+    if [ -f "$changes" ]; then
+      "$real" "$@" | jq -c --slurpfile c "$changes" \
+        'if $c[0][.name] then . + {change: $c[0][.name]} else . end'
+      exit
+    fi ;;
+esac
+exec "$real" "$@"
