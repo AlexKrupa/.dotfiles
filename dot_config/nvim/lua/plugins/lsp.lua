@@ -216,7 +216,6 @@ return {
         'detekt', -- Kotlin linter
         'goimports',
         'jsonlint',
-        'ktlint',
         'shfmt',
         'yamlfmt',
         'yamllint',
