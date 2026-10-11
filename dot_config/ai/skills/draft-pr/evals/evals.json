@@ -152,6 +152,18 @@
         {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "(?m)^Info$", "@anna", "@bob", ":thumbsup:", "(?s)!11.*!12"], "text": "Reply has Needs you for @anna, Info for @bob, and !11 before !12"},
         {"type": "reply_not_regex", "patterns": ["(?ms)^\\s*\\d+\\.[^\\n]*@anna.*^\\s*\\d+\\.[^\\n]*@anna"], "text": "The comment and its thread are one item"}
       ]
+    },
+    {
+      "id": 10,
+      "name": "untracked-stack",
+      "fixture": "fixtures/untracked-stack.sh",
+      "prompt": "/draft-pr",
+      "expected_output": "git-spice does not track the stack. The skill tracks tags-model on main and tags-in-list on tags-model, then syncs and restacks. The PR for tags-in-list has base tags-model.",
+      "checks": [
+        {"type": "pr_regex", "case": true, "patterns": ["^base: tags-model$"], "text": "Base is tags-model"},
+        {"type": "state_regex", "case": true, "patterns": ["^main-head Rename README title$", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\bmain\\b", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\btags-model\\b"], "text": "main has the upstream commit, and tags-in-list contains main and tags-model"},
+        {"type": "reply_regex", "patterns": ["🧹.*track"], "text": "The 🧹 line tells that the branches are tracked"}
+      ]
     }
   ]
 }

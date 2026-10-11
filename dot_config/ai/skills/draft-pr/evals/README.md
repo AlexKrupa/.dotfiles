@@ -22,15 +22,15 @@ The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/e
 
 ```sh
 W=~/.ai/ai/evals/draft-pr-workspace
-./run.py --model opus --effort medium $W/iteration-1              # 9 evals x 3 runs, live skill
+./run.py --model opus --effort medium $W/iteration-1              # 10 evals x 3 runs, live skill
 ./run.py --model opus --effort medium $W/iteration-1 stack-fixup  # one eval
 ~/.config/ai/evals/compare.py $W/iteration-1 $W/iteration-2
 ```
 
 Use Opus with `--effort medium`. It is the usual setup for PR work.
 
-`stack-fixup` changes the fixture repo on purpose (sync, restack, squash). It has no
-`repo_unchanged` check. Its `state_*` checks test the branch state.
+`stack-fixup` and `untracked-stack` change the fixture repo on purpose (track, sync, restack,
+squash). They have no `repo_unchanged` check. Their `state_*` checks test the branch state.
 
 The `watch-*` evals test the Watch step. Each prompt has the output of one watch result. Each
 fixture has fake wrapper commands in `<repo>.host/`. They have `"common": false`, because they

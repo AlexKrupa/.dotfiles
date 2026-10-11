@@ -23,7 +23,7 @@ absolute path. Shell variables do not persist between Bash calls. Start each com
 `$GL` with the binding:
 
 ```sh
-GL=~/.claude/skills/debug-gitlab/gitlab.sh; "$GL" check
+GL=~/.config/ai/bin/gitlab-pipeline.sh; "$GL" check
 ```
 
 `check` runs the checks in fail-fast order: local checks first, network checks last. It prints one

@@ -59,11 +59,22 @@ git rev-parse --verify -q refs/spice/data && git-spice log short --json --no-pro
 Check `refs/spice/data` first. In a repo with no git-spice data, `git-spice log short` initializes
 git-spice, and that changes a repo that does not use it.
 
-If the command fails, or no output object has `"name"` equal to the current branch, git-spice
-does not track the branch. Skip the git-spice commands in this step and in step 3, and tell it in
-the 🧹 line of the reply.
+If `refs/spice/data` does not exist, or the command fails, skip the git-spice commands in this step
+and in step 3. Tell it in the 🧹 line of the reply.
 
-Else run:
+If no output object has `"name"` equal to the current branch, git-spice does not track the branch.
+Run:
+
+```sh
+git-spice downstack track --no-prompt
+```
+
+It tracks the current branch and each untracked branch below it, down to trunk or to a tracked
+branch. `branch track` is not sufficient: it gives the base of the nearest tracked branch, and in a
+stack with no tracked branch that base is trunk. Name each tracked branch and its base in the 🧹
+line. If the command fails, skip the git-spice commands as above.
+
+Then run:
 
 ```sh
 git-spice repo sync --no-prompt
@@ -260,8 +271,8 @@ Sections, in this order:
 
 1. The path and the full content of the file.
 2. One line for each item that applies, with its marker:
-   - 🧹 Branch preparation and cleanup: sync, restack, the squashed commits and the backup ref. Or
-     "git-spice does not track this branch - preparation skipped".
+   - 🧹 Branch preparation and cleanup: the tracked branches and their bases, sync, restack, the
+     squashed commits and the backup ref. Or "no git-spice - preparation skipped".
    - ✂️ Split suggestion: the commits contain parts that someone can review and merge separately,
      for example a refactor and a behavior change, or two independent features. Use this test, not
      the line count. A mechanical refactor of many files is not a reason to split. Suggest
