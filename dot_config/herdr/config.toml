@@ -290,18 +290,6 @@ type = "plugin_action"
 command = "chmarax.herdr-nvim.toggle"
 description = "nvim sidebar"
 
-[[keys.command]]
-key = "alt+D"
-type = "shell"
-command = "~/.config/herdr/bin/nvim-diff.sh diffview"
-description = "branch diff in nvim sidebar (diffview)"
-
-[[keys.command]]
-key = "ctrl+alt+d"
-type = "shell"
-command = "~/.config/herdr/bin/nvim-diff.sh codediff"
-description = "branch diff in nvim sidebar (codediff)"
-
 # --- Custom commands: tuicr ---
 
 [[keys.command]]
