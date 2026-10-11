@@ -284,7 +284,6 @@
   },
   "feedbackDrafts": "off",
   "syntaxHighlightingDisabled": false,
-  "maxProseWidth": 100,
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
   "modelSettings": {
