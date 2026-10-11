@@ -162,7 +162,7 @@
       "checks": [
         {"type": "pr_regex", "case": true, "patterns": ["^base: tags-model$"], "text": "Base is tags-model"},
         {"type": "state_regex", "case": true, "patterns": ["^main-head Rename README title$", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\bmain\\b", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\btags-model\\b"], "text": "main has the upstream commit, and tags-in-list contains main and tags-model"},
-        {"type": "reply_regex", "patterns": ["🧹.*track"], "text": "The 🧹 line tells that the branches are tracked"}
+        {"type": "reply_regex", "patterns": ["(?s)🧹.*track"], "text": "The 🧹 line tells that the branches are tracked"}
       ]
     }
   ]
