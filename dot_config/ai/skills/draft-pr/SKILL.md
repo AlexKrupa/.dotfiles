@@ -2,9 +2,10 @@
 name: draft-pr
 description:
   Writes one pull request or merge request draft (title, description, metadata, review comments)
-  as a Markdown file under ~/.ai/<repo>/prs/, for any code host. Run only when the user calls
-  /draft-pr or when the instructions of another skill tell you to run draft-pr. Do not run it for
-  other requests about pull requests or merge requests.
+  as a Markdown file under ~/.ai/<repo>/prs/, for any code host. After a wrapper skill publishes
+  it, watches the PRs or MRs of the stack. Run only when the user calls /draft-pr or when the
+  instructions of another skill tell you to run draft-pr. Do not run it for other requests about
+  pull requests or merge requests.
 argument-hint: "[draft] [notes]"
 ---
 
@@ -12,7 +13,8 @@ argument-hint: "[draft] [notes]"
 
 Writes one PR draft as a Markdown file: metadata, title, description, and review comments. A person
 or a wrapper skill (for example a GitLab `/mr` skill) reads the file and publishes it. This skill
-does not know the code host. It does not push and does not publish.
+does not know the code host. It does not publish. After the wrapper publishes, the wrapper tells
+this skill to watch the MRs (see "Watch"). During the watch, only trivial fixes are pushed.
 
 Before it writes, it prepares the branch: it syncs and restacks with git-spice, and it squashes
 repair commits. The reviewer gets a clean branch and a description that agrees with it.
@@ -272,3 +274,166 @@ Sections, in this order:
      tests, when no 🧪 line already tells what to capture. Do not capture until the user asks.
 
 When the user asks for changes, edit the same file.
+
+## Watch
+
+Do this step only when a wrapper skill tells you to, after it publishes. You get these from the
+wrapper:
+
+- the watch command. It takes `--interval <seconds>` and `--mr <id>` once for each MR. It prints
+  the events in the format below.
+- the command that shows the logs of the failed jobs of a pipeline
+- the command that retries a job
+
+The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply to PRs and checks.
+
+The watch is a background Bash task. Each 120 seconds, it checks the MRs. If it finds events, it
+stops. Then you handle the events, report, and start it again. Between events, the user can use
+the session for other work.
+
+### Rules
+
+The user does these actions, never you:
+
+- reply to a comment, resolve a thread, or react
+- approve or merge
+- mark an MR ready, or change its title, description, or labels
+
+The session is idle when the working tree is clean, no rebase or merge is in progress, and you
+are not in the middle of a different task. Do an auto-fix only when the session is idle.
+
+### Start
+
+1. Run `git-spice log short --json --no-prompt`. For each branch object with `change`, take
+   `change.id`. A branch with no `change` has no MR yet.
+2. If there is no MR, tell it in one line and stop.
+3. Run the watch command with `--interval 120` and one `--mr <change.id>` for each MR, as a
+   background Bash task (`run_in_background: true`). Start it only if no watch task runs.
+
+If the user says "watch", start the watch. If the user says "stop watch", stop the task.
+
+### Result
+
+| Exit | Action                                                                                    |
+| ---- | ----------------------------------------------------------------------------------------- |
+| `0`  | Handle the events, report, and start again (see below).                                   |
+| `1`  | Report the stderr text and send a notification. Do not start again.                       |
+| `3`  | A new watch replaced this one. Do not start again. No notification.                       |
+| `4`  | The deadline passed. Report it as below. Do not start again.                              |
+
+On exit `4`, report that the watch stopped, list the open MRs, and tell the user to say "watch"
+to start it again.
+
+On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
+`actor`, `detail`, `branch`, and `path` and `line` for a comment on a diff line.
+
+| `kind`                 | Action                                          | Report section       |
+| ---------------------- | ----------------------------------------------- | -------------------- |
+| `pipeline`, failed     | See "Pipeline failures"                         | Done or Needs you    |
+| `conflict`             | See "Conflicts"                                 | Done or Needs you    |
+| `merged`               | See "Merged MRs"                                | Info, Done/Needs you |
+| `comment`              | See "Comments"                                  | Needs you            |
+| `unaddressed`          | The thread waits for the user                   | Needs you            |
+| all other kinds        | None                                            | Info                 |
+
+A `comment` and an `unaddressed` line with the same `url` are one item.
+
+After you handle the events, do "Start" again with the current list. A sync can delete a merged
+branch, and the user can add a branch. If all MRs are merged or closed, do not start again. Tell
+it in one line.
+
+### Pipeline failures
+
+Run the wrapper command for the logs of the failed jobs. Find the cause of each failed job.
+
+- The cause is outside the branch: a runner or system failure, the network, a cache, or a service
+  that is down. Retry the job with the wrapper command. A retry needs no idle session.
+- The cause is a formatter or lint error, or an obvious compile error, in the code of the branch.
+  If the session is idle, fix it:
+  1. Switch to the branch of the MR. Remember the branch that was current.
+  2. Make the fix.
+  3. Run `~/.config/ai/bin/git-diff-context.sh --parent-only` and get `parent`.
+  4. Run `~/.config/ai/bin/git-absorb-fixes.sh <parent> <file>...` with the changed files. If it
+     reports a file under `needs-message`, the fix is not trivial. Undo it with
+     `git restore --staged --worktree -- <file>...` and put the failure under Needs you.
+  5. Run `~/.config/ai/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)"`.
+  6. Run `git-spice upstack restack --no-prompt`.
+  7. Run `git-spice stack submit --update-only --no-prompt`.
+  8. Switch back to the branch that was current.
+
+  If the session is not idle, put the failure under Needs you as "fix waits, session not idle",
+  with the proposed fix. Do the fix at the next report when the session is idle, or when the user
+  asks.
+- All other causes: put the failure under Needs you, with the cause and a proposed fix. Do not
+  change the code until the user asks.
+
+### Conflicts
+
+If the session is not idle, put the conflict under Needs you as "fix waits, session not idle".
+Else run `git-spice repo sync --no-prompt` and `git-spice stack restack --no-prompt`.
+
+- If the restack stops on a trivial conflict (imports, or adjacent lines that do not depend on
+  each other), resolve it and continue the rebase.
+- Else run `git rebase --abort` and put the conflict under Needs you, with the files.
+
+When the restack succeeds, run `git-spice stack submit --update-only --no-prompt`.
+
+### Merged MRs
+
+If no open MR of the stack is above the merged MR, do nothing more. Else, if the session is not
+idle, put the restack under Needs you as "fix waits, session not idle". Else run
+`git-spice repo sync --no-prompt`, `git-spice stack restack --no-prompt`, and
+`git-spice stack submit --update-only --no-prompt`. On a restack conflict, do as in "Conflicts".
+
+### Comments
+
+Read the code at `path:line` and the thread. Then assess the comment:
+
+- A suggestion: is it good? Why or why not?
+- A reported bug: is it real?
+- A question: propose an answer.
+
+Put the assessment and a proposed fix or answer under Needs you. Do not change the code until the
+user asks.
+
+### Report
+
+One block for each report. One group for each MR, in stack order from the bottom. Omit an empty
+section.
+
+```text
+14:32 !123 Fix crash on rotation
+https://gitlab.example.com/app/-/merge_requests/123
+
+Needs you
+1. @anna on NoteEditor.kt:42: "Why not rememberSaveable here?"
+   Valid. rememberSaveable also keeps the text after process death.
+   Proposed fix: replace the SavedStateHandle field (3 lines).
+
+Done
+- Pipeline 4567: ktlint failed in 2 files. Formatted, folded into abc1234, pushed.
+
+Info
+- @bob approved.
+- @carol reacted :thumbsup: to your comment on NoteEditor.kt:42.
+```
+
+- Needs you shows all open items, also the items from earlier reports: the `unaddressed` threads
+  of this result, the failures that wait for the user, and the fixes that wait. If the result
+  shows that an item is addressed, the item leaves the list. Examples: the thread is not in
+  `unaddressed`, or a new pipeline passed. Number the items. The user can then say "fix 1".
+- Done and Info show only the events of this result.
+
+### Notification
+
+If `HERDR_ENV` is `1`, send one notification for each report. Replace each `'` in the text with a
+space.
+
+```sh
+herdr notification show '<title>' --body '<body>' --sound <sound>
+```
+
+- Title: `!<iid>: <n> needs you`, or `!<iid>` when Needs you is empty. For more MRs: `<n> MRs`.
+- Body: the most urgent item in one line, then the Done items. Example:
+  `@anna asked on NoteEditor.kt:42. Pipeline fixed and pushed.`
+- Sound: `request` when there are new Needs you items. Else `none`.
