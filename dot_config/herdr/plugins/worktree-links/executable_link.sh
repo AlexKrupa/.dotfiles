@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Symlink shared local files from the main checkout into a newly created worktree.
-# Always exits 0, so herdr does not mark the event failed when there is nothing
+# Always exits 0. Otherwise herdr marks the event failed when there is nothing
 # to do.
 
 if ((BASH_VERSINFO[0] < 4)); then
@@ -50,7 +49,7 @@ for list in "${HERDR_PLUGIN_ROOT:-$(dirname "${BASH_SOURCE[0]}")}/links.conf" "$
     fi
 
     [[ -e $main/$path ]] || continue
-    [[ ! -e $wt/$path ]] || continue                # never overwrite
+    [[ ! -e $wt/$path ]] || continue
 
     [[ $path != */* ]] || mkdir -p "$wt/${path%/*}"
     ln -s "$main/$path" "$wt/$path"

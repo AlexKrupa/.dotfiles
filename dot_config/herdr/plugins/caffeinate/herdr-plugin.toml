@@ -5,7 +5,7 @@ min_herdr_version = "0.7.0"
 description = "Hold a macOS idle-sleep assertion while any agent is working"
 platforms = ["macos"]
 
-# The assertion belongs to the watcher, so it must outlive any single event. startup spawns
+# The watcher owns the assertion. It must live longer than a single event. startup spawns
 # the watcher. pane.agent_detected tries the watcher lock, which revives a dead watcher.
 [[startup]]
 command = ["./watch.sh", "ensure"]

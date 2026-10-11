@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# herdr-pluck open action. pluck pipes the match on stdin and runs this in the source
-# pane's cwd, so relative paths resolve.
+# herdr-pluck open action. pluck sends the match on stdin and runs this script in the cwd
+# of the source pane. Relative paths resolve from that cwd.
 
 set -euo pipefail
 
@@ -31,7 +31,7 @@ if [ -f "$match" ]; then
 fi
 
 if [ -d "$match" ]; then
-  # The picker tab is still focused here, so the source pane is named explicitly. equalize
+  # The picker tab is still focused here. The split must use the source pane ID. equalize
   # takes its tab and pane from the environment, the same as the split key.
   pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$match" \
     --focus | jq -r .result.pane.pane_id)

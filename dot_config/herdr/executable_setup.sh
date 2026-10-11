@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Install every plugin this config needs, and link the local ones. Safe to
-# re-run: a plugin that is already there is skipped. Brew dependencies are not
-# covered - install them first, see README.md "Setup".
+# Safe to run again: a plugin that is already there is skipped. Brew
+# dependencies are not covered - install them first, see README.md "Setup".
 set -euo pipefail
 shopt -s nullglob
 

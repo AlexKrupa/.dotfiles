@@ -4,8 +4,8 @@
 #        --argjson fg {pane_id: foreground program}, a shell name for an idle pane,
 #        --argjson now <epoch seconds>
 #   out: with `jq -r`, line 1 is the new state as JSON, every line after is
-#        "<kind>\t<id>\t...". One text stream, so the caller needs no second jq to take it
-#        apart. `tab` is a label to apply. `workspace` and `pane` are followed by
+#        "<kind>\t<id>\t...". It is one text stream. The caller needs no second jq to
+#        split it. `tab` is a label to apply. `workspace` and `pane` are followed by
 #        "<name>=<value>" fields, one per token to report. An empty value clears the token.
 #
 # Pure: no herdr calls, no clock, no files.
@@ -87,5 +87,5 @@ def label_of($pane; $program):
    | .value
    | select((.tokens.idx // "") != $slot)
    | ["workspace", .workspace_id, "idx=" + $slot] | @tsv),
-  # The panel order is ours: herdr sorts by `ord`, and `focus_agent` counts the panel.
+  # This plugin sets the panel order: herdr sorts by `ord`, and `focus_agent` counts the panel.
   ($rows[] | pane_line($since; $now))

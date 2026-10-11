@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# herdr labels. Names each tab `N • name` after its focused pane, numbers every workspace,
-# and groups the agents panel by repo with indented worktrees and idle fading.
-#
 # This file is transport only. Every naming, numbering and ownership decision is in
 # policy.jq, which is pure.
 #
@@ -23,7 +20,7 @@ root=${HERDR_PLUGIN_ROOT:-$(cd "$(dirname "$0")" && pwd)}
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/herdr-labels
 state=${LABELS_STATE:-$state_dir/state.json}
 
-# Only the directory actually in use, so LABELS_STATE in a test never touches the XDG one.
+# Only the directory in use. With LABELS_STATE set, a test does not touch the XDG one.
 mkdir -p "$(dirname "$state")"
 [ -s "$state" ] || printf '{}\n' >"$state"
 
@@ -87,7 +84,7 @@ sweep() {
   # the user chose and freezes it.
   printf '%s\n' "$first" >"$state.new" && mv "$state.new" "$state"
 
-  [ "$out" = "$first" ] && return 0   # state only: nothing to apply
+  [ "$out" = "$first" ] && return 0
 
   # Tab is IFS whitespace, so empty fields collapse. No field is empty: a clear is `name=`.
   while IFS=$'\t' read -r -a f; do

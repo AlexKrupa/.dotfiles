@@ -1,20 +1,18 @@
 #!/bin/sh
-# Focus the lazygit tab for this directory, or open one.
+# The alt+g tab has one pane that runs `exec lazygit`. The tab closes when
+# lazygit quits. A second alt+g in the same directory must focus that tab, not
+# open another one.
 #
-# The alt+g tab is temporary: it holds one pane running `exec lazygit`, so it
-# goes when lazygit quits. A second alt+g in the same directory must land on
-# that tab instead of stacking another one.
-#
-# Panes carry no marker for "this is the alt+g lazygit", so the match is the
-# pane's foreground cwd plus a foreground process named lazygit. Env passed at
-# create time is not readable back, and lazygit sets no terminal title.
+# Panes have no marker for the alt+g lazygit. The match uses the foreground cwd
+# of the pane and a foreground process named lazygit. herdr cannot read back env
+# passed at create time, and lazygit sets no terminal title.
 #
 # POSIX sh, not fish: this is key-bound, and fish spends ~110ms sourcing
 # config.fish per process.
 
 cwd=${HERDR_ACTIVE_PANE_CWD:-$PWD}
-# A pane ID is workspace-qualified, so the workspace is its prefix. No colon
-# means no ID to read it from.
+# A pane ID starts with its workspace ID and a colon. With no colon, there is no
+# workspace ID to read.
 ws=${HERDR_ACTIVE_PANE_ID%%:*}
 [ "$ws" = "$HERDR_ACTIVE_PANE_ID" ] && ws=
 
@@ -29,7 +27,7 @@ open() {
 command -v jq >/dev/null || open
 [ -n "$ws" ] || open
 
-# One process-info call per candidate pane, so cwd narrows the list first.
+# Each candidate pane costs one process-info call. The cwd filter runs first.
 panes=$(herdr pane list --workspace "$ws")
 for pane in $(printf '%s' "$panes" | jq -r --arg cwd "$cwd" '.result.panes[]
   | select((.foreground_cwd // .cwd) == $cwd) | .pane_id'); do

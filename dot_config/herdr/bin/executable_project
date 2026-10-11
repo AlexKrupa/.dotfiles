@@ -1,8 +1,7 @@
 #!/bin/sh
 # project <n>
-# Focus the workspace for line <n> of ~/.config/herdr/projects.local, or create it.
-# Silent no-op when the file or the line is missing, so the keys do nothing until
-# that machine-local file is filled in.
+# Line <n> of ~/.config/herdr/projects.local is the project path. If the file or
+# the line is missing, the script does nothing.
 #
 # POSIX sh, not fish: this runs on every alt+y/u/i/o/p press and fish spends
 # ~110ms sourcing config.fish before the first line of the script runs.

@@ -36,8 +36,8 @@ agents() {
 
 holding() { [ -r "$holdfile" ] && kill -0 "$(cat "$holdfile")" 2>/dev/null; }
 
-# Writes the idle stamp. When the agents went quiet decides the release, and nothing else
-# tracks it.
+# Also writes the idle stamp. The release depends on when the agents stopped working, and
+# no other code records that time.
 decide() {
   local working now since
 

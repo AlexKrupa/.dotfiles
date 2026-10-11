@@ -9,15 +9,15 @@
 #
 # `branch` and `mr` split the focused pane. A `branch` split runs `tuicr.sh
 # pane`, which keeps the agent pane ID, the repo and its own PID in a state dir
-# named by its own pane ID. `send` looks up that dir from the focused pane, so
-# it ignores `mr` panes and any tuicr that this script did not open.
+# named by its own pane ID. `send` finds that dir from the focused pane. It
+# ignores `mr` panes and each tuicr that this script did not open.
 #
 # tuicr resolves `-r` to commit IDs at startup, and neither `:e` nor
 # `diff_watch_interval_ms` resolves it again. So `branch` from a `branch` pane,
 # or from its agent pane, restarts tuicr in that pane to show new commits. The
 # session slug holds the commit IDs, so after new commits or an amend tuicr
-# opens a new session. The refresh sends the unsent comments first, so they do
-# not stay behind in the old session.
+# opens a new session. The refresh sends the unsent comments first. Otherwise
+# they stay in the old session.
 #
 # tuicr 0.27.0 has no hooks and no custom keys, and `--stdout` exports only on
 # quit. So `send` reads the saved session with `tuicr review comments`. tuicr
@@ -59,8 +59,8 @@ branch_pane_dir() {
   done
 }
 
-# Sends the comments of the `branch` pane with state dir $1 to its agent. A
-# subshell, so `exit` and `cd` stay inside it.
+# Sends the comments of the `branch` pane with state dir $1 to its agent. It
+# runs in a subshell. `exit` and `cd` do not change the caller.
 send_comments() (
   dir=$1
   [ -f "$dir/agent" ] || exit 0
@@ -122,7 +122,7 @@ case $1 in
     else
       cmd="exec tuicr"
     fi
-    # PATH because HERDR_PANE_CMD skips conf.d (see lazygit.sh).
+    # PATH because HERDR_PANE_CMD skips conf.d (see alt+g in config.toml).
     split=$(herdr pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction right --focus \
       --cwd "${HERDR_ACTIVE_PANE_CWD:-$PWD}" --env "PATH=$PATH" \
       --env "HERDR_PANE_CMD=$cmd") || exit 1

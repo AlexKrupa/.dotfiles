@@ -7,8 +7,8 @@
 # POSIX sh, not fish: this is key-bound, and fish spends ~110ms sourcing
 # config.fish per process.
 #
-# Only ratios change here, so pane areas come out equal only when the whole tab
-# splits one direction. Anything better needs the tree restructured.
+# This script changes only ratios. Pane areas are equal only when the whole tab
+# splits in one direction. A better result needs a restructured tree.
 
 bin=$(dirname "$0")
 
@@ -29,13 +29,13 @@ rpc() {
     nc -U -w 3 "$HERDR_SOCKET_PATH"
 }
 
-# A layout path as the second argument names the group by its spot in the tree
-# instead of by a pane, which the close key needs: the pane it would name has
-# already gone.
+# The optional second argument is a layout path. It finds the group by its
+# position in the tree, not by a pane. The close key needs this because its pane
+# is already gone.
 #
-# Tab and pane come from the keybinding env. Asking the server instead would
-# mean `herdr pane layout --current`, which answers for whichever pane the UI
-# has focused - the wrong tab as soon as a second client is attached.
+# Tab and pane come from the keybinding env. The server alternative is
+# `herdr pane layout --current`, which returns the pane that the UI has focused.
+# With a second client attached, that pane can be in the wrong tab.
 equalize() {
   dir=${1:-}
   group=${2:-}
@@ -46,7 +46,7 @@ equalize() {
   [ -n "$tab" ] || return 0
   [ -n "$pane" ] || [ -n "$group" ] || return 0
 
-  # Compact json has no spaces, so a space splits the two fields.
+  # Compact JSON has no spaces. A space is a safe separator for the two fields.
   rpc layout.export "{\"tab_id\":\"$tab\"}" |
     jq -r -L "$bin" --arg pane "$pane" --arg dir "$dir" --arg group "$group" \
       'include "balance";
@@ -63,7 +63,7 @@ case ${1:-} in
     case ${2:-} in right | down) ;; *) usage ;; esac
     # --focus matches the built-in actions. `herdr pane split` does not focus
     # the new pane on its own. The pane in the environment stays in the group
-    # that was just split, so equalize reads it from there.
+    # that was just split. equalize finds the group from that pane.
     [ -n "$HERDR_ACTIVE_PANE_ID" ] || exit 0
     herdr pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction "$2" --focus \
       >/dev/null || exit 1
@@ -99,11 +99,11 @@ case ${1:-} in
 
   on-exit)
     # Hooks get no HERDR_ACTIVE_* variables and the pane.exited payload has only
-    # pane_id and workspace_id, so HERDR_TAB_ID is the only source for the tab.
-    # It names the exited pane's tab, not the focused one. Measured on 0.8.0.
+    # pane_id and workspace_id. HERDR_TAB_ID is the only source for the tab. It
+    # is the tab of the exited pane, not the focused one. Measured on 0.8.0.
     #
-    # The pane is out of the tree by now, so no group is left to name. `[]` is
-    # the root, which equalize_at reads as both axes.
+    # The pane is not in the tree now. No group is left to find. `[]` is the
+    # root, which equalize_at reads as both axes.
     [ -n "$HERDR_TAB_ID" ] || exit 0
     HERDR_ACTIVE_TAB_ID=$HERDR_TAB_ID
     equalize "" "[]"

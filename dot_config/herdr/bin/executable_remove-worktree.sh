@@ -1,9 +1,7 @@
 #!/bin/sh
-# Remove the active worktree workspace without the sidebar dialog.
-#
-# The dialog takes all keys until `git worktree remove` has deleted the whole
-# checkout, which takes seconds for a large one. This script is key-bound as a
-# detached shell command, so the UI stays free. A toast shows the result.
+# The sidebar dialog takes all keys until `git worktree remove` deletes the whole
+# checkout. For a large checkout, this takes seconds. A key runs this script as
+# a detached shell command, and the UI stays free. A toast shows the result.
 #
 # There is no confirmation. git refuses to remove a checkout with changes, and
 # the toast then shows the error. `--force` removes it with the changes.

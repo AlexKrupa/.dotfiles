@@ -62,8 +62,8 @@ def dot_state($since; $now):
     | if $age < 900 then "idle_fresh" elif $age <= 3600 then "idle" else "idle_stale" end
   end;
 
-# Every token this plugin owns on an agent pane. Empty means clear. The name of the one dot
-# token picks its color in config.toml.
+# Every token this plugin owns on an agent pane. Empty means clear. config.toml sets the
+# dot color by the name of the one dot token.
 def wanted($since; $now):
   dot_state($since; $now) as $state
   | (.title | herdr_text) as $title

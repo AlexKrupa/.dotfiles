@@ -1,4 +1,4 @@
-# Walks over a tab's layout tree. Input is a layout.export response. Include:
+# Functions that walk a tab's layout tree. Input is a layout.export response. Include:
 #
 #   jq -L "$(dirname "$0")" 'include "balance"; ...'
 
@@ -24,8 +24,8 @@ def slots($d):
 # everywhere does not equalize panes: for `a | (b | c)` it gives 50/25/25, while
 # slot weighting gives 33/33/33.
 #
-# The server keeps ratios as f32 and hands 1/3 back as 0.33333331, so the
-# comparison needs a tolerance. An exact one rewrites every split on every press.
+# The server keeps ratios as f32 and returns 1/3 as 0.33333331. The comparison
+# needs a tolerance. With an exact comparison, every press rewrites every split.
 def ratios($p; $dir):
   if type == "object" and .type == "split" and ($dir == "" or .direction == $dir) then
     (.direction as $d
@@ -39,9 +39,9 @@ def ratios($p; $dir):
   else empty end;
 
 # The group is the unbroken run of $dir splits that ends at $path. A run further
-# up is another group, so a node whose own parent splits the other way is in no
-# run and nothing moves. $path is a pane for the split key, and the collapsed
-# split for the close key.
+# up is another group. If the parent of a node splits the other way, the node is
+# in no run and nothing moves. $path is a pane for the split key, and the
+# collapsed split for the close key.
 def equalize_at($path; $dir):
   root as $root
   | [range(0; $path | length) as $i | ($root | node($path[0:$i]) | .direction)] as $up

@@ -6,11 +6,11 @@
 | ------------------------- | --------------------------------------------------------- |
 | `config.toml`             | All settings and keybindings                              |
 | `bin/`                    | Scripts run by keybindings and plugins                    |
-| `plugins/balance-panes/`  | Even out a tab when a pane's process ends on its own      |
+| `plugins/balance-panes/`  | If a pane's process ends on its own, even out its tab     |
 | `plugins/worktree-links/` | Symlink gitignored files into new worktrees               |
 | `plugins/labels/`         | Name tabs, number rows, group agents by repo              |
-| `plugins/caffeinate/`     | Hold off sleep while an agent is working                  |
-| `plugins/config/`         | Config for installed plugins                              |
+| `plugins/caffeinate/`     | Keep the Mac awake while an agent works                   |
+| `plugins/config/`         | Configuration for installed plugins                       |
 | `projects.local`          | Machine-local project paths, not in the dotfiles          |
 | `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync` |
 | `setup.sh`                | Installs and links every plugin                           |
@@ -19,8 +19,8 @@ herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and 
 those alone.
 
 The split and close keys run `bin/balance-panes.sh` instead of the built-in actions. It evens only
-the group the pane joined or left. `bin/balance.jq` holds the tree walks, covered by
-`bin/tests/test.sh`.
+the group the pane joined or left. `bin/balance.jq` has the functions that walk the layout tree.
+`bin/tests/test.sh` tests them.
 
 `herdr-pluck` runs from a fork (https://github.com/AlexKrupa/herdr-pluck). If a clone exists at
 `~/src/me/herdr-pluck`, `setup.sh` links it. If not, `setup.sh` installs the fork from GitHub.
@@ -29,9 +29,9 @@ instead of copying it.
 
 `bin/tuicr.sh` opens tuicr (https://tuicr.dev) in a zoomed split next to an agent pane and sends
 its comments to that agent while tuicr stays open. `alt+shift+a` sends the comments and unzooms the
-tuicr pane. It finds the stack parent with
-`~/.config/ai/bin/git-diff-context.sh`. Press `alt+a` again in the tuicr pane or its agent pane to
-refresh it after new commits or an amend. The refresh sends the unsent comments first.
+tuicr pane. It finds the stack parent with `~/.config/ai/bin/git-diff-context.sh`. After new
+commits or an amend, press `alt+a` again in the tuicr pane or its agent pane to refresh it. The
+refresh sends the unsent comments first.
 
 ## Setup
 
@@ -40,19 +40,19 @@ brew install herdr jq fish fd neovim sesh television go bash yazi lazygit tuicr
 ~/.config/herdr/setup.sh
 ```
 
-`setup.sh` covers plugins only, not brew and not the fork clone. It is safe to re-run, so it also
-syncs a machine that is missing a plugin. It also finds plugins that are not in its lists and
-removes them after you confirm. `herdr-upgrade` runs it first.
+`setup.sh` covers plugins only, not brew and not the fork clone. It is safe to run again. On a
+machine that is missing a plugin, it installs that plugin. It also finds plugins that are not in
+its lists and removes them after you confirm. `herdr-upgrade` runs it first.
 
 Then create `projects.local`, one absolute path per line, and press each plugin key. herdr does not
-validate plugin action ids, so a keypress is the only proof they are right.
+make sure that plugin action ids are correct. Only a keypress shows that an id is correct.
 
 Fish needs three files in `~/.config/fish/conf.d/`: `herdr.fish` (runs `exec herdr` in interactive
 shells), `tmux_utils.fish` (`fish_tmux_autostart false`), and `claude.fish`.
 
 ## Agent skill
 
-Coding agents control herdr from inside a pane via the `herdr` skill:
+Coding agents control herdr from inside a pane with the `herdr` skill:
 
 ```bash
 npx skills add herdrdev/herdr --skill herdr -g

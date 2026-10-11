@@ -27,8 +27,8 @@ sidebar_max_width = 48             # default 36
 sidebar_min_width = 18
 tab_bar_position = "top"
 
-# Tokens: {hostname}, {workspace}, {tab}, {pane}, {terminal_title}. Rendered on the
-# server, so {hostname} names the host the panes run on.
+# Tokens: {hostname}, {workspace}, {tab}, {pane}, {terminal_title}. The server
+# renders the title. {hostname} is the host that runs the panes.
 window_title = "{workspace} • {tab}"   # default
 
 # `$idx` is the slot number for the 1-9 focus binding, reported by the labels plugin.
@@ -38,8 +38,8 @@ rows = [["state_icon", "$idx", "workspace"]]
 # Rows from the labels plugin, which also sets the panel order.
 # Line 1 - repo name, only above worktrees whose checkout runs no agent
 # Line 2 - state dot, rank for the 1-9 focus binding, workspace. Worktrees are indented.
-#          The dot fades when idle for 15 min and 1 h.
-# Line 3 - session title reported by Claude Code via statusline script. A worktree title starts
+#          The dot fades after 15 min idle, and again after 1 h.
+# Line 3 - session title reported by the Claude Code statusline script. A worktree title starts
 #          with a tree line, `│` or `└` for the last worktree of the group.
 [ui.sidebar.agents]
 rows = [
@@ -151,10 +151,8 @@ navigate_pane_right      = "l"
 
 # --- Custom commands ---
 
-# A tab, not a popup: lazygit stays out of the way of tab and pane keys. The tab
-# holds one pane, so quitting lazygit ends its shell and herdr closes the tab.
-# The script focuses the tab for this directory if one is open. It passes PATH
-# because HERDR_PANE_CMD is the fast-pane path from
+# lazygit opens in a tab because a popup blocks the tab and pane keys. The
+# script passes PATH because HERDR_PANE_CMD is the fast-pane path from
 # conf.d/00-herdr-fast-pane.fish, which skips conf.d.
 [[keys.command]]
 key = "alt+g"
@@ -162,8 +160,6 @@ type = "shell"
 command = "~/.config/herdr/bin/lazygit.sh"
 description = "lazygit in a new tab, or focus the one for this directory"
 
-# The sidebar dialog blocks the UI until git has deleted the checkout. This
-# removes the active worktree in the background and shows a toast at the end.
 [[keys.command]]
 key = "prefix+alt+q"
 type = "shell"
