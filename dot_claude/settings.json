@@ -175,7 +175,9 @@
     "simple-english@simple-english": true,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false
+    "typescript-lsp@claude-plugins-official": false,
+    "md-prompt@nogu66": true,
+    "skins@hellosverre-mods": true
   },
   "extraKnownMarketplaces": {
     "ponytail": {
@@ -194,6 +196,18 @@
       "source": {
         "source": "github",
         "repo": "AminBlg/SimpleEnglish"
+      }
+    },
+    "nogu66": {
+      "source": {
+        "source": "github",
+        "repo": "nogu66/md-prompt"
+      }
+    },
+    "hellosverre-mods": {
+      "source": {
+        "source": "github",
+        "repo": "hellosverre/claude-skins"
       }
     }
   },
@@ -293,7 +307,7 @@
   "showClearContextOnPlanAccept": true,
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
-  "theme": "auto",
+  "theme": "dark",
   "editorMode": "normal",
   "preferredNotifChannel": "notifications_disabled",
   "inputNeededNotifEnabled": true,
