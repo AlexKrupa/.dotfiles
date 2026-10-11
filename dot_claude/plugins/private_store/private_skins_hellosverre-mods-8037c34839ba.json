@@ -1,0 +1,28 @@
+{
+  "updateCheck": {
+    "at": 9999999999999
+  },
+  "custom": {},
+  "prefs": {
+    "skin": "dracula",
+    "icons": "unicode",
+    "prompt": "left",
+    "rail": true,
+    "tables": "on",
+    "shimmer": true,
+    "band": false,
+    "clipOutput": false,
+    "markdown": true,
+    "quiet": false,
+    "charts": true,
+    "math": true,
+    "commands": true,
+    "shell": true,
+    "highlight": true,
+    "hints": false,
+    "links": true,
+    "copy": true,
+    "fold": true,
+    "calm": null
+  }
+}
