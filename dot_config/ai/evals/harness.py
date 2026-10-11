@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -20,6 +21,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 HOME = Path.home()
+REPO_SLUG = HERE.parent / "bin" / "repo-slug.sh"
 CONFIG = "with_skill"
 FLAGS = re.IGNORECASE | re.MULTILINE
 
@@ -38,6 +40,26 @@ def run_fixture(fixture, repo):
 
 def fill(prompt, values):
     return re.sub(r"\{(\w+)\}", lambda m: values[m.group(1)], prompt)
+
+
+def setup_with_slug(fixture, repo, prompt, run_dir):
+    """Build the fixture repo. Write ctx.json with the repo, the filled prompt, and the repo slug
+    of the skill's ~/.ai/<repo-slug>/ work dir. Return the ctx."""
+    values = run_fixture(fixture, repo)
+    slug = sh(str(REPO_SLUG), cwd=repo).strip()
+    ctx = {"repo": str(repo), "prompt": fill(prompt, values), "slug": slug}
+    (run_dir / "ctx.json").write_text(json.dumps(ctx, indent=2))
+    return ctx
+
+
+def collect_work_dir(ctx, run_dir, subdir):
+    """Copy ~/.ai/<repo-slug>/<subdir>/*.md to outputs/<subdir>/, then delete ~/.ai/<repo-slug>/."""
+    work_dir = HOME / ".ai" / ctx["slug"]
+    out = run_dir / "outputs" / subdir
+    out.mkdir()
+    for path in (work_dir / subdir).glob("*.md"):
+        shutil.copy(path, out)
+    shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, effort=None):
@@ -130,12 +152,15 @@ def load_common(run_dir):
     }
 
 
-def regex_check(check, text, positive):
-    hit = [p for p in check["patterns"] if re.search(p, text, re.MULTILINE)]
+def regex_check(check, text, positive, ignore_case=False):
+    """Return (passed, evidence). A check that sets `case` matches case also with `ignore_case`."""
+    flags = FLAGS if ignore_case and not check.get("case") else re.MULTILINE
+    hit = [p for p in check["patterns"] if re.search(p, text, flags)]
     if positive:
         missing = [p for p in check["patterns"] if p not in hit]
         return not missing, "all patterns match" if not missing else f"missing: {missing}"
-    return not hit, "no pattern matches" if not hit else f"matched: {hit}"
+    found = [re.search(p, text, flags).group(0) for p in hit]
+    return not hit, "no pattern matches" if not hit else f"matched: {found}"
 
 
 def common_check(check, run):
@@ -173,22 +198,36 @@ def common_check(check, run):
     return None
 
 
+def expand(check, sets):
+    """Replace a `patterns` or `input_regex` value that starts with `@` with the named list in
+    `pattern_sets`. `input_regex` gets the patterns joined with `|`."""
+    for key in ("patterns", "input_regex"):
+        value = check.get(key)
+        if isinstance(value, str) and value.startswith("@"):
+            names = sets[value[1:]]
+            check = {**check, key: names if key == "patterns" else "|".join(names)}
+    return check
+
+
 def checks_for(spec, ev):
     common = [] if ev.get("common") is False else spec["common_checks"]
     skip = set(ev.get("common_skip", []))
-    return [c for c in common if c.get("id") not in skip] + ev["checks"]
+    sets = spec.get("pattern_sets", {})
+    return [expand(c, sets) for c in common if c.get("id") not in skip] + [
+        expand(c, sets) for c in ev["checks"]]
 
 
 def grade_run(run_dir, checks, load_run, run_check):
     """Apply `checks` to one run and write grading.json.
 
-    `load_run(run_dir)` returns the run data. `run_check(check, run)` returns (passed, evidence).
+    `load_run(run_dir)` returns the run data. `run_check(check, run)` returns (passed, evidence)
+    for the check types that are not common ones.
     """
     run = load_run(run_dir)
     expectations = []
     for check in checks:
         try:
-            passed, evidence = run_check(check, run)
+            passed, evidence = common_check(check, run) or run_check(check, run)
         except Exception as e:  # a broken check must not hide the other results
             passed, evidence = False, f"check error: {e!r}"
         expectations.append({"text": check["text"], "passed": bool(passed), "evidence": evidence})
@@ -202,8 +241,8 @@ def grade_run(run_dir, checks, load_run, run_check):
     return result
 
 
-def grade_main(doc, evals_path, grade):
-    """CLI for a skill's grade.py. `grade(run_dir, checks)` grades one run."""
+def grade_main(doc, evals_path, load_run, run_check):
+    """CLI for a skill's grade.py. See `grade_run` for `load_run` and `run_check`."""
     if len(sys.argv) != 2:
         sys.exit(doc)
     iteration = Path(sys.argv[1])
@@ -213,14 +252,14 @@ def grade_main(doc, evals_path, grade):
         if not eval_dir.is_dir():
             continue
         for run_dir in sorted(eval_dir.glob("*/run-*")):
-            result = grade(run_dir, checks_for(spec, ev))
+            result = grade_run(run_dir, checks_for(spec, ev), load_run, run_check)
             s = result["summary"]
             failed = [e["text"] for e in result["expectations"] if not e["passed"]]
             print(f"{run_dir.relative_to(iteration)}: {s['passed']}/{s['total']}"
                   + "".join(f"\n  FAIL {t}" for t in failed))
 
 
-def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, grade):
+def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, load_run, run_check):
     """CLI for a skill's run.py.
 
     Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--effort LEVEL]
@@ -228,7 +267,7 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, gr
 
     `setup(ev, k, repos, run_dir)` builds the fixture and returns a dict with `repo` (the
     cwd for claude) and `prompt`. `collect(ev, ctx, run_dir)` saves the skill-specific outputs.
-    `grade(run_dir, checks)` grades one run.
+    See `grade_run` for `load_run` and `run_check`.
     """
     p = argparse.ArgumentParser(description=doc, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("iteration_dir", type=Path)
@@ -276,7 +315,7 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, gr
         collect(ev, ctx, run_dir)
         snapshot(ctx["repo"], run_dir, "after.txt")
         write_repo_diff(run_dir)
-        s = grade(run_dir, checks_for(spec, ev))["summary"]
+        s = grade_run(run_dir, checks_for(spec, ev), load_run, run_check)["summary"]
         line = f"{ev['name']} run-{k}: {s['passed']}/{s['total']} in {seconds:.0f}s"
         if json.loads((run_dir / "timing.json").read_text())["is_error"]:
             reply = (run_dir / "outputs" / "final_reply.md").read_text().strip()

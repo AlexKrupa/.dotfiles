@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Run the deslop evals with headless `claude -p`, then grade them.
 
-Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--timeout SEC] [EVAL ...]
-
 Each run gets its own fixture repo in a temp dir. After the run, a clone of the repo gets
 `git rebase -i --autosquash <base>` in <run-dir>/applied/, so the checks read the history that the
 user gets after the fixups. An eval with `"output": "worktree"` gets a copy of the repo with its
@@ -79,4 +77,4 @@ def collect(ev, ctx, run_dir):
 
 if __name__ == "__main__":
     harness.run_main(__doc__, HERE, "dse-", ALLOWED_TOOLS, [HOME / ".claude", HOME / ".config" / "ai"],
-                     setup, collect, grade.grade_run)
+                     setup, collect, grade.load_run, grade.run_check)

@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 """Run the draft-pr evals with headless `claude -p`, then grade them.
 
-Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--effort LEVEL] [--timeout SEC]
-              [EVAL ...]
-
 Each run gets its own fixture repo in a temp dir. The skill writes the PR file to
 ~/.ai/<repo-slug>/prs/. After the run, the PR files go to <run-dir>/outputs/prs/, the branch state
 goes to <run-dir>/outputs/git-state.txt, and ~/.ai/<repo-slug>/ is deleted. The runs use the live
 skill at ~/.claude/skills/draft-pr.
 """
-import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -22,19 +17,14 @@ import harness  # noqa: E402
 import grade  # noqa: E402
 
 HOME = Path.home()
-REPO_SLUG = HERE.parents[2] / "bin" / "repo-slug.sh"
 SHIMS = HERE / "shims"
 # Edit rules also cover Write. The watch evals fix code in the fixture repos in the temp dir.
 ALLOWED_TOOLS = "Bash Read Grep Glob Skill Edit(~/.ai/**) Edit(//private/var/folders/**) Edit(//var/folders/**)"
 
 
 def setup(ev, k, repos, run_dir):
-    repo = repos / f"dpr-{ev['name']}-{k}"
-    values = harness.run_fixture(HERE / ev["fixture"], repo)
-    slug = subprocess.run([str(REPO_SLUG)], cwd=repo, capture_output=True, text=True).stdout.strip()
-    ctx = {"repo": str(repo), "prompt": harness.fill(ev["prompt"], values), "slug": slug}
-    (run_dir / "ctx.json").write_text(json.dumps(ctx, indent=2))
-    return ctx
+    return harness.setup_with_slug(HERE / ev["fixture"], repos / f"dpr-{ev['name']}-{k}",
+                                   ev["prompt"], run_dir)
 
 
 def git_state(repo):
@@ -57,16 +47,11 @@ def git_state(repo):
 
 
 def collect(ev, ctx, run_dir):
-    work_dir = HOME / ".ai" / ctx["slug"]
-    out = run_dir / "outputs" / "prs"
-    out.mkdir()
-    for pr in (work_dir / "prs").glob("*.md"):
-        shutil.copy(pr, out)
+    harness.collect_work_dir(ctx, run_dir, "prs")
     (run_dir / "outputs" / "git-state.txt").write_text(git_state(ctx["repo"]))
     (run_dir / "outputs" / "branch-log.txt").write_text(subprocess.run(
         ["git", "-C", ctx["repo"], "log", "-p", "--format=commit %s", "main..tags-in-list"],
         capture_output=True, text=True).stdout)
-    shutil.rmtree(work_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
@@ -74,4 +59,4 @@ if __name__ == "__main__":
     os.environ["PATH"] = f"{SHIMS}:{os.environ['PATH']}"
     harness.run_main(__doc__, HERE, "dpr-", ALLOWED_TOOLS,
                      [HOME / ".claude", HOME / ".config" / "ai", HOME / ".ai"],
-                     setup, collect, grade.grade_run)
+                     setup, collect, grade.load_run, grade.run_check)

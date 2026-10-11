@@ -119,9 +119,6 @@ def matches(f, check):
 def run_check(check, run):
     """Return (passed, evidence)."""
     t, report, reply, findings = check["type"], run["report"], run["reply"], run["findings"]
-    common = harness.common_check(check, run)
-    if common is not None:
-        return common
     if t == "report_count":
         n = len(run["reports"])
         return n == check["equals"], f"{n} report(s): {[p.name for p in run['reports']]}"
@@ -244,9 +241,5 @@ def load_run(run_dir):
     }
 
 
-def grade_run(run_dir, checks):
-    return harness.grade_run(run_dir, checks, load_run, run_check)
-
-
 if __name__ == "__main__":
-    harness.grade_main(__doc__, EVALS, grade_run)
+    harness.grade_main(__doc__, EVALS, load_run, run_check)

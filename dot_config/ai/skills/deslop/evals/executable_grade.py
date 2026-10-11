@@ -7,8 +7,7 @@ Reads each <iteration-dir>/eval-<name>/<config>/run-<k>/ and writes grading.json
 has: ctx.json (base and head sha, index diff), applied/ (a clone after the autosquash rebase, or a
 copy of the working tree), rebase.txt, outputs/ (final reply, logs, diffs, status, index),
 transcript.jsonl, before.txt, after.txt, repo-diff.txt, and before-tree/ (the working tree before
-the run). A `patterns` value that starts with `@` names a list in `pattern_sets`.
-"""
+the run). """
 import json
 import re
 import subprocess
@@ -20,7 +19,6 @@ sys.path.insert(0, str(HERE.parents[2] / "evals"))
 import harness  # noqa: E402
 
 EVALS = HERE / "evals.json"
-FLAGS = harness.FLAGS
 
 
 def split_comments(src):
@@ -59,9 +57,6 @@ def git_show(applied, ref, path):
 
 def run_check(check, run):
     """Return (passed, evidence)."""
-    common = harness.common_check(check, run)
-    if common is not None:
-        return common
     t = check["type"]
     if t == "rebase_clean":
         return run["rebase"].startswith("rc=0"), run["rebase"][:300] or "no rebase.txt"
@@ -121,14 +116,7 @@ def run_check(check, run):
 
 
 def regex(check, text, positive):
-    """Like harness.regex_check, but case-insensitive unless the check sets `case`."""
-    flags = re.MULTILINE if check.get("case") else FLAGS
-    hit = [p for p in check["patterns"] if re.search(p, text, flags)]
-    if positive:
-        missing = [p for p in check["patterns"] if p not in hit]
-        return not missing, "all patterns match" if not missing else f"missing: {missing}"
-    found = [re.search(p, text, flags).group(0) for p in hit]
-    return not hit, "no pattern matches" if not hit else f"matched: {found}"
+    return harness.regex_check(check, text, positive, ignore_case=True)
 
 
 def refs(snapshot_path):
@@ -162,19 +150,5 @@ def subjects(log):
             if re.match(r"^[0-9a-f]{7,} ", ln) and " " in ln]
 
 
-def expand(checks):
-    sets = json.loads(EVALS.read_text()).get("pattern_sets", {})
-    out = []
-    for c in checks:
-        if isinstance(c.get("patterns"), str) and c["patterns"].startswith("@"):
-            c = {**c, "patterns": sets[c["patterns"][1:]]}
-        out.append(c)
-    return out
-
-
-def grade_run(run_dir, checks):
-    return harness.grade_run(run_dir, expand(checks), load_run, run_check)
-
-
 if __name__ == "__main__":
-    harness.grade_main(__doc__, EVALS, grade_run)
+    harness.grade_main(__doc__, EVALS, load_run, run_check)
