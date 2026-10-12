@@ -2,7 +2,7 @@
 # Usage: work-start.sh mode
 #        work-start.sh tops
 #        work-start.sh <ticket-id> <slug-text> [--base REF] [--placeholder ID]
-#          [-- <claude flags>...]
+#          [--split [--continue SESSION-ID]] [-- <claude flags>...]
 #        work-start.sh <ticket-id> <slug-text> [--onto BRANCH] [--placeholder ID]
 #          [--continue SESSION-ID [--mr URL]]
 #        work-start.sh <ticket-id> [<title>] --branch NAME [-- <claude flags>...]
@@ -12,7 +12,8 @@
 # Mode "new" (main checkout): creates the branch from the default branch of origin (origin/HEAD)
 # after a fast-forward, or from the remote ref REF. Tracks it on the default branch with
 # git-spice. Opens it as a new herdr worktree workspace, starts Claude there, and submits the
-# prompt.
+# prompt. --split selects this mode in a linked worktree too. With --continue, the prompt gets a
+# handoff: the session id, the current branch, and the summary on fd 3.
 # "tops" prints the top branches of the git-spice stack above the current branch, one on each
 # line. No output: no branch is above the current branch.
 # Mode "next" (linked worktree): creates the branch with git-spice on top of the current branch, or
@@ -20,10 +21,14 @@
 # has the session id, the MR of the current branch (URL, else from glab), the files in
 # ~/.ai/<repo>/{specs,plans,reviews} with the ticket key of the current branch (no search for the
 # placeholder ID), and the summary on fd 3. Then starts bin/herdr-after-turn.sh, which clears this
-# Claude session after the turn, renames it, and submits the prompt.
+# Claude session after the turn, renames it, and submits the prompt. In a nono sandbox
+# (NONO_CAP_FILE is set), prints the JSON, then runs the helper in the foreground. Claude runs the
+# script as a background task there.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
 # creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
 # NAME is used again. A workspace that is open already stops the script.
+# In a nono sandbox, new and existing mode start the agent with bin/herdr-start-claude, and the
+# only claude flag is --effort.
 # Prints JSON: mode, branch, base, tracked, worktree, pane_id, and in new and existing mode
 # workspace_id, agent.
 # Exit codes: 0 ok, 1 failed before the branch exists, 2 failed after it, 3 agent not ready
@@ -75,7 +80,8 @@ if [[ ${1:-} == tops && $# -eq 1 ]]; then
   exit 0
 fi
 
-ticket="" text="" base="" existing="" onto="" session="" mr="" placeholder="" claude_args=()
+ticket="" text="" base="" existing="" onto="" session="" mr="" placeholder="" split=""
+claude_args=()
 while (($#)); do
   case "$1" in
     --base) [[ $# -ge 2 ]] || die "--base needs a ref"; base=$2; shift 2 ;;
@@ -84,6 +90,7 @@ while (($#)); do
     --continue) [[ $# -ge 2 ]] || die "--continue needs a session id"; session=$2; shift 2 ;;
     --mr) [[ $# -ge 2 ]] || die "--mr needs a URL"; mr=$2; shift 2 ;;
     --placeholder) [[ $# -ge 2 ]] || die "--placeholder needs an id"; placeholder=$2; shift 2 ;;
+    --split) split=1; shift ;;
     --) shift; claude_args=("$@"); break ;;
     -*) die "unknown option: $1" ;;
     *)
@@ -95,7 +102,7 @@ while (($#)); do
 done
 
 if [[ -n $existing ]]; then
-  [[ -n $ticket && -z $base ]] \
+  [[ -n $ticket && -z $base$split ]] \
     || die "usage: work-start.sh <ticket-id> [<title>] --branch NAME [-- <claude flags>...]"
   branch=$existing
   if [[ -n $text ]]; then title="[$ticket] $text"; else title=$branch; fi
@@ -108,6 +115,13 @@ else
   if [[ $ticket == "$placeholder" ]]; then title=$text; else title="[$ticket] $text"; fi
 fi
 git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "not a valid branch name: $branch"
+# In a nono sandbox, herdr-start-claude starts the agent, and it passes only --effort to claude.
+start_effort=""
+if [[ -n ${NONO_CAP_FILE:-} ]] && ((${#claude_args[@]})); then
+  [[ ${#claude_args[@]} -eq 2 && ${claude_args[0]} == --effort ]] \
+    || die "in a nono sandbox, the only claude flag is --effort <level>, not: ${claude_args[*]}"
+  start_effort=${claude_args[1]}
+fi
 prompt=$(cat)
 [[ -n $prompt ]] || die "no prompt text on stdin"
 
@@ -117,7 +131,7 @@ if [[ -z $existing ]]; then
     || die "git-spice is not set up: run 'gs repo init' first"
 fi
 
-if [[ -z $existing && $(mode_of) == next ]]; then
+if [[ -z $existing$split && $(mode_of) == next ]]; then
   [[ -z $base ]] || die "--base does not apply in a linked worktree"
   ((${#claude_args[@]} == 0)) || die "claude flags do not apply in a linked worktree"
   [[ -z $(git status --porcelain) ]] || die "the worktree has changes: the old work is not done"
@@ -165,6 +179,16 @@ default branch."
   fi
   prompt+=$'\n\n'"$handoff"
 
+  if [[ -n ${NONO_CAP_FILE:-} ]]; then
+    # nono denies herdr calls from a detached process: its ancestry does not reach the sandbox
+    # session. A background task of claude keeps that ancestry.
+    jq -n --arg branch "$branch" --arg base "$base" --arg pane "$pane" \
+      --arg worktree "$(git rev-parse --show-toplevel)" \
+      '{mode: "next", branch: $branch, base: $base, tracked: true, worktree: $worktree,
+        pane_id: $pane}'
+    exec "$WORK_NEXT" "$pane" --clear "$old" "/rename $title" <<<"$prompt" \
+      >>"${TMPDIR:-/tmp}/work-next.log" 2>&1
+  fi
   # Detached, so it lives after this turn. It waits until the turn ends.
   nohup "$WORK_NEXT" "$pane" --clear "$old" "/rename $title" <<<"$prompt" \
     >>"${TMPDIR:-/tmp}/work-next.log" 2>&1 &
@@ -175,7 +199,20 @@ default branch."
       pane_id: $pane}'
   exit 0
 fi
-[[ -z $onto$session$mr ]] || die "--onto, --continue, and --mr apply only in a linked worktree"
+[[ -z $onto$mr ]] || die "--onto and --mr apply only in a linked worktree"
+if [[ -n $session ]]; then
+  [[ -n $split ]] || die "--continue applies only in a linked worktree or with --split"
+  summary=$(cat 2>/dev/null <&3) || true
+  [[ -n $summary ]] || die "--continue needs the summary on fd 3"
+  prompt+="
+
+---
+Handoff from a session in another worktree:
+- Previous session: \"$(git branch --show-current)\", id $session
+
+Summary of the previous session:
+$summary"
+fi
 
 origin_head() { git symbolic-ref --quiet --short refs/remotes/origin/HEAD; }
 ref=$(origin_head || { git remote set-head origin --auto >/dev/null 2>&1 && origin_head; }) \
@@ -239,8 +276,13 @@ fi
 # herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max.
 name=$(slugify "$branch" 32)
 
-start=(herdr agent start "$name" --kind claude --pane "$pane" \
-  -- --name "$title" "${claude_args[@]}")
+if [[ -n ${NONO_CAP_FILE:-} ]]; then
+  # nono denies `herdr agent start` in the sandbox. This mediated command starts only claude.
+  start=(herdr-start-claude "$name" "$pane" "$title" ${start_effort:+"$start_effort"})
+else
+  start=(herdr agent start "$name" --kind claude --pane "$pane" \
+    -- --name "$title" "${claude_args[@]}")
+fi
 if ! out=$("${start[@]}" 2>&1); then
   if grep -q agent_not_ready <<<"$out"; then
     echo "work-start: agent not ready in pane $pane (branch $branch stays)" >&2

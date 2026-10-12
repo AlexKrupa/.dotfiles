@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 # exec
 
-Executes a superpowers plan. After this turn, a detached script sets the effort and submits the
+Executes a superpowers plan. After this turn, a helper script sets the effort and submits the
 superpowers execution command with the plan path. With `fresh`, the script first clears this
 Claude session. The user runs this skill in place of a reply to the writing-plans handoff. This
 means that the user approved the plan.
@@ -48,21 +48,30 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
    - `high`: some steps leave design choices open, or need investigation or debugging.
    - Do not pick `low`: a failing test needs reasoning. Do not pick `xhigh` or `max`: the plan
      already contains the design.
-4. Run the script. Add `--fresh` only if `$ARGUMENTS` has `fresh`:
+4. Run `printenv NONO_CAP_FILE`. If it prints a path, this session runs in a `nono` sandbox.
+5. Run the script. Add `--fresh` only if `$ARGUMENTS` has `fresh`:
 
    ```sh
    ~/.claude/skills/exec/exec.sh [--fresh] <subagent|native> <effort> '<plan path>'
    ```
 
-5. Report the result, then end the turn. The script waits until the turn ends, so the turn has no
+   In a `nono` sandbox, run it with the Bash tool option `run_in_background: true`. `nono` blocks
+   `herdr` calls from a detached helper, so there the script runs its helper in the foreground of
+   the background task. Then read the output file of the task once, with the Read tool. If the
+   file is empty, read it again. A first line `<skill> - <effort> - <plan>` is exit `0`. A line
+   that starts with `exec:` is exit `1`.
+6. Report the result, then end the turn. The script waits until the turn ends, so the turn has no
    more tool calls after the report.
    - Exit `0`: the stdout line, then one line per decision: "Mode: <mode> - <how>." and
      "Effort: <effort> - <how>." For mode, `<how>` is "from the argument", "kept, <reason>",
      "changed from <recommended mode>, <reason>", or "no recommendation, <reason>". For effort,
      `<how>` is "from the argument" or "<reason>". Each reason is one sentence. Then, with
      `fresh`: "This session clears after this turn." Without `fresh`: "The plan command starts
-     after this turn." Then: "Do not type in this pane until the plan command shows. The effort
-     stays set for later sessions of this model: `/effort auto` resets it."
+     after this turn." Then: "Do not type in this pane until the plan command shows." Then, out
+     of a `nono` sandbox: "The effort stays set for later sessions of this model: `/effort auto`
+     resets it." In a `nono` sandbox: "The effort applies to this session. If
+     `~/.claude/settings.json` has an effort for this model, that effort applies at the next
+     start."
    - Exit `1`: the stderr text, word for word.
 
 If the plan command does not show, the log is `${TMPDIR:-/tmp}/exec.log`. The user can send the

@@ -1,4 +1,4 @@
-function claude --description 'Run Claude Code after navigating to git root and expanding args'
+function claude --description 'Run Claude Code at the git root, in a nono sandbox if the repo has a profile'
     if git rev-parse --git-dir >/dev/null 2>&1
         set -l git_root (git rev-parse --show-toplevel)
         set -l current_dir (pwd)
@@ -42,13 +42,159 @@ function claude --description 'Run Claude Code after navigating to git root and 
         end
     end
 
-    command claude $args
+    # With no slug, the launcher cannot find the repo profile. It must not start without a sandbox.
+    set -l slug (~/.config/ai/bin/repo-slug.sh)
+    if test -z "$slug"
+        echo "claude: repo-slug.sh printed no slug" >&2
+        return 1
+    end
+    # Two lines make two profile paths, and `test -f` fails on them.
+    if test (count $slug) -ne 1
+        echo "claude: repo-slug.sh printed more than one line" >&2
+        return 1
+    end
+    set -l profile repo-$slug
+    if test -f ~/.config/nono/profiles/$profile.json
+        __claude_nono $profile $args
+    else
+        command claude $args
+    end
 end
 
-# --proxy-port must match the port in the android profile's JDK_JAVA_OPTIONS.
-# --extends claude adds the nolabs-ai/claude pack profile, which grants ~/.claude
-# and the login keychain, so the host login and settings stay usable.
-alias claudea "nono run --profile android --extends claude --proxy-port 19999 --allow-cwd -- claude"
+function __claude_nono --description 'Run claude in the nono sandbox of profile <name>'
+    set -l profile $argv[1]
+    set -l args $argv[2..-1]
+    set -l profiles ~/.config/nono/profiles
+
+    # A broken profile must stop the start. It must not fall back to no sandbox.
+    set -l base (jq -er '.extends | strings' $profiles/$profile.json 2>/dev/null)
+    or begin
+        echo "claude: $profiles/$profile.json has no \"extends\" string" >&2
+        return 1
+    end
+
+    # No review list at exit: its rows default to grant, and claude-upgrade types into the pane.
+    set -l nono_args --profile $profile --allow-cwd --suppress-save-prompt /
+    if test -f $profiles/$base-local.json
+        set -a nono_args --extends $base-local
+    end
+
+    # In a linked worktree, git writes to the .git directory of the main checkout.
+    set -l git_dir (git rev-parse --path-format=absolute --git-dir)
+    set -l common_dir (git rev-parse --path-format=absolute --git-common-dir)
+    if test "$git_dir" != "$common_dir"
+        set -a nono_args --allow $common_dir
+    end
+
+    # An adb server that starts inside the sandbox has no USB or LAN access.
+    if type -q adb
+        adb start-server >/dev/null 2>&1
+    end
+
+    # The sandbox can write only the ~/.ai directory of this repo.
+    set -l ai_dir ~/.ai/(string replace -r '^repo-' '' -- $profile)
+    mkdir -p $ai_dir
+    set -a nono_args --allow $ai_dir
+
+    # Sandboxed sessions have their own Claude Code config directory. The profile makes ~/.claude
+    # read-only. Claude Code makes its lock directory next to the config directory, so both are
+    # in one grant. The links give read-only access to the user files in ~/.claude.
+    set -l sandbox_root ~/.claude-sandbox
+    set -lx CLAUDE_CONFIG_DIR $sandbox_root/config
+    mkdir -p $CLAUDE_CONFIG_DIR
+    for item in CLAUDE.md agents commands keybindings.json output-styles plugins rules skills themes
+        if not test -e $CLAUDE_CONFIG_DIR/$item; and not test -L $CLAUDE_CONFIG_DIR/$item
+            ln -s ~/.claude/$item $CLAUDE_CONFIG_DIR/$item
+        end
+    end
+    set -a nono_args --allow $sandbox_root
+    # The settings of ~/.claude are the command-line layer. The user layer in the sandbox config
+    # directory stays writable for /effort and /config.
+    set -l settings_args --settings ~/.claude/settings.json
+
+    # herdr-start-claude is a mediated command, and nono finds it on PATH.
+    set -lx PATH ~/.config/ai/bin $PATH
+
+    # One proxy port per session, so that parallel sessions do not collide. The port is below
+    # 49152: the profile opens 49152-65535 to every sandbox for Gradle.
+    set -l port (python3 -I -c '
+import random, socket
+for _ in range(10):
+    port = random.randint(30000, 49151)
+    s = socket.socket()
+    try:
+        s.bind(("127.0.0.1", port))
+    except OSError:
+        continue
+    finally:
+        s.close()
+    print(port)
+    break')
+    if test -z "$port"
+        echo "claude: found no free proxy port in 30000-49151" >&2
+        return 1
+    end
+    set -a nono_args --proxy-port $port
+
+    # A Gradle daemon keeps the sandbox and the proxy port of the session that started it, so
+    # each session gets its own daemon registry. The sandbox cannot use Kotlin daemons.
+    set -l registry $git_dir/nono-gradle-daemons/$fish_pid
+    mkdir -p $registry
+    set -lx JDK_JAVA_OPTIONS (string join ' ' -- \
+        -Djava.net.preferIPv4Stack=true \
+        -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=$port \
+        -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=$port \
+        '-Dhttp.nonProxyHosts=localhost|127.0.0.1' \
+        "-Dorg.gradle.daemon.registry.base=\"$registry\"" \
+        -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process)
+
+    # Herdr sees nono, not claude, as the pane process. HERDR_AGENT tells Herdr to read the pane
+    # as Claude Code.
+    set -lx HERDR_AGENT claude
+    # A spinner title makes Herdr show "working" until Claude sets its own title. Thus
+    # `herdr agent start` waits for the Claude prompt and does not type into the nono banner.
+    # The title goes to the terminal only, not into piped output. sh keeps the error quiet when
+    # there is no terminal.
+    if test "$HERDR_ENV" = 1
+        sh -c 'printf "\033]2;%s\007" "$1" >/dev/tty' sh '⠿ nono sandbox starting' 2>/dev/null
+    end
+
+    nono run $nono_args -- claude $settings_args $args
+    set -l code $status
+    __claude_stop_daemons $registry
+    rm -rf $registry
+    return $code
+end
+
+function __claude_stop_daemons --description 'Stop the Gradle daemons of one session registry'
+    # A daemon has the registry path in its JDK_JAVA_OPTIONS. ps -E shows the environment.
+    # env -u keeps ps itself out of the match.
+    for line in (env -u JDK_JAVA_OPTIONS ps -E -ww -x -o pid=,command=)
+        if string match -q -- "*registry.base=\"$argv[1]\"*" $line
+            kill (string trim -- $line | string split -f1 ' ')
+        end
+    end
+end
+
+function claude-config --description 'Edit the nono sandbox profile of this repo'
+    set -l slug (~/.config/ai/bin/repo-slug.sh)
+    if test "$slug" = _no-repo
+        echo "claude-config: not in a git repo" >&2
+        return 1
+    end
+    set -l file ~/.config/nono/profiles/repo-$slug.json
+    if not test -f $file
+        printf '%s\n' \
+            '{' \
+            '  "extends": "claude-android",' \
+            "  \"meta\": { \"name\": \"repo-$slug\" }," \
+            '  "filesystem": { "read": [] },' \
+            '  "network": { "allow_domain": [] }' \
+            '}' >$file
+    end
+    $EDITOR $file
+    nono profile validate repo-$slug
+end
 
 function __claude_upgrade_available --description 'Print "current -> new" if a newer claude-code cask exists'
     # --greedy: the cask may be marked auto_updates, which outdated skips otherwise.
@@ -61,6 +207,20 @@ function __claude_upgrade_cask
     if not brew upgrade --cask claude-code@latest
         echo "claude-upgrade: brew upgrade failed" >&2
         return 1
+    end
+end
+
+function __claude_upgrade_plugins
+    # `command claude`: the claude function starts a sandbox in a repo with a profile.
+    echo "Updating plugin marketplaces..."
+    command claude plugin marketplace update
+    or echo "claude-upgrade: marketplace update failed" >&2
+
+    echo "Updating plugins..."
+    for line in (command claude plugin list --json | jq -r '.[] | "\(.id) \(.scope)"')
+        set -l parts (string split ' ' -- $line)
+        command claude plugin update $parts[1] --scope $parts[2]
+        or echo "claude-upgrade: plugin update failed: $parts[1]" >&2
     end
 end
 
@@ -132,7 +292,7 @@ function __claude_pane_send --description 'Run <cmd> in <target>'
     end
 end
 
-function claude-upgrade --description 'Upgrade the cask, quit interactive claude sessions, relaunch each resuming its conversation'
+function claude-upgrade --description 'Upgrade the cask and plugins, quit interactive claude sessions, relaunch each resuming its conversation'
     set -l dry_run 0
     for arg in $argv
         switch $arg
@@ -169,6 +329,7 @@ function claude-upgrade --description 'Upgrade the cask, quit interactive claude
             echo "claude-upgrade: not quitting sessions" >&2
             return 1
         end
+        __claude_upgrade_plugins
     end
 
     # Map pane shell pid -> pane target, once.
@@ -189,7 +350,8 @@ function claude-upgrade --description 'Upgrade the cask, quit interactive claude
     set -l rec_sid
     set -l skipped
 
-    for f in ~/.claude/sessions/*.json
+    # Sandboxed sessions keep their session files in the sandbox config directory.
+    for f in ~/.claude/sessions/*.json ~/.claude-sandbox/config/sessions/*.json
         test -f "$f"; or continue
         set -l fields (jq -r '[.pid, .sessionId, .cwd, .status, (.waitingFor // ""), (.name // ""), .kind] | @tsv' "$f" 2>/dev/null)
         test -n "$fields"; or continue
@@ -202,10 +364,28 @@ function claude-upgrade --description 'Upgrade the cask, quit interactive claude
         set -l name $cols[6]
         set -l kind $cols[7]
 
+        # A sandboxed session can write these files. The session ID goes into a shell outside
+        # the sandbox, and the name, the cwd, and the status go to the terminal.
+        string match -rq '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' -- "$sid"; or continue
+        string match -rq '^[0-9]+$' -- "$pid"; or continue
+        set name (string replace -ra '[[:cntrl:]]' '' -- "$name")
+        set cwd (string replace -ra '[[:cntrl:]]' '' -- "$cwd")
+        set sess_status (string replace -ra '[[:cntrl:]]' '' -- "$sess_status")
+
         test "$kind" = interactive; or continue
         ps -p $pid >/dev/null 2>&1; or continue  # stale file, dead pid
+        # A forged file can name the PID of another process.
+        string match -rq '(^|/)claude$' -- (ps -o comm= -p $pid 2>/dev/null); or continue
 
         set -l ppid (string trim -- (ps -o ppid= -p $pid 2>/dev/null))
+        # In a nono sandbox, the parent of claude is nono. The pane shell is the parent of nono.
+        # nono prints its exit summary after claude exits, so the quit waits for nono.
+        set -l wait_pid $pid
+        set -l parent_command (ps -o comm= -p $ppid 2>/dev/null)
+        if test -n "$parent_command"; and string match -q '*nono' -- $parent_command
+            set wait_pid $ppid
+            set ppid (string trim -- (ps -o ppid= -p $ppid 2>/dev/null))
+        end
         test -n "$ppid"; or continue
 
         set -l target ""
@@ -228,7 +408,7 @@ function claude-upgrade --description 'Upgrade the cask, quit interactive claude
             continue
         end
 
-        set -a rec_pid $pid
+        set -a rec_pid $wait_pid
         set -a rec_pane $target
         set -a rec_status $sess_status
         set -a rec_name $name

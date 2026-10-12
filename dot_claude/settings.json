@@ -93,7 +93,7 @@
     "ask": [],
     "defaultMode": "auto"
   },
-  "model": "opus",
+  "model": "opus[1m]",
   "fallbackModel": [
     "claude-opus-5",
     "claude-opus-4-8",
@@ -168,7 +168,7 @@
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
-    "nono@nolabs-ai": true,
+    "skins@hellosverre-mods": true,
     "ponytail@ponytail": false,
     "pyright-lsp@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
@@ -177,7 +177,7 @@
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
     "md-prompt@nogu66": true,
-    "skins@hellosverre-mods": true
+    "nono@nolabs-ai": true
   },
   "extraKnownMarketplaces": {
     "ponytail": {

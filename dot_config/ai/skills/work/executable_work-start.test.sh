@@ -55,9 +55,11 @@ case "$1 $2" in
   "log short") printf '%s\n' "${MOCK_SPICE_LOG:-}" ;;
 esac
 EOF
-# Fake herdr-after-turn.sh: writes its arguments and stdin to $MOCK_NEXT.
+# Fake herdr-after-turn.sh: after $MOCK_SLEEP seconds, writes its arguments and stdin to
+# $MOCK_NEXT.
 cat >"$tmp/bin/work-next" <<'EOF'
 #!/bin/sh
+sleep "${MOCK_SLEEP:-0}"
 { printf '%s\n' "$@"; cat; } >"$MOCK_NEXT.part" && mv "$MOCK_NEXT.part" "$MOCK_NEXT"
 EOF
 # Fake glab: fetch-gitlab-mr.sh needs it on PATH. The fetch subcommand makes no glab call.
@@ -68,8 +70,17 @@ printf 'glab %s\n' "$*" >>"$MOCK_LOG"
 if [ "$1 $2" = "mr list" ] && [ -n "${MOCK_GLAB_MRS:-}" ]; then echo "$MOCK_GLAB_MRS"; exit 0; fi
 echo "unexpected glab call: $*" >&2; exit 2
 EOF
-chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab"
+# Fake herdr-start-claude, the mediated command in a nono sandbox: logs each call.
+cat >"$tmp/bin/herdr-start-claude" <<'EOF'
+#!/bin/sh
+printf 'herdr-start-claude'  >>"$MOCK_LOG"
+printf ' [%s]' "$@" >>"$MOCK_LOG"
+echo >>"$MOCK_LOG"
+EOF
+chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab" \
+  "$tmp/bin/herdr-start-claude"
 export PATH="$tmp/bin:$PATH" WORK_NEXT="$tmp/bin/work-next" TMPDIR="$tmp" HERDR_ENV=1
+unset NONO_CAP_FILE
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$tmp/gitconfig"
 git config --global user.name tester
 git config --global user.email tester@example.com
@@ -184,6 +195,27 @@ check "flags: session name with the ticket and claude flags passed" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "flags: prompt arrives with no changes" $'ABC-7\n\nFix `x` in "$HOME" dir' \
   "$(cat "$MOCK_PROMPT")"
+
+# In a nono sandbox, herdr-start-claude starts the agent, and --effort is the only claude flag.
+fresh
+NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it' -- --effort high
+check "sandbox flags: exit 0" 0 "$code"
+check "sandbox flags: herdr-start-claude gets name, pane, title, effort" \
+  "herdr-start-claude [abc-7-add-it] [wT:p1] [[ABC-7] Add it] [high]" \
+  "$(grep -e '^herdr-start-claude' -e '^herdr agent start' "$MOCK_LOG")"
+check "sandbox flags: prompt sent" p "$(cat "$MOCK_PROMPT")"
+fresh
+NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it'
+check "sandbox no flags: herdr-start-claude gets no effort" \
+  "herdr-start-claude [abc-7-add-it] [wT:p1] [[ABC-7] Add it]" \
+  "$(grep '^herdr-start-claude' "$MOCK_LOG")"
+fresh
+NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it' -- --model opus --effort high
+check "sandbox model: exit 1" 1 "$code"
+check "sandbox model: error names the flags" \
+  "work-start: in a nono sandbox, the only claude flag is --effort <level>, not: --model opus \
+--effort high" "$err"
+check "sandbox model: no branch" no "$(has_branch ABC-7/add-it)"
 
 # Long slug text.
 fresh
@@ -309,6 +341,25 @@ check "next: no worktree create" "" "$(grep '^herdr worktree create' "$MOCK_LOG"
 check "next: no glab call" "" "$(grep '^glab' "$MOCK_LOG")"
 check "next: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
 
+# Next mode with no sandbox: herdr-after-turn.sh is detached. In a nono sandbox: the JSON, then
+# herdr-after-turn.sh in the foreground.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+MOCK_SLEEP=1 cwd="$d/linked" run p ABC-2 'Second part'
+check "next no sandbox: exit 0 before herdr-after-turn.sh ends" "0 no" \
+  "$code $([ -f "$MOCK_NEXT" ] && echo yes || echo no)"
+check "next no sandbox: herdr-after-turn.sh ends later" $'wL:p1\n--clear\nABC-1/old' \
+  "$(wait_next | head -n3)"
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+MOCK_SLEEP=1 NONO_CAP_FILE="$tmp/cap" cwd="$d/linked" run p ABC-2 'Second part'
+check "next sandbox: exit 0 after herdr-after-turn.sh ends" "0 yes" \
+  "$code $([ -f "$MOCK_NEXT" ] && echo yes || echo no)"
+check "next sandbox: JSON" "next ABC-2/second-part ABC-1/old wL:p1" \
+  "$(jq -r '"\(.mode) \(.branch) \(.base) \(.pane_id)"' <<<"$out")"
+check "next sandbox: herdr-after-turn.sh gets pane, --clear old branch, /rename" \
+  $'wL:p1\n--clear\nABC-1/old\n/rename [ABC-2] Second part' "$(head -n4 "$MOCK_NEXT")"
+
 # Stack tops above the current branch.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
@@ -409,6 +460,58 @@ check "new --continue: exit 1" 1 "$code"
 run p ABC-0 'typo' --onto main
 check "new --onto: exit 1" 1 "$code"
 check "new next options: no herdr call" "" "$(cat "$MOCK_LOG")"
+
+# Split: new mode from a linked worktree with changes, with a handoff from this session.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+echo draft >"$d/linked/draft.txt"
+summary=$'FooTest is flaky on main.' cwd="$d/linked" run p ABC-0 'Fix flaky FooTest' --split \
+  --continue sid-1 --placeholder ABC-0 -- --effort low
+check "split: exit 0" 0 "$code"
+check "split: mode, base, tracked" "new main true" \
+  "$(jq -r '"\(.mode) \(.base) \(.tracked)"' <<<"$out")"
+check "split: the branch starts at main" \
+  "$(git -C "$work" rev-parse main)" "$(git -C "$work" rev-parse ABC-0/fix-flaky-footest)"
+check "split: worktree opened from the main checkout" \
+  "herdr worktree create --cwd $work --branch ABC-0/fix-flaky-footest --no-focus" \
+  "$(grep '^herdr worktree create' "$MOCK_LOG")"
+check "split: prompt with the handoff" "p
+
+---
+Handoff from a session in another worktree:
+- Previous session: \"ABC-1/old\", id sid-1
+
+Summary of the previous session:
+FooTest is flaky on main." "$(cat "$MOCK_PROMPT")"
+check "split: linked worktree stays on its branch" ABC-1/old \
+  "$(git -C "$d/linked" branch --show-current)"
+check "split: no herdr-after-turn.sh" "" "$(cat "$MOCK_NEXT" 2>/dev/null)"
+
+# Split, fresh: the prompt has no handoff.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+cwd="$d/linked" run p ABC-0 'Fix flaky FooTest' --split
+check "split fresh: exit 0" 0 "$code"
+check "split fresh: prompt from stdin only" p "$(cat "$MOCK_PROMPT")"
+
+# Split, continue with no summary on fd 3.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+cwd="$d/linked" run p ABC-0 'Fix flaky FooTest' --split --continue sid-1
+check "split no summary: exit 1" 1 "$code"
+check "split no summary: message" "work-start: --continue needs the summary on fd 3" "$err"
+check "split no summary: no branch" no "$(has_branch ABC-0/fix-flaky-footest)"
+
+# Split with next-mode or existing-mode options.
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+cwd="$d/linked" run p ABC-0 'typo' --split --onto ABC-1/old
+check "split --onto: exit 1" 1 "$code"
+cwd="$d/linked" summary=s run p ABC-0 'typo' --split --continue sid-1 --mr https://gl/x
+check "split --mr: exit 1" 1 "$code"
+cwd="$d/linked" run p ABC-0 --split --branch ABC-1/old
+check "split --branch: exit 1" 1 "$code"
+check "split bad options: no herdr call" "" "$(cat "$MOCK_LOG")"
 
 # Next mode with changes in the worktree. The 5 s wait for herdr-after-turn.sh is expected here.
 fresh

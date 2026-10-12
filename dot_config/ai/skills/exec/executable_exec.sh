@@ -3,6 +3,8 @@
 # Starts bin/herdr-after-turn.sh detached. After this Claude turn, it sets the effort and submits
 # the superpowers execution command with the absolute plan path. With --fresh, it first clears the
 # session, with the plan file name as the old title.
+# In a nono sandbox (NONO_CAP_FILE is set), prints the result line, then runs the helper in the
+# foreground. Claude runs the script as a background task there.
 # Exit codes: 0 ok, 1 error
 set -euo pipefail
 
@@ -33,6 +35,13 @@ pane=$(herdr pane current --current | jq -r '.result.pane.pane_id // empty') || 
 
 clear=()
 [[ -z $fresh ]] || clear=(--clear "$(basename "$plan" .md)")
+if [[ -n ${NONO_CAP_FILE:-} ]]; then
+  # nono denies herdr calls from a detached process: its ancestry does not reach the sandbox
+  # session. A background task of claude keeps that ancestry.
+  echo "$skill - $effort - $plan"
+  exec "$AFTER_TURN" "$pane" ${clear[@]+"${clear[@]}"} "/effort $effort" \
+    <<<"/superpowers:$skill $plan" >>"${TMPDIR:-/tmp}/exec.log" 2>&1
+fi
 # Detached, so it lives after this turn. It waits until the turn ends.
 nohup "$AFTER_TURN" "$pane" ${clear[@]+"${clear[@]}"} "/effort $effort" \
   <<<"/superpowers:$skill $plan" >>"${TMPDIR:-/tmp}/exec.log" 2>&1 &

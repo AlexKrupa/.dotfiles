@@ -4,6 +4,7 @@ description: >-
   Use when the user runs /work to start a ticket, or work with no ticket: in a new herdr
   worktree workspace with its own Claude Code agent, or as the next stacked branch in the current
   worktree. Also continues an existing branch, GitLab MR, or MR pipeline in its own workspace.
+  Also splits a different issue off the default branch into a new workspace with a handoff.
 argument-hint: "<message>"
 disable-model-invocation: true
 ---
@@ -29,6 +30,9 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 - `existing`: the message names a branch that exists (step 1). The work continues on that branch
   in its own worktree, with a new agent. This mode applies in the main checkout and in a linked
   worktree.
+- `split`: the message has the option word `split`. The work starts as in `new` mode, also from a
+  linked worktree. This session stays as it is. It sends a handoff to the new agent. Use it for a
+  different issue that this session found, for example a flaky test on the default branch.
 - Else, `~/.claude/skills/work/work-start.sh mode` prints the mode:
   - `new` (main checkout): the work starts in a new worktree from the default branch, with a new
     agent.
@@ -38,7 +42,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 
 ## Steps
 
-1. Existing branch. Find it in the message:
+1. Existing branch. In split mode, skip this step: a URL or a branch name in the message is
+   context for the new work. Else, find the branch in the message:
    - A GitLab MR URL, pipeline URL, or job URL, or an MR reference `!<iid>`: run
      `~/.config/ai/bin/fetch-gitlab-mr.sh resolve <URL or iid>`. The branch is `source_branch` in
      the JSON. If the script fails, report its stderr and stop.
@@ -57,7 +62,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      id.
    - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. If the repo has
      no placeholder id, ask the user for a ticket id.
-3. Mode: existing mode if step 1 found a branch. Else, run
+3. Mode: split mode if the message has the word `split`. Existing mode if step 1 found a branch.
+   Else, run
    `~/.claude/skills/work/work-start.sh mode`. Next mode: run
    `~/.claude/skills/work/work-start.sh tops`. Each output line is a top branch of the stack
    above the current branch. If there is output, ask the user: stack on the current branch, or
@@ -71,10 +77,10 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      Existing mode has no slug text.
    - If the tracker read fails or the ticket does not exist, stop and report it. Do not run the
      script.
-5. New and existing mode:
-   - Base, new mode only: "from <remote ref>", for example "from `origin/release-1.2`". Use the ref
-     as the user wrote it. If the user names a local branch as the base, tell the user to run
-     `/work` in the worktree of that branch, and stop.
+5. New, split, and existing mode:
+   - Base, new and split mode only: "from <remote ref>", for example
+     "from `origin/release-1.2`". Use the ref as the user wrote it. If the user names a local
+     branch as the base, tell the user to run `/work` in the worktree of that branch, and stop.
    - Model and effort: for example "opus high" gives `--model opus --effort high`. The user can
      give only one of the two.
    - Effort, if the user gave none. Use the ticket title (new mode) and the message:
@@ -83,7 +89,10 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      - `xhigh`: unclear investigation or design.
      - Never `max`, unless the user asks for it.
    - If the user gave no model, do not add `--model`.
-6. Next mode only:
+   - In a `nono` sandbox (`printenv NONO_CAP_FILE` prints a path), `--effort` is the only Claude
+     flag. Do not add `--model`. If the user gave a model, tell the user to set it with `/model`
+     in the new agent.
+6. Next mode:
    - No base and no Claude flags. If the user gave a model or an effort, tell the user to set it
      with `/model` after the clear.
    - Handoff: the word `fresh` or `continue` in the message, as an option word like a model
@@ -97,6 +106,12 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
        - facts that this session found and the next work needs
        - the related spec and plan files that are important, and why
    - If the user selected a top branch in step 3, add `--onto <branch>`.
+   Split mode: add `--split`. The words `fresh` and `continue` work as in next mode. With
+   `continue`, add `--continue ${CLAUDE_SESSION_ID}` and no `--mr`. The summary tells only what
+   the new work needs, 10 lines or fewer:
+   - the issue: for example the test name, the failure text, a CI job URL
+   - what this session found about the cause, and what it did not find
+   - the files and the commands that are important
 7. Run the script. The prompt goes on stdin in a quoted heredoc. The prompt starts with the
    user's message, word for word:
    - Claude Code loads each slash command that comes after `/work` as a skill in this session. It
@@ -123,9 +138,11 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    PROMPT
    ```
 
-   Add `--base <ref>` before `--` only if the user named a base. In new and next mode, if the
-   repo's CLAUDE.md has a placeholder id, add `--placeholder <id>` before `--`. Next mode: the
-   same command with the ticket id, the slug text, and the handoff options from step 6, and no
+   Add `--base <ref>` before `--` only if the user named a base. In new, split, and next mode,
+   if the repo's CLAUDE.md has a placeholder id, add `--placeholder <id>` before `--`. Split
+   mode: the new mode command with `--split` before `--`. With `continue`, also add
+   `--continue <session id>`, and the summary goes on fd 3 as in next mode. Next mode: the same
+   command with the ticket id, the slug text, and the handoff options from step 6, and no
    `--base` and no `--` part. With `continue`, the summary goes on fd 3 in a second quoted heredoc:
 
    ```sh
@@ -136,6 +153,13 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    <the summary>
    SUMMARY
    ```
+
+   Next mode in a `nono` sandbox: first run `printenv NONO_CAP_FILE`. If it prints a path, run
+   the script with the Bash tool option `run_in_background: true`. `nono` blocks `herdr` calls
+   from a detached helper, so there the script runs its helper in the foreground of the
+   background task. Then read the output file of the task once, with the Read tool. If the file
+   is empty, read it again. JSON is exit `0`. A line that starts with `work-start:` is an error.
+   If the line ends with `(branch <branch> stays)`, it is exit `2`. Else, it is exit `1`.
 
    Existing mode: the slug text only if it is a ticket title, then `--branch <name>`, and no
    `--base`:
@@ -148,7 +172,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    ```
 8. Report the result, then end the turn. The user fixes each error, so the turn has no more tool
    calls after the report.
-   - Exit `0`, new or existing mode: one line from the JSON:
+   - Exit `0`, new, split, or existing mode: one line from the JSON:
      `<branch> - <worktree> - <model or "default model"> - <effort> (<picked or given>)`.
    - Exit `0`, next mode: "`<branch>` on `<base>`, `<fresh or continue>` handoff. This session
      clears after this turn and starts the new prompt. Do not type in this pane until the prompt
@@ -156,10 +180,10 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    - Exit `1` or `2`: the stderr text, word for word. The error is a report for the user, not a
      task. The repo and the worktree stay as they are: the user fixes the cause, then runs
      `/work` again.
-   - Exit `2` only, new or next mode: also tell the user that `/work` again needs a new branch
-     name. The branch in the message stays. If the message names `herdr agent start` or
-     `herdr agent prompt`, its herdr worktree workspace stays too. The user can continue there or
-     remove them.
+   - Exit `2` only, new, split, or next mode: also tell the user that `/work` again needs a new
+     branch name. The branch in the message stays. If the message names `herdr agent start` or
+     `herdr agent prompt`, its herdr worktree workspace stays too. The user can continue there
+     or remove them.
    - Exit `2` only, existing mode: also tell the user that the herdr worktree workspace stays.
      The user can continue there, or close it and run `/work` again.
    - Exit `3`: the stderr text names the pane id. Run

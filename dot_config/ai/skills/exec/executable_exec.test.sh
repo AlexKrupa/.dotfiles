@@ -18,15 +18,18 @@ cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
 echo '{"result":{"pane":{"pane_id":"w1:p2"}}}'
 EOF
-# Fake herdr-after-turn.sh: writes its arguments and stdin to $MOCK_AFTER.
+# Fake herdr-after-turn.sh: after $MOCK_SLEEP seconds, writes its arguments and stdin to
+# $MOCK_AFTER.
 cat >"$tmp/bin/after" <<'EOF'
 #!/bin/sh
+sleep "${MOCK_SLEEP:-0}"
 { printf '%s\n' "$@"; echo ---; cat; } >"$MOCK_AFTER.tmp"
 mv "$MOCK_AFTER.tmp" "$MOCK_AFTER"
 EOF
 chmod +x "$tmp/bin/herdr" "$tmp/bin/after"
 export PATH="$tmp/bin:$PATH" HERDR_AFTER_TURN="$tmp/bin/after" MOCK_AFTER="$tmp/after.out" \
   TMPDIR="$tmp" HERDR_ENV=1
+unset NONO_CAP_FILE
 plan="$tmp/plans/2026-09-30-foo.md"
 echo '# Foo plan' >"$plan"
 
@@ -59,6 +62,25 @@ cd "$tmp"
 check "relative path: exit 0" 0 "$code"
 check "relative path: absolute path in plan command" \
   "/superpowers:executing-plans $plan" "$(got | tail -1)"
+
+MOCK_SLEEP=1 "$script" native high "$plan" >/dev/null 2>&1; code=$?
+check "no sandbox: exit 0 before the helper ends" "0 no" \
+  "$code $([ -f "$MOCK_AFTER" ] && echo yes || echo no)"
+check "no sandbox: detached helper ends later" "/superpowers:executing-plans $plan" \
+  "$(got | tail -1)"
+
+out=$(MOCK_SLEEP=1 NONO_CAP_FILE="$tmp/cap" "$script" --fresh subagent medium "$plan" 2>&1)
+code=$?
+check "sandbox: exit 0 after the helper ends" "0 yes" \
+  "$code $([ -f "$MOCK_AFTER" ] && echo yes || echo no)"
+check "sandbox: result line" "subagent-driven-development - medium - $plan" "$out"
+check "sandbox: pane, clear name, effort, plan command" \
+  "w1:p2
+--clear
+2026-09-30-foo
+/effort medium
+---
+/superpowers:subagent-driven-development $plan" "$(got)"
 
 "$script" native high "$tmp/plans/none.md" >/dev/null 2>&1; code=$?
 check "no plan file: exit 1" 1 "$code"
