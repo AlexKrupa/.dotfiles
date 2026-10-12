@@ -216,6 +216,7 @@
     "enabled": false,
     "failIfUnavailable": true,
     "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
     "network": {
       "allowedDomains": [
         "*.gradle.com",
@@ -254,7 +255,6 @@
     },
     "filesystem": {
       "allowWrite": [
-        ".",
         "~/.ai",
         "~/.android",
         "~/.cache",
@@ -262,11 +262,13 @@
         "~/.emulator_console_auth_token",
         "~/.gradle",
         "~/.m2",
-        "~/.npm",
-        "~/Library/Android/sdk"
+        "~/.npm"
       ],
-      "allowRead": [
-        "."
+      "denyWrite": [
+        "~/.gradle/gradle.properties",
+        "~/.gradle/init.d",
+        "~/.gradle/init.gradle",
+        "~/.gradle/init.gradle.kts"
       ]
     },
     "credentials": {
@@ -277,6 +279,14 @@
         },
         {
           "path": "~/.ssh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/gh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/1Password",
           "mode": "deny"
         }
       ]
