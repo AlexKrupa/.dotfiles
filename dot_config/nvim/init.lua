@@ -241,21 +241,6 @@ require('lazy').setup({
   },
 
   {
-    'mg979/vim-visual-multi',
-    branch = 'master',
-    event = 'VeryLazy',
-    init = function()
-      vim.g.VM_maps = {
-        ['Find Under'] = '<C-n>',
-        ['Find Subword Under'] = '<C-n>',
-        ['Select All'] = '<Leader><C-n>',
-        ['Skip Region'] = '<C-x>',
-        ['Remove Region'] = '<C-p>',
-      }
-    end,
-  },
-
-  {
     -- tpope grammar, same as ideavim: ys{motion}{char}, yss, ds{char},
     -- cs{target}{replacement}, visual S{char}.
     'kylechui/nvim-surround',
