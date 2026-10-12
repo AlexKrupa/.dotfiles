@@ -11,6 +11,7 @@
     "tables": "on",
     "shimmer": true,
     "band": false,
+    "countdown": false,
     "clipOutput": false,
     "markdown": true,
     "quiet": false,
@@ -22,7 +23,7 @@
     "hints": false,
     "links": true,
     "copy": true,
-    "fold": true,
+    "fold": false,
     "calm": null
   }
 }
