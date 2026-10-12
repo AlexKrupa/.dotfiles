@@ -14,9 +14,15 @@
 
 - Avoid excessive project builds between steps. Prefer superficial verification for safer or less
   important steps like local reformatting or refactoring.
+- If a step does not need my input, continue. Put status notes in the same message as the next
+  action. Stop and ask only in two cases: you cannot continue without me, or the next action is
+  destructive or outward-facing.
+- When a plan item is done, tick it in the plan file. Add new items that you find.
 - Delegate to subagents only for large, parallel tracks: wide multi-file investigation, independent
-  features. Not for simple work finishable in a few tool calls, never to verify your own output. One
-  agent over several.
+  features. Not for simple work finishable in a few tool calls, never to verify your own output.
+- For large audits or migrations, give each independent unit to its own subagent. Before you
+  accept a subagent report, make sure that its evidence is correct. Otherwise, one agent over
+  several.
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
 - Git commits: each commit is an atomic change that has value alone
@@ -41,6 +47,7 @@
 ## Code
 
 - Query context7 before each answer or code change that uses a library, framework, SDK, or CLI API
+- Mark each claim that has no source, and say where you looked
 - For definitions, references, call sites, and diagnostics, use the LSP tool or IDE MCP tools. Use
   Grep only for plain-text search, or when no LSP or IDE server is connected.
 - Every changed line should trace to the request. Implement only what was asked, nothing more.
@@ -96,7 +103,7 @@ delve, leverage, streamline, land, carry, overstep, ship,
 
 - Markdown line length limit: 100 characters
 - Lists are fine - both bullets and numbers! They can be more readable than forced enumeration in
-  one sentence.
+  one sentence. This rule overrides the simple-english plugin's "prose only" reply rule.
 - Prefer ASCII over Unicode for punctuation and stylistic symbols: single dashes, not en- or
   em-dashes. No smart quotes or decorative icons.
   - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,

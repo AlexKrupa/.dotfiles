@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once] [--mr IID]...
+# Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once] [--review] [--mr IID]...
 #   [--deadline EPOCH]
 # Stops at the first check with new events and prints one JSON line for each event: kind, iid,
 # title, url, actor, detail, branch. With no state file, the first check only saves the state.
@@ -12,7 +12,13 @@
 # line for each open thread whose last comment is not from the user.
 # A new instance stops an older instance of the same repo and mode. A stack watch has one
 # instance for each worktree.
-# Stack mode stops at the deadline: 09:00 local time on the day after the start, or --deadline.
+# Review mode (--review and one --mr) watches one MR for its reviewer. It has the events of the
+# stack mode, and also: pushed (the head changed, with old_base, old_head, new_base, new_head) and
+# resolved (a thread that the user started is resolved). Its unaddressed lines are only for
+# threads that have a note from the user. It has its own state and lock, so it runs at the same
+# time as a stack watch.
+# Stack and review mode stop at the deadline: 09:00 local time on the day after the start, or
+# --deadline.
 # Both modes stop when the parent process or the repo directory is gone.
 # Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one,
 # 4 deadline reached
@@ -25,6 +31,7 @@ interval=120
 once=0
 mrs=()
 deadline=''
+review=0
 while (($#)); do
   case "$1" in
     --repo) [[ $# -ge 2 ]] || die "--repo needs a path"; repo=$2; shift 2 ;;
@@ -32,11 +39,13 @@ while (($#)); do
     --once) once=1; shift ;;
     --mr) [[ $# -ge 2 && ${2#!} =~ ^[0-9]+$ ]] || die "--mr needs an MR number"
       mrs+=("${2#!}"); shift 2 ;;
+    --review) review=1; shift ;;
     --deadline) [[ $# -ge 2 && $2 =~ ^[0-9]+$ ]] || die "--deadline needs epoch seconds"
       deadline=$2; shift 2 ;;
     *) die "unexpected argument: $1" ;;
   esac
 done
+if ((review)) && ((${#mrs[@]} != 1)); then die "--review needs exactly one --mr"; fi
 
 command -v glab >/dev/null || die "glab is not installed"
 command -v jq >/dev/null || die "jq is not installed"
@@ -48,6 +57,8 @@ top=$(git rev-parse --show-toplevel)
 key=$slug
 # With the worktree hash in the key, the stack watch and the hub watch run at the same time.
 ((${#mrs[@]})) && key=$slug-$(printf %s "$top" | shasum | cut -c1-12)
+# The review watch has its own state and lock, so it does not stop a stack watch.
+((review)) && key=$key-review
 state=$state_dir/$key.json
 lock=$state_dir/$key.lock
 # The deadline counts from the start, because each event restarts the watch.
@@ -121,13 +132,14 @@ MR_QUERY='query($path: ID!, $iid: String!, $endCursor: String) {
   currentUser { username }
   project(fullPath: $path) { mergeRequest(iid: $iid) {
     iid title webUrl sourceBranch state
+    diffRefs { baseSha headSha }
     mergeUser { username }
     headPipeline { id status }
     approvedBy { nodes { username } }
     detailedMergeStatus conflicts mergeable
     awardEmoji { nodes { name user { username } } }
     discussions(first: 100, after: $endCursor) { pageInfo { hasNextPage endCursor }
-      nodes { resolvable resolved
+      nodes { id resolvable resolved resolvedBy { username }
       notes(first: 100) { nodes { id body system url author { username }
         position { newPath newLine }
         awardEmoji { nodes { name user { username } } } } } } }
@@ -200,11 +212,15 @@ def event($kind; $mr; $actor; $detail; $url):
 # GitLab computes the merge status async. A transient status keeps the last stable values.
 def transient: IN("checking", "unchecked", "preparing", "approvals_syncing");
 def norm($me):
-  [.discussions.nodes[] | {resolvable, resolved,
+  [.discussions.nodes[] | {id, resolvable, resolved, resolved_by: (.resolvedBy.username // ""),
      notes: [.notes.nodes[] | select(.system | not) | .id |= num]}] as $ds
   | {
       iid: (.iid | tonumber), title, url: .webUrl, branch: .sourceBranch, state,
       merge_user: (.mergeUser.username // ""),
+      base: (.diffRefs.baseSha // null), head: (.diffRefs.headSha // null),
+      resolved_mine: [$ds[] | select(.resolvable and .resolved
+          and .notes[0].author.username == $me)
+        | {id, by: .resolved_by, first: .notes[0]}],
       pipeline: (.headPipeline
         | if . then {id: (.id | num), status: (.status | ascii_downcase)} else null end),
       approved_by: [.approvedBy.nodes[].username],
@@ -220,6 +236,7 @@ def norm($me):
       open_threads: ([$ds[] | select(.resolvable and (.resolved | not))] | length),
       unaddressed: [$ds[] | select(.resolvable and (.resolved | not)) | .notes
         | select(length > 0 and .[-1].author.username != $me)
+        | select($review == 0 or any(.[]; .author.username == $me))
         | {last: .[-1], position: .[0].position}]
     };
 
@@ -231,7 +248,8 @@ def norm($me):
        conflicts: (if $n.merge_status | transient then $o.conflicts else $n.conflicts end),
        mergeable: (if $n.merge_status | transient then $o.mergeable else $n.mergeable end),
        last_note_id: ([$n.notes[].id, $o.last_note_id // 0] | max),
-       reactions: [$n.reactions[].key]})}) | from_entries) as $mrs
+       reactions: [$n.reactions[].key], base: $n.base, head: $n.head,
+       resolved: [$n.resolved_mine[].id]})}) | from_entries) as $mrs
 | [$now[] as $mr | ($old.mrs // {})[$mr.iid | tostring] as $o | $mrs[$mr.iid | tostring] as $n
     | select($o != null)
     | (($mr.notes[] | select(.id > $o.last_note_id and .author.username != $me)
@@ -255,7 +273,14 @@ def norm($me):
        (select($o.state == "opened" and $n.state == "merged")
          | event("merged"; $mr; $mr.merge_user; "merged"; null)),
        (select($o.state == "opened" and $n.state == "closed")
-         | event("closed"; $mr; ""; "closed"; null)))
+         | event("closed"; $mr; ""; "closed"; null)),
+       (select($review == 1 and $o.head != null and $n.head != null and $n.head != $o.head)
+         | event("pushed"; $mr; ""; "pushed \($n.head[0:8])"; null)
+           + {old_base: $o.base, old_head: $o.head, new_base: $n.base, new_head: $n.head}),
+       ($mr.resolved_mine[] | select($review == 1)
+         | select(.id as $id | ($o.resolved // []) | index($id) | not)
+         | event("resolved"; $mr; .by; (.first.body | short); .first.url)
+           + at(.first.position)))
   ] as $events
 | {
     state: {mrs: $mrs},
@@ -273,8 +298,9 @@ check_stack() {
   for iid in "${mrs[@]}"; do
     gql "$iid" >>"$tmp/mrs.jsonl" || return
   done
-  jq -n --slurpfile old "$old" --slurpfile data "$tmp/mrs.jsonl" "$STACK_PROGRAM" \
-    >"$tmp/result.json" || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
+  jq -n --argjson review "$review" --slurpfile old "$old" --slurpfile data "$tmp/mrs.jsonl" \
+    "$STACK_PROGRAM" >"$tmp/result.json" \
+    || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
   jq '.state' "$tmp/result.json" >"$state.tmp" && mv "$state.tmp" "$state"
   jq -c '.events[]' "$tmp/result.json"
 }

@@ -422,6 +422,78 @@ srun --mr 5
 check "stack and hub: hub watch still runs" yes "$(ps -p "$hub" >/dev/null && echo yes || echo no)"
 kill "$hub"; wait "$hub" 2>/dev/null
 
+rstate="$d/state/watch-gitlab/app-$wt-review.json"
+refs() { printf '.diffRefs = {baseSha: "%s", headSha: "%s"}' "$1" "$2"; }
+# Gives each discussion an id: gid://gitlab/Discussion/<index>.
+ids='| .discussions.nodes |= [to_entries[] | .value + {id: "gid://gitlab/Discussion/\(.key)"}]'
+
+srun --review
+check "review: no --mr: message" "watch-gitlab: --review needs exactly one --mr" "$err"
+srun --review --mr 5 --mr 6
+check "review: two --mr: message" "watch-gitlab: --review needs exactly one --mr" "$err"
+
+reset_mock
+gql 5
+srun --review --mr 5
+check "review: first check: no events" "" "$out"
+check "review: own state file" yes "$([ -f "$rstate" ] && echo yes || echo no)"
+check "review: no stack state file" no "$([ -f "$sstate" ] && echo yes || echo no)"
+gql 5 "$(refs b1 h1)"
+srun --review --mr 5
+check "review: diffRefs after no diffRefs: no events" "" "$out"
+gql 5 "$(refs b1 h2)"
+srun --review --mr 5
+check "review: pushed" \
+  "$(sev pushed 5 '' 'pushed h2' \
+    | jq -c '. + {old_base: "b1", old_head: "h1", new_base: "b1", new_head: "h2"}')" "$out"
+gql 5 "$(refs b2 h3)"
+srun --review --mr 5
+check "review: pushed after a rebase" \
+  "$(sev pushed 5 '' 'pushed h3' \
+    | jq -c '. + {old_base: "b1", old_head: "h2", new_base: "b2", new_head: "h3"}')" "$out"
+
+reset_mock
+gql 5 "$(refs b1 h1)"
+srun --mr 5
+gql 5 "$(refs b1 h2)"
+srun --mr 5
+check "stack: push: no events" "" "$out"
+
+reset_mock
+gql 5 ".discussions.nodes = [$(thread false "$(note 130 me 'Rename this' "$pos")"),
+  $(thread false "$(note 131 anna Typo "$pos")")] $ids"
+srun --review --mr 5
+gql 5 ".discussions.nodes = [$(thread true "$(note 130 me 'Rename this' "$pos")"),
+  $(thread true "$(note 131 anna Typo "$pos")")]
+  | .discussions.nodes[].resolvedBy = {username: \"bob\"} $ids"
+srun --review --mr 5
+check "review: resolved, only threads that the user started" \
+  "$(sev resolved 5 bob 'Rename this' "$url/5#note_130" app/Foo.kt 42)" "$out"
+srun --review --mr 5
+check "review: same resolved thread: no events" "" "$out"
+
+reset_mock
+gql 5 ".discussions.nodes = [$(thread false "$(note 140 me 'Why?' "$pos")"),
+  $(thread false "$(note 141 anna Nit "$pos")")] $ids"
+srun --review --mr 5
+gql 5 ".discussions.nodes = [$(thread false "$(note 140 me 'Why?' "$pos")" \
+  "$(note 142 bob Because.)"), $(thread false "$(note 141 anna Nit "$pos")")] $ids"
+srun --review --mr 5
+check "review: unaddressed only for threads with a note from the user" \
+  "$(sev comment 5 bob Because. "$url/5#note_142")
+$(sev unaddressed 5 bob Because. "$url/5#note_142" app/Foo.kt 42)" "$out"
+
+reset_mock
+gql 5 "$(refs b1 h1)"
+(cd "$d/app" && exec "$script" --mr 5 --interval 60 >/dev/null 2>"$d/stack.err") &
+stack=$!
+slock="$d/state/watch-gitlab/app-$wt.lock"
+for _ in $(seq 40); do [ "$(cat "$slock" 2>/dev/null)" = "$stack" ] && break; sleep 0.25; done
+srun --review --mr 5
+check "review and stack: stack watch still runs" yes \
+  "$(ps -p "$stack" >/dev/null && echo yes || echo no)"
+kill "$stack"; wait "$stack" 2>/dev/null
+
 out=$("$script" --repo "$d/app" --once 2>&1); code=$?
 check "--repo from a different folder: exit 0" 0 "$code"
 

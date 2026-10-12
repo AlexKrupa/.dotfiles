@@ -11,7 +11,8 @@ disable-model-invocation: true
 
 This skill adds GitLab merge request context to `review-diff`. It has the same read-only
 constraints. The output is one Markdown report at
-`~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`.
+`~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`. After the reply, it watches the MR in
+the background (see "Watch").
 
 An empty argument means "the MR of the current branch". Outside the MR's repo, only a URL works.
 
@@ -82,7 +83,8 @@ This is not an error.
    the MR branch, or stash the changes first if the working tree is dirty. Do not do one of them
    until the user selects it.
 5. `cd "$clone" && "$FMR" fetch "$source_branch" "$target_branch" "$project_path"` - get
-   `target_ref` (for example `origin/main`) from the JSON.
+   `target_ref` (for example `origin/main`) from the JSON. Get `reviewed_head` with
+   `git rev-parse HEAD`.
    If the session working directory is not `clone`, start each later Bash command with
    `cd "$clone" &&`, and give file tools absolute paths below `clone`.
 6. Get the report path with the `mr-<iid>` prefix (see "Report"). Use `review-diff` with
@@ -94,6 +96,7 @@ This is not an error.
    the report.
 9. Add the MR context to the report (see "Report").
 10. Reply as `review-diff` "Final reply" tells.
+11. Start the watch (see "Watch").
 
 ## Discussion filtering
 
@@ -137,6 +140,86 @@ Add to the base report:
    - One bullet for each selected bot finding.
 5. **Out of scope / mentions** - no change from the base report.
 
+## Watch
+
+The watch reports the events of the MR that are important to a reviewer. The hard constraints of
+this skill apply during the watch.
+
+Read `~/.config/ai/references/watch-gitlab-mr.md` first. It tells how to run the watch task,
+handle its exit codes, report, and send notifications. This section tells only the reviewer
+actions.
+
+The last reviewed head is `reviewed_head`, or the `new_head` of the last push that you reviewed.
+
+### Start
+
+1. If a watch task for a different MR runs in this session, tell it in one line and stop. This
+   skill watches one MR in each session.
+2. In `clone`, run `~/.config/ai/bin/watch-gitlab.sh --review --mr <iid> --interval 120`, as the
+   reference tells.
+3. Run `git fetch <remote> <source_branch> <target_branch>`. If
+   `git rev-parse <remote>/<source_branch>` is not the last reviewed head, the author pushed during
+   the review. Handle it as a `pushed` event with these values:
+   - `old_base`: `git merge-base <target_ref> <last reviewed head>`
+   - `old_head`: the last reviewed head
+   - `new_base`: `git merge-base <target_ref> <remote>/<source_branch>`
+   - `new_head`: `<remote>/<source_branch>`
+
+### Events
+
+Handle a `pushed` event first. Then the other events read the new code.
+
+| `kind`               | Action                         | Report section          |
+| -------------------- | ------------------------------ | ----------------------- |
+| `pushed`             | See "Pushes"                   | Needs you, Done, Info   |
+| `comment`            | See "Comments"                 | Needs you or Info       |
+| `unaddressed`        | The thread waits for the user  | Needs you               |
+| `resolved`           | See "Resolved threads"         | Info or Needs you       |
+| `merged`, `closed`   | Do not start the watch again   | Info                    |
+| all other kinds      | None                           | Info                    |
+
+After you handle the events, start the watch again for the same MR. If the MR is merged or closed,
+do not start it again. Tell it in one line.
+
+### Pushes
+
+1. Run `git fetch <remote> <source_branch> <target_branch>`. Do not use `"$FMR" fetch`. After a
+   force push, it stops. The local branch does not move.
+2. Run `~/.config/ai/bin/git-interdiff.sh <old_base> <old_head> <new_base> <new_head>`.
+   - If it exits `1` with `unknown commit`, the old version is not in the local repo. Put it under
+     Needs you, and propose a full review of the MR. Stop here.
+   - If the output is empty, put "Rebased, no content change." under Info. Stop here.
+3. Review only the lines of the output. Read the files at `new_head` with
+   `git show <new_head>:<path>`, because the working tree has the old version. Use the severity
+   rules and the finding format of `review-diff`. Do not use `review-diff` for the full MR again.
+4. Add a section to the end of the report: `## Update <date> <first 8 characters of new_head>`.
+   It has the findings that the push fixed, the new findings, and the findings that stay open.
+5. Under Needs you: one item for each new finding. Under Done: "Reviewed push <short new_head>,
+   report updated." Under Info: the findings that the push fixed.
+6. If the local branch is not at `new_head`, add under Info: "The local branch is behind the MR.
+   The review read the files at <short new_head>."
+
+### Comments
+
+Read the code at `path:line` at the MR head, and the thread.
+
+- A reply in a thread that the user started or replied in: assess the reply. Does it answer the
+  point of the user? Propose a response. Put it under Needs you.
+- A different comment about the code of a finding, or against the review: give your assessment
+  and the id of the finding. Put it under Needs you.
+- All other comments: one line under Info.
+
+The user writes all responses on GitLab. Do not post them.
+
+### Resolved threads
+
+Run `git diff <last reviewed head> <remote>/<source_branch> -- <path>`. Then compare the change
+with the point of the thread.
+
+- The change fixes the point: one line under Info.
+- There is no change, or the change does not fix the point: put "resolved with no fix" under
+  Needs you, with the point of the thread.
+
 ## Hard constraints
 
 All constraints of `review-diff`, and also:
@@ -145,8 +228,10 @@ All constraints of `review-diff`, and also:
   `glab mr close`, `glab mr revoke`, or other write subcommands.
 - No API `POST`, `PUT`, or `DELETE`.
 - No `git push`, commits, amends, or rebases.
-- Branch changes occur only through `"$FMR" fetch` (fast-forward only), or after the user selects
-  an option in workflow step 4.
+- Branch changes occur only through `"$FMR" fetch` (fast-forward only), or after the user
+  selects an option in workflow step 4. During the watch, `git fetch` changes only the
+  remote-tracking refs, and the local branch does not move.
+- No job retries, replies, or reactions during the watch.
 
 ## Red flags - stop and think again
 
@@ -164,3 +249,7 @@ All constraints of `review-diff`, and also:
   user.
 - You call `glab mr view`, `glab api .../discussions`, or `glab mr list` directly, not through
   `$FMR`. The script defines the JSON format. Direct calls give a different format.
+- After a push, you are about to use `review-diff` for the full MR. Review only the output of
+  `git-interdiff.sh`.
+- After a force push, you are about to use `"$FMR" fetch`. It stops on divergence. Use
+  `git fetch`.

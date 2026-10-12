@@ -295,15 +295,13 @@ If a wrapper skill tells you to do this step after it publishes, do it. Else do 
 get these from the wrapper:
 
 - the watch command. It takes `--interval <seconds>` and `--mr <id>` once for each MR. It prints
-  the events in the format below.
+  the events in the stack mode format of `watch-gitlab.sh`.
 - the command that shows the logs of the failed jobs of a pipeline
 - the command that retries a job
 
-The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply to PRs and checks.
-
-The watch is a background Bash task. Each 120 seconds, it checks the MRs. If it finds events, it
-stops. Then you handle the events, report, and start it again. Between events, the user can use
-the session for other work.
+Read `~/.config/ai/references/watch-gitlab-mr.md` first. It tells how to run the watch task,
+handle its exit codes, report, and send notifications. This section tells only the author
+actions.
 
 ### Rules
 
@@ -326,25 +324,9 @@ If the session is not idle, do not do an auto-fix.
 1. Run `git-spice log short --all=false --json --no-prompt`. For each branch object with `change`,
    take `change.id`. A branch with no `change` has no MR yet.
 2. If there is no MR, tell it in one line and stop.
-3. Run the watch command with `--interval 120` and one `--mr <change.id>` for each MR, as a
-   background Bash task (`run_in_background: true`). If a watch task runs, do not start a new one.
+3. Run the watch command with one `--mr <change.id>` for each MR, as the reference tells.
 
-If the user says "watch", start the watch. If the user says "stop watch", stop the task.
-
-### Result
-
-| Exit | Action                                                                                    |
-| ---- | ----------------------------------------------------------------------------------------- |
-| `0`  | Handle the events, report, and start again (see below).                                   |
-| `1`  | Report the stderr text and send a notification. Do not start again.                       |
-| `3`  | A new watch replaced this one. Do not start again. No notification.                       |
-| `4`  | The deadline passed. Report it as below. Do not start again.                              |
-
-On exit `4`, report that the watch stopped, list the open MRs, and tell the user to say "watch"
-to start it again.
-
-On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
-`actor`, `detail`, `branch`, and `path` and `line` for a comment on a diff line.
+### Events
 
 | `kind`                 | Action                                          | Report section       |
 | ---------------------- | ----------------------------------------------- | -------------------- |
@@ -355,11 +337,11 @@ On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`
 | `unaddressed`          | The thread waits for the user                   | Needs you            |
 | all other kinds        | None                                            | Info                 |
 
-A `comment` and an `unaddressed` line with the same `url` are one item.
-
 After you handle the events, do "Start" again with the current list. A sync can delete a merged
 branch, and the user can add a branch. If all MRs are merged or closed, do not start again. Tell
 it in one line.
+
+Needs you also shows the failures that wait for the user, and the fixes that wait.
 
 ### Pipeline failures
 
@@ -413,45 +395,3 @@ Read the code at `path:line` and the thread. Then assess the comment:
 
 Put the assessment and a proposed fix or answer under Needs you. Do not change the code until the
 user asks.
-
-### Report
-
-One block for each report. One group for each MR, in stack order from the bottom. Omit an empty
-section.
-
-```text
-14:32 !123 Fix crash on rotation
-https://gitlab.example.com/app/-/merge_requests/123
-
-Needs you
-1. @anna on NoteEditor.kt:42: "Why not rememberSaveable here?"
-   Valid. rememberSaveable also keeps the text after process death.
-   Proposed fix: replace the SavedStateHandle field (3 lines).
-
-Done
-- Pipeline 4567: ktlint failed in 2 files. Formatted, folded into abc1234, pushed.
-
-Info
-- @bob approved.
-- @carol reacted :thumbsup: to your comment on NoteEditor.kt:42.
-```
-
-- Needs you shows all open items, also the items from earlier reports: the `unaddressed` threads
-  of this result, the failures that wait for the user, and the fixes that wait. If the result
-  shows that an item is addressed, the item leaves the list. Examples: the thread is not in
-  `unaddressed`, or a new pipeline passed. Number the items. The user can then say "fix 1".
-- Done and Info show only the events of this result.
-
-### Notification
-
-If `HERDR_ENV` is `1`, send one notification for each report. Replace each `'` in the text with a
-space.
-
-```sh
-herdr notification show '<title>' --body '<body>' --sound <sound>
-```
-
-- Title: `!<iid>: <n> needs you`. If Needs you is empty, `!<iid>`. For more MRs: `<n> MRs`.
-- Body: the most urgent item in one line, then the Done items. Example:
-  `@anna asked on NoteEditor.kt:42. Pipeline fixed and pushed.`
-- Sound: if there are new Needs you items, `request`. Else `none`.
