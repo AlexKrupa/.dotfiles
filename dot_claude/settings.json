@@ -177,7 +177,7 @@
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
     "md-prompt@nogu66": true,
-    "nono@nolabs-ai": true
+    "nono@nolabs-ai": false
   },
   "extraKnownMarketplaces": {
     "ponytail": {
