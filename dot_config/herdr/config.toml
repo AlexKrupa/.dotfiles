@@ -14,6 +14,7 @@ version_check = true
 
 [ui]
 agent_panel_sort = "spaces"
+confirm_close = true               # default false
 copy_on_select = true
 hide_tab_bar_when_single_tab = false
 mouse_capture = true
