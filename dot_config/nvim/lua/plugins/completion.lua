@@ -4,18 +4,6 @@ return {
     event = 'InsertEnter',
     version = '1.*',
     dependencies = {
-      {
-        'L3MON4D3/LuaSnip',
-        version = '2.*',
-        build = (function()
-          -- The build gives regex support in snippets. Windows cannot run it.
-          if vim.fn.has 'win32' == 1 or vim.fn.executable 'make' == 0 then
-            return
-          end
-          return 'make install_jsregexp'
-        end)(),
-        opts = {},
-      },
       'folke/lazydev.nvim',
     },
     ---@module 'blink.cmp'
@@ -36,8 +24,6 @@ return {
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
         },
       },
-
-      snippets = { preset = 'luasnip' },
 
       -- Rust is faster but needs a download.
       fuzzy = { implementation = 'lua' },
