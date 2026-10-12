@@ -3,9 +3,9 @@ name: draft-pr
 description:
   Writes one pull request or merge request draft (title, description, metadata, review comments)
   as a Markdown file under ~/.ai/<repo>/prs/, for any code host. After a wrapper skill publishes
-  it, watches the PRs or MRs of the stack. Run only when the user calls /draft-pr or when the
-  instructions of another skill tell you to run draft-pr. Do not run it for other requests about
-  pull requests or merge requests.
+  it, watches the PRs or MRs of the stack. If the user calls /draft-pr, or if the instructions of
+  another skill tell you to run draft-pr, run it. Do not run it for other requests about pull
+  requests or merge requests.
 argument-hint: "[draft] [notes]"
 ---
 
@@ -23,7 +23,7 @@ The goal is a PR that reviewers want to review. Give them all relevant facts and
 
 ## Arguments
 
-- `draft` - write `draft: true` in the metadata. Without it, write `draft: false`.
+- `draft`: write `draft: true` in the metadata. Without it, write `draft: false`.
 - All other text is notes from the user: how they tested, links, questions for reviewers.
 
 ## Workflow
@@ -43,8 +43,9 @@ Stop with one line when:
 - there is no current branch (detached HEAD), or the branch is mainline: `main`, `master`,
   `develop`, or the git-spice trunk
 
-The git-spice trunk is the `trunk` field of `git show refs/spice/data:repo`. Read it only when
-`git rev-parse --verify -q refs/spice/data` succeeds. Do not run a `git-spice` command for it.
+The git-spice trunk is the `trunk` field of `git show refs/spice/data:repo`. If
+`git rev-parse --verify -q refs/spice/data` succeeds, read it. Else skip it. Do not run a
+`git-spice` command for it.
 
 ### 2. Branch preparation
 
@@ -91,7 +92,7 @@ and move the current branch onto mainline. Then the first output is out of date.
 
 ### 3. Commit cleanup
 
-A PR branch is always clean. Do this step with no confirmation.
+A PR branch is always clean. Do this step and do not ask the user first.
 
 1. Run `~/.config/ai/bin/git-diff-context.sh` and get `parent` from its output.
 2. Read `~/.config/ai/references/commit-history.md` and apply its rules to `<parent>..HEAD`.
@@ -117,14 +118,14 @@ If step 3 changed commits, run `git-diff-context.sh` again. Then read:
 - the commit log and the output of the emitted `diff-command`
 - the conversation and the notes from the arguments
 - the sources that the user points to: a ticket, a plan, a spec, a URL
-- the code around the diff, only when the diff alone does not explain a change
+- if the diff alone does not explain a change, the code around the diff
 
 Read enough to find the changes, the high-impact changes, the focus files, and the code for review
 comments. Do not look for defects. That is the job of `review-diff`.
 
 ### 5. Local conventions
 
-Skip this step when a calling skill tells you to ignore the local conventions.
+If a calling skill tells you to ignore the local conventions, skip this step.
 
 - PR template: `.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/`, or
   `.gitlab/merge_request_templates/`. If one exists, use its sections in place of the sections in
@@ -140,7 +141,7 @@ Skip this step when a calling skill tells you to ignore the local conventions.
 ```
 
 It prints `file=<path>` and `media=<dir>`. Write the draft to `file`. If the file exists, edit it.
-Put media files in `media`. Create that directory only when there are media files.
+Put media files in `media`. If there are media files, create that directory.
 
 ### 7. Reply
 
@@ -180,7 +181,7 @@ The editor keeps the note text in saved state. A rotation keeps the text.
 
 ## `app/src/main/kotlin/notes/editor/NoteEditor.kt:42`
 
-Start here - this is the core change.
+Start here. This is the core change.
 ```
 
 - The first H1 is the title. The description is all text between the title and
@@ -191,12 +192,12 @@ Start here - this is the core change.
 
 Metadata fields. The wrapper uses them to select the labels of its platform.
 
-- `type` - one of `feature`, `fix`, `refactor`, `chore`, `docs`, `test`, `build`, `perf`.
-- `draft` - from the arguments.
-- `base` - the `parent` of the last `git-diff-context.sh` run, with no remote prefix (`origin/main`
+- `type`: one of `feature`, `fix`, `refactor`, `chore`, `docs`, `test`, `build`, `perf`.
+- `draft`: from the arguments.
+- `base`: the `parent` of the last `git-diff-context.sh` run, with no remote prefix (`origin/main`
   is `main`). The script reads the stack parent from git-spice after the sync.
-- `ticket` - the ticket id. Omit the field when there is no ticket.
-- `breaking` - `true` only for a contract break or a one-way door from "High-impact changes".
+- `ticket`: the ticket id. If there is no ticket, omit the field.
+- `breaking`: `true` only for a contract break or a one-way door from "High-impact changes".
 
 ## Content rules
 
@@ -205,57 +206,59 @@ Metadata fields. The wrapper uses them to select the labels of its platform.
 - Write in English, in ASD-STE100 Simplified Technical English.
 - Use short paragraphs. Write each paragraph or list item on one line, with no hard line breaks.
   Code hosts show a line break in a paragraph as a new line.
-- Use a list for separate, parallel items: links, files, test steps, independent changes. Use a
-  paragraph when the sentences explain one idea, for example a cause and its result, or steps of
-  one flow.
-- A section with only one item has no list. Write `On an emulator, a search for "milk" finds the
-  note.`, not `- On an emulator, a search for "milk" finds the note.` This applies to each section,
-  also Testing and Out of scope.
+- Use a list for separate, parallel items: links, files, test steps, independent changes. If the
+  sentences explain one idea, for example a cause and its result, or steps of one flow, use a
+  paragraph.
+- A section with only one item has no list. Write
+  `On an emulator, a search for "milk" finds the note.`, not
+  `- On an emulator, a search for "milk" finds the note.` This applies to each section, also
+  Testing and Out of scope.
 - Write only what the sources state. A small change gives a short description.
 - When an optional section has no content, do not write it. No "None" or "N/A".
 - Each link has text, for example `[ABC-123: Ticket title](url)`. Never a bare URL.
 
 ### Title
 
-- Tell what changes, not how: "Change foo to get bar", "Fix situations when foo does bar".
-- Use implementation words only when the change is an implementation detail, for example build or
-  infrastructure work.
+- Tell what changes, not how: "Change foo to get bar", "Fix the foo crash on rotation".
+- If the change is an implementation detail, for example build or infrastructure work, use
+  implementation words. Else do not use them.
 - Approximately 72 characters or less. No prefix, unless the local convention has one.
 
 ### Description
 
 Sections, in this order:
 
-1. **Context** (required) - why the change is necessary, in 1-3 sentences. Links to what caused
+1. **Context** (required): why the change is necessary, in 1-3 sentences. Links to what caused
    the change: the ticket, an issue, a design (for example Figma). Put one link above the text. Put
    two or more links in a list above the text.
-2. **Changes** (required) - what changes in behavior, UX, API, and data, at a high level. Add only
+2. **Changes** (required): what changes in behavior, UX, API, and data, at a high level. Add only
    the implementation details that have high impact. Put links that helped to make the change
    (external docs, internal docs, API reference) inline, next to the change that they explain.
    - `### High-impact changes` (optional) at the end of Changes. Use the criteria in
      `~/.config/ai/references/review-guide.md`, section "High-impact changes". Most PRs have none.
-3. **How to review** (optional) - only when the diff is not a simple change. Use the focus files
-   and their order from `~/.config/ai/references/review-guide.md`, section "Focus files". Recommend
-   a review commit by commit only when there are 2 or more commits and each commit has value by
-   itself.
-4. **Testing** - the automated tests from the diff, and the manual testing from the conversation
+3. **How to review** (optional): if the diff is not a simple change, write this section. Use the
+   focus files and their order from `~/.config/ai/references/review-guide.md`, section "Focus
+   files". If there are 2 or more commits and each commit has value by itself, recommend a review
+   commit by commit.
+4. **Testing**: the automated tests from the diff, and the manual testing from the conversation
    or the notes. Keep it short. Do not invent manual steps. When no source tells how the change was
    tested, omit the section and put a 🧪 line in the reply.
-5. **Media** (optional) - screenshots and videos.
+5. **Media** (optional): screenshots and videos.
    - Put a comparison (before and after, light and dark) in a table, with one column for each
      state.
    - Images: `<img src="<branch-slug>/after.png" alt="..." width="300">`. Videos:
      `![alt](<branch-slug>/demo.mp4)`.
    - Use a width of approximately 300 px for portrait screenshots and phone videos, also in tables.
    - The local relative paths are placeholders. They let a local Markdown preview show the media.
-     Before it publishes, the wrapper uploads each file, replaces each path with the uploaded URL,
-     and changes the syntax when its platform needs it.
+     Before it publishes, the wrapper uploads each file and replaces each path with the uploaded
+     URL. If its platform needs a different syntax, the wrapper also changes the syntax.
    - When the diff changes reference images of screenshot tests, do not embed them. Write one line
      that tells the reviewer that the image diffs are in the changed files.
-6. **Out of scope** (optional) - only for clear cases: the next branches of a stack, or an
+6. **Out of scope** (optional): only for clear cases: the next branches of a stack, or an
    important decision not to do something. Not for small decisions or for agent conversation
    context.
-7. **Questions for reviewers** (optional) - only when the user asks for it or gives the questions.
+7. **Questions for reviewers** (optional): if the user asks for it or gives the questions, write
+   this section.
 
 ### Review comments
 
@@ -272,7 +275,7 @@ Sections, in this order:
 1. The path and the full content of the file.
 2. One line for each item that applies, with its marker:
    - 🧹 Branch preparation and cleanup: the tracked branches and their bases, sync, restack, the
-     squashed commits and the backup ref. Or "no git-spice - preparation skipped".
+     squashed commits and the backup ref. Or "no git-spice, preparation skipped".
    - ✂️ Split suggestion: the commits contain parts that someone can review and merge separately,
      for example a refactor and a behavior change, or two independent features. Use this test, not
      the line count. A mechanical refactor of many files is not a reason to split. Suggest
@@ -282,14 +285,14 @@ Sections, in this order:
    - 🧪 Manual check: a user-visible change, and no source tells how it was tested. Give the test
      steps, and the screenshots or video to capture during those steps.
    - 📸 Capture suggestion: a UI change with no media and no changed reference images of screenshot
-     tests, when no 🧪 line already tells what to capture. Do not capture until the user asks.
+     tests, and no 🧪 line already tells what to capture. Do not capture until the user asks.
 
 When the user asks for changes, edit the same file.
 
 ## Watch
 
-Do this step only when a wrapper skill tells you to, after it publishes. You get these from the
-wrapper:
+If a wrapper skill tells you to do this step after it publishes, do it. Else do not do it. You
+get these from the wrapper:
 
 - the watch command. It takes `--interval <seconds>` and `--mr <id>` once for each MR. It prints
   the events in the format below.
@@ -310,16 +313,21 @@ The user does these actions, never you:
 - approve or merge
 - mark an MR ready, or change its title, description, or labels
 
-The session is idle when the working tree is clean, no rebase or merge is in progress, and you
-are not in the middle of a different task. Do an auto-fix only when the session is idle.
+If these three conditions are true, the session is idle:
+
+- the working tree is clean
+- no rebase or merge is in progress
+- you are not in the middle of a different task
+
+If the session is not idle, do not do an auto-fix.
 
 ### Start
 
-1. Run `git-spice log short --json --no-prompt`. For each branch object with `change`, take
-   `change.id`. A branch with no `change` has no MR yet.
+1. Run `git-spice log short --all=false --json --no-prompt`. For each branch object with `change`,
+   take `change.id`. A branch with no `change` has no MR yet.
 2. If there is no MR, tell it in one line and stop.
 3. Run the watch command with `--interval 120` and one `--mr <change.id>` for each MR, as a
-   background Bash task (`run_in_background: true`). Start it only if no watch task runs.
+   background Bash task (`run_in_background: true`). If a watch task runs, do not start a new one.
 
 If the user says "watch", start the watch. If the user says "stop watch", stop the task.
 
@@ -373,8 +381,7 @@ Run the wrapper command for the logs of the failed jobs. Find the cause of each 
   8. Switch back to the branch that was current.
 
   If the session is not idle, put the failure under Needs you as "fix waits, session not idle",
-  with the proposed fix. Do the fix at the next report when the session is idle, or when the user
-  asks.
+  with the proposed fix. If the session is idle at the next report, or if the user asks, do the fix.
 - All other causes: put the failure under Needs you, with the cause and a proposed fix. Do not
   change the code until the user asks.
 
@@ -391,8 +398,8 @@ When the restack succeeds, run `git-spice stack submit --update-only --no-prompt
 
 ### Merged MRs
 
-If no open MR of the stack is above the merged MR, do nothing more. Else, if the session is not
-idle, put the restack under Needs you as "fix waits, session not idle". Else run
+If no open MR of the stack is above the merged MR, do nothing more. If the session is not idle,
+put the restack under Needs you as "fix waits, session not idle". Else run
 `git-spice repo sync --no-prompt`, `git-spice stack restack --no-prompt`, and
 `git-spice stack submit --update-only --no-prompt`. On a restack conflict, do as in "Conflicts".
 
@@ -444,7 +451,7 @@ space.
 herdr notification show '<title>' --body '<body>' --sound <sound>
 ```
 
-- Title: `!<iid>: <n> needs you`, or `!<iid>` when Needs you is empty. For more MRs: `<n> MRs`.
+- Title: `!<iid>: <n> needs you`. If Needs you is empty, `!<iid>`. For more MRs: `<n> MRs`.
 - Body: the most urgent item in one line, then the Done items. Example:
   `@anna asked on NoteEditor.kt:42. Pipeline fixed and pushed.`
-- Sound: `request` when there are new Needs you items. Else `none`.
+- Sound: if there are new Needs you items, `request`. Else `none`.
