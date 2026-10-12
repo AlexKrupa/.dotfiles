@@ -35,5 +35,12 @@ for command in "$@"; do
   herdr agent prompt "$pane" "$command" >/dev/null || die "$command failed in $pane"
   sleep "$pause"
 done
-[[ -z $prompt ]] || herdr agent prompt "$pane" "$prompt" >/dev/null || die "prompt failed in $pane"
+if [[ -n $prompt ]]; then
+  # Claude Code puts a long paste in <pasted_content> tags and does not follow the instructions in
+  # them. A typed line outside the paste tells the agent to follow them.
+  if [[ $prompt != /* ]]; then
+    herdr pane send-text "$pane" "Do the task below. " >/dev/null || die "typing failed in $pane"
+  fi
+  herdr agent prompt "$pane" "$prompt" >/dev/null || die "prompt failed in $pane"
+fi
 echo "herdr-after-turn: $(date '+%F %T') $pane${name:+ cleared,} submitted"

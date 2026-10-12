@@ -291,6 +291,9 @@ if ! out=$("${start[@]}" 2>&1); then
   fail "herdr agent start failed: $out"
 fi
 
+# Claude Code puts a long paste in <pasted_content> tags and does not follow the instructions in
+# them. A typed line outside the paste tells the agent to follow them.
+herdr pane send-text "$pane" "Do the task below. " >/dev/null || fail "herdr pane send-text failed"
 herdr agent prompt "$pane" "$prompt" >/dev/null || fail "herdr agent prompt failed"
 
 jq -n --arg mode "$mode" --arg branch "$branch" --arg base "$base" --argjson tracked "$tracked" \

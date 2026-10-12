@@ -32,6 +32,7 @@ check "clear: exit 0" 0 "$code"
 check "clear: calls in order" \
   "herdr agent wait wL:p1 --until idle --until done --timeout 600000
 herdr agent prompt wL:p1 /clear ABC-1/old
+herdr pane send-text wL:p1 Do the task below. 
 herdr agent prompt wL:p1 ABC-2||Fix \`x\` in \"\$HOME\"" \
   "$(cat "$MOCK_LOG")"
 
