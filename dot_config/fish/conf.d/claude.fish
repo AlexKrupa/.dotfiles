@@ -210,6 +210,10 @@ function __claude_upgrade_cask
     end
 end
 
+function __claude_plugin_versions --description 'Print "<id> <scope> <version>" for every installed plugin'
+    claude plugin list --json | jq -r '.[] | "\(.id) \(.scope) \(.version)"'
+end
+
 function __claude_upgrade_plugins
     echo "Updating plugin marketplaces..."
     claude plugin marketplace update
@@ -313,22 +317,28 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
         return 1
     end
 
-    # Check before touching any session: no new version, nothing to quit.
     echo "Checking for a new claude-code version..."
     set -l outdated (__claude_upgrade_available)
-    if test -z "$outdated"
-        echo "Already up to date."
-        return 0
+    if test -n "$outdated"
+        echo "New version: $outdated"
+    else
+        echo "claude-code is up to date."
     end
-    echo "New version: $outdated"
 
     # Upgrade before quitting, so a failed upgrade leaves every session running.
     if test $dry_run -eq 0
-        if not __claude_upgrade_cask
+        if test -n "$outdated"; and not __claude_upgrade_cask
             echo "claude-upgrade: not quitting sessions" >&2
             return 1
         end
+        set -l plugins_before (__claude_plugin_versions)
         __claude_upgrade_plugins
+        set -l plugins_after (__claude_plugin_versions)
+        # No new cask and no new plugin: nothing to quit.
+        if test -z "$outdated"; and test "$plugins_before" = "$plugins_after"
+            echo "Already up to date."
+            return 0
+        end
     end
 
     # Map pane shell pid -> pane target, once.
