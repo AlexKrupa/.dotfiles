@@ -501,7 +501,7 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
 
     # Relaunch each successfully-quit session, resuming its conversation.
     for i in $quit_ok
-        __claude_pane_send $mux $rec_pane[$i] "claudes --resume $rec_sid[$i]"
+        __claude_pane_send $mux $rec_pane[$i] "claude --resume $rec_sid[$i]"
     end
     echo "Relaunched "(count $quit_ok)" session(s)."
 end
