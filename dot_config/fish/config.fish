@@ -61,7 +61,7 @@ alias nvimc "$EDITOR ~/.config/nvim/init.lua"
 alias vimc "$EDITOR ~/.config/vim/vimrc"
 
 alias cd "z" # zoxide
-alias cl "claude"
+alias cl "claudes"
 alias ls "lsd -a --long"
 alias dl "cd ~/Downloads"
 alias dlf "open ~/Downloads"

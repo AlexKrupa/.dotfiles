@@ -1,4 +1,4 @@
-function claude --description 'Run Claude Code at the git root, in a nono sandbox if the repo has a profile'
+function claudes --description 'Run Claude Code at the git root, in a nono sandbox if the repo has a profile'
     if git rev-parse --git-dir >/dev/null 2>&1
         set -l git_root (git rev-parse --show-toplevel)
         set -l current_dir (pwd)
@@ -45,19 +45,19 @@ function claude --description 'Run Claude Code at the git root, in a nono sandbo
     # With no slug, the launcher cannot find the repo profile. It must not start without a sandbox.
     set -l slug (~/.config/ai/bin/repo-slug.sh)
     if test -z "$slug"
-        echo "claude: repo-slug.sh printed no slug" >&2
+        echo "claudes: repo-slug.sh printed no slug" >&2
         return 1
     end
     # Two lines make two profile paths, and `test -f` fails on them.
     if test (count $slug) -ne 1
-        echo "claude: repo-slug.sh printed more than one line" >&2
+        echo "claudes: repo-slug.sh printed more than one line" >&2
         return 1
     end
     set -l profile repo-$slug
     if test -f ~/.config/nono/profiles/$profile.json
         __claude_nono $profile $args
     else
-        command claude $args
+        claude $args
     end
 end
 
@@ -69,7 +69,7 @@ function __claude_nono --description 'Run claude in the nono sandbox of profile 
     # A broken profile must stop the start. It must not fall back to no sandbox.
     set -l base (jq -er '.extends | strings' $profiles/$profile.json 2>/dev/null)
     or begin
-        echo "claude: $profiles/$profile.json has no \"extends\" string" >&2
+        echo "claudes: $profiles/$profile.json has no \"extends\" string" >&2
         return 1
     end
 
@@ -131,7 +131,7 @@ for _ in range(10):
     print(port)
     break')
     if test -z "$port"
-        echo "claude: found no free proxy port in 30000-49151" >&2
+        echo "claudes: found no free proxy port in 30000-49151" >&2
         return 1
     end
     set -a nono_args --proxy-port $port
@@ -211,15 +211,14 @@ function __claude_upgrade_cask
 end
 
 function __claude_upgrade_plugins
-    # `command claude`: the claude function starts a sandbox in a repo with a profile.
     echo "Updating plugin marketplaces..."
-    command claude plugin marketplace update
+    claude plugin marketplace update
     or echo "claude-upgrade: marketplace update failed" >&2
 
     echo "Updating plugins..."
-    for line in (command claude plugin list --json | jq -r '.[] | "\(.id) \(.scope)"')
+    for line in (claude plugin list --json | jq -r '.[] | "\(.id) \(.scope)"')
         set -l parts (string split ' ' -- $line)
-        command claude plugin update $parts[1] --scope $parts[2]
+        claude plugin update $parts[1] --scope $parts[2]
         or echo "claude-upgrade: plugin update failed: $parts[1]" >&2
     end
 end
@@ -492,7 +491,7 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
 
     # Relaunch each successfully-quit session, resuming its conversation.
     for i in $quit_ok
-        __claude_pane_send $mux $rec_pane[$i] "claude --resume $rec_sid[$i]"
+        __claude_pane_send $mux $rec_pane[$i] "claudes --resume $rec_sid[$i]"
     end
     echo "Relaunched "(count $quit_ok)" session(s)."
 end

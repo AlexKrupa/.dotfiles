@@ -422,7 +422,7 @@ srun --mr 5
 check "stack and hub: hub watch still runs" yes "$(ps -p "$hub" >/dev/null && echo yes || echo no)"
 kill "$hub"; wait "$hub" 2>/dev/null
 
-rstate="$d/state/watch-gitlab/app-$wt-review.json"
+rstate="$d/state/watch-gitlab/app-$wt-review-5.json"
 refs() { printf '.diffRefs = {baseSha: "%s", headSha: "%s"}' "$1" "$2"; }
 # Gives each discussion an id: gid://gitlab/Discussion/<index>.
 ids='| .discussions.nodes |= [to_entries[] | .value + {id: "gid://gitlab/Discussion/\(.key)"}]'
@@ -451,6 +451,14 @@ srun --review --mr 5
 check "review: pushed after a rebase" \
   "$(sev pushed 5 '' 'pushed h3' \
     | jq -c '. + {old_base: "b1", old_head: "h2", new_base: "b2", new_head: "h3"}')" "$out"
+gql 5 "$(refs b2 h4)"
+srun --review --fresh --mr 5
+check "review: --fresh: old state not used, exit 0 and no events" "0 " "$code $out"
+gql 5 "$(refs b2 h5)"
+srun --review --mr 5
+check "review: --fresh: new state saved" \
+  "$(sev pushed 5 '' 'pushed h5' \
+    | jq -c '. + {old_base: "b2", old_head: "h4", new_base: "b2", new_head: "h5"}')" "$out"
 
 reset_mock
 gql 5 "$(refs b1 h1)"
@@ -473,6 +481,14 @@ srun --review --mr 5
 check "review: same resolved thread: no events" "" "$out"
 
 reset_mock
+gql 5 ".discussions.nodes = [$(thread false "$(note 135 me 'Rename this' "$pos")")] $ids"
+srun --review --mr 5
+gql 5 ".discussions.nodes = [$(thread true "$(note 135 me 'Rename this' "$pos")")]
+  | .discussions.nodes[].resolvedBy = {username: \"me\"} $ids"
+srun --review --mr 5
+check "review: thread resolved by the user: no events" "" "$out"
+
+reset_mock
 gql 5 ".discussions.nodes = [$(thread false "$(note 140 me 'Why?' "$pos")"),
   $(thread false "$(note 141 anna Nit "$pos")")] $ids"
 srun --review --mr 5
@@ -493,6 +509,17 @@ srun --review --mr 5
 check "review and stack: stack watch still runs" yes \
   "$(ps -p "$stack" >/dev/null && echo yes || echo no)"
 kill "$stack"; wait "$stack" 2>/dev/null
+
+reset_mock
+gql 6
+(cd "$d/app" && exec "$script" --review --mr 6 --interval 60 >/dev/null 2>"$d/review6.err") &
+review6=$!
+rlock6="$d/state/watch-gitlab/app-$wt-review-6.lock"
+for _ in $(seq 40); do [ "$(cat "$rlock6" 2>/dev/null)" = "$review6" ] && break; sleep 0.25; done
+srun --review --mr 5
+check "review of two MRs: the other review watch still runs" yes \
+  "$(ps -p "$review6" >/dev/null && echo yes || echo no)"
+kill "$review6"; wait "$review6" 2>/dev/null
 
 out=$("$script" --repo "$d/app" --once 2>&1); code=$?
 check "--repo from a different folder: exit 0" 0 "$code"

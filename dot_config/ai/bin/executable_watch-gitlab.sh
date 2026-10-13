@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once] [--review] [--mr IID]...
-#   [--deadline EPOCH]
+# Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once] [--fresh] [--review]
+#   [--mr IID]... [--deadline EPOCH]
 # Stops at the first check with new events and prints one JSON line for each event: kind, iid,
 # title, url, actor, detail, branch. With no state file, the first check only saves the state.
 # --once: do one check, then stop.
+# --fresh: delete the state file before the first check.
 # Hub mode (no --mr) watches to-do items, comments on MRs of other people, and the default
 # branch. The default-failed event of the default branch has a null iid and title.
 # Stack mode (--mr, one for each MR, `!` prefix allowed) watches these MRs: pipeline, comment,
@@ -14,9 +15,9 @@
 # instance for each worktree.
 # Review mode (--review and one --mr) watches one MR for its reviewer. It has the events of the
 # stack mode, and also: pushed (the head changed, with old_base, old_head, new_base, new_head) and
-# resolved (a thread that the user started is resolved). Its unaddressed lines are only for
-# threads that have a note from the user. It has its own state and lock, so it runs at the same
-# time as a stack watch.
+# resolved (a thread that the user started is resolved by a different user). Its unaddressed
+# lines are only for threads that have a note from the user. It has its own state and lock for
+# each MR, so it runs at the same time as a stack watch or a review watch of a different MR.
 # Stack and review mode stop at the deadline: 09:00 local time on the day after the start, or
 # --deadline.
 # Both modes stop when the parent process or the repo directory is gone.
@@ -32,6 +33,7 @@ once=0
 mrs=()
 deadline=''
 review=0
+fresh=0
 while (($#)); do
   case "$1" in
     --repo) [[ $# -ge 2 ]] || die "--repo needs a path"; repo=$2; shift 2 ;;
@@ -40,6 +42,7 @@ while (($#)); do
     --mr) [[ $# -ge 2 && ${2#!} =~ ^[0-9]+$ ]] || die "--mr needs an MR number"
       mrs+=("${2#!}"); shift 2 ;;
     --review) review=1; shift ;;
+    --fresh) fresh=1; shift ;;
     --deadline) [[ $# -ge 2 && $2 =~ ^[0-9]+$ ]] || die "--deadline needs epoch seconds"
       deadline=$2; shift 2 ;;
     *) die "unexpected argument: $1" ;;
@@ -57,8 +60,9 @@ top=$(git rev-parse --show-toplevel)
 key=$slug
 # With the worktree hash in the key, the stack watch and the hub watch run at the same time.
 ((${#mrs[@]})) && key=$slug-$(printf %s "$top" | shasum | cut -c1-12)
-# The review watch has its own state and lock, so it does not stop a stack watch.
-((review)) && key=$key-review
+# The review watch has its own state and lock for each MR, so it does not stop a stack watch or
+# a review watch of a different MR.
+((review)) && key=$key-review-${mrs[0]}
 state=$state_dir/$key.json
 lock=$state_dir/$key.lock
 # The deadline counts from the start, because each event restarts the watch.
@@ -75,6 +79,7 @@ fi
 glab auth status >/dev/null 2>&1 || die "glab is not authenticated, run: glab auth login"
 tmp=$(mktemp -d)
 echo $$ >"$lock"
+((fresh)) && rm -f "$state"
 sleeper=''
 cleanup() {
   if [[ -n $sleeper ]]; then kill "$sleeper" 2>/dev/null || true; fi
@@ -277,7 +282,7 @@ def norm($me):
        (select($review == 1 and $o.head != null and $n.head != null and $n.head != $o.head)
          | event("pushed"; $mr; ""; "pushed \($n.head[0:8])"; null)
            + {old_base: $o.base, old_head: $o.head, new_base: $n.base, new_head: $n.head}),
-       ($mr.resolved_mine[] | select($review == 1)
+       ($mr.resolved_mine[] | select($review == 1 and .by != $me)
          | select(.id as $id | ($o.resolved // []) | index($id) | not)
          | event("resolved"; $mr; .by; (.first.body | short); .first.url)
            + at(.first.position)))
