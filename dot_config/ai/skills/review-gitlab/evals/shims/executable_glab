@@ -1,0 +1,10 @@
+#!/bin/sh
+# Eval shim for glab. The fixture repos have no GitLab. `auth status` succeeds. An `api` call
+# from watch-gitlab.sh sends TERM to the watch, which then stops with exit 3 ("replaced by a new
+# watch"). Then no run waits for the watch. All other calls fail.
+case "$1" in
+  auth) exit 0 ;;
+  api) kill -TERM "$PPID" 2>/dev/null; exit 1 ;;
+esac
+echo "glab eval shim: no GitLab in the fixture repos" >&2
+exit 1

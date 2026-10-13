@@ -155,8 +155,8 @@ The last reviewed head is `reviewed_head`, or the `new_head` of the last push th
 
 1. If a watch task for a different MR runs in this session, tell it in one line and stop. This
    skill watches one MR in each session.
-2. In `clone`, run `~/.config/ai/bin/watch-gitlab.sh --review --mr <iid> --interval 120`, as the
-   reference tells.
+2. In `clone`, run `~/.config/ai/bin/watch-gitlab.sh --review --fresh --mr <iid> --interval 120`,
+   as the reference tells. `--fresh` deletes the state of an earlier watch of this MR.
 3. Run `git fetch <remote> <source_branch> <target_branch>`. If
    `git rev-parse <remote>/<source_branch>` is not the last reviewed head, the author pushed during
    the review. Handle it as a `pushed` event with these values:
@@ -178,8 +178,9 @@ Handle a `pushed` event first. Then the other events read the new code.
 | `merged`, `closed`   | Do not start the watch again   | Info                    |
 | all other kinds      | None                           | Info                    |
 
-After you handle the events, start the watch again for the same MR. If the MR is merged or closed,
-do not start it again. Tell it in one line.
+After you handle the events, start the watch again for the same MR, with no `--fresh`. The state
+has the events since the last check. If the MR is merged or closed, do not start it again. Tell it
+in one line.
 
 ### Pushes
 
@@ -213,8 +214,9 @@ The user writes all responses on GitLab. Do not post them.
 
 ### Resolved threads
 
-Run `git diff <last reviewed head> <remote>/<source_branch> -- <path>`. Then compare the change
-with the point of the thread.
+Run `git diff <reviewed_head> <remote>/<source_branch> -- <path>`. Then compare the change with
+the point of the thread. Use `reviewed_head`, not the last reviewed head: the fix can be in a push
+that you reviewed.
 
 - The change fixes the point: one line under Info.
 - There is no change, or the change does not fix the point: put "resolved with no fix" under
