@@ -88,8 +88,8 @@
 # git-spice - branch stacking (https://github.com/abhinav/git-spice)
 [spice "branchCreate"]
   commit = false
-[spice "branchCreate"]
-  trackUntracker = true
+[spice "branchCheckout"]
+  trackUntracked = true
 [spice "experiment"]
   merge = true
 [spice "log"]
@@ -103,6 +103,10 @@
 [spice "submit"]
   navigationComment = multiple
   web = created
+[spice "submit.navigationComment"]
+  trunkComparison = all
+[spice "submit.navigationCommentStyle"]
+  layout = simple
 [column]
   ui = auto
 [transfer]
