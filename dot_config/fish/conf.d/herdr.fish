@@ -57,8 +57,8 @@ function herdr-forks-sync --description "Rebase forked herdr plugins onto upstre
   end
 end
 
-# herdr v1 has no `plugin update`, thus a reinstall is the only way to update a plugin.
-function herdr-upgrade --description "Update all installed herdr plugins"
+function herdr-upgrade --description "Upgrade herdr and all installed herdr plugins"
+  brew upgrade herdr; or return 1
   # Installs the plugins that this machine does not have yet.
   ~/.config/herdr/setup.sh; or return 1
   herdr-forks-sync
@@ -66,38 +66,11 @@ function herdr-upgrade --description "Update all installed herdr plugins"
   set -l before (mktemp)
   herdr plugin list --json >$before; or return 1
 
-  for row in (jq -r '
-      .result.plugins[]
-      | select(.source.kind == "github")
-      | [ ([.source.owner, .source.repo, (.source.subdir // empty)] | join("/")),
-          (.source.resolved_commit // ""),
-          (.source.requested_ref // ""),
-          "https://github.com/\(.source.owner)/\(.source.repo).git" ]
-      | @tsv' $before)
-    set -l cols (string split \t -- $row)
-    set -l spec $cols[1]
-    set -l installed $cols[2]
-    set -l ref $cols[3]
-    set -l url $cols[4]
-
-    set -l target $ref
-    test -z "$target"; and set target HEAD
-    # ls-remote cannot resolve a raw commit, thus use the ref as it is.
-    set -l remote (git ls-remote $url $target 2>/dev/null | head -n1 | string split -f1 \t)
-    test -z "$remote"; and set remote $ref
-    if test -n "$remote"; and test "$remote" = "$installed"
-      continue
-    end
-
-    echo "==> upgrading $spec"
-    set -l args $spec
-    test -n "$ref"; and set -a args --ref $ref
-    set -l output (herdr plugin install $args --yes 2>&1)
-    or begin
-      printf '%s\n' $output
-      rm -f $before
-      return 1
-    end
+  # `plugin update` skips linked plugins, thus herdr-forks-sync rebuilds the fork clone.
+  herdr plugin update --yes
+  or begin
+    rm -f $before
+    return 1
   end
 
   # A new commit without a new version has no release, thus link the commit comparison.

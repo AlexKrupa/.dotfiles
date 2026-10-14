@@ -42,7 +42,7 @@ brew install herdr jq fish fd neovim sesh television go bash yazi lazygit tuicr
 
 `setup.sh` covers plugins only, not brew and not the fork clone. It is safe to run again. On a
 machine that is missing a plugin, it installs that plugin. It also finds plugins that are not in
-its lists and removes them after you confirm. `herdr-upgrade` runs it first.
+its lists and removes them after you confirm. `herdr-upgrade` runs it after `brew upgrade herdr`.
 
 Then create `projects.local`, one absolute path per line, and press each plugin key. herdr does not
 make sure that plugin action ids are correct. Only a keypress shows that an id is correct.
