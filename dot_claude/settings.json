@@ -178,7 +178,9 @@
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
     "md-prompt@nogu66": true,
-    "nono@nolabs-ai": false
+    "nono@nolabs-ai": false,
+    "cowork-plugin-management@synced": false,
+    "cc-plugin-telemetry@builtin": false
   },
   "extraKnownMarketplaces": {
     "ponytail": {
@@ -260,10 +262,14 @@
         "~/.android",
         "~/.cache",
         "~/.cargo",
+        "~/.config/.android",
         "~/.emulator_console_auth_token",
         "~/.gradle",
+        "~/.local/share/android",
         "~/.m2",
-        "~/.npm"
+        "~/.npm",
+        "~/Library/Application Support/kotlin",
+        "/private/var/folders/*/*/T/**/*"
       ],
       "denyWrite": [
         "~/.gradle/gradle.properties",
