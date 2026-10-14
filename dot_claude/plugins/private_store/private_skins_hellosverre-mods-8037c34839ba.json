@@ -25,5 +25,9 @@
     "copy": true,
     "fold": false,
     "calm": null
+  },
+  "star": {
+    "since": 1792007083437,
+    "asked": false
   }
 }
