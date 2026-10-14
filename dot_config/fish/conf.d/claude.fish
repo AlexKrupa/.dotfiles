@@ -215,9 +215,18 @@ function __claude_plugin_versions --description 'Print "<id> <scope> <version>" 
 end
 
 function __claude_upgrade_plugins
+    # Over SSH, each GitHub marketplace waits on the 1Password agent twice: probe and fetch.
+    set -lx CLAUDE_CODE_PLUGIN_PREFER_HTTPS 1
+
     echo "Updating plugin marketplaces..."
-    claude plugin marketplace update
-    or echo "claude-upgrade: marketplace update failed" >&2
+    # One job per marketplace. Plugin updates stay sequential: each one rewrites
+    # installed_plugins.json, and claude has no lock on it.
+    sh -c '
+        for name; do
+            (claude plugin marketplace update "$name" >/dev/null ||
+                echo "claude-upgrade: marketplace update failed: $name" >&2) &
+        done
+        wait' sh (claude plugin marketplace list --json | jq -r '.[].name')
 
     echo "Updating plugins..."
     for line in (claude plugin list --json | jq -r '.[] | "\(.id) \(.scope)"')
