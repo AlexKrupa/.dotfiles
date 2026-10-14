@@ -1,0 +1,26 @@
+#!/bin/bash
+# Usage: herdr-start-claude <name> <pane> <title> [<effort>]
+# Starts a Claude Code agent in a herdr pane:
+#   herdr agent start <name> --kind claude --pane <pane> -- --name <title> [--effort <effort>]
+# In a nono sandbox, this is the only way to run `herdr agent start`. The sandbox policy runs
+# this script outside the session sandbox, so it accepts only these arguments.
+# Exit codes: the exit code of herdr, 2 for bad arguments
+set -euo pipefail
+
+die() { echo "herdr-start-claude: $1" >&2; exit 2; }
+
+[[ $# -eq 3 || $# -eq 4 ]] || die "usage: herdr-start-claude <name> <pane> <title> [<effort>]"
+name=$1 pane=$2 title=$3 effort=${4:-}
+for arg in "$name" "$pane" "$title"; do
+  [[ -n $arg && $arg != -* ]] || die "empty argument, or an argument that starts with -: '$arg'"
+done
+effort_args=()
+if [[ $# -eq 4 ]]; then
+  case $effort in
+    low | medium | high | xhigh | max) effort_args=(--effort "$effort") ;;
+    *) die "effort must be low, medium, high, xhigh, or max, not '$effort'" ;;
+  esac
+fi
+
+exec herdr agent start "$name" --kind claude --pane "$pane" -- --name "$title" \
+  ${effort_args[@]+"${effort_args[@]}"}
