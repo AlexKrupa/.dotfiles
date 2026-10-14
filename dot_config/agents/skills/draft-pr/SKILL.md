@@ -94,14 +94,14 @@ and move the current branch onto mainline. Then the first output is out of date.
 
 A PR branch is always clean. Do this step and do not ask the user first.
 
-1. Run `~/.config/ai/bin/git-diff-context.sh` and get `parent` from its output.
-2. Read `~/.config/ai/references/commit-history.md` and apply its rules to `<parent>..HEAD`.
+1. Run `~/.config/agents/bin/git-diff-context.sh` and get `parent` from its output.
+2. Read `~/.config/agents/references/commit-history.md` and apply its rules to `<parent>..HEAD`.
 3. If the rules flag commits, or a subject in the range starts with `fixup!` or `amend!`, run the
    script with the merge base, not with `parent`. When step 2 did not run, `parent` can be a newer
    `origin/main`, and the script then rebases the branch onto it:
 
    ```sh
-   ~/.config/ai/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)" [<repair>:<target>...]
+   ~/.config/agents/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)" [<repair>:<target>...]
    ```
 
    Give one `<repair>:<target>` for each flagged commit. The script also squashes all `fixup!` and
@@ -137,7 +137,7 @@ If a calling skill tells you to ignore the local conventions, skip this step.
 ### 6. Write the file
 
 ```sh
-~/.config/ai/bin/pr-path.sh
+~/.config/agents/bin/pr-path.sh
 ```
 
 It prints `file=<path>` and `media=<dir>`. Write the draft to `file`. If the file exists, edit it.
@@ -235,9 +235,9 @@ Sections, in this order:
    the implementation details that have high impact. Put links that helped to make the change
    (external docs, internal docs, API reference) inline, next to the change that they explain.
    - `### High-impact changes` (optional) at the end of Changes. Use the criteria in
-     `~/.config/ai/references/review-guide.md`, section "High-impact changes". Most PRs have none.
+     `~/.config/agents/references/review-guide.md`, section "High-impact changes". Most PRs have none.
 3. **How to review** (optional): if the diff is not a simple change, write this section. Use the
-   focus files and their order from `~/.config/ai/references/review-guide.md`, section "Focus
+   focus files and their order from `~/.config/agents/references/review-guide.md`, section "Focus
    files". If there are 2 or more commits and each commit has value by itself, recommend a review
    commit by commit.
 4. **Testing**: the automated tests from the diff, and the manual testing from the conversation
@@ -299,7 +299,7 @@ get these from the wrapper:
 - the command that shows the logs of the failed jobs of a pipeline
 - the command that retries a job
 
-Read `~/.config/ai/references/watch-gitlab-mr.md` first. It tells how to run the watch task,
+Read `~/.config/agents/references/watch-gitlab-mr.md` first. It tells how to run the watch task,
 handle its exit codes, report, and send notifications. This section tells only the author
 actions.
 
@@ -353,11 +353,11 @@ Run the wrapper command for the logs of the failed jobs. Find the cause of each 
   If the session is idle, fix it:
   1. Switch to the branch of the MR. Remember the branch that was current.
   2. Make the fix.
-  3. Run `~/.config/ai/bin/git-diff-context.sh --parent-only` and get `parent`.
-  4. Run `~/.config/ai/bin/git-absorb-fixes.sh <parent> <file>...` with the changed files. If it
+  3. Run `~/.config/agents/bin/git-diff-context.sh --parent-only` and get `parent`.
+  4. Run `~/.config/agents/bin/git-absorb-fixes.sh <parent> <file>...` with the changed files. If it
      reports a file under `needs-message`, the fix is not trivial. Undo it with
      `git restore --staged --worktree -- <file>...` and put the failure under Needs you.
-  5. Run `~/.config/ai/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)"`.
+  5. Run `~/.config/agents/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)"`.
   6. Run `git-spice upstack restack --no-prompt`.
   7. Run `git-spice stack submit --update-only --no-prompt`.
   8. Switch back to the branch that was current.

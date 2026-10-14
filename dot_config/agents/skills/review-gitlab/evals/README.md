@@ -18,7 +18,7 @@ the transcript.
 - `grade.py` - report and branch-state check types. Writes `grading.json` for skill-creator's
   viewer.
 
-The shared `harness.py`, `compare.py`, and the fixture helpers are in `~/.config/ai/evals/`.
+The shared `harness.py`, `compare.py`, and the fixture helpers are in `~/.config/agents/evals/`.
 
 ## Run
 
@@ -26,7 +26,7 @@ The shared `harness.py`, `compare.py`, and the fixture helpers are in `~/.config
 W=~/.ai/ai/evals/review-gitlab-workspace
 ./run.py --model opus --effort medium $W/iteration-1                # 6 evals x 3 runs
 ./run.py --model opus --effort medium $W/iteration-1 watch-amend    # one eval
-~/.config/ai/evals/compare.py $W/iteration-1 $W/iteration-2
+~/.config/agents/evals/compare.py $W/iteration-1 $W/iteration-2
 ```
 
 `git fetch` changes the remote-tracking refs, so the evals have no `repo_unchanged` check. The

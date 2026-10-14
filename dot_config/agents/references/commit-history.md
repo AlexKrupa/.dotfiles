@@ -2,7 +2,7 @@
 
 Shared by `review-me` and `draft-pr`. The rules find the branch commits that must be squashed into
 an earlier branch commit. Each skill decides how it confirms and reports the squashes. Both rewrite
-history only with `~/.config/ai/bin/git-squash-fixups.sh`.
+history only with `~/.config/agents/bin/git-squash-fixups.sh`.
 
 Goal: each commit on the branch has value by itself. Find only commits that must be squashed.
 

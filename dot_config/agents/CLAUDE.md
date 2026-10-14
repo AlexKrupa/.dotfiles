@@ -35,7 +35,7 @@ Mapping:
 - `bin/repo-slug.sh` - resolves a repo to its `~/.ai/<repo-name>/` work-dir slug (handles worktrees,
   submodules, bare repos; prints `_no-repo` outside git). Shared by skills and `AGENTS.md`.
 - `references/` - rules that more than one skill reads by absolute path
-  (`~/.config/ai/references/...`). Not symlinked.
+  (`~/.config/agents/references/...`). Not symlinked.
 - `bin/herdr-worktree.sh` - opens a local branch as a Herdr worktree workspace, optionally moves the
   calling pane into it. Used by `work`, not tied to it.
 - `bin/fetch-gitlab-mr.sh` - resolves a GitLab MR, pipeline, or job to its branches, and

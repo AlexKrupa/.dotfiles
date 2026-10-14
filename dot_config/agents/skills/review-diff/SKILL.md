@@ -59,9 +59,9 @@ the diff. Mention them in the header. Do not audit them.
 Run the helper with the args from "Diff scope". It resolves branch/parent deterministically and
 prints a keyed metadata block. Use an absolute path (skill cwd is the user's repo):
 
-    ~/.config/ai/bin/git-diff-context.sh [parent-override]
-    ~/.config/ai/bin/git-diff-context.sh --uncommitted | --staged [--with-branch [parent-override]]
-    ~/.config/ai/bin/git-diff-context.sh --rev <rev | A..B>
+    ~/.config/agents/bin/git-diff-context.sh [parent-override]
+    ~/.config/agents/bin/git-diff-context.sh --uncommitted | --staged [--with-branch [parent-override]]
+    ~/.config/agents/bin/git-diff-context.sh --rev <rev | A..B>
 
 It runs cheap guards before any diff, in fail-fast order: repo check, branch name, parent detection,
 the empty-diff guard, `git status`, diffstat, commit log, and author shortlog. It
@@ -279,7 +279,7 @@ Empty buckets are fine. Do not invent findings to fill them.
 
 ## High-impact changes
 
-Read `~/.config/ai/references/review-guide.md`, section "High-impact changes". It has the criteria
+Read `~/.config/agents/references/review-guide.md`, section "High-impact changes". It has the criteria
 and the soft limit.
 
 Findings are defects. High-impact items are correct and intended changes. An intended change is not
@@ -309,7 +309,7 @@ that the diagram shows.
 The guide tells a human reviewer which files to read first, and in which order. Write it after the
 findings, because findings change the order.
 
-Select and order the focus files with `~/.config/ai/references/review-guide.md`, section "Focus
+Select and order the focus files with `~/.config/agents/references/review-guide.md`, section "Focus
 files". A file with a `critical` or `high` finding is also a focus file, and it counts toward the
 limit of 5. It goes first, together with the files that have invasive or high-risk code.
 
@@ -323,7 +323,7 @@ not have.
 Run the helper to get the destination path (absolute path, since skill cwd is the user's repo, not
 this dir). Do not re-implement repo / author / branch resolution inline.
 
-    path="$(~/.config/ai/bin/review-report-path.sh <log-range> [report-prefix])"
+    path="$(~/.config/agents/bin/review-report-path.sh <log-range> [report-prefix])"
 
 Use the `log-range` and `report-prefix` values. Omit the prefix when `report-prefix` is empty.
 

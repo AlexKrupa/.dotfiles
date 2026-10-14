@@ -77,7 +77,7 @@ Forbidden: `git push`, `git rebase` by hand, `git commit --amend`, `git reset --
 Only for a self-review. `review-diff` does not do this check, because it also reviews the
 branches of other people. Their history is not yours to change.
 
-Find the commits to squash with the rules in `~/.config/ai/references/commit-history.md`.
+Find the commits to squash with the rules in `~/.config/agents/references/commit-history.md`.
 
 ### Report and confirm
 
@@ -96,7 +96,7 @@ mode, skip the rest of this section.
 Only with the helper:
 
 ```
-~/.config/ai/bin/git-squash-fixups.sh <parent> [<repair>:<target>...]
+~/.config/agents/bin/git-squash-fixups.sh <parent> [<repair>:<target>...]
 ```
 
 - Give one squash for each item that the user confirmed. Each squash is `<repair>:<target>`. The
@@ -134,7 +134,7 @@ with no squashes.
    blame, or fixup by hand:
 
    ```
-   ~/.config/ai/bin/git-absorb-fixes.sh <parent> <file>...
+   ~/.config/agents/bin/git-absorb-fixes.sh <parent> <file>...
    ```
 
    - `<parent>`: the `parent:` value from the context of `review-diff`. Do not calculate it

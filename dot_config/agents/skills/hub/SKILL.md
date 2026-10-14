@@ -49,7 +49,7 @@ The watch finds to-do items, comments on MRs of other people, and failed pipelin
 branch, in the project of this repo. It gives no output while there are no events.
 
 1. After the first status report, start the watch: run
-   `~/.config/ai/bin/watch-gitlab.sh --interval 120` as a background Bash task. Start it
+   `~/.config/agents/bin/watch-gitlab.sh --interval 120` as a background Bash task. Start it
    only if no watch task runs.
 2. When the task stops with exit `0`, each output line is one JSON event with the fields `kind`,
    `iid`, `title`, `url`, `actor`, `detail`, and `branch`. A `default-failed` event is a failed

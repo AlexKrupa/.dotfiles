@@ -14,7 +14,7 @@ reply, and the transcript with fixed checks.
 - `helpers.test.sh` - tests for `bin/git-diff-context.sh`, `docs-index.sh`,
   `bin/review-report-path.sh`. No LLM.
 
-The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/evals/`.
+The shared harness, `compare.py`, and the fixture helpers are in `~/.config/agents/evals/`.
 
 ## Run
 
@@ -23,7 +23,7 @@ W=~/.ai/ai/evals/review-diff-workspace
 ./helpers.test.sh
 ./run.py $W/iteration-2              # 10 evals x 3 runs, live skill
 ./run.py $W/iteration-2 fan-out      # 23-file fan-out eval, slow
-~/.config/ai/evals/compare.py $W/iteration-1 $W/iteration-2
+~/.config/agents/evals/compare.py $W/iteration-1 $W/iteration-2
 ```
 
 Each run is a full audit, so select the evals for the change:

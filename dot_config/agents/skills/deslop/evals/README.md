@@ -16,7 +16,7 @@ rebase, the final reply, and the transcript.
 - `grade.py` - file, comment, and history check types. Writes `grading.json` for skill-creator's
   viewer.
 
-The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/evals/`.
+The shared harness, `compare.py`, and the fixture helpers are in `~/.config/agents/evals/`.
 
 ## Run
 
@@ -24,14 +24,14 @@ The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/e
 W=~/.ai/ai/evals/deslop-workspace
 ./run.py $W/iteration-2              # 5 evals x 3 runs, live skill
 ./run.py $W/iteration-2 branch-slop  # one eval
-~/.config/ai/evals/compare.py $W/iteration-1 $W/iteration-2
+~/.config/agents/evals/compare.py $W/iteration-1 $W/iteration-2
 ```
 
 Run the full set before and after a change to the skill, then compare the two iterations. A drop
 of one run in three can be noise. Run that eval again before you act on it.
 
 The checks look for the words that the fixtures seed, not for the live banned list in
-`~/.config/ai/AGENTS.md`. Add a word to `pattern_sets.slop` and to a fixture to cover it.
+`~/.config/agents/AGENTS.md`. Add a word to `pattern_sets.slop` and to a fixture to cover it.
 
 `run.py` needs `claude -p` with `--permission-mode dontAsk` and an allowlist (`ALLOWED_TOOLS`).
 Start it from your own shell, or with `!` in Claude Code.

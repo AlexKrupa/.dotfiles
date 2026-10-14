@@ -22,17 +22,17 @@ stay in the working tree. This skill does not push, rebase, or amend.
 Open these files at the start of **every** run, before you edit anything. Read them with the Read
 tool, not with Bash:
 
-- `~/.config/ai/AGENTS.md` - the `## Written communication` section. It has the simple language,
+- `~/.config/agents/AGENTS.md` - the `## Written communication` section. It has the simple language,
   banned words, and formatting rules.
-- `~/.config/ai/rules/code.md` - the `## Comments (inline and doc)` section. The comment pass
+- `~/.config/agents/rules/code.md` - the `## Comments (inline and doc)` section. The comment pass
   applies these rules.
-- `~/.config/ai/rules/documenting.md` - for Markdown and docs.
+- `~/.config/agents/rules/documenting.md` - for Markdown and docs.
 - The repo's own style docs, if they exist (`CONTRIBUTING*`, `docs/style*`). For files in that repo,
   these docs have priority over the personal rules.
 
 This skill defines no writing rules. Do not recall them - recall causes the defect that this skill
 must correct. The files are in your context, but in a long session they are far from the task.
-Read them again. If `~/.config/ai/AGENTS.md` is missing, tell the user and stop.
+Read them again. If `~/.config/agents/AGENTS.md` is missing, tell the user and stop.
 
 ## Modes
 
@@ -175,7 +175,7 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
    only the targets.
 
    ```
-   ~/.config/ai/bin/git-diff-context.sh --parent-only
+   ~/.config/agents/bin/git-diff-context.sh --parent-only
    ```
 
    Use its `parent:` value as `<parent>`. Do not calculate it again.
@@ -198,7 +198,7 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
 7. Fold the file edits into their commits. Give only the files that you edited in this pass:
 
    ```
-   ~/.config/ai/bin/git-absorb-fixes.sh <parent> <file>...
+   ~/.config/agents/bin/git-absorb-fixes.sh <parent> <file>...
    ```
 
    Process its `needs-message` files as `review-me` does. Write one conventional-commit line for
@@ -218,11 +218,11 @@ tree can be dirty. The user's changes stay where they are, in the working tree o
 
    | Mode               | Command                                                            |
    | ------------------ | ------------------------------------------------------------------ |
-   | uncommitted        | `~/.config/ai/bin/git-diff-context.sh --uncommitted`               |
-   | staged             | `~/.config/ai/bin/git-diff-context.sh --staged`                    |
-   | branch-uncommitted | `~/.config/ai/bin/git-diff-context.sh --uncommitted --with-branch` |
-   | branch-staged      | `~/.config/ai/bin/git-diff-context.sh --staged --with-branch`      |
-   | target             | `~/.config/ai/bin/git-diff-context.sh`                             |
+   | uncommitted        | `~/.config/agents/bin/git-diff-context.sh --uncommitted`               |
+   | staged             | `~/.config/agents/bin/git-diff-context.sh --staged`                    |
+   | branch-uncommitted | `~/.config/agents/bin/git-diff-context.sh --uncommitted --with-branch` |
+   | branch-staged      | `~/.config/agents/bin/git-diff-context.sh --staged --with-branch`      |
+   | target             | `~/.config/agents/bin/git-diff-context.sh`                             |
 
    Use its `parent:` value as the base and its `diff-command` for the diff. In the uncommitted
    modes, each `??` line in `## Uncommitted` is an untracked file. All of its comments are added.

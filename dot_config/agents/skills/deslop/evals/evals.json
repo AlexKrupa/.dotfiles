@@ -1,13 +1,13 @@
 {
   "skill_name": "deslop",
-  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then applies the fixups with `git rebase -i --autosquash <base>` in a clone. grade.py applies `common_checks` plus each eval's `checks`. File checks read the clone after the rebase. Check types are in grade.py and ~/.config/ai/evals/harness.py. Regexes are case-insensitive unless a check sets `case`, except `reply_*` checks. `@name` in `patterns` names a list in `pattern_sets`.",
+  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then applies the fixups with `git rebase -i --autosquash <base>` in a clone. grade.py applies `common_checks` plus each eval's `checks`. File checks read the clone after the rebase. Check types are in grade.py and ~/.config/agents/evals/harness.py. Regexes are case-insensitive unless a check sets `case`, except `reply_*` checks. `@name` in `patterns` names a list in `pattern_sets`.",
   "pattern_sets": {
     "slop": ["(?i)\\brobust", "(?i)\\bleverag", "(?i)\\bgenuine", "(?i)\\bstreamlin", "(?i)\\bseamless", "(?i)battle-tested", "(?i)worth noting", "(?i)\\bimportantly\\b", "(?i)serves as", "(?i)\\bhonestly\\b", "—", "–"]
   },
   "common_checks": [
-    {"id": "rules-claude", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/ai/AGENTS\\.md", "min": 1, "text": "Reads ~/.config/ai/AGENTS.md"},
-    {"id": "rules-code", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/ai/rules/code\\.md", "min": 1, "text": "Reads ~/.config/ai/rules/code.md"},
-    {"id": "rules-doc", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/ai/rules/documenting\\.md", "min": 1, "text": "Reads ~/.config/ai/rules/documenting.md"},
+    {"id": "rules-claude", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/agents/AGENTS\\.md", "min": 1, "text": "Reads ~/.config/agents/AGENTS.md"},
+    {"id": "rules-code", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/agents/rules/code\\.md", "min": 1, "text": "Reads ~/.config/agents/rules/code.md"},
+    {"id": "rules-doc", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/agents/rules/documenting\\.md", "min": 1, "text": "Reads ~/.config/agents/rules/documenting.md"},
     {"id": "home-writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_regex": "\"file_path\": \"(/Users/|~)", "max": 0, "text": "No file write under the home dir"},
     {"id": "git-forbidden", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\b[^|;&]*\\s(push|rebase|reset|stash|checkout|switch|merge|cherry-pick)\\b|--amend", "max": 0, "text": "No push, rebase, reset, stash, checkout, switch, merge, cherry-pick, or amend"}
   ],

@@ -33,7 +33,7 @@ ref=$(origin_head || { git remote set-head origin --auto >/dev/null 2>&1 && orig
 default=${ref#origin/}
 
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/hub
-slug=$(~/.config/ai/bin/repo-slug.sh)
+slug=$(~/.config/agents/bin/repo-slug.sh)
 lock=$state_dir/$slug.pull.lock
 mkdir -p "$state_dir"
 # A new hub session replaces the old one: stop an older instance of this script that holds the lock.

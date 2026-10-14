@@ -141,7 +141,7 @@ case $1 in
     while :; do
       rm -f "$dir/refresh"
       # Resolved again on each refresh: a rebase can change the parent.
-      ctx=$(~/.config/ai/bin/git-diff-context.sh --parent-only 2>&1) || fail "$ctx"
+      ctx=$(~/.config/agents/bin/git-diff-context.sh --parent-only 2>&1) || fail "$ctx"
       parent=$(printf '%s\n' "$ctx" | sed -n 's/^parent: //p')
       [ -n "$parent" ] || fail "$ctx"
 

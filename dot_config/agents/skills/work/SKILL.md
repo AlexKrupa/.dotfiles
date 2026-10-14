@@ -45,7 +45,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 1. Existing branch. In split mode, skip this step: a URL or a branch name in the message is
    context for the new work. Else, find the branch in the message:
    - A GitLab MR URL, pipeline URL, or job URL, or an MR reference `!<iid>`: run
-     `~/.config/ai/bin/fetch-gitlab-mr.sh resolve <URL or iid>`. The branch is `source_branch` in
+     `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <URL or iid>`. The branch is `source_branch` in
      the JSON. If the script fails, report its stderr and stop.
    - A branch name, for example `feature/foo`: the branch exists if
      `git show-ref --verify refs/heads/<name>` or `git ls-remote --exit-code --heads origin <name>`

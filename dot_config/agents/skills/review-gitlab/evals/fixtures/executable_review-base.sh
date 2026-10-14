@@ -27,7 +27,7 @@ git update-ref refs/eval/reviewed HEAD
 reviewed=$(git rev-parse HEAD)
 mr=https://gitlab.example.com/notes/app/-/merge_requests/11
 
-report=$(~/.config/ai/bin/review-report-path.sh origin/main mr-11)
+report=$(~/.config/agents/bin/review-report-path.sh origin/main mr-11)
 cat >"$report" <<EOF
 # Review: tags-model (vs origin/main)
 

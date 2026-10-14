@@ -43,7 +43,7 @@ function claudes --description 'Run Claude Code at the git root, in a nono sandb
     end
 
     # With no slug, the launcher cannot find the repo profile. It must not start without a sandbox.
-    set -l slug (~/.config/ai/bin/repo-slug.sh)
+    set -l slug (~/.config/agents/bin/repo-slug.sh)
     if test -z "$slug"
         echo "claudes: repo-slug.sh printed no slug" >&2
         return 1
@@ -113,7 +113,7 @@ function __claude_nono --description 'Run claude in the nono sandbox of profile 
     set -l settings_args --settings ~/.claude/settings.json
 
     # herdr-start-claude is a mediated command, and nono finds it on PATH.
-    set -lx PATH ~/.config/ai/bin $PATH
+    set -lx PATH ~/.config/agents/bin $PATH
 
     # One proxy port per session, so that parallel sessions do not collide. The port is below
     # 49152: the profile opens 49152-65535 to every sandbox for Gradle.
@@ -177,7 +177,7 @@ function __claude_stop_daemons --description 'Stop the Gradle daemons of one ses
 end
 
 function claude-config --description 'Edit the nono sandbox profile of this repo'
-    set -l slug (~/.config/ai/bin/repo-slug.sh)
+    set -l slug (~/.config/agents/bin/repo-slug.sh)
     if test "$slug" = _no-repo
         echo "claude-config: not in a git repo" >&2
         return 1

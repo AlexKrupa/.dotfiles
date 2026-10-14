@@ -125,7 +125,7 @@ Sections that more than one type uses:
 5. Get the path and write the file there:
 
    ```sh
-   path="$(~/.config/ai/bin/ticket-path.sh "<title>")"
+   path="$(~/.config/agents/bin/ticket-path.sh "<title>")"
    ```
 
 6. Show the path and the full content of the file. When the user asks for changes, edit the same
@@ -149,7 +149,7 @@ If the two conditions are true, do these steps. Do not ask before you start.
    ticket title in single quotes, with each `'` replaced by a space.
 
    ```sh
-   ~/.config/ai/bin/ticket-id-rename.sh <placeholder> <ticket-id> <branch>... --title '<title>'
+   ~/.config/agents/bin/ticket-id-rename.sh <placeholder> <ticket-id> <branch>... --title '<title>'
    ```
 
 3. Exit `2`: the branches are pushed. Each `pushed:` line gives a branch and its upstream. If

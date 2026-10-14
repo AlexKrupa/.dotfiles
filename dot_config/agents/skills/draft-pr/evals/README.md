@@ -16,7 +16,7 @@ of the first turn, and the transcript with fixed checks.
   forge, and `log --json` gets `change` objects from `<repo>.changes.json`.
 - `grade.py` - PR and branch-state check types. Writes `grading.json` for skill-creator's viewer.
 
-The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/evals/`.
+The shared harness, `compare.py`, and the fixture helpers are in `~/.config/agents/evals/`.
 
 ## Run
 
@@ -24,7 +24,7 @@ The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/e
 W=~/.ai/ai/evals/draft-pr-workspace
 ./run.py --model opus --effort medium $W/iteration-1              # 10 evals x 3 runs, live skill
 ./run.py --model opus --effort medium $W/iteration-1 stack-fixup  # one eval
-~/.config/ai/evals/compare.py $W/iteration-1 $W/iteration-2
+~/.config/agents/evals/compare.py $W/iteration-1 $W/iteration-2
 ```
 
 Use Opus with `--effort medium`. It is the usual setup for PR work.

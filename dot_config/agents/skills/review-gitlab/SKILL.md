@@ -32,7 +32,7 @@ its absolute path. Shell variables do not persist between Bash calls. Start each
 `$FMR` with the binding:
 
 ```sh
-FMR=~/.config/ai/bin/fetch-gitlab-mr.sh
+FMR=~/.config/agents/bin/fetch-gitlab-mr.sh
 ```
 
 In the workflow, `$iid`, `$clone`, and the other values from script output are the literal
@@ -117,7 +117,7 @@ Path: `~/.ai/<repo>/reviews/<date>-mr-<iid>-<branch>-<author>.md`. Get it from t
 `review-report-path.sh` helper with `mr-<iid>` as the prefix. Do not make the slug yourself:
 
 ```sh
-path="$(~/.config/ai/bin/review-report-path.sh "$target_ref" "mr-<iid>")"
+path="$(~/.config/agents/bin/review-report-path.sh "$target_ref" "mr-<iid>")"
 ```
 
 `<author>` is the **majority git commit author** from the helper, not the GitLab MR user name. The
@@ -145,7 +145,7 @@ Add to the base report:
 The watch reports the events of the MR that are important to a reviewer. The hard constraints of
 this skill apply during the watch.
 
-Read `~/.config/ai/references/watch-gitlab-mr.md` first. It tells how to run the watch task,
+Read `~/.config/agents/references/watch-gitlab-mr.md` first. It tells how to run the watch task,
 handle its exit codes, report, and send notifications. This section tells only the reviewer
 actions.
 
@@ -155,7 +155,7 @@ The last reviewed head is `reviewed_head`, or the `new_head` of the last push th
 
 1. If a watch task for a different MR runs in this session, tell it in one line and stop. This
    skill watches one MR in each session.
-2. In `clone`, run `~/.config/ai/bin/watch-gitlab.sh --review --fresh --mr <iid> --interval 120`,
+2. In `clone`, run `~/.config/agents/bin/watch-gitlab.sh --review --fresh --mr <iid> --interval 120`,
    as the reference tells. `--fresh` deletes the state of an earlier watch of this MR.
 3. Run `git fetch <remote> <source_branch> <target_branch>`. If
    `git rev-parse <remote>/<source_branch>` is not the last reviewed head, the author pushed during
@@ -186,7 +186,7 @@ in one line.
 
 1. Run `git fetch <remote> <source_branch> <target_branch>`. Do not use `"$FMR" fetch`. After a
    force push, it stops. The local branch does not move.
-2. Run `~/.config/ai/bin/git-interdiff.sh <old_base> <old_head> <new_base> <new_head>`.
+2. Run `~/.config/agents/bin/git-interdiff.sh <old_base> <old_head> <new_base> <new_head>`.
    - If it exits `1` with `unknown commit`, the old version is not in the local repo. Put it under
      Needs you, and propose a full review of the MR. Stop here.
    - If the output is empty, put "Rebased, no content change." under Info. Stop here.

@@ -55,7 +55,7 @@ command -v jq >/dev/null || die "jq is not installed"
 cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $repo"
 
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab
-slug=$(~/.config/ai/bin/repo-slug.sh)
+slug=$(~/.config/agents/bin/repo-slug.sh)
 top=$(git rev-parse --show-toplevel)
 key=$slug
 # With the worktree hash in the key, the stack watch and the hub watch run at the same time.

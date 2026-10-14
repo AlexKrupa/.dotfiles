@@ -39,7 +39,7 @@ startup_command = "nvim aerospace.toml"
 
 [[session]]
 name = "ai config"
-path = "~/.config/ai"
+path = "~/.config/agents"
 startup_command = "yazi"
 
 [[session]]

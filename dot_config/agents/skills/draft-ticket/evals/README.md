@@ -14,7 +14,7 @@ the transcript with fixed checks.
 - `grade.py` - ticket check types, and `repo_*` checks that run a command in the fixture repo.
   Writes `grading.json` for skill-creator's viewer.
 
-The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/evals/`.
+The shared harness, `compare.py`, and the fixture helpers are in `~/.config/agents/evals/`.
 
 ## Run
 
@@ -22,7 +22,7 @@ The shared harness, `compare.py`, and the fixture helpers are in `~/.config/ai/e
 W=~/.ai/ai/evals/draft-ticket-workspace
 ./run.py --effort medium $W/iteration-1                    # 7 evals x 3 runs, live skill
 ./run.py --effort medium $W/iteration-1 post-factum-branch # one eval
-~/.config/ai/evals/compare.py $W/iteration-1 $W/iteration-2
+~/.config/agents/evals/compare.py $W/iteration-1 $W/iteration-2
 ```
 
 Use `--effort medium`. It is the usual effort for ticket work.

@@ -125,7 +125,7 @@ Layout:
 
 `<repo-name>`:
 
-- Get via `~/.config/ai/bin/repo-slug.sh` (handles bare repos, submodules, worktrees - one name per
+- Get via `~/.config/agents/bin/repo-slug.sh` (handles bare repos, submodules, worktrees - one name per
   repo across worktrees)
 - Create subdirectory if missing
 
