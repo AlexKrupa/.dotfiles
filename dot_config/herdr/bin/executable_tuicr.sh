@@ -122,9 +122,13 @@ case $1 in
     else
       cmd="exec tuicr"
     fi
+    # foreground_cwd follows an agent that moves into a worktree. cwd keeps
+    # the directory of the shell that started the agent.
+    cwd=$(herdr pane get "$HERDR_ACTIVE_PANE_ID" |
+      jq -r '.result.pane | .foreground_cwd // .cwd // empty')
     # PATH because HERDR_PANE_CMD skips conf.d (see alt+g in config.toml).
     split=$(herdr pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction right --focus \
-      --cwd "${HERDR_ACTIVE_PANE_CWD:-$PWD}" --env "PATH=$PATH" \
+      --cwd "${cwd:-$PWD}" --env "PATH=$PATH" \
       --env "HERDR_PANE_CMD=$cmd") || exit 1
     [ "$1" = branch ] || exit 0
     exec herdr pane zoom "$(printf '%s' "$split" | jq -r .result.pane.pane_id)" --on >/dev/null
