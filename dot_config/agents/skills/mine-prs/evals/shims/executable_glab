@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Fake glab for the mine-prs test and evals. Answers from <repo>.host/history.json of the fixture
+# and logs each call to <repo>.host/calls.log. A call that it does not know fails.
+host="$(git rev-parse --show-toplevel).host"
+echo "glab $*" >>"$host/calls.log"
+data="$host/history.json"
+[ "$1 $2" = "auth status" ] && exit 0
+[ "$1" = api ] || { echo "fake glab: unknown command $*" >&2; exit 1; }
+path=""
+for a in "${@:2}"; do case "$a" in -*) ;; *) path="$a" ;; esac; done
+query="${path#*\?}"
+param() { sed -nE "s/(^|.*&)$1=([^&]*).*/\2/p" <<<"$query"; }
+case "$path" in
+  user) echo '{"username":"alex"}' ;;
+  projects/:fullpath/merge_requests\?*)
+    [ "$(param page)" = 1 ] || { echo '[]'; exit 0; }
+    jq '[.mrs | sort_by(.merged_at) | reverse[]
+         | {iid, title, merged_at, sha, author: {username: .author},
+            web_url: "https://gitlab.example.com/acme/notes-app/-/merge_requests/\(.iid)"}]' "$data" ;;
+  projects/:fullpath/merge_requests/*/discussions*)
+    iid="${path#projects/:fullpath/merge_requests/}"; iid="${iid%%/*}"
+    jq --argjson iid "$iid" '
+      def note($by; $body; $t): {
+        body: $body, author: {username: $by}, system: ($t.system // false),
+        resolvable: ($t.path != null), resolved: ($t.resolved // false),
+        position: (if $t.path then {head_sha: $t.head, old_path: $t.path, new_path: $t.path,
+          new_line: $t.line,
+          line_range: (if $t.end then {start: {new_line: $t.line}, end: {new_line: $t.end}} else null end)}
+          else null end),
+        suggestions: (if $t.applied then [{applied: true}] else [] end)};
+      [.mrs[] | select(.iid == $iid) | .threads | to_entries[] | .key as $k | .value as $t
+       | {id: "d\($iid)-\($k)", individual_note: ($t.path == null and (($t.replies // []) | length) == 0),
+          notes: ([note($t.by; $t.body; $t)] + [($t.replies // [])[] | note(.[0]; .[1]; $t)])}]' "$data" ;;
+  projects/:fullpath/repository/compare\?*)
+    jq --arg from "$(param from)" '{compare_timeout: false,
+      diffs: [(.compares[$from] // [])[] | {old_path: .path, new_path: .path, diff, deleted_file: false}]}' "$data" ;;
+  *) echo "fake glab: unknown api path $path" >&2; exit 1 ;;
+esac

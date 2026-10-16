@@ -1,0 +1,51 @@
+{
+  "mrs": [
+    {"iid": 101, "author": "alex", "merged_at": "2026-09-02T10:00:00Z", "sha": "f101", "title": "Sync notes in the background", "threads": [
+      {"by": "system", "system": true, "body": "added 1 commit"},
+      {"by": "kim", "path": "app/src/main/kotlin/sync/Sync.kt", "line": 14, "head": "h101", "applied": true,
+       "body": "nit: please use our `AppLogger` instead of `Log.d`, it adds the tag and strips the logs in release builds.",
+       "resolved": true, "replies": [["alex", "done"]]},
+      {"by": "kim", "body": "LGTM, nice cleanup!"}
+    ]},
+    {"iid": 102, "author": "sam", "merged_at": "2026-09-05T10:00:00Z", "sha": "f102", "title": "Show sync errors", "threads": [
+      {"by": "kim", "path": "app/src/main/kotlin/ui/NotesViewModel.kt", "line": 22, "head": "h102",
+       "body": "Per docs/architecture.md, ViewModels must not hold a `Context`. Can you pass the string resource id and resolve it in the UI?",
+       "resolved": true, "replies": [["sam", "Good point, moved it to the screen."]]},
+      {"by": "project_12_bot_9f2c", "body": "SonarQube: 3 new code smells."}
+    ]},
+    {"iid": 103, "author": "alex", "merged_at": "2026-09-09T10:00:00Z", "sha": "f103", "title": "Page the note list", "threads": [
+      {"by": "sam", "path": "app/src/main/kotlin/data/Pager.kt", "line": 40, "head": "h103",
+       "body": "Off by one: the last page index is `count - 1`.", "resolved": true, "replies": [["alex", "Fixed, thanks."]]},
+      {"by": "sam", "body": "Please add a CHANGELOG entry for user-facing changes, see CONTRIBUTING.md."}
+    ]},
+    {"iid": 104, "author": "jo", "merged_at": "2026-09-14T10:00:00Z", "sha": "f104", "title": "Upload attachments", "threads": [
+      {"by": "jo", "body": "Note to reviewers: the migration runs one time at startup."},
+      {"by": "alex", "path": "app/src/main/kotlin/sync/Uploader.kt", "line": 31, "head": "h104",
+       "body": "Why `println` here? We have AppLogger for this.", "resolved": true, "replies": [["jo", "Oops, fixed."]]}
+    ]},
+    {"iid": 105, "author": "sam", "merged_at": "2026-09-20T10:00:00Z", "sha": "f105", "title": "Filter notes by tag", "threads": [
+      {"by": "kim", "path": "app/src/main/kotlin/ui/Filter.kt", "line": 8, "head": "f105",
+       "body": "I would prefer a `when` here instead of the if-else chain.", "resolved": false,
+       "replies": [["sam", "I think the if reads better here, it is only two branches."]]}
+    ]},
+    {"iid": 106, "author": "kim", "merged_at": "2026-09-26T10:00:00Z", "sha": "f106", "title": "Format note dates", "threads": [
+      {"by": "alex", "body": "Reminder: no Android types in ViewModels, see the architecture doc.",
+       "replies": [["kim", "Ah right, removed the Resources param."]]}
+    ]},
+    {"iid": 107, "author": "jo", "merged_at": "2026-10-03T10:00:00Z", "sha": "f107", "title": "Retry failed uploads", "threads": [
+      {"by": "kim", "path": "app/src/main/kotlin/sync/Worker.kt", "line": 55, "head": "h107",
+       "body": "Thought: at some point we could route this through AppLogger too.", "resolved": false, "replies": []}
+    ]},
+    {"iid": 108, "author": "alex", "merged_at": "2026-10-10T10:00:00Z", "sha": "f108", "title": "Sort notes", "threads": [
+      {"by": "jo", "path": "app/src/main/kotlin/ui/Sort.kt", "line": 17, "end": 19, "head": "h108",
+       "body": "nit: `when` expression here?", "resolved": true, "replies": [["alex", "Sure."]]}
+    ]}
+  ],
+  "compares": {
+    "h102": [{"path": "app/src/main/kotlin/ui/NotesViewModel.kt", "diff": "@@ -20,5 +20,4 @@ class NotesViewModel"}],
+    "h103": [{"path": "app/src/main/kotlin/data/Pager.kt", "diff": "@@ -40 +40 @@ fun lastPage"}],
+    "h104": [{"path": "app/src/main/kotlin/sync/Uploader.kt", "diff": "@@ -29,4 +29,4 @@ fun upload"}],
+    "h107": [{"path": "app/src/main/kotlin/sync/Worker.kt", "diff": "@@ -90,2 +90,3 @@ fun retry"}],
+    "h108": [{"path": "app/src/main/kotlin/ui/Sort.kt", "diff": "@@ -18,0 +19,1 @@ fun sort"}]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "skill_name": "mine-prs",
+  "notes": "run.py builds a repo per run from `fixture`, puts shims/glab on PATH, and runs `prompt` with `claude -p`. The session cannot write to the repo, so it must stop at the approval step. `findings_*` checks read outputs/mined/*-prs*.md. `calls_*` checks read outputs/glab-calls.log, one line for each glab call.",
+  "common_checks": [],
+  "evals": [
+    {
+      "id": 1,
+      "name": "review-history",
+      "fixture": "fixtures/review-history.sh",
+      "prompt": "/mine-prs",
+      "expected_output": "Three findings, AppLogger first (3 MRs), then ViewModels without Android types (2 MRs, rule points to docs/architecture.md) and `when` over if-else (2 MRs, disputed in !105). The CHANGELOG reminder is in Seen once. No finding or entry for LGTM, the SonarQube bot, the off-by-one fix, or the author note. The session saves the state, shows the numbered list, and asks for approval. It writes nothing to the repo.",
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "prs\\.sh\\W{0,3}extract", "min": 1,
+         "text": "Runs prs.sh extract"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "prs\\.sh\\W{0,3}save-state", "min": 1,
+         "text": "Saves the state after the findings file"},
+        {"type": "findings_regex", "patterns": ["^# Mined review remarks", "^## 1\\. ", "^## 2\\. ", "^## 3\\. ", "^## Seen once"],
+         "text": "Findings file has the title, three findings, and Seen once"},
+        {"type": "findings_not_regex", "patterns": ["^## 4\\. "],
+         "text": "No fourth finding"},
+        {"type": "findings_regex", "patterns": ["^## 1\\. .*(?i:log)"],
+         "text": "The logger topic (3 MRs) is the first finding"},
+        {"type": "findings_regex", "patterns": ["(?i)viewmodel", "`when`|\\bwhen\\b"],
+         "text": "Has the ViewModel and the `when` findings"},
+        {"type": "findings_regex", "patterns": ["(?i)disputed"],
+         "text": "Marks the `when` finding as disputed"},
+        {"type": "findings_regex", "patterns": ["Proposed rule:.*docs/architecture\\.md"],
+         "text": "The ViewModel rule points to docs/architecture.md"},
+        {"type": "findings_regex", "patterns": ["(?s)## Seen once.*CHANGELOG"],
+         "text": "The CHANGELOG reminder is in Seen once"},
+        {"type": "findings_not_regex", "patterns": ["(?i)sonar", "count - 1", "(?i)off by one", "Note to reviewers", "LGTM"],
+         "text": "No noise in the findings file"},
+        {"type": "findings_regex", "patterns": ["Decision: pending"],
+         "text": "Decisions stay pending before approval"},
+        {"type": "calls_not_regex", "patterns": ["--method", " -X ", "POST", "mr (note|update|approve)"],
+         "text": "Does not write to GitLab"},
+        {"type": "repo_unchanged",
+         "text": "Writes nothing to the repo before approval"}
+      ]
+    }
+  ]
+}
