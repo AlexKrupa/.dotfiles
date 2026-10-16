@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Fake glab for the bump evals. Answers from <repo>.host/ of the fixture and logs each call to
+# <repo>.host/calls.log. A call that it does not know fails.
+host="$(git rev-parse --show-toplevel).host"
+echo "glab $*" >>"$host/calls.log"
+case "$1 $2" in
+  "auth status") exit 0 ;;
+  "repo view") echo '{"fullPath":"acme/app"}' ;;
+  "mr view") cat "$host/mr.json" ;;
+  "mr list") jq -s . "$host/mr.json" ;;
+  "ci get") cat "$host/pipeline.json" ;;
+  "ci retry") echo "Retried job $3" ;;
+  api*)
+    case "$2" in
+      */pipelines/900/jobs*) cat "$host/jobs.json" ;;
+      */merge_requests/7/pipelines) jq -s . "$host/pipeline.json" ;;
+      */test_report) echo '{"total_count":0,"test_suites":[]}' ;;
+      */jobs/9001/trace) cat "$host/9001.log" ;;
+      *) echo "fake glab: unknown api path $2" >&2; exit 1 ;;
+    esac ;;
+  *) echo "fake glab: unknown command $*" >&2; exit 1 ;;
+esac

@@ -1,0 +1,45 @@
+{
+  "skill_name": "bump",
+  "notes": "run.py builds a repo per run from `fixture`, puts shims/glab on PATH, and runs `prompt` with `claude -p`. `calls_*` checks read outputs/glab-calls.log, one line for each glab call. `state_*` checks read outputs/git-state.txt: `current <branch>`, then `commits <branch> <count>` for each branch, counted from main.",
+  "common_checks": [],
+  "evals": [
+    {
+      "id": 1,
+      "name": "mr-compile-failure",
+      "fixture": "fixtures/mr-compile-failure.sh",
+      "prompt": "/bump https://gitlab.example.com/acme/app/-/merge_requests/7",
+      "expected_output": "The compile job fails because 2.0.0 removed Clock.nowMillis(). The session finds Timer.kt:6, proposes Clock.now().toEpochMilliseconds(), and asks before it commits or pushes. It does not retry the job.",
+      "checks": [
+        {
+          "type": "tool_count",
+          "tool": "Bash",
+          "input_regex": "bump-host\\.sh\"? (mr|ci|failures)\\b",
+          "min": 2,
+          "text": "Uses bump-host.sh for the MR and the CI result"
+        },
+        {
+          "type": "tool_count",
+          "tool": "Bash",
+          "input_regex": "\\bgit\\s+push\\b",
+          "max": 0,
+          "text": "Does not push"
+        },
+        {
+          "type": "calls_not_regex",
+          "patterns": ["ci retry", "mr (note|update|approve|merge)"],
+          "text": "Does not retry the job and does not write to the MR"
+        },
+        {
+          "type": "state_regex",
+          "patterns": ["^commits renovate/clock-2\\.x 1$"],
+          "text": "Does not commit a fix before approval"
+        },
+        {
+          "type": "reply_regex",
+          "patterns": ["2\\.0\\.0", "Timer\\.kt:6", "nowMillis", "toEpochMilliseconds"],
+          "text": "Reply has the new version, the call site, the cause, and the proposed fix"
+        }
+      ]
+    }
+  ]
+}
