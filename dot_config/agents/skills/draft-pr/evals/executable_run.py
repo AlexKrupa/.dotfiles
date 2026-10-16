@@ -58,5 +58,5 @@ if __name__ == "__main__":
     # The watch evals need the git-spice shim. For all other commands, it runs the real git-spice.
     os.environ["PATH"] = f"{SHIMS}:{os.environ['PATH']}"
     harness.run_main(__doc__, HERE, "dpr-", ALLOWED_TOOLS,
-                     [HOME / ".claude", HOME / ".config" / "ai", HOME / ".ai"],
+                     [HOME / ".claude", HOME / ".config" / "agents", HOME / ".ai"],
                      setup, collect, grade.load_run, grade.run_check)

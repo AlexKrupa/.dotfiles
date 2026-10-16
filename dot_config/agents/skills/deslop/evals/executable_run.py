@@ -76,5 +76,5 @@ def collect(ev, ctx, run_dir):
 
 
 if __name__ == "__main__":
-    harness.run_main(__doc__, HERE, "dse-", ALLOWED_TOOLS, [HOME / ".claude", HOME / ".config" / "ai"],
+    harness.run_main(__doc__, HERE, "dse-", ALLOWED_TOOLS, [HOME / ".claude", HOME / ".config" / "agents"],
                      setup, collect, grade.load_run, grade.run_check)
