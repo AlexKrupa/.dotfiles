@@ -1,5 +1,3 @@
-# CLAUDE.md
-
 This repo holds AI config: agent instructions, rules, and skills.
 
 Files here are symlinked into `~/.claude/` by `claude.sh`, so editing them changes Claude's live
