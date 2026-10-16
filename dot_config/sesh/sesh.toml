@@ -33,66 +33,66 @@ path = "~/.config"
 startup_command = "yazi"
 
 [[session]]
-name = "aerospace config"
+name = "aerospace"
 path = "~/.config/aerospace"
 startup_command = "nvim aerospace.toml"
 
 [[session]]
-name = "agents config"
+name = "agents"
 path = "~/.config/agents"
 startup_command = "yazi"
 
 [[session]]
-name = "claude config"
+name = "claude"
 path = "~/.claude"
 startup_command = "nvim settings.json"
 
 [[session]]
-name = "espanso config"
+name = "espanso"
 path = "~/.config/espanso"
 startup_command = "yazi"
 
 [[session]]
-name = "fish config"
+name = "fish"
 path = "~/.config/fish"
 startup_command = "nvim config.fish"
 
 [[session]]
-name = "ghostty config"
+name = "ghostty"
 path = "~/.config/ghostty"
 startup_command = "nvim config"
 
 [[session]]
-name = "herdr config"
+name = "herdr"
 path = "~/.config/herdr"
 startup_command = "nvim config.toml"
 
 [[session]]
-name = "kanata config"
+name = "kanata"
 path = "~/.config/kanata"
 startup_command = "nvim kanata.kbd"
 
 [[session]]
-name = "lazygit config"
+name = "lazygit"
 path = "~/.config/lazygit"
 startup_command = "nvim config.yml"
 
 [[session]]
-name = "nvim config"
+name = "nvim"
 path = "~/.config/nvim"
 startup_command = "nvim init.lua"
 
 [[session]]
-name = "sesh config"
+name = "sesh"
 path = "~/.config/sesh"
 startup_command = "nvim sesh.toml"
 
 [[session]]
-name = "tmux config"
+name = "tmux"
 path = "~/.config/tmux"
 startup_command = "nvim tmux.conf"
 
 [[session]]
-name = "yazi config"
+name = "yazi"
 path = "~/.config/yazi"
 startup_command = "nvim yazi.toml"
