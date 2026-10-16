@@ -15,7 +15,7 @@ Mapping:
 - `rules/*.md` -> `~/.claude/rules/`
 - `skills/*/` -> `~/.claude/skills/`
 
-`CHAT.md` is not symlinked - it's pasted into the Claude.ai web UI manually.
+`CHAT.md` is not symlinked. You paste it manually into the custom instructions of an AI chat app.
 
 ## Layout
 
