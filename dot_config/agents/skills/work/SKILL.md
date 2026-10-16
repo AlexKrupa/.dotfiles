@@ -83,10 +83,23 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      branch as the base, tell the user to run `/work` in the worktree of that branch, and stop.
    - Model and effort: for example "opus high" gives `--model opus --effort high`. The user can
      give only one of the two.
-   - Effort, if the user gave none. Use the ticket title (new mode) and the message:
-     - `low`: clear work with a known path and a small change.
-     - `medium` or `high`: more uncertainty, more files, or more risk.
-     - `xhigh`: unclear investigation or design.
+   - Effort: if the user gave none, use the ticket title (new mode) and the message. Ask two
+     questions. Where is the answer? Can the agent recognize the answer? If two levels fit, use
+     the lower one.
+     - `low`: the message or ticket names the change and its location. A small change with no
+       open question.
+     - `medium`: the default, for most features and bug fixes. The answer is in the area that
+       the ticket points to.
+     - `high`: the answer is outside that area, but the agent can recognize it. For example,
+       library code or docs, other repos, a search of the whole code base, or several separate
+       unknowns.
+     - `xhigh`: no test shows that an answer is correct, so the agent must compare possible
+       answers. Examples:
+       - a bug with no reproduction
+       - a design choice with trade-offs that the ticket does not settle
+       - a performance or concurrency problem with many possible causes
+
+       Investigation alone is not `xhigh`.
      - Never `max`, unless the user asks for it.
    - If the user gave no model, do not add `--model`.
    - In a `nono` sandbox (`printenv NONO_CAP_FILE` prints a path), `--effort` is the only Claude
