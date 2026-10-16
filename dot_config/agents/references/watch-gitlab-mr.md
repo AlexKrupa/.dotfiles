@@ -1,7 +1,7 @@
 # watch-gitlab-mr
 
 The agent guide for the MR modes of `~/.config/agents/bin/watch-gitlab.sh`: the stack mode (`--mr`)
-of `draft-pr`, and the review mode (`--review --mr`) of `review-gitlab`. The skill tells the mode
+of `draft-pr`, and the review mode (`--review --mr`) of `review-pr`. The skill tells the mode
 and the action for each event kind.
 
 The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply to PRs and checks.

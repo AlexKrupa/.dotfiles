@@ -39,20 +39,20 @@ Mapping:
 - `bin/herdr-worktree.sh` - opens a local branch as a Herdr worktree workspace, optionally moves the
   calling pane into it. Used by `work`, not tied to it.
 - `bin/fetch-gitlab-mr.sh` - resolves a GitLab MR, pipeline, or job to its branches, and
-  fast-forwards a local branch to its remote. Used by `review-gitlab` and `work`.
+  fast-forwards a local branch to its remote. Used by `review-pr` and `work`.
 - `bin/gitlab-pipeline.sh` - read-only GitLab pipeline CLI: resolves a pipeline, lists the failed
   jobs with a verdict, and prints the test failures and the trace signals of a job. `failed-logs`
   prints the signals of each failed job that needs analysis. Used by `debug-gitlab`.
 - `bin/watch-gitlab.sh` - watches GitLab MRs and prints one JSON line for each new event. Without
   `--mr`, it watches for the hub. With `--mr`, it watches the MRs of a stack. With `--review` and
-  one `--mr`, it watches an MR for its reviewer. Used by `hub`, `draft-pr`, and `review-gitlab`.
+  one `--mr`, it watches an MR for its reviewer. Used by `hub`, `draft-pr`, and `review-pr`.
 - `bin/git-interdiff.sh` - prints the content change between two MR versions (base and head of
   each). After a rebase, it compares the patches, so the changes of the target branch are not in
-  the output. Used by `review-gitlab`.
+  the output. Used by `review-pr`.
 - `bin/git-diff-context.sh` - resolves the diff to review (branch vs parent, uncommitted or staged
   changes with or without the branch, or a commit range) and prints its context. Used by `review-diff` and `deslop`.
 - `bin/review-report-path.sh` - prints the review report path under `~/.ai/<repo-name>/reviews/`.
-  Used by `review-diff` and `review-gitlab`.
+  Used by `review-diff` and `review-pr`.
 - `bin/ticket-path.sh` - prints the ticket file path under `~/.ai/<repo-name>/tickets/`. Used by
   `draft-ticket`.
 - `bin/ticket-id-rename.sh` - puts the real ticket id in place of the placeholder id: git-spice

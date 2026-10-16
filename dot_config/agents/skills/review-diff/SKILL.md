@@ -4,8 +4,8 @@ description:
   Audits a git diff and writes a read-only Markdown report under ~/.ai/<repo>/reviews/. The diff is
   the current branch vs its parent (default), uncommitted or staged changes (optionally with the
   branch), or a commit or commit range. Called as a sub-skill by review-me (self-review + fixes) and
-  review-gitlab (MR context). Run directly only when the user names it. Do not pick it for a plain
-  "review my branch" or "review my changes" request - use review-me or review-gitlab, which call
+  review-pr (MR context). Run directly only when the user names it. Do not pick it for a plain
+  "review my branch" or "review my changes" request - use review-me or review-pr, which call
   it themselves. Platform-agnostic (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
 ---
 
@@ -26,13 +26,13 @@ comments.
 
 Shared audit step, not a standalone entry point. Run it when:
 
-- `review-me` or `review-gitlab` invoke it as their REQUIRED SUB-SKILL.
+- `review-me` or `review-pr` invoke it as their REQUIRED SUB-SKILL.
 - The user names it directly (slash command or "run review-diff").
 
 Do not pick it on your own for a "review my branch" or "review the diff" request. Those go through
-`review-me` (self-review) or `review-gitlab` (MR), which call this skill themselves.
+`review-me` (self-review) or `review-pr` (MR), which call this skill themselves.
 
-**Do not use** for a PR or MR number - `review-gitlab` resolves the MR. This skill only reads
+**Do not use** for a PR or MR number - `review-pr` resolves the MR. This skill only reads
 local refs and the local working tree.
 
 ## Diff scope
@@ -124,7 +124,7 @@ name, by signature, and in the module where such a thing would already live. A d
 requires the existing symbol's `file:line`. If you did not find one, there is no finding. Skip this
 step entirely when the diff adds no reusable symbol.
 
-**Parent override:** pass the parent branch as the last arg (callers like `review-gitlab` do this).
+**Parent override:** pass the parent branch as the last arg (callers like `review-pr` do this).
 The script validates the ref exists locally and reports `parent-source: override`.
 
 ## Run the audit
@@ -337,7 +337,7 @@ and overwrites (re-runs supersede within a day).
 
 Optional second arg `prefix` -> `<date>-<prefix>-<branch>-<author>.md` (the prefix is slugified
 too).
-Callers like `review-gitlab` pass `mr-<iid>` this way. Omit it for the plain
+Callers like `review-pr` pass `mr-<iid>` this way. Omit it for the plain
 `<date>-<branch>-<author>.md` form.
 
 Do **not** substitute `git rev-parse --show-toplevel` - that returns the worktree root and breaks

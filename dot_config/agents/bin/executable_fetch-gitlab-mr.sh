@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read-only GitLab MR fetcher for the review-gitlab and work skills.
+# Read-only GitLab MR fetcher for the review-pr and work skills.
 # Subcommands: preflight | resolve | locate | fetch | discussions | diff-check
 # Exit codes: 0 ok, 1 usage/other, 2 not found, 3 ambiguous, 4 missing dep / auth, 5 network
 
@@ -296,7 +296,7 @@ cmd_diff_check() {
 
 usage() {
   cat <<'USAGE'
-fetch-gitlab-mr.sh - read-only GitLab MR fetcher for the review-gitlab and work skills.
+fetch-gitlab-mr.sh - read-only GitLab MR fetcher for the review-pr and work skills.
 
 Usage:
   fetch-gitlab-mr.sh preflight
