@@ -236,7 +236,7 @@ function __claude_upgrade_plugins
     end
 end
 
-# --- Multiplexer dispatch. Every tmux and herdr call lives in these six helpers.
+# --- Multiplexer dispatch. Every tmux and herdr call lives in these nine helpers.
 # --- The rest of claude-upgrade works the same under either one.
 
 function __claude_mux --description 'Which multiplexer this shell is inside: herdr, tmux, or empty'
@@ -292,6 +292,35 @@ function __claude_quit_pane --description 'Ask the claude in <target> to exit'
             herdr pane send-keys $argv[2] esc >/dev/null
             herdr pane send-keys $argv[2] ctrl+c >/dev/null
             herdr pane run $argv[2] '/exit' >/dev/null
+    end
+end
+
+function __claude_pane_tail --description 'Print the last lines of <target>'
+    switch $argv[1]
+        case tmux
+            tmux capture-pane -p -t $argv[2] | tail -n 15
+        case herdr
+            herdr pane read $argv[2] --lines 15
+    end
+end
+
+function __claude_pane_confirm --description 'Press Enter in <target>'
+    switch $argv[1]
+        case tmux
+            tmux send-keys -t $argv[2] Enter
+        case herdr
+            herdr pane send-keys $argv[2] enter >/dev/null
+    end
+end
+
+function __claude_resume_work --description 'Wait until the claude in <target> is idle, then ask it to continue its work'
+    switch $argv[1]
+        case tmux
+            # tmux cannot see the agent state.
+            return 1
+        case herdr
+            herdr agent wait $argv[2] --until idle --timeout 60000 >/dev/null
+            and herdr agent prompt $argv[2] 'An upgrade restarted this session. It interrupted your turn or stopped your background tasks. Check the state of your work, then continue it and start the stopped tasks again.' >/dev/null
     end
 end
 
@@ -366,6 +395,7 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
     set -l rec_name
     set -l rec_cwd
     set -l rec_sid
+    set -l rec_file
     set -l skipped
 
     # Sandboxed sessions keep their session files in the sandbox config directory.
@@ -432,6 +462,7 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
         set -a rec_name $name
         set -a rec_cwd $cwd
         set -a rec_sid $sid
+        set -a rec_file $f
     end
 
     set -l n (count $rec_pid)
@@ -488,9 +519,15 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
 
     # Quit each gracefully, then wait for the pid to die.
     set -l quit_ok  # parallel index list into rec_* of successfully quit sessions
+    set -l interrupted  # indexes into rec_* of sessions that the quit interrupted
     for i in (seq $n)
         set -l pane $rec_pane[$i]
         set -l pid $rec_pid[$i]
+        # The status can change after discovery.
+        switch (jq -r .status $rec_file[$i] 2>/dev/null)
+            case busy waiting
+                set -a interrupted $i
+        end
         __claude_quit_pane $mux $pane
 
         set -l dead 0
@@ -499,12 +536,19 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
                 set dead 1
                 break
             end
+            # A background task makes /exit ask for a confirmation. Option 1, "Exit and stop
+            # tasks", is selected.
+            if test $t -eq 4; and __claude_pane_tail $mux $pane | string match -q '*Background work is running*'
+                contains -- $i $interrupted; or set -a interrupted $i
+                __claude_pane_confirm $mux $pane
+            end
             sleep 0.5
         end
         if test $dead -eq 1
             set -a quit_ok $i
         else
             echo "claude-upgrade: pane $pane (pid $pid) did not exit in 15s; skipping its relaunch" >&2
+            __claude_pane_tail $mux $pane >&2
         end
     end
 
@@ -513,4 +557,14 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
         __claude_pane_send $mux $rec_pane[$i] "claude --resume $rec_sid[$i]"
     end
     echo "Relaunched "(count $quit_ok)" session(s)."
+
+    for i in $quit_ok
+        contains -- $i $interrupted; or continue
+        set -l where (__claude_pane_label $mux $rec_pane[$i])
+        if __claude_resume_work $mux $rec_pane[$i]
+            echo "Asked $where to continue its work."
+        else
+            echo "claude-upgrade: ask $where to continue its work" >&2
+        end
+    end
 end

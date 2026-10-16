@@ -22,7 +22,7 @@ The shared harness, `compare.py`, and the fixture helpers are in `~/.config/agen
 
 ```sh
 W=~/.ai/ai/evals/draft-pr-workspace
-./run.py --model opus --effort medium $W/iteration-1              # 10 evals x 3 runs, live skill
+./run.py --model opus --effort medium $W/iteration-1              # 11 evals x 3 runs, live skill
 ./run.py --model opus --effort medium $W/iteration-1 stack-fixup  # one eval
 ~/.config/agents/evals/compare.py $W/iteration-1 $W/iteration-2
 ```

@@ -150,7 +150,8 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b|/retry\\b", "max": 0, "text": "Does not submit and does not retry"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
         {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "(?m)^Info$", "@anna", "@bob", ":thumbsup:", "(?s)!11.*!12"], "text": "Reply has Needs you for @anna, Info for @bob, and !11 before !12"},
-        {"type": "reply_not_regex", "patterns": ["(?ms)^\\s*\\d+\\.[^\\n]*@anna.*^\\s*\\d+\\.[^\\n]*@anna"], "text": "The comment and its thread are one item"}
+        {"type": "reply_not_regex", "patterns": ["(?ms)^\\s*\\d+\\.[^\\n]*@anna.*^\\s*\\d+\\.[^\\n]*@anna"], "text": "The comment and its thread are one item"},
+        {"type": "reply_not_regex", "patterns": ["(?i)(suggested|draft|proposed) (reply|response)", "(?im)^>?\\s*(hi|hey|thanks)\\b.*@?anna"], "text": "Writes no reply text for the reviewer"}
       ]
     },
     {
@@ -163,6 +164,20 @@
         {"type": "pr_regex", "case": true, "patterns": ["^base: tags-model$"], "text": "Base is tags-model"},
         {"type": "state_regex", "case": true, "patterns": ["^main-head Rename README title$", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\bmain\\b", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\btags-model\\b"], "text": "main has the upstream commit, and tags-in-list contains main and tags-model"},
         {"type": "reply_regex", "patterns": ["(?s)🧹.*track"], "text": "The 🧹 line tells that the branches are tracked"}
+      ]
+    },
+    {
+      "id": 11,
+      "name": "watch-suggestion",
+      "fixture": "fixtures/watch-suggestion.sh",
+      "common": false,
+      "prompt": "{intro}\n\nThe background watch task stopped with exit 0. Output:\n```\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_702\",\"actor\":\"anna\",\"detail\":\"A raw Long for the color is easy to mix up with other numbers. Give it its own type.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
+      "expected_output": "The session assesses the suggestion of @anna and shows the probable change as code: a value class for the color in Tag.kt. No code change, no host write.",
+      "checks": [
+        {"type": "repo_unchanged", "text": "The fixture repo does not change"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
+        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "@anna"], "text": "Reply has Needs you for @anna"},
+        {"type": "reply_regex", "patterns": ["(?m)^```(diff|kotlin|kt)?$", "value class"], "text": "Shows the probable change as code with a value class"}
       ]
     }
   ]
