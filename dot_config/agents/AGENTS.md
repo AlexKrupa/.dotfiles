@@ -20,9 +20,8 @@
 - When a plan item is done, tick it in the plan file. Add new items that you find.
 - Delegate to subagents only for large, parallel tracks: wide multi-file investigation, independent
   features. Not for simple work finishable in a few tool calls, never to verify your own output.
-- For large audits or migrations, give each independent unit to its own subagent. Before you
-  accept a subagent report, make sure that its evidence is correct. Otherwise, one agent over
-  several.
+- For large audits or migrations, give each independent unit to its own subagent. Before you accept
+  a subagent report, make sure that its evidence is correct. Otherwise, one agent over several.
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
 - Git commits: each commit is an atomic change that has value alone
@@ -30,8 +29,8 @@
 #### Non-Superpowers-driven plans
 
 - TDD for bugs: write a failing test first, then fix
-- Git: commit a change only after the user approves it, in a plan or in a discussion. Do not push
-  or open PRs unless requested.
+- Git: commit a change only after the user approves it, in a plan or in a discussion. Do not push or
+  open PRs unless requested.
 
 #### Superpowers
 
@@ -125,8 +124,8 @@ Layout:
 
 `<repo-name>`:
 
-- Get via `~/.config/agents/bin/repo-slug.sh` (handles bare repos, submodules, worktrees - one name per
-  repo across worktrees)
+- Get via `~/.config/agents/bin/repo-slug.sh` (handles bare repos, submodules, worktrees - one name
+  per repo across worktrees)
 - Create subdirectory if missing
 
 `<optional-ticket-id>` - infer from conversation context or branch name.
@@ -135,7 +134,9 @@ Layout:
 
 - MacOS, Fish shell, Ghostty terminal, tmux
 - Dotfiles managed with chezmoi (`chezmoi managed`). Edit live files, then use
-  `chezmoi re-add/add/forget`, not the source repo. These commands push, so ask first.
+  `chezmoi re-add/add/forget`, not the source repo.
+  - Update dotfiles automatically when applying confirmed or explicitly requested changes.
+  - If a change is not confirmed - ask first.
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.
 - Run Gradle commands in quiet mode (`-q`), unless output is needed for debugging
 - Android devices, emulators, SDK, screenshots, UI inspection: use the `android` CLI (`android-cli`
