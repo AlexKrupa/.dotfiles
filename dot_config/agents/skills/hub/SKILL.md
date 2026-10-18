@@ -2,8 +2,9 @@
 name: hub
 description: >-
   Use when the user runs /hub in a repo's main checkout to manage the herdr worktree agents of
-  that repo, watch its GitLab review requests, mentions, and default branch pipelines, and keep
-  the main checkout on the newest commit, or asks the hub for the status of its agents.
+  that repo, watch its GitLab review requests, mentions, and default branch pipelines, start
+  review agents and debug agents, and keep the main checkout on the newest commit, or asks the hub
+  for the status of its agents.
 disable-model-invocation: true
 ---
 
@@ -98,7 +99,9 @@ branch, in the project of this repo. It gives no output while there are no event
         1. `default-failed`
         2. `note`, `todo`
         3. All other events
-   3. Start the watch again.
+   3. For each `todo` event with the `detail` `review_requested`, do "Auto-review". For each
+      `default-failed` event, do "Auto-debug".
+   4. Start the watch again.
 3. When the task stops with exit `1`, report its stderr text and run
    `herdr notification show 'Hub watch stopped' --body '<stderr text>' --sound request`. Do not
    start the watch again. If the text names a token permission, tell the user to add that
@@ -106,6 +109,105 @@ branch, in the project of this repo. It gives no output while there are no event
 4. When the task stops with exit `3`, a new hub session started its own watch. Do not start the
    watch again. Do not send a notification.
 5. If the user asks to stop the watch, stop the task. If the user asks to start it, start it.
+
+## Auto-review
+
+The hub starts a review agent for each review request from a different person. The agent works in
+its own herdr worktree workspace. Do these steps for each `review_requested` event. Write each
+output line below the event block.
+
+1. Look for an earlier review report:
+   `ls ~/.ai/$(~/.config/agents/bin/repo-slug.sh)/reviews/*-mr-<iid>-*.md`. If a report exists,
+   start no agent and output `!<iid>: Already reviewed: <report path>`. This rule applies also
+   when the MR has new commits, or when the person adds the user as reviewer again.
+2. Run `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`. The branch is `source_branch` in
+   the JSON. If the script fails, output its stderr text and stop.
+3. Ticket id: the issue key at the start of the branch name. Else, the placeholder id of the
+   repo's `CLAUDE.md`. Else, start no agent and output
+   `!<iid>: No placeholder id in CLAUDE.md, no review agent`.
+4. Run this command. The branch name goes in single quotes. Do not add `--effort`.
+
+   ```sh
+   ~/.claude/skills/work/work-start.sh <ticket-id> --branch '<source_branch>' <<'PROMPT'
+   /review-pr <mr-url>
+   PROMPT
+   ```
+
+5. Result:
+   - Exit `0`: output `!<iid>: Review agent <pane id> started`. The pane id is `pane_id` in the
+     JSON.
+   - The stderr text has "is open in herdr workspace": an agent works on the branch already. Start
+     no agent. The group header has `(agent <pane id>)` from "Watch" step 2.2.
+   - Other errors: output the stderr text, word for word. The user fixes the cause.
+
+## Auto-debug
+
+The hub sorts the failed jobs of each failed default-branch pipeline. It retries each job with a
+runner failure. For all other causes, it starts a debug agent in its own herdr worktree workspace.
+Do these steps for each `default-failed` event. The pipeline id is the last part of `url`. Write
+each output line below the event block.
+
+1. Triage. Start one Agent call in the background with this prompt:
+
+   ```text
+   Run `~/.config/agents/bin/gitlab-pipeline.sh failed-logs <pipeline id>` in <main checkout>.
+   Sort each failed job:
+   - runner: the `failure_reason` is `runner_system_failure`, `stuck_or_timeout_failure`,
+     `scheduler_failure`, or `api_failure`. Or the log shows none of the steps of the job script.
+   - other: all other jobs, and each job where it is not clear that a retry helps.
+   Return one line for each job, with a tab between the fields:
+   <job id>  <name>  <runner|other>  <error lines>  <suspect cause>
+   Join the error lines (3 at most) with " | ". Read only: retry no job and change no file.
+   ```
+
+   Do not wait for the result. When it comes, do step 2 for the `runner` jobs and step 3 for the
+   `other` jobs, at the same time.
+2. Runner jobs. A job gets 2 retries at most. The runner reasons are the four reasons of step 1.
+   For each `runner` job, run `~/.claude/skills/hub/hub-retry.sh <job id>` in the main checkout
+   as a background Bash task. Output `<branch>: job <name> retried (runner failure), 1/2`. When a
+   task stops:
+   - Exit `0` and `status` `success`: output `<branch>: job <name> passed after retry`.
+   - Exit `0`, `failed`, a runner reason, and 1 retry: run `hub-retry.sh <new_job_id>` in the
+     same way. Output `<branch>: job <name> retried (runner failure), 2/2`.
+   - Exit `0`, `failed`, a runner reason, and 2 retries: output
+     `<branch>: job <name> failed 3 times (runner failure), stopped`. Start no debug workspace.
+   - Exit `0`, `failed`, and a different reason: the job is an `other` job. Its triage line has
+     `new_job_id`, `name`, `other`, no error lines, and `failure_reason`. Do step 3 for it.
+   - Exit `0` and `canceled` or `skipped`: output `<branch>: job <name> <status> after retry`.
+   - Exit `1` or `4`: output the stderr text.
+3. Other jobs. One debug workspace covers all `other` jobs of one incident. Find the open debug
+   workspace: a `hub-status.sh` line with a branch that matches
+   `*/debug-<branch>-pipeline-*`.
+   - No debug workspace is open: start one (see "Debug workspace").
+   - A debug workspace is open, and its branch ends with `-pipeline-<pipeline id>`, or `previous`
+     of the event is `failed`: this is the same incident. Start no workspace. Output
+     `<branch>: Debug agent <pane id> has this incident`. The user tells that agent about the new
+     jobs.
+   - A debug workspace is open, and `previous` is not `failed`: this is a new incident. Start a
+     new workspace. Output `<branch>: Debug agent <old pane id> is stale`. Do not close the old
+     workspace, because it can contain changes.
+
+### Debug workspace
+
+1. Find the placeholder id in the repo's `CLAUDE.md`. If there is none, start no agent and output
+   `<branch>: No placeholder id in CLAUDE.md, no debug agent`.
+2. Run this command, with the triage lines of all `other` jobs:
+
+   ```sh
+   ~/.claude/skills/work/work-start.sh <placeholder> 'debug <branch> pipeline <id>' \
+     --placeholder <placeholder> <<'PROMPT'
+   Find why the default-branch pipeline <url> fails, and fix it.
+
+   Findings of a first triage. Use them as a start, and make sure that they are correct:
+   <triage lines of the "other" jobs>
+
+   You have approval to commit the fix. Then finish the branch as the global instructions
+   tell: `review-me` in auto mode, then `draft-pr`.
+   PROMPT
+   ```
+
+3. Exit `0`: output `<branch>: Debug agent <pane id> started`. Other errors: output the stderr
+   text, word for word.
 
 ## Pull
 
