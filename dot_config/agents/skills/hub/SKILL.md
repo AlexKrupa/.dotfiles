@@ -180,11 +180,11 @@ each output line below the event block.
    `*/debug-<branch>-pipeline-*`.
    - No debug workspace is open: start one (see "Debug workspace").
    - A debug workspace is open, and its branch ends with `-pipeline-<pipeline id>`, or `previous`
-     of the event is `failed`: this is the same incident. Start no workspace. Output
+     of the event is not `success`: this is the same incident. Start no workspace. Output
      `<branch>: Debug agent <pane id> has this incident`. The user tells that agent about the new
      jobs.
-   - A debug workspace is open, and `previous` is not `failed`: this is a new incident. Start a
-     new workspace. Output `<branch>: Debug agent <old pane id> is stale`. Do not close the old
+   - A debug workspace is open, and `previous` is `success`: this is a new incident. Start a new
+     workspace. Output `<branch>: Debug agent <old pane id> is stale`. Do not close the old
      workspace, because it can contain changes.
 
 ### Debug workspace
