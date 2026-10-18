@@ -203,7 +203,7 @@ If the request asks for a fix, skip steps 1 and 2. Apply the fix with no prompt.
 
 | Source branch state                                | Action                                                                                                                                  |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| The failed pipeline is on the default branch, and the current branch has no commits above the default branch | Edit in place. Do not check out a branch. The other rows and the checkout of "Repo-context analysis" do not apply. |
+| The failed pipeline is on the default branch, the current branch is not the default branch, and it has no commits above the default branch | Edit in place. Do not check out a branch. The other rows and the checkout of "Repo-context analysis" do not apply. |
 | Checked out, the user is the majority author       | Edit in place.                                                                                                                          |
 | On `main` or the default branch                    | Create `fix/<short-cause>` from the default branch and check it out. Use the repo convention if `CONTRIBUTING.md` or `.gitlab/` has one. |
 | Not checked out, the user is the majority author   | Check it out as in "Repo-context analysis", then edit in place.                                                                         |
@@ -220,8 +220,9 @@ means that the current branch has no commits above the default branch.
 
 Ask the user to confirm a checkout of `<source_branch>`. Continue only after a yes.
 
-If the failed pipeline is on the default branch, and the current branch has no commits above the
-default branch, do not ask and do not check out. Start at step 4 in the current worktree.
+If the failed pipeline is on the default branch, the current branch is not the default branch,
+and it has no commits above the default branch, do not ask and do not check out. Start at step 4
+in the current worktree.
 
 1. Run `git status --porcelain`. If the output is not empty, stop and tell the user: "uncommitted
    changes present - commit or stash and re-run". Do not stash.
