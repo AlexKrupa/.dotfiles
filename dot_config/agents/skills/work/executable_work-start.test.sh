@@ -35,7 +35,6 @@ case "$1 $2" in
     echo '{}' ;;
   "agent prompt")
     printf '%s' "$4" >"$MOCK_PROMPT"; echo '{}' ;;
-  "pane send-text") ;;
   "pane current")
     echo '{"result":{"pane":{"pane_id":"wL:p1"}}}' ;;
   *) echo "unexpected herdr call: $*" >&2; exit 2 ;;
@@ -170,9 +169,9 @@ check "new: agent started with the slug text as session name for a placeholder t
   "herdr agent start abc-0-fix-readme-typo --kind claude --pane wT:p1 -- --name Fix README typo!" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "new: prompt from stdin" "ABC-0 fix the typo" "$(cat "$MOCK_PROMPT")"
-check "new: a typed line before the pasted prompt" \
-  "herdr pane send-text wT:p1 Do the task below. 
-herdr agent prompt wT:p1 ABC-0 fix the typo" "$(grep -A1 '^herdr pane send-text' "$MOCK_LOG")"
+check "new: prompt pasted with no typed line before it" \
+  "herdr agent start abc-0-fix-readme-typo --kind claude --pane wT:p1 -- --name Fix README typo!
+herdr agent prompt wT:p1 ABC-0 fix the typo" "$(grep -B1 '^herdr agent prompt' "$MOCK_LOG")"
 check "new: output has pane, worktree, and agent" "wT:p1 /wt/path abc-0-fix-readme-typo" \
   "$(jq -r '"\(.pane_id) \(.worktree) \(.agent)"' <<<"$out")"
 check "new: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
