@@ -241,13 +241,32 @@ check "state with no default pipeline: no events" "" "$out"
 fixture pipelines '[{"id": 71, "status": "failed", "web_url": "'"$pipelines"'/71"}]'
 run
 check "default branch pipeline failed" \
-  '{"kind":"default-failed","iid":null,"title":null,"url":"'"$pipelines"'/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x"}' \
+  '{"kind":"default-failed","iid":null,"title":null,"url":"'"$pipelines"'/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x","previous":"failed"}' \
   "$out"
 run
 check "same default branch pipeline: no events" "" "$out"
 fixture pipelines '[{"id": 72, "status": "success", "web_url": "'"$pipelines"'/72"}]'
 run
 check "default branch pipeline passed: no events" "" "$out"
+fixture pipelines '[{"id": 69, "status": "failed", "web_url": "'"$pipelines"'/69"}]'
+run
+check "older pipeline during a retry: no events" "" "$out"
+check "older pipeline during a retry: state keeps 72" '{"id":72,"status":"success"}' \
+  "$(jq -c .default_pipeline "$state")"
+fixture pipelines '[{"id": 72, "status": "failed", "web_url": "'"$pipelines"'/72"}]'
+run
+check "retried pipeline failed again: no events" "" "$out"
+fixture pipelines '[{"id": 73, "status": "failed", "web_url": "'"$pipelines"'/73"}]'
+run
+check "failure after a failure: previous failed" "failed" "$(jq -r .previous <<<"$out")"
+fixture pipelines '[{"id": 74, "status": "success", "web_url": "'"$pipelines"'/74"}]'
+run
+fixture pipelines '[{"id": 75, "status": "failed", "web_url": "'"$pipelines"'/75"}]'
+run
+check "failure after a pass: previous success" "success" "$(jq -r .previous <<<"$out")"
+echo '{"todos": [], "mrs": {}, "default_pipeline": null}' >"$state"
+run
+check "saved null pipeline: event with previous null" "null" "$(jq -r .previous <<<"$out")"
 
 export MOCK_FAIL='user' MOCK_FAIL_MSG='dial tcp: connection refused'
 : >"$MOCK_LOG"

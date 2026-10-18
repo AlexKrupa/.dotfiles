@@ -6,7 +6,10 @@
 # --once: do one check, then stop.
 # --fresh: delete the state file before the first check.
 # Hub mode (no --mr) watches to-do items, comments on MRs of other people, and the default
-# branch. The default-failed event of the default branch has a null iid and title.
+# branch. The default-failed event of the default branch has a null iid and title. Its previous
+# field is the status of the saved default-branch pipeline, or null.
+# A default-failed event is only for a pipeline id above the saved id. A lower id, for example
+# during a job retry, does not change the saved pipeline.
 # Stack mode (--mr, one for each MR, `!` prefix allowed) watches these MRs: pipeline, comment,
 # reaction, approved, unapproved, conflict, mergeable, merged, closed. Comments, reactions, and
 # threads on a diff line also have path and line. After the events, it prints one unaddressed
@@ -179,7 +182,10 @@ def by_iid: map({key: (.iid | tostring), value: .}) | from_entries;
 $old[0] as $old | $todos[0] as $todos
 | ($watched[0] | map(select(.author.username != $me)) | by_iid) as $by
 | ($notes | map({key: (.iid | tostring), value: .notes}) | from_entries) as $notes_by
-| ($default[0][0] | if . then {id, status} else null end) as $default_pipeline
+| ($default[0][0] | if . then {id, status} else null end) as $new_pipeline
+| ($old.default_pipeline // null) as $saved_pipeline
+| (if $saved_pipeline == null or $saved_pipeline.id <= ($new_pipeline.id // 0)
+   then $new_pipeline else $saved_pipeline end) as $default_pipeline
 | ($by | with_entries(.key as $k | ($old.mrs[$k] // {}) as $o | .value |= {
     updated_at,
     last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max)
@@ -192,9 +198,10 @@ $old[0] as $old | $todos[0] as $todos
         | {kind: "todo", iid: .target.iid, title: .target.title, url: .target_url,
            actor: .author.username, detail: .action_name, branch: .target.source_branch}),
       ($default[0][0] | select($old | has("default_pipeline"))
-        | select(. != null and .id != $old.default_pipeline.id and .status == "failed")
+        | select(. != null and .id > ($old.default_pipeline.id // 0) and .status == "failed")
         | {kind: "default-failed", iid: null, title: null, url: .web_url, actor: "",
-           detail: "pipeline \(.id) failed", branch: $default_branch}),
+           detail: "pipeline \(.id) failed", branch: $default_branch,
+           previous: $old.default_pipeline.status}),
       ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k] as $o
         | select($o != null)
         | ($notes_by[$k] // [])[]
