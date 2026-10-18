@@ -12,7 +12,6 @@ skills add mattpocock/skills --global --agent claude-code --yes \
   --skill wizard \
   --skill grill-me \
   --skill to-questionnaire \
-  --skill handoff \
   --skill claude-handoff \
   --skill loop-me
 

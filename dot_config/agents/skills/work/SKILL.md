@@ -30,9 +30,10 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 - `existing`: the message names a branch that exists (step 1). The work continues on that branch
   in its own worktree, with a new agent. This mode applies in the main checkout and in a linked
   worktree.
-- `split`: the message has the option word `split`. The work starts as in `new` mode, also from a
-  linked worktree. This session stays as it is. It sends a handoff to the new agent. Use it for a
-  different issue that this session found, for example a flaky test on the default branch.
+- `split`: the message has the option word `split` or `fork`. The work starts as in `new` mode,
+  also from a linked worktree. This session stays as it is. It sends a handoff to the new agent.
+  Use it for a different issue that this session found, for example a flaky test on the default
+  branch.
 - Else, `~/.claude/skills/work/work-start.sh mode` prints the mode:
   - `new` (main checkout): the work starts in a new worktree from the default branch, with a new
     agent.
@@ -62,9 +63,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      id.
    - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. If the repo has
      no placeholder id, ask the user for a ticket id.
-3. Mode: split mode if the message has the word `split`. Existing mode if step 1 found a branch.
-   Else, run
-   `~/.claude/skills/work/work-start.sh mode`. Next mode: run
+3. Mode: split mode if the message has the word `split` or `fork`. Existing mode if step 1 found
+   a branch. Else, run `~/.claude/skills/work/work-start.sh mode`. Next mode: run
    `~/.claude/skills/work/work-start.sh tops`. Each output line is a top branch of the stack
    above the current branch. If there is output, ask the user: stack on the current branch, or
    on a top branch? If there is more than one top branch, ask which. Then end the turn and
@@ -113,7 +113,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      - `fresh`: the handoff has only the stack base. Add no handoff options.
      - `continue`: add `--continue ${CLAUDE_SESSION_ID}`. If the MR URL of the current branch
        is in this session, add `--mr <URL>`. Else the script finds it with `glab`. Write a
-       summary of this session for the new agent, 10 lines or fewer:
+       summary of this session for the new agent:
        - the status of the current branch: done, pushed, or with open items
        - decisions, with their reasons
        - facts that this session found and the next work needs
@@ -121,7 +121,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    - If the user selected a top branch in step 3, add `--onto <branch>`.
    Split mode: add `--split`. The words `fresh` and `continue` work as in next mode. With
    `continue`, add `--continue ${CLAUDE_SESSION_ID}` and no `--mr`. The summary tells only what
-   the new work needs, 10 lines or fewer:
+   the new work needs:
    - the issue: for example the test name, the failure text, a CI job URL
    - what this session found about the cause, and what it did not find
    - the files and the commands that are important
@@ -135,9 +135,6 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      agent.
    - Do not summarize or fix the message. Ticket URLs and option words such as "haiku" or
      "from `origin/release-1.2`" stay in the message.
-   - If this session found facts that the new agent needs and cannot easily get itself, for
-     example tracker data, add them after the message, after an empty line. This is not usual.
-     The user's message is the most important part of the prompt.
 
    The slug text and the branch name go in single quotes, with each `'` in the slug text replaced
    by a space. A ticket title can contain `` ` `` or `$`, and the shell runs these in double
