@@ -8,7 +8,7 @@
 #   diff-base=<merge base of <parent> and HEAD>
 #   diff-head=<HEAD>
 # Writes nothing to the repo.
-# Exit codes: 0 ok, 1 usage error or unknown parent
+# Exit codes: 0 ok, 1 usage error, unknown parent, or a failed git-interdiff.sh
 set -euo pipefail
 
 die() { echo "pr-draft-reuse: $1" >&2; exit 1; }
@@ -35,7 +35,6 @@ for c in "$old_base" "$old_head"; do
   git rev-parse -q --verify "$c^{commit}" >/dev/null || result no unknown-commit
 done
 
-if [[ -z $("$(dirname "$0")/git-interdiff.sh" "$old_base" "$old_head" "$new_base" "$new_head") ]]
-then result yes unchanged
-else result no changed
-fi
+interdiff=$("$(dirname "$0")/git-interdiff.sh" "$old_base" "$old_head" "$new_base" "$new_head") \
+  || die "git-interdiff.sh failed"
+if [[ -z $interdiff ]]; then result yes unchanged; else result no changed; fi

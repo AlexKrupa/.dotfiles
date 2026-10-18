@@ -13,7 +13,7 @@ disable-model-invocation: true
 This skill adds a fix loop to `review-diff`. `review-diff` does the audit and the report. This
 skill decides what to do with the findings. It folds the fixes into the commits that they fix, with
 `git absorb`. It never pushes. It rewrites history only through `git-squash-fixups.sh`, after the
-user confirms. In auto mode, it also squashes the fixups with no prompt.
+user confirms. In auto mode, it squashes with no prompt.
 
 ## Auto mode
 
@@ -22,8 +22,8 @@ finish in the global/user instructions. A direct `/review-me` call is standalone
 
 In auto mode, the history pass (step 10) always runs `git-squash-fixups.sh`, also with no squashes.
 The script squashes all `fixup!` and `amend!` commits in `<parent>..HEAD` into their targets. Do not
-ask before this rewrite. The repair squashes of "Commit history" still need a confirmation for each
-item.
+ask before this rewrite. Also apply the repair squashes of "Commit history" with no prompt: each
+suggestion counts as confirmed. `draft-pr` applies the same rules with no prompt later.
 
 ## REQUIRED SUB-SKILLS
 
@@ -99,9 +99,9 @@ Write one line for each suggestion:
 <src-sha> "<src subject>" -> squash into <tgt-sha> "<tgt subject>"
 ```
 
-Add `(reorder first)` if the two commits are not adjacent. Then ask one time. The user selects
-apply or skip for each item. If there are no suggestions, tell the user in one line. In standalone
-mode, skip the rest of this section.
+Add `(reorder first)` if the two commits are not adjacent. In standalone mode, ask one time. The
+user selects apply or skip for each item. In auto mode, do not ask. If there are no suggestions,
+tell the user in one line. In standalone mode, skip the rest of this section.
 
 ### Rewrite
 
@@ -240,7 +240,7 @@ Add a line only in these cases:
   read.
 - You finish without the `deslop` pass, or you fix wording by hand.
 - You rewrite history without a confirmation for each item, or not through `git-squash-fixups.sh`.
-  The only exception is the fixup squash in auto mode.
+  The only exception is auto mode.
 - You suggest a squash for a commit that has value by itself, or you suggest a split. Suggest only
   squashes of repair commits.
 - You resolve a conflict after `git-squash-fixups.sh` stops. Give it back to the user.

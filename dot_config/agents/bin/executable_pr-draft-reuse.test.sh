@@ -15,8 +15,8 @@ check() {
 key() { sed -n "s/^$1=//p" <<<"$2"; }
 # Writes a draft with the given diff-base and diff-head.
 draft() {
-  printf -- '---\ntype: fix\ndraft: false\nbase: main\ndiff-base: %s\ndiff-head: %s\n---\n\n# Title\n' \
-    "$1" "$2" >"$d/draft.md"
+  printf -- '---\ntype: fix\nbase: main\ndiff-base: %s\ndiff-head: %s\n---\n\n# Title\n' "$1" "$2" \
+    >"$d/draft.md"
 }
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
@@ -72,6 +72,15 @@ draft "$base2" 0000000000000000000000000000000000000000
 out=$("$script" "$d/draft.md" main)
 check "unknown commit: reuse" no "$(key reuse "$out")"
 check "unknown commit: reason" unknown-commit "$(key reason "$out")"
+
+# A failed interdiff must not read as "no content change".
+mkdir "$d/stub"
+cp "$script" "$d/stub/"
+printf '#!/bin/sh\necho "git-interdiff: broken" >&2\nexit 1\n' >"$d/stub/git-interdiff.sh"
+chmod +x "$d/stub/git-interdiff.sh"
+draft "$base2" "$v2"
+"$d/stub/pr-draft-reuse.sh" "$d/draft.md" main >/dev/null 2>&1; code=$?
+check "failed interdiff: exit 1" 1 "$code"
 
 "$script" >/dev/null 2>&1; code=$?
 check "usage: exit 1" 1 "$code"
