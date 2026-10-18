@@ -134,7 +134,7 @@ Layout:
 
 - MacOS, Fish shell, Ghostty terminal, tmux
 - Dotfiles managed with chezmoi (`chezmoi managed`). Edit live files, then use
-  `chezmoi re-add/add/forget`, not the source repo.
+  `chezmoi re-add/add/forget`, not the source repo. These commands commit and push automatically.
   - Update dotfiles automatically when applying confirmed or explicitly requested changes.
   - If a change is not confirmed - ask first.
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.
