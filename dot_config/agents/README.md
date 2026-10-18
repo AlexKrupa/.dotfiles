@@ -11,11 +11,12 @@ Run `./claude.sh` to (re)create symlinks. Idempotent; safe to rerun. It prints e
 
 Mapping:
 
-- `AGENTS.md` -> `~/.claude/CLAUDE.md` (global instructions for every project)
+- `instructions-agents.md` -> `~/.claude/CLAUDE.md` (global instructions for every project)
 - `rules/*.md` -> `~/.claude/rules/`
 - `skills/*/` -> `~/.claude/skills/`
 
-`CHAT.md` is not symlinked. You paste it manually into the custom instructions of an AI chat app.
+`instructions-chat.md` is not symlinked. You paste it manually into the custom instructions of an AI
+chat app.
 
 ## Layout
 
@@ -28,7 +29,8 @@ Mapping:
 - `skills/draft-pr/` - writes a PR draft file for any code host. Base for platform wrappers (for
   example a GitLab `/mr` skill) that publish it.
 - `bin/repo-slug.sh` - resolves a repo to its `~/.ai/<repo-name>/` work-dir slug (handles worktrees,
-  submodules, bare repos; prints `_no-repo` outside git). Shared by skills and `AGENTS.md`.
+  submodules, bare repos; prints `_no-repo` outside git). Shared by skills and
+  `instructions-agents.md`.
 - `references/` - rules that more than one skill reads by absolute path
   (`~/.config/agents/references/...`). Not symlinked.
 - `bin/herdr-worktree.sh` - opens a local branch as a Herdr worktree workspace, optionally moves the
@@ -63,12 +65,12 @@ Mapping:
 - `skills/<name>/evals/` - regression evals for a skill, run with headless `claude -p`. Each has a
   `README.md`.
 - `evals/` - shared eval code: `harness.py` (run, isolation, timing, common checks), `compare.py`,
-  `snapshot.sh`, `fixture-lib.sh`. A run loads `AGENTS.md` and the rules, but no auto memory, MCP
-  servers, or plugins, and only the skills in the `skills` list of `evals.json` (default:
-  `skill_name`).
+  `snapshot.sh`, `fixture-lib.sh`. A run loads `instructions-agents.md` and the rules, but no auto
+  memory, MCP servers, or plugins, and only the skills in the `skills` list of `evals.json`
+  (default: `skill_name`).
 
 ## Editing conventions
 
 - Rule and skill content follows `rules/documenting.md` (avoids AI writing tropes) and the reply
-  style in `AGENTS.md`.
+  style in `instructions-agents.md`.
 - A skill's `SKILL.md` needs YAML frontmatter (`name`, `description`) for the harness to load it.

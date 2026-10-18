@@ -22,8 +22,8 @@ stay in the working tree. This skill does not push, rebase, or amend.
 Open these files at the start of **every** run, before you edit anything. Read them with the Read
 tool, not with Bash:
 
-- `~/.config/agents/AGENTS.md` - the `## Written communication` section. It has the simple language,
-  banned words, and formatting rules.
+- `~/.config/agents/instructions-agents.md` - the `## Written communication` section. It has the
+  simple language, banned words, and formatting rules.
 - `~/.config/agents/rules/code.md` - the `## Comments (inline and doc)` section. The comment pass
   applies these rules.
 - `~/.config/agents/rules/documenting.md` - for Markdown and docs.
@@ -32,7 +32,7 @@ tool, not with Bash:
 
 This skill defines no writing rules. Do not recall them - recall causes the defect that this skill
 must correct. The files are in your context, but in a long session they are far from the task.
-Read them again. If `~/.config/agents/AGENTS.md` is missing, tell the user and stop.
+Read them again. If `~/.config/agents/instructions-agents.md` is missing, tell the user and stop.
 
 ## Modes
 

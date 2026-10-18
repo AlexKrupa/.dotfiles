@@ -16,7 +16,7 @@ user confirms. In auto mode, it also squashes the fixups with no prompt.
 ## Auto mode
 
 Auto mode is on when the caller tells you to use auto mode, for example the Superpowers branch
-finish in `AGENTS.md`. A direct `/review-me` call is standalone mode.
+finish in `instructions-agents.md`. A direct `/review-me` call is standalone mode.
 
 In auto mode, the history pass (step 10) always runs `git-squash-fixups.sh`, also with no squashes.
 The script squashes all `fixup!` and `amend!` commits in `<parent>..HEAD` into their targets. Do not

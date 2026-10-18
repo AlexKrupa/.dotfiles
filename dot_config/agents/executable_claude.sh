@@ -21,7 +21,7 @@ tilde_path() {
 
 # --- CLAUDE.md ---
 
-source="$SCRIPT_DIR/AGENTS.md"
+source="$SCRIPT_DIR/instructions-agents.md"
 target="$CLAUDE_DIR/CLAUDE.md"
 
 if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
