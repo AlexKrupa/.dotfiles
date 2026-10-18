@@ -1,18 +1,18 @@
 ---
 name: debug-gitlab
 description:
-  Root-cause analysis of a failed GitLab pipeline, job, or merge request - by URL, branch, or the
-  current branch. Read-only, with an optional fix step after approval.
+  Use when a GitLab pipeline, job, or merge request pipeline failed and the cause is not known -
+  by pipeline, job, or MR URL, by branch, or on the current branch. Also use for a failed pipeline
+  event during a watch. Read-only, except when the request asks for a fix.
 argument-hint: "[pipeline-url | job-url | mr-url | branch | <empty>]"
-disable-model-invocation: true
 ---
 
 # debug-gitlab
 
 This skill finds the root cause of a failed GitLab pipeline, job, or merge request. It does not
 change the repo or GitLab. The output is one Markdown report in the reply. After the analysis, the
-skill can offer a code fix. It applies the fix only after the user says yes. It never commits or
-pushes.
+skill can offer a code fix. It applies the fix only after the user says yes, or with no prompt
+when the request asks for a fix. It never commits or pushes.
 
 An empty argument means "the failed pipeline on the current branch".
 
@@ -190,9 +190,11 @@ For a job that step 1 closed without analysis, use the script `verdict`:
 Use this flow only when the verdict is `fix needed in repo` and the log gives sufficient data to
 name the fix. If you must examine the repo, go to "Repo-context analysis".
 
+If the request asks for a fix, skip steps 1 and 2. Apply the fix with no prompt.
+
 1. Show the proposed fix: a short description and a minimal diff sketch. Do not edit yet.
 2. Ask the user: apply, show me first, or no.
-3. If the user approves:
+3. If the user approves, or the request asks for a fix:
    - Run `git status --porcelain`. If the output is not empty, stop and tell the user. Do not stash.
    - Select the fix branch from the table below.
    - Make the edit with the edit tools, not with shell `sed`.
@@ -201,17 +203,25 @@ name the fix. If you must examine the repo, go to "Repo-context analysis".
 
 | Source branch state                                | Action                                                                                                                                  |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| The failed pipeline is on the default branch, and the current branch has no commits above the default branch | Edit in place. Do not check out a branch. The other rows and the checkout of "Repo-context analysis" do not apply. |
 | Checked out, the user is the majority author       | Edit in place.                                                                                                                          |
 | On `main` or the default branch                    | Create `fix/<short-cause>` from the default branch and check it out. Use the repo convention if `CONTRIBUTING.md` or `.gitlab/` has one. |
 | Not checked out, the user is the majority author   | Check it out as in "Repo-context analysis", then edit in place.                                                                         |
 | The user is not the majority author                | Refuse. Print "branch belongs to @<author>; ask before fixing" and stop.                                                                |
 
-Each fix from this skill changes behavior, because it must change CI from failed to passed. Always
-ask. The auto-apply rules of `review-me` do not apply here.
+Each fix from this skill changes behavior, because it must change CI from failed to passed. Ask
+first, except when the request asks for a fix. The auto-apply rules of `review-me` do not apply
+here.
+
+To find the first row, run `git rev-list --count origin/<default-branch>..HEAD`. The output `0`
+means that the current branch has no commits above the default branch.
 
 ## Repo-context analysis (when the log is not sufficient)
 
 Ask the user to confirm a checkout of `<source_branch>`. Continue only after a yes.
+
+If the failed pipeline is on the default branch, and the current branch has no commits above the
+default branch, do not ask and do not check out. Start at step 4 in the current worktree.
 
 1. Run `git status --porcelain`. If the output is not empty, stop and tell the user: "uncommitted
    changes present - commit or stash and re-run". Do not stash.
@@ -231,7 +241,10 @@ Ask the user to confirm a checkout of `<source_branch>`. Continue only after a y
 - No `glab ci retry`, `glab ci cancel`, `glab mr create / update / merge / approve / note`, and no
   `glab issue` write subcommands.
 - No API `POST`, `PUT`, or `DELETE`.
-- After a fix edit, this skill does not commit. The user selects the commit message and the time.
+- After a fix edit, this skill does not commit. The user or the caller selects the commit message
+  and the time.
+- A request that asks for a fix is the approval for the fix edit only. It is not an approval for a
+  commit, a push, or a retry.
 
 ## Red flags - stop and think again
 
@@ -242,7 +255,8 @@ Ask the user to confirm a checkout of `<source_branch>`. Continue only after a y
   come first.
 - You do not resolve the MR because the user gave a job URL. Always show the pipeline and the MR.
 - You put more than about 20 lines of trace for one failure into the report.
-- You edit a file before the user confirms the fix.
+- You edit a file before the user confirms the fix, and the request did not ask for a fix.
+- The request asks for a fix, and you commit, push, or retry. The caller commits.
 - You check out a branch and do not tell the user. Always tell the user and make sure that the
   worktree is clean first.
 - You use `flaky` with no log evidence. If you are not sure, use `code` or `infra`.
