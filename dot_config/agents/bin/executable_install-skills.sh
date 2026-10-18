@@ -7,13 +7,7 @@ set -euo pipefail
 # https://github.com/mattpocock/skills
 # Note: the README says to include setup-matt-pocock-skills. Add it if the others misbehave.
 skills add mattpocock/skills --global --agent claude-code --yes \
-  --skill research \
-  --skill resolving-merge-conflicts \
-  --skill wizard \
-  --skill grill-me \
-  --skill to-questionnaire \
-  --skill claude-handoff \
-  --skill loop-me
+  --skill grill-me
 
 # https://github.com/chrisbanes/skills
 skills add chrisbanes/skills --global --agent claude-code --yes \
