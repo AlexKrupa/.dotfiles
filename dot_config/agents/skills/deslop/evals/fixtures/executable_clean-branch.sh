@@ -21,7 +21,7 @@ package client
 
 class Retry(val maxAttempts: Int = 3) {
     fun delayMillis(attemptIndex: Int): Long {
-        // The server rate limit resets every 200 ms (NET-31). A shorter first delay gets a 429.
+        // A first delay under 200 ms gets a 429 from the server rate limit (NET-31).
         return 200L shl attemptIndex
     }
 }
