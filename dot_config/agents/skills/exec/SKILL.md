@@ -1,8 +1,9 @@
 ---
 name: exec
 description: >-
-  Use when the user runs /exec after a superpowers:writing-plans handoff, to execute the plan in
-  a cleared session in the same herdr pane or, with "keep", in this Claude session.
+  Use when the user runs /exec after a superpowers:writing-plans handoff, or when the Superpowers
+  pipeline in the user instructions starts the execution of a saved plan. Executes the plan in a
+  cleared session in the same herdr pane or, with "keep", in this Claude session.
 argument-hint: "[keep] [subagent|native] [low|medium|high|xhigh|max]"
 disable-model-invocation: true
 ---
@@ -11,8 +12,13 @@ disable-model-invocation: true
 
 Executes a superpowers plan. After this turn, a helper script sets the effort and submits the
 superpowers execution command with the plan path. The script first clears this Claude session,
-unless `$ARGUMENTS` has `keep`. The user runs this skill in place of a reply to the writing-plans
-handoff. This means that the user approved the plan.
+unless `$ARGUMENTS` has `keep`. There are two callers:
+
+- The user runs `/exec` in place of a reply to the writing-plans handoff. This means that the user
+  approved the plan.
+- The Superpowers pipeline in the user instructions tells the agent to follow this skill after
+  writing-plans saves the plan. The user approved the spec, and that is also the approval of the
+  plan. There is no handoff reply from the user.
 
 Input: `$ARGUMENTS` can contain `keep`, a mode (`subagent` or `native`), and an effort level. All
 are optional.
@@ -24,8 +30,8 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
 ## Steps
 
 1. Plan path. Find the last writing-plans handoff in the conversation: "Plan complete and saved to
-   `<path>`". If there is no handoff, reply "No plan handoff in this conversation." and stop.
-   Else, read the plan.
+   `<path>`". In the pipeline, use the plan that writing-plans saved in this session. If there is
+   no plan path, reply "No plan handoff in this conversation." and stop. Else, read the plan.
 2. Mode, if `$ARGUMENTS` has no mode. Start from the recommendation in the handoff ("For this plan
    I recommend ..."). Check it against these reasons for `subagent`:
    - An error in one task costs much: security, money, data migration, public API, or
@@ -33,7 +39,8 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
    - Many later tasks use the interfaces from earlier tasks. A review after each task stops an
      interface error before other tasks use it.
 
-   The reason in the handoff can show that one of them applies. Use the first rule that matches:
+   The reason in the handoff can show that one of them applies. With no handoff, there is no
+   recommendation: read the reasons from the plan. Use the first rule that matches:
    1. A reason applies: `subagent`.
    2. The plan and the code that it touches fit in the context that the execution has, with
       space left: `native`. Estimate the size from the plan. Do not read the code for this.
@@ -60,6 +67,12 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
    the background task. Then read the output file of the task once, with the Read tool. If the
    file is empty, read it again. A first line `<skill> - <effort> - <plan>` is exit `0`. A line
    that starts with `exec:` is exit `1`.
+
+   If the script exits `1` with "exec: this session does not run in a herdr pane", use the
+   superpowers execution skill of the mode in this session, with the plan path:
+   `subagent-driven-development` for `subagent`, `executing-plans` for `native`. Before that,
+   tell it in one line: "No herdr pane: the plan runs in this session, with the effort of this
+   session." This fallback ends this skill. Do not do step 6.
 6. Report the result, then end the turn. The script waits until the turn ends, so the turn has no
    more tool calls after the report.
    - Exit `0`: the stdout line, then one line per decision: "Mode: <mode> - <how>." and
