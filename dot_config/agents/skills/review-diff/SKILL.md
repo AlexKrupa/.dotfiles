@@ -127,6 +127,12 @@ step entirely when the diff adds no reusable symbol.
 **Parent override:** pass the parent branch as the last arg (callers like `review-pr` do this).
 The script validates the ref exists locally and reports `parent-source: override`.
 
+### Spec and plan
+
+A caller can give a spec path and a plan path (`review-me` does this). Read both. They enable the
+"Spec alignment" checklist item. With no spec, do no drift check, and write `none` in the `Spec:`
+header line.
+
 ## Run the audit
 
 ### Re-review mode
@@ -148,16 +154,17 @@ report's `Convention docs consulted:` line as is.
 removed or renamed. Nothing else. A removed export can leave a now-unused symbol in a file nobody
 edited - one hop catches that, a plain changed-files list does not.
 
-**Checklist.** On a file that got a behavior change, run the full checklist. On a file that got only
-typo, lint, dead-code, or comment fixes, run Dead code, Docs & comments, and Style & consistency
-only.
+**Checklist.** The caller gives the same spec and plan paths as in the first pass. On a file
+that got a behavior change, run the full checklist. On a file that got only typo, lint, dead-code,
+or comment fixes, run Dead code, Docs & comments, and Style & consistency only.
 
 **Keep old findings.** Copy every unresolved finding from the previous report into the new one -
 text, severity, and **id** unchanged. A scoped pass did not read that code. It cannot clear it.
 Give new findings the next free ordinal in their severity section. Never renumber a copied id. The
 caller already told the user "`H2` unresolved", and a pass that renumbers makes that reference point
 somewhere else. Dropping a copied finding is a silent regression - the caller reads the new report
-as complete.
+as complete. If the previous report has a `## Fixes applied` section (written by `review-me`), copy
+it as is.
 
 ### Full audit
 
@@ -178,7 +185,7 @@ files."
 
 | Agent | Extra input | Checklist items |
 |---|---|---|
-| defect | none | Correctness, Concurrency & data races, Error handling & edge cases, Tests, Security, Performance, Public API / contracts |
+| defect | the spec and plan paths, or none | Spec alignment, Correctness, Concurrency & data races, Error handling & edge cases, Tests, Security, Performance, Public API / contracts |
 | docs | the `docs-index.sh` output | Conventions & docs alignment, Docs & comments, Style & consistency, Dependencies |
 | structure | none | Simplicity (with its adjacent radius), Dead code, the "Existing implementations" search, and "High-impact changes" |
 
@@ -216,6 +223,11 @@ confirm.
   branch adds a pattern or public API the docs say must be documented, but no doc was added. Cite
   the doc source in the finding, e.g. `violates docs/testing.md:L20`. Only when docs were found.
   Never invent a convention the docs do not state.
+- **Spec alignment** - only when the caller gave a spec. Large drift is a `high` finding: a spec
+  requirement is missing or behaves differently, or the branch adds behavior or scope that the
+  spec does not have. Cite the spec section. Small drift from the plan is not a finding: other
+  names, file layout, task order, or a different approach with the same behavior. Write at most one
+  line about it under "Out of scope / mentions".
 - **Error handling & edge cases** - only what can actually happen. Flag overcautious validation as a
   finding too.
 - **Tests** - coverage of new behavior, missing edges, brittle assertions, flaky patterns. Also
@@ -363,6 +375,7 @@ risk, naming that risk's finding id, e.g. `C1`.>
 - Uncommitted: <no | yes - file1, file2>
 - Generated: <ISO date>
 - Convention docs consulted: <comma-separated paths | none found>
+- Spec: <spec path | none, no drift check>
 
 ## High-impact changes
 
