@@ -10,7 +10,7 @@
     {"id": "rules-doc", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/agents/rules/documenting\\.md", "min": 1, "text": "Reads ~/.config/agents/rules/documenting.md"},
     {"id": "git-modes", "type": "tool_count", "tool": "Read|Bash", "input_regex": "skills/deslop/git-modes\\.md", "min": 1, "text": "Reads git-modes.md"},
     {"id": "home-writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_regex": "\"file_path\": \"(/Users/|~)", "max": 0, "text": "No file write under the home dir"},
-    {"id": "git-forbidden", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\b[^|;&]*\\s(push|rebase|reset|stash|checkout|switch|merge|cherry-pick)\\b|--amend", "max": 0, "text": "No push, rebase, reset, stash, checkout, switch, merge, cherry-pick, or amend"}
+    {"id": "git-forbidden", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\s+(?:-[cC]\\s+\\S+\\s+)*(?:push|rebase|reset|stash(?!\\s+(?:list|show)\\b)|checkout|switch|merge|cherry-pick)\\b|\\bgit\\s+(?:-[cC]\\s+\\S+\\s+)*commit\\b[^|;&]*--amend", "max": 0, "text": "No push, rebase, reset, stash, checkout, switch, merge, cherry-pick, or amend"}
   ],
   "evals": [
     {
@@ -128,7 +128,7 @@
       "checks": [
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh --uncommitted", "min": 1, "text": "Runs the helper with --uncommitted"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "--with-branch", "max": 0, "text": "Does not add the branch commits"},
-        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\\bgit\\b[^|;&]*\\s(add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\\bgit\\s+(?:-[cC]\\s+\\S+\\s+)*(?:add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
         {"type": "refs_same", "refs": ["refs/heads/feat/cache", "refs/heads/main"], "text": "No new commits"},
         {"type": "index_same", "text": "The index does not change"},
         {"type": "file_same", "path": "docs/committed.md", "ref": "head", "text": "docs/committed.md (branch commit, out of scope) does not change"},
@@ -151,7 +151,7 @@
       "output": "worktree",
       "expected_output": "Examines all comments in src/Exporter.kt in the working tree. Keeps the old BOM comment unchanged, deletes or fixes the old slop comment, deletes the added Count comment, keeps the EXP-9 fact. Does not touch docs/export.md or scratch.txt. Does not stop on the dirty tree. Makes no commit.",
       "checks": [
-        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\\bgit\\b[^|;&]*\\s(add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\\bgit\\s+(?:-[cC]\\s+\\S+\\s+)*(?:add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
         {"type": "refs_same", "refs": ["refs/heads/feat/export", "refs/heads/main"], "text": "No new commits"},
         {"type": "index_same", "text": "The index does not change"},
         {"type": "code_same", "path": "src/Exporter.kt", "ref": "before", "text": "Exporter.kt code is unchanged"},
@@ -174,10 +174,10 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh", "min": 1, "text": "Finds the base with git-diff-context.sh"},
         {"type": "file_same", "path": "src/Retry.kt", "ref": "head", "text": "src/Retry.kt does not change"},
         {"type": "file_same", "path": "docs/retry.md", "ref": "head", "text": "docs/retry.md does not change, also the `seamless_fallback` key"},
-        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\"command\": \"[^\"]*\\bgit\\b[^|;&\"]*\\s(add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\\bgit\\s+(?:-[cC]\\s+\\S+\\s+)*(?:add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
         {"type": "refs_same", "refs": ["refs/heads/feat/retry", "refs/heads/main"], "text": "No new commits"},
         {"type": "worktree_clean", "text": "Worktree and index are clean at the end"},
-        {"type": "reply_regex", "patterns": ["(?i)\\b(no (slop|changes?|edits?|fix(es)?|issues?|problems?)|nothing to (fix|change)|(is|are|already) clean)\\b"], "text": "Final reply says that nothing needs a fix"}
+        {"type": "reply_regex", "patterns": ["(?i)\\b(no (slop|defects?|changes?|edits?|fix(es|ups)?|issues?|problems?)|nothing to (fix|change)|(is|are|already) clean|changed no files|files changed: 0)\\b"], "text": "Final reply says that nothing needs a fix"}
       ]
     }
   ]

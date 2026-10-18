@@ -68,12 +68,15 @@ these questions in sequence. Stop at the first question that gives a decision.
 1. **Is it redundant?** Does it look unrelated to the code at that location? Can a reader infer it
    from that code? If the answer to one of these questions is yes, the comment **stays deleted**.
    This is the default result.
-2. **Does it fit in one simple sentence?** If yes, write that sentence. Write the point again in one
-   line. Do not write the original with fewer words.
+2. **Does it fit in one simple sentence?** If the comment is already one simple sentence that
+   obeys the rule files, restore it unchanged. If it fits in one sentence but is longer, write that
+   sentence. Write the point again in one line. Do not write the original with fewer words.
 3. **If not:** cut the comment, then write it again as the rule files tell. Give the why, not the
    what. Include no history, no filler, and no banned words.
 
 Never run question 2 or question 3 on a comment that failed question 1.
+
+Restore or write a comment with the Edit tool. Never use git to restore it.
 
 A comment passes question 1 only for data that the code cannot show:
 
@@ -191,6 +194,7 @@ other lists. The fixups or `git diff` show each edit.
 
 - You judge comments in place instead of deleting them first. Pass 1 has no exceptions.
 - You restore a comment because deletion feels risky. This is not a sufficient reason.
+- You restore a comment with `git checkout` or `git restore`. Use the Edit tool.
 - You make an edit outside prose: a renamed symbol, a changed condition, moved code.
 - You delete a fact to make a sentence shorter. Make the sentence shorter instead.
 - You edit files outside the mode's target.
