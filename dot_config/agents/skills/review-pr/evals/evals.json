@@ -1,5 +1,6 @@
 {
   "skill_name": "review-pr",
+  "skills": ["review-pr", "review-diff"],
   "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then copies the reports from ~/.ai/<repo-slug>/reviews/ to outputs/reviews/, writes outputs/git-state.txt, and deletes ~/.ai/<repo-slug>/. `{name}` in a prompt is the `name=` value from the fixture.",
   "pattern_sets": {
     "host_writes": ["\\bglab\\b", "\\bgh\\s", "\\bcurl\\b", "\\bgit\\s+push\\b", "\\bherdr\\b"]

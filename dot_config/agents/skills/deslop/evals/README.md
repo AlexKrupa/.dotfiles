@@ -22,7 +22,7 @@ The shared harness, `compare.py`, and the fixture helpers are in `~/.config/agen
 
 ```sh
 W=~/.ai/ai/evals/deslop-workspace
-./run.py $W/iteration-2              # 5 evals x 3 runs, live skill
+./run.py $W/iteration-2              # 8 evals x 3 runs, live skill
 ./run.py $W/iteration-2 branch-slop  # one eval
 ~/.config/agents/evals/compare.py $W/iteration-1 $W/iteration-2
 ```

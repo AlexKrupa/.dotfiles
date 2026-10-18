@@ -159,6 +159,22 @@
         {"type": "file_regex", "path": "scratch.txt", "case": true, "patterns": ["^This robust draft leverages nothing\\.$"], "text": "Untracked scratch.txt does not change"},
         {"type": "reply_regex", "patterns": ["git diff"], "text": "Final reply gives git diff as the next step"}
       ]
+    },
+    {
+      "id": 8,
+      "name": "clean-branch",
+      "fixture": "fixtures/clean-branch.sh",
+      "prompt": "/deslop",
+      "expected_output": "Finds no slop and changes nothing: no edit, no new commit, no reworded message. The `seamless_fallback` config key stays. The final reply says that nothing needs a fix.",
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-diff-context\\.sh", "min": 1, "text": "Finds the base with git-diff-context.sh"},
+        {"type": "file_same", "path": "src/Retry.kt", "ref": "head", "text": "src/Retry.kt does not change"},
+        {"type": "file_same", "path": "docs/retry.md", "ref": "head", "text": "docs/retry.md does not change, also the `seamless_fallback` key"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-absorb-fixes\\.sh|git-reword-fixup\\.sh|\"command\": \"[^\"]*\\bgit\\b[^|;&\"]*\\s(add|commit)\\b", "max": 0, "text": "No absorb, reword, add, or commit"},
+        {"type": "refs_same", "refs": ["refs/heads/feat/retry", "refs/heads/main"], "text": "No new commits"},
+        {"type": "worktree_clean", "text": "Worktree and index are clean at the end"},
+        {"type": "reply_regex", "patterns": ["(?i)\\b(no (slop|changes?|edits?|fix(es)?|issues?|problems?)|nothing to (fix|change)|(is|are|already) clean)\\b"], "text": "Final reply says that nothing needs a fix"}
+      ]
     }
   ]
 }

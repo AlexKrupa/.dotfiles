@@ -62,8 +62,10 @@ Mapping:
   targets, with a backup ref. Used by `review-me` and `draft-pr`.
 - `skills/<name>/evals/` - regression evals for a skill, run with headless `claude -p`. Each has a
   `README.md`.
-- `evals/` - shared eval code: `harness.py` (run, timing, common checks), `compare.py`,
-  `snapshot.sh`, `fixture-lib.sh`.
+- `evals/` - shared eval code: `harness.py` (run, isolation, timing, common checks), `compare.py`,
+  `snapshot.sh`, `fixture-lib.sh`. A run loads `AGENTS.md` and the rules, but no auto memory, MCP
+  servers, or plugins, and only the skills in the `skills` list of `evals.json` (default:
+  `skill_name`).
 
 ## Editing conventions
 

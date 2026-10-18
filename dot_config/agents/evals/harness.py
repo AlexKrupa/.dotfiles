@@ -6,8 +6,14 @@ fixture setup, the output collection, and the check types that only that skill n
 Layout of an iteration dir: <iteration>/eval-<name>/with_skill/run-<k>/ with `outputs/`,
 `transcript.jsonl`, `timing.json`, `before.txt`, `after.txt`, `repo-diff.txt`, and
 `grading.json`. skill-creator's aggregate_benchmark and eval viewer read this layout.
+
+Isolation: a run loads `AGENTS.md` and the rules, because the skills read them. It loads no auto
+memory, no MCP servers, no plugins, and only the skills in the `skills` list of `evals.json`
+(default: `skill_name`). Memory, MCP servers, and other skills change between sessions, so they
+add noise to the results.
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -22,6 +28,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 HOME = Path.home()
 REPO_SLUG = HERE.parent / "bin" / "repo-slug.sh"
+INSTRUCTIONS = [HERE.parent / "AGENTS.md", *sorted((HERE.parent / "rules").glob("*.md"))]
 CONFIG = "with_skill"
 FLAGS = re.IGNORECASE | re.MULTILINE
 
@@ -62,18 +69,86 @@ def collect_work_dir(ctx, run_dir, subdir):
     shutil.rmtree(work_dir, ignore_errors=True)
 
 
-def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, effort=None):
+def claude_env():
+    # CLAUDECODE blocks a nested session when the runner starts from inside Claude Code. With the
+    # HERDR_ variables of the runner's pane, a skill under test changes that pane and its workspace.
+    return {k: v for k, v in os.environ.items()
+            if k != "CLAUDECODE" and not k.startswith("HERDR_")}
+
+
+def read_init(cmd, cwd):
+    """Start `claude` and return its system/init event. Stop it before any model output."""
+    p = subprocess.Popen(cmd, cwd=cwd, env=claude_env(), text=True,
+                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    try:
+        for line in p.stdout:
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") == "system" and event.get("subtype") == "init":
+                return event
+            if event.get("type") == "assistant":
+                break
+    finally:
+        p.kill()
+        p.wait()
+    sys.exit(f"{cmd[0]} gave no system/init event before model output")
+
+
+def isolation_settings(keep):
+    """Return the --settings JSON that turns off auto memory, plugins, and every skill except
+    `keep`. The skill and plugin lists come from the init event of a run in an empty dir."""
+    with tempfile.TemporaryDirectory(prefix="eval-init-") as cwd:
+        init = read_init(["claude", "-p", "init only", "--output-format", "stream-json",
+                          "--verbose", "--no-session-persistence"], cwd)
+    missing = [s for s in keep if s not in init["skills"]]
+    if missing:
+        sys.exit(f"skill(s) {missing} not loaded. Run ~/.config/agents/claude.sh")
+    # Built-in plugins have no install source to turn off. Their skills are turned off below.
+    plugins = [p["source"] for p in init["plugins"] if p.get("path") != "builtin"]
+    return json.dumps({
+        "autoMemoryEnabled": False,
+        "enabledPlugins": {p: False for p in plugins},
+        "skillOverrides": {s: "off" for s in init["skills"] if s not in keep},
+    })
+
+
+def isolation_problems(init, keep):
+    """Return what the run loaded that isolation must turn off. Empty if the run is isolated."""
+    if init is None:
+        return ["no system/init event"]
+    problems = []
+    if sorted(init.get("skills", [])) != sorted(keep):
+        problems.append(f"skills {init.get('skills')}")
+    if init.get("mcp_servers"):
+        problems.append(f"MCP servers {[s['name'] for s in init['mcp_servers']]}")
+    plugins = [p["name"] for p in init.get("plugins", []) if p.get("path") != "builtin"]
+    if plugins:
+        problems.append(f"plugins {plugins}")
+    if init.get("memory_paths"):
+        problems.append(f"memory {init['memory_paths']}")
+    return problems
+
+
+def instructions_sha():
+    """Return a short hash of AGENTS.md and the rules, to tell runs under other rules apart."""
+    digest = hashlib.sha256()
+    for path in INSTRUCTIONS:
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:12]
+
+
+def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, effort, settings):
     cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
            "--permission-mode", "dontAsk", "--allowedTools", allowed_tools,
-           "--add-dir", *map(str, add_dirs), "--no-session-persistence"]
+           "--add-dir", *map(str, add_dirs), "--no-session-persistence",
+           "--settings", settings, "--strict-mcp-config"]
     if model:
         cmd += ["--model", model]
     if effort:
         cmd += ["--effort", effort]
-    # CLAUDECODE blocks a nested session when the runner starts from inside Claude Code. With the
-    # HERDR_ variables of the runner's pane, a skill under test changes that pane and its workspace.
-    env = {k: v for k, v in os.environ.items()
-           if k != "CLAUDECODE" and not k.startswith("HERDR_")}
+    env = claude_env()
     start = time.time()
     with open(run_dir / "transcript.jsonl", "w") as out, open(run_dir / "stderr.txt", "w") as err:
         try:
@@ -83,12 +158,12 @@ def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, ef
     return time.time() - start
 
 
-def collect_result(run_dir, wall_seconds, effort):
+def collect_result(run_dir, wall_seconds, effort, keep):
     """Write outputs/final_reply.md and timing.json from the transcript's init and result events."""
-    model, result = None, {}
+    init, result = None, {}
     for event in load_transcript(run_dir):
         if event.get("type") == "system" and event.get("subtype") == "init":
-            model = event.get("model")
+            init = event
         if event.get("type") == "result":
             result = event
     (run_dir / "outputs" / "final_reply.md").write_text(result.get("result", ""))
@@ -103,9 +178,11 @@ def collect_result(run_dir, wall_seconds, effort):
         "cost_usd": result.get("total_cost_usd"),
         "num_turns": result.get("num_turns"),
         "is_error": result.get("is_error", True),
-        "model": model,
+        "model": init and init.get("model"),
         # No --effort flag: the run used effortLevel from the user's settings.
         "effort": effort or "default",
+        "isolation_problems": isolation_problems(init, keep),
+        "instructions_sha": instructions_sha(),
     }, indent=2))
 
 
@@ -285,6 +362,8 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
     if unknown:
         sys.exit(f"unknown eval(s): {unknown}. Known: {list(by_name)}")
     selected = [by_name[n] for n in args.evals] or [ev for ev in spec["evals"] if not ev.get("slow")]
+    keep = spec.get("skills", [spec["skill_name"]])
+    settings = isolation_settings(keep)
 
     iteration = args.iteration_dir.resolve()
     repos = Path(tempfile.mkdtemp(prefix=prefix))
@@ -310,14 +389,17 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
     def work(job):
         ev, k, run_dir, ctx = job
         seconds = run_claude(ctx["prompt"], ctx["repo"], run_dir, allowed_tools, add_dirs,
-                             args.model, args.timeout, args.effort)
-        collect_result(run_dir, seconds, args.effort)
+                             args.model, args.timeout, args.effort, settings)
+        collect_result(run_dir, seconds, args.effort, keep)
         collect(ev, ctx, run_dir)
         snapshot(ctx["repo"], run_dir, "after.txt")
         write_repo_diff(run_dir)
         s = grade_run(run_dir, checks_for(spec, ev), load_run, run_check)["summary"]
         line = f"{ev['name']} run-{k}: {s['passed']}/{s['total']} in {seconds:.0f}s"
-        if json.loads((run_dir / "timing.json").read_text())["is_error"]:
+        timing = json.loads((run_dir / "timing.json").read_text())
+        if timing["isolation_problems"]:
+            line += f" NOT ISOLATED: {'; '.join(timing['isolation_problems'])}"
+        if timing["is_error"]:
             reply = (run_dir / "outputs" / "final_reply.md").read_text().strip()
             line += f" ERROR: {reply[:200] or 'no result, see stderr.txt'}"
         print(line, flush=True)

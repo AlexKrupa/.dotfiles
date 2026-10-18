@@ -6,7 +6,7 @@ Usage: compare.py <old-iteration-dir> <new-iteration-dir>
 Prints the model and effort of each iteration, each check whose pass rate changed, the pass rate
 per eval, and the mean tokens, time, and cost. A check that passed in more runs before than now is
 a REGRESSION. With 3 runs per eval, a drop of one run can be noise. Rerun that eval before you act
-on it.
+on it. A change of AGENTS.md or the rules between the iterations can also cause a regression.
 """
 import json
 import statistics
@@ -17,8 +17,8 @@ from pathlib import Path
 def load(iteration):
     """Return {eval: {"checks": {text: [passed...]}, "timing": [timing...]}}.
 
-    Leaves out runs that ended in an error (for example a usage limit), because their failed
-    checks say nothing about the skill.
+    Leaves out runs that ended in an error (for example a usage limit) or loaded more than the
+    isolation allows, because their failed checks say nothing about the skill.
     """
     data = {}
     for grading in sorted(Path(iteration).glob("eval-*/*/run-*/grading.json")):
@@ -27,6 +27,9 @@ def load(iteration):
         timing = json.loads(timing_path.read_text()) if timing_path.exists() else {}
         if timing.get("is_error"):
             print(f"skipped {run_dir.relative_to(iteration)}: the run ended in an error")
+            continue
+        if timing.get("isolation_problems"):
+            print(f"skipped {run_dir.relative_to(iteration)}: the run was not isolated")
             continue
         name = run_dir.parent.parent.name.removeprefix("eval-")
         entry = data.setdefault(name, {"checks": {}, "timing": []})
@@ -57,11 +60,19 @@ def setup(data):
     return ", ".join(sorted(pairs)) or "-"
 
 
+def instructions(data):
+    """Return the hashes of AGENTS.md and the rules that the runs used."""
+    shas = {t.get("instructions_sha", "unknown") for entry in data.values() for t in entry["timing"]}
+    return ", ".join(sorted(shas)) or "-"
+
+
 def main():
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     old, new = load(sys.argv[1]), load(sys.argv[2])
     print(f"model/effort: {setup(old)} -> {setup(new)}")
+    if instructions(old) != instructions(new):
+        print(f"WARNING: AGENTS.md or the rules changed: {instructions(old)} -> {instructions(new)}")
     regressions = 0
     for name in sorted(set(old) | set(new)):
         o, n = old.get(name, {"checks": {}, "timing": []}), new.get(name, {"checks": {}, "timing": []})
