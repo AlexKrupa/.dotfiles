@@ -9,7 +9,8 @@
     "CLAUDE_CODE_NO_FLICKER": "0",
     "CLAUDE_CODE_PROMPT_CACHE_TTL": "1h",
     "DISABLE_AUTOUPDATER": "1",
-    "ENABLE_LSP_TOOL": "1"
+    "ENABLE_LSP_TOOL": "1",
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/unwrap-paste"
   },
   "attribution": {
     "commit": "",
