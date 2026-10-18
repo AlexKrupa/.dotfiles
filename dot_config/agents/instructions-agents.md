@@ -34,9 +34,19 @@
 
 #### Superpowers
 
-- Git: make commits (vertical slices), do not mention or suggest pushing or opening PRs
+- Spec-to-draft pipeline: after I approve a spec, run these steps with no stop, unless I say
+  otherwise
+  1. superpowers:writing-plans. Do not ask for a plan review or an execution mode.
+  2. Read `~/.claude/skills/exec/SKILL.md` and follow it with the saved plan
+  3. Execute the plan, then finish the branch (see below)
+  4. If the `review-me` verdict is "ready to push", run `draft-pr`. If it needs my decision, stop.
+     After I answer and the fixes are in, run `draft-pr`.
+  5. If `draft-pr` stops at its preflight (no git repo, mainline branch), the pipeline ends with
+     the `review-me` reply
+- Git: make commits (vertical slices). Do not push, publish, or open PRs. The `draft-pr` file is
+  permitted.
 - Finishing a development branch: read `~/.claude/skills/review-me/SKILL.md` and follow it in auto
-  mode in this session
+  mode in this session, with the plan path
 
 ### Memory
 
