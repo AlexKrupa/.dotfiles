@@ -84,8 +84,21 @@ git-spice stack restack --no-prompt
 
 `repo sync` pulls mainline and deletes the local branches whose PRs are merged. If it fails, for
 example with no network, continue, and tell it in the 🧹 line. `stack restack` rebases each branch
-of the stack on its base. For a branch with no stack, it rebases only that branch. If it fails, for
-example on a conflict, stop. Show its output. Do not resolve the conflict.
+of the stack on its base. For a branch with no stack, it rebases only that branch. If it stops on
+a conflict, do "Restack conflicts". If it fails for a different cause, stop and show its output.
+
+#### Restack conflicts
+
+- If the conflict is trivial (imports, or adjacent lines that do not depend on each other),
+  resolve it, stage the files, and run `git-spice rebase continue --no-edit --no-prompt`. It
+  continues the restack of the full stack. Do not use `git rebase --continue`: it continues only
+  the current rebase, and it can open an editor. If the restack stops again, do this rule again.
+  Then run the validation of the repo: tests, type check, lint. Look in the `package.json`
+  scripts, `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, and similar files. If the
+  validation fails, stop and show the command and the error. Name the resolved files in the 🧹
+  line.
+- Else run `git-spice rebase abort --no-prompt` and stop. Name the files of the conflict. The user
+  decides how to resolve it.
 
 Then run `git-spice log short --json --no-prompt` again. `repo sync` can delete the lower branch
 and move the current branch onto mainline. Then the first output is out of date.
@@ -111,7 +124,26 @@ A PR branch is always clean. Do this step and do not ask the user first.
    `log short --json` output has `ups`, run `git-spice upstack restack --no-prompt`. Else the
    branches above stay on the old commits.
 
-### 4. Analysis
+### 4. Reuse check
+
+```sh
+~/.config/agents/bin/pr-path.sh
+~/.config/agents/bin/pr-draft-reuse.sh <file> <parent>
+```
+
+`<file>` is the `file` value of `pr-path.sh`. `<parent>` is the `parent` value of step 3. The
+script prints `reuse`, `reason`, `diff-base`, and `diff-head`. If the branch's own diff did not
+change since the last full write of the draft, the script prints `reuse=yes`. A rebase onto a new
+base is not a change.
+
+- `reuse=yes`: skip steps 5 to 7. In the file, set `base` (see "File format"), `draft` from the
+  arguments, `diff-base`, and `diff-head`. If the arguments have notes, add them to the sections
+  that they are about, for example Testing. Do not write the other sections again. The user's
+  edits in the file stay. Tell "draft reused, no content change" in the 🧹 line. Go to step 8.
+- `reuse=no`, or the user asks for a new draft: continue with step 5.
+- If the script exits `1`, stop and show its error.
+
+### 5. Analysis
 
 If step 3 changed commits, run `git-diff-context.sh` again. Then read:
 
@@ -123,7 +155,7 @@ If step 3 changed commits, run `git-diff-context.sh` again. Then read:
 Read enough to find the changes, the high-impact changes, the focus files, and the code for review
 comments. Do not look for defects. That is the job of `review-diff`.
 
-### 5. Local conventions
+### 6. Local conventions
 
 If a calling skill tells you to ignore the local conventions, skip this step.
 
@@ -134,16 +166,14 @@ If a calling skill tells you to ignore the local conventions, skip this step.
   (`git log --first-parent --format=%s -20 <mainline>`). If they show a pattern, for example a
   ticket prefix or a type prefix, use it.
 
-### 6. Write the file
+### 7. Write the file
 
-```sh
-~/.config/agents/bin/pr-path.sh
-```
+Write the draft to the `file` path of step 4. If the file exists, edit it. Keep the user's text
+where it still agrees with the diff. Name the sections that you replaced in the 🧹 line. Set
+`diff-base` and `diff-head` from the output of step 4. Put media files in the `media` path of
+`pr-path.sh`. If there are media files, create that directory.
 
-It prints `file=<path>` and `media=<dir>`. Write the draft to `file`. If the file exists, edit it.
-Put media files in `media`. If there are media files, create that directory.
-
-### 7. Reply
+### 8. Reply
 
 See "Reply".
 
@@ -156,6 +186,8 @@ draft: false
 base: main
 ticket: ABC-123
 breaking: false
+diff-base: 3f9c2a1d8e7b6a5f4c3d2e1f0a9b8c7d6e5f4a3b
+diff-head: 8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b
 ---
 
 # Fix crash when the user rotates the note editor
@@ -198,6 +230,8 @@ Metadata fields. The wrapper uses them to select the labels of its platform.
   is `main`). The script reads the stack parent from git-spice after the sync.
 - `ticket`: the ticket id. If there is no ticket, omit the field.
 - `breaking`: `true` only for a contract break or a one-way door from "High-impact changes".
+- `diff-base`, `diff-head`: the merge base and the head of the branch at the last full write. Step
+  4 uses them. A wrapper skill does not use them.
 
 ## Content rules
 
@@ -370,11 +404,9 @@ Run the wrapper command for the logs of the failed jobs. Find the cause of each 
 ### Conflicts
 
 If the session is not idle, put the conflict under Needs you as "fix waits, session not idle".
-Else run `git-spice repo sync --no-prompt` and `git-spice stack restack --no-prompt`.
-
-- If the restack stops on a trivial conflict (imports, or adjacent lines that do not depend on
-  each other), resolve it and continue the rebase.
-- Else run `git rebase --abort` and put the conflict under Needs you, with the files.
+Else run `git-spice repo sync --no-prompt` and `git-spice stack restack --no-prompt`. On a
+conflict, do "Restack conflicts" of step 2. If it stops, put the conflict or the failed validation
+under Needs you, with the files.
 
 When the restack succeeds, run `git-spice stack submit --update-only --no-prompt`.
 
