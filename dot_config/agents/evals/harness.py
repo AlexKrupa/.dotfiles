@@ -11,6 +11,11 @@ Isolation: a run loads `instructions-agents.md` and the rules, because the skill
 loads no auto memory, no MCP servers, no plugins, and only the skills in the `skills` list of
 `evals.json` (default: `skill_name`). Memory, MCP servers, and other skills change between sessions, so they
 add noise to the results.
+
+Baseline: `run.py --baseline` runs each eval that has a `baseline_prompt` with all skills off, in
+`without_skill/`. The prompt asks for the same task in plain words. `baseline_common_skip` lists
+the common checks that test a skill step, not the result. Use a separate iteration dir for a
+baseline, then compare it with a skill iteration.
 """
 import argparse
 import hashlib
@@ -30,6 +35,7 @@ HOME = Path.home()
 REPO_SLUG = HERE.parent / "bin" / "repo-slug.sh"
 INSTRUCTIONS = [HERE.parent / "instructions-agents.md", *sorted((HERE.parent / "rules").glob("*.md"))]
 CONFIG = "with_skill"
+BASELINE_CONFIG = "without_skill"
 FLAGS = re.IGNORECASE | re.MULTILINE
 
 
@@ -289,6 +295,12 @@ def expand(check, sets):
     return check
 
 
+def baseline_eval(ev):
+    """Return `ev` as its baseline: the plain prompt and fewer common checks."""
+    return {**ev, "prompt": ev["baseline_prompt"],
+            "common_skip": ev.get("common_skip", []) + ev.get("baseline_common_skip", [])}
+
+
 def checks_for(spec, ev):
     common = [] if ev.get("common") is False else spec["common_checks"]
     skip = set(ev.get("common_skip", []))
@@ -332,7 +344,8 @@ def grade_main(doc, evals_path, load_run, run_check):
         if not eval_dir.is_dir():
             continue
         for run_dir in sorted(eval_dir.glob("*/run-*")):
-            result = grade_run(run_dir, checks_for(spec, ev), load_run, run_check)
+            run_ev = baseline_eval(ev) if run_dir.parent.name == BASELINE_CONFIG else ev
+            result = grade_run(run_dir, checks_for(spec, run_ev), load_run, run_check)
             s = result["summary"]
             failed = [e["text"] for e in result["expectations"] if not e["passed"]]
             print(f"{run_dir.relative_to(iteration)}: {s['passed']}/{s['total']}"
@@ -343,7 +356,7 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
     """CLI for a skill's run.py.
 
     Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--effort LEVEL]
-                  [--timeout SEC] [EVAL ...]
+                  [--timeout SEC] [--baseline] [EVAL ...]
 
     `setup(ev, k, repos, run_dir)` builds the fixture and returns a dict with `repo` (the
     cwd for claude) and `prompt`. `collect(ev, ctx, run_dir)` saves the skill-specific outputs.
@@ -357,6 +370,8 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
     p.add_argument("--model")
     p.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"])
     p.add_argument("--timeout", type=int, default=900)
+    p.add_argument("--baseline", action="store_true",
+                   help="run the evals that have a baseline_prompt, with all skills off")
     args = p.parse_args()
 
     spec = json.loads((evals_dir / "evals.json").read_text())
@@ -365,7 +380,12 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
     if unknown:
         sys.exit(f"unknown eval(s): {unknown}. Known: {list(by_name)}")
     selected = [by_name[n] for n in args.evals] or [ev for ev in spec["evals"] if not ev.get("slow")]
-    keep = spec.get("skills", [spec["skill_name"]])
+    config, keep = CONFIG, spec.get("skills", [spec["skill_name"]])
+    if args.baseline:
+        selected = [baseline_eval(ev) for ev in selected if "baseline_prompt" in ev]
+        if not selected:
+            sys.exit("no selected eval has a baseline_prompt")
+        config, keep = BASELINE_CONFIG, []
     settings = isolation_settings(keep)
 
     iteration = args.iteration_dir.resolve()
@@ -379,7 +399,7 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
             "assertions": [c["text"] for c in checks_for(spec, ev)],
         }, indent=2))
         for k in range(1, args.runs + 1):
-            run_dir = eval_dir / CONFIG / f"run-{k}"
+            run_dir = eval_dir / config / f"run-{k}"
             if run_dir.exists():
                 sys.exit(f"{run_dir} exists. Use a new iteration dir.")
             print(f"setup {ev['name']} run-{k}", flush=True)

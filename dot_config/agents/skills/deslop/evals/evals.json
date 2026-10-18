@@ -5,7 +5,7 @@
     "slop": ["(?i)\\brobust", "(?i)\\bleverag", "(?i)\\bgenuine", "(?i)\\bstreamlin", "(?i)\\bseamless", "(?i)battle-tested", "(?i)worth noting", "(?i)\\bimportantly\\b", "(?i)serves as", "(?i)\\bhonestly\\b", "—", "–"]
   },
   "common_checks": [
-    {"id": "rules-claude", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/agents/AGENTS\\.md", "min": 1, "text": "Reads ~/.config/agents/AGENTS.md"},
+    {"id": "rules-claude", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/agents/instructions-agents\\.md", "min": 1, "text": "Reads ~/.config/agents/instructions-agents.md"},
     {"id": "rules-code", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/agents/rules/code\\.md", "min": 1, "text": "Reads ~/.config/agents/rules/code.md"},
     {"id": "rules-doc", "type": "tool_count", "tool": "Read|Bash", "input_regex": "\\.config/agents/rules/documenting\\.md", "min": 1, "text": "Reads ~/.config/agents/rules/documenting.md"},
     {"id": "home-writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_regex": "\"file_path\": \"(/Users/|~)", "max": 0, "text": "No file write under the home dir"},
@@ -102,6 +102,8 @@
       "name": "reply-pasted",
       "fixture": "fixtures/reply-pasted.sh",
       "prompt": "/deslop reply\n\nGreat question! It's worth noting that the new cache layer genuinely leverages a robust LRU strategy — it serves as the backbone of the read path. Importantly, the cache holds at most 512 entries and evicts the least recently used entry first. Entries expire after 15 minutes. If you call `Cache.clear()`, all entries are removed immediately. See the [cache docs](https://example.com/docs/cache) for tuning options. In conclusion, this streamlines reads and delivers a seamless experience.",
+      "baseline_prompt": "Fix the wording of this text:\n\nGreat question! It's worth noting that the new cache layer genuinely leverages a robust LRU strategy — it serves as the backbone of the read path. Importantly, the cache holds at most 512 entries and evicts the least recently used entry first. Entries expire after 15 minutes. If you call `Cache.clear()`, all entries are removed immediately. See the [cache docs](https://example.com/docs/cache) for tuning options. In conclusion, this streamlines reads and delivers a seamless experience.",
+      "baseline_common_skip": ["rules-claude", "rules-code", "rules-doc"],
       "expected_output": "Only the new text: no slop, all facts, the link as `cache docs (https://example.com/docs/cache)`. No git, no file writes.",
       "checks": [
         {"type": "new_text_not_regex", "patterns": "@slop", "text": "New text has no seeded slop (the Removed: line can quote it)"},
