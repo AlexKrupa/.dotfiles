@@ -162,16 +162,17 @@
     "command": "bash ~/.claude/subagent-statusline.sh"
   },
   "enabledPlugins": {
+    "cc-plugin-telemetry@builtin": false,
     "clangd-lsp@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": false,
     "claude-md-management@claude-plugins-official": false,
+    "cowork-plugin-management@synced": false,
     "gopls-lsp@claude-plugins-official": false,
     "jdtls-lsp@claude-plugins-official": false,
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
     "skins@hellosverre-mods": true,
-    "ponytail@ponytail": false,
     "pyright-lsp@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
     "simple-english@simple-english": true,
@@ -179,17 +180,9 @@
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
     "md-prompt@nogu66": true,
-    "nono@nolabs-ai": false,
-    "cowork-plugin-management@synced": false,
-    "cc-plugin-telemetry@builtin": false
+    "nono@nolabs-ai": false
   },
   "extraKnownMarketplaces": {
-    "ponytail": {
-      "source": {
-        "source": "github",
-        "repo": "DietrichGebert/ponytail"
-      }
-    },
     "respawn-tools": {
       "source": {
         "source": "github",
@@ -309,7 +302,7 @@
       "effortLevel": "medium"
     },
     "claude-opus-5-5": {
-      "effortLevel": "high"
+      "effortLevel": "medium"
     },
     "claude-opus-5": {
       "effortLevel": "medium"
