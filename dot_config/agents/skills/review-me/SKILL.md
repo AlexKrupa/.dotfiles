@@ -1,8 +1,10 @@
 ---
 name: review-me
 description:
-  Self-review of the current branch. Applies low-risk fixes and folds them into branch commits. Asks
-  before behavior changes or broad refactors.
+  Self-review of the current branch. Applies most medium and low fixes and folds them into branch
+  commits. Asks before critical and high fixes, changes to code that existed before the branch,
+  and large drift from the spec.
+argument-hint: "[plan or spec path]"
 disable-model-invocation: true
 ---
 
@@ -31,27 +33,37 @@ item.
   necessary. Do not edit wording or messages yourself. Do not skip it because the diff "has no
   docs". It also examines comments and commit messages.
 
+## Spec and plan
+
+`review-diff` checks the branch against the spec when it gets the spec path. Find the paths:
+
+- Auto mode: the caller gives the plan path.
+- Standalone mode: the path in `$ARGUMENTS`. If there is no argument and the conversation has a
+  plan path, use that path.
+- A plan gives the spec in its `**Spec:**` line. A spec path alone is also valid.
+
+Give the spec and plan paths to `review-diff` in step 1 and in each re-review pass (step 8). If you
+find no path, `review-diff` does no drift check.
+
 ## Fix policy
+
+The severities are the `review-diff` severities: `critical`, `high`, `medium`, `low`.
 
 ### Apply with no prompt
 
+- Most `medium` and `low` findings in code that this branch added. If a fix is not clear, move
+  the finding to the ask group. The re-review pass (step 8) checks the fixes.
 - Typos in string literals. Comments and docs are for `deslop` (step 7).
 - Lint and format problems. Use the configured tool of the repo, for example `eslint --fix`,
   `ruff format`, `gofmt`, or `cargo fmt`. Find the tool. Do not edit by hand.
-- Unused imports that this branch added.
-- Dead variables, dead parameters, and unreachable branches that this branch added.
-- Docstrings that describe behavior that this branch changed.
 
-### Ask first - one grouped prompt for each category
+Small drift from the plan does not block these fixes.
 
-- Each behavior change, also a small one, and also an "obvious" bug fix.
-- Refactors that change call sites or public signatures.
-- Test changes, except a fix of an assertion that is clearly wrong.
-- New snapshot or golden files.
-- A dependency that you add, upgrade, or remove.
-- A change to code that this branch did not add (out-of-scope cleanup).
-- A concurrency change. Concurrency changes are almost never low risk. This rule is about edits
-  only. `review-diff` finds concurrency problems in its "Concurrency & data races" bucket.
+### Ask first - one grouped prompt
+
+- `critical` and `high` findings. Large drift from the spec is a `high` finding.
+- A change to code that this branch did not add (out-of-scope cleanup), also an `(adjacent)`
+  finding.
 
 ### Permitted git writes
 
@@ -119,13 +131,17 @@ with no squashes.
 0. **Precondition:** run `git status --porcelain`. If the output is not empty, stop. Show the
    changed paths and tell the user to stash or commit, then try again. Do not stash. The user's
    work and the work of this skill must stay separate.
-1. Use `review-diff`. Read the report.
+1. Use `review-diff` with the spec and plan paths (see "Spec and plan"). Read the report.
 2. Put the findings in two groups: apply with no prompt, and ask first.
 3. Apply the no-prompt fixes, file by file. If the files are independent, edit them in parallel.
 4. For the ask-first findings, show **one** grouped prompt:
    - For each finding: the id, title, severity, files, and the proposed change in at most 3 lines.
    - The user selects apply or skip for each id.
    - Apply the items that the user approves.
+
+   After steps 3 and 4, add each applied fix to a `## Fixes applied` section at the end of the
+   report file, one line for each fix: ``- **<id>** `<file>:<line>` - <what changed>``. A
+   re-review report keeps this section.
 5. Run the validation of the repo if you can find it: tests, type check, lint. Look in the
    `package.json` scripts, `Makefile`, `justfile`, `pyproject.toml`, `Cargo.toml`, and similar
    files. If you find no validation, tell the user. Do not make up commands.
@@ -154,9 +170,10 @@ with no squashes.
 8. **Re-review.** If this pass changed no file, skip this step. The report on disk is still
    correct. Tell the user and go to step 10.
 
-   Else, use `review-diff` again in **re-review mode** with three inputs: each file that this
-   pass changed (the files of step 6 and the files that `deslop` changed in step 7), the files
-   among them that got a behavior change, and the path of the previous report. It audits that
+   Else, use `review-diff` again in **re-review mode** with the spec and plan paths and three
+   inputs: each file that this pass changed (the files of step 6 and the files that `deslop`
+   changed in step 7), the files among them that got a behavior change, and the path of the
+   previous report. It audits that
    scope plus one hop, and keeps the unresolved findings. Pass 1 can dispatch review agents. Later
    passes never do. Then go to step 2 with the new report.
 9. Stop when no findings remain that you can apply with no prompt. This is the stop condition.
@@ -183,14 +200,20 @@ Review guide:
 Needs decision:
 - **H2** `<file>:<line>` - <short title>
 
-Fixed:
-- **M1** `<file>:<line>` - <short title>
+Auto-fixed: <N> (<M> medium, <L> low)
+
+Check these fixes:
+- **M1** `<file>:<line>` - <what changed, and why it needs your attention>
 
 Skipped:
 - **L1** `<file>:<line>` - <short title>
 
 Report: `<path>`
 ```
+
+The `Auto-fixed:` line counts all fixes of `## Fixes applied` in the report. The report keeps the
+full list. Write a "Check these fixes:" item only for a fix that needs the user's attention, for
+example a fix that changes behavior that a user sees. With no such fix, omit the block.
 
 Add a line only in these cases:
 
@@ -202,7 +225,7 @@ Add a line only in these cases:
 
 ## Red flags - stop and think again
 
-- You are about to apply a behavior change with no prompt because it "feels safe". Ask.
+- You auto-fix a `critical` or `high` finding, or code that this branch did not add. Ask.
 - You edit files outside `<parent>...HEAD` and did not ask first. Out-of-scope cleanup, also an
   `(adjacent)` finding, needs a confirmation for each item.
 - You skip the re-review after fixes. Then the report on disk is wrong.
