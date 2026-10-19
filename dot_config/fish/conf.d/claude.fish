@@ -229,7 +229,7 @@ function __claude_upgrade_plugins
         wait' sh (claude plugin marketplace list --json | jq -r '.[].name')
 
     echo "Updating plugins..."
-    # Other scopes, such as session and synced, are not installs that `claude plugin update` accepts.
+    # Skip session (CLAUDE_CODE_PLUGIN_DIRS) and synced (claude.ai account) plugins: no CLI update.
     for line in (claude plugin list --json | jq -r '.[] | select(.scope | IN("user", "project", "local", "managed")) | "\(.id) \(.scope)"')
         set -l parts (string split ' ' -- $line)
         claude plugin update $parts[1] --scope $parts[2]
