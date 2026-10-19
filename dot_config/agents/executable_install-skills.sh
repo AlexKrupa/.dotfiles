@@ -5,8 +5,9 @@
 set -euo pipefail
 
 # https://github.com/mattpocock/skills
-# Note: the README says to include setup-matt-pocock-skills. Add it if the others misbehave.
+# grill-me only calls grilling.
 skills add mattpocock/skills --global --agent claude-code --yes \
+  --skill grilling \
   --skill grill-me
 
 # https://github.com/chrisbanes/skills
