@@ -18,6 +18,11 @@ Mapping:
 `instructions-chat.md` is not symlinked. You paste it manually into the custom instructions of an AI
 chat app.
 
+## Third-party skills
+
+Run `./install-skills.sh` to install third-party skills with the `skills` CLI. The script is the
+list of these skills. Rerun it on a new machine.
+
 ## Layout
 
 - `rules/` - topic rules loaded as context: `code.md`, `testing.md`, `documenting.md`, `kotlin.md`,
