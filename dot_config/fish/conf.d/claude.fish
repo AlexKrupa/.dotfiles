@@ -229,7 +229,8 @@ function __claude_upgrade_plugins
         wait' sh (claude plugin marketplace list --json | jq -r '.[].name')
 
     echo "Updating plugins..."
-    for line in (claude plugin list --json | jq -r '.[] | select(.scope != "synced") | "\(.id) \(.scope)"')
+    # Other scopes, such as session and synced, are not installs that `claude plugin update` accepts.
+    for line in (claude plugin list --json | jq -r '.[] | select(.scope | IN("user", "project", "local", "managed")) | "\(.id) \(.scope)"')
         set -l parts (string split ' ' -- $line)
         claude plugin update $parts[1] --scope $parts[2]
         or echo "claude-upgrade: plugin update failed: $parts[1]" >&2
