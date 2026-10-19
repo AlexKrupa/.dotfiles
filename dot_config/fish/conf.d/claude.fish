@@ -319,6 +319,12 @@ function __claude_resume_work --description 'Wait until the claude in <target> i
             # tmux cannot see the agent state.
             return 1
         case herdr
+            # Right after the relaunch, the pane runs only the shell. herdr then has no agent in
+            # the pane, and `herdr agent wait` fails at once with agent_not_found.
+            for t in (seq 60)  # ~30s at 0.5s
+                herdr agent get $argv[2] >/dev/null 2>&1; and break
+                sleep 0.5
+            end
             herdr agent wait $argv[2] --until idle --timeout 60000 >/dev/null
             and herdr agent prompt $argv[2] 'An upgrade restarted this session. It interrupted your turn or stopped your background tasks. Check the state of your work, then continue it and start the stopped tasks again.' >/dev/null
     end
