@@ -1,7 +1,7 @@
 ---
 name: work
 description: >-
-  Use when the user runs /work to start a ticket, or work with no ticket: in a new herdr
+  When the user runs /work, use this skill. It starts a ticket, or work with no ticket: in a new herdr
   worktree workspace with its own Claude Code agent, or as the next stacked branch in the current
   worktree. Also continues an existing branch, GitLab MR, or MR pipeline in its own workspace.
   Also splits a different issue off the default branch into a new workspace with a handoff.
@@ -63,8 +63,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      id.
    - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. If the repo has
      no placeholder id, ask the user for a ticket id.
-3. Mode: split mode if the message has the word `split` or `fork`. Existing mode if step 1 found
-   a branch. Else, run `~/.claude/skills/work/work-start.sh mode`. Next mode: run
+3. Mode: if the message has the word `split` or `fork`, it is split mode. If step 1 found a
+   branch, it is existing mode. Else, run `~/.claude/skills/work/work-start.sh mode`. Next mode: run
    `~/.claude/skills/work/work-start.sh tops`. Each output line is a top branch of the stack
    above the current branch. If there is output, ask the user: stack on the current branch, or
    on a top branch? If there is more than one top branch, ask which. Then end the turn and
@@ -129,8 +129,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    user's message, word for word:
    - Claude Code loads each slash command that comes after `/work` as a skill in this session. It
      removes the skill names from `$ARGUMENTS`. If this turn loaded other skills next to `/work`,
-     write their names from the `<command-name>` tags first, in the same order, on one line with
-     spaces between them, for example `/plugin:skill-a /skill-b`. Then write
+     write their names first. Use the names from the `<command-name>` tags, in the same order,
+     on one line with spaces between them, for example `/plugin:skill-a /skill-b`. Then write
      `$ARGUMENTS` on the same line. Do not run these skills in this session. They are for the new
      agent.
    - Do not summarize or fix the message. Ticket URLs and option words such as "haiku" or
@@ -148,7 +148,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    PROMPT
    ```
 
-   Add `--base <ref>` before `--` only if the user named a base. In new, split, and next mode,
+   If the user named a base, add `--base <ref>` before `--`. In new, split, and next mode,
    if the repo's CLAUDE.md has a placeholder id, add `--placeholder <id>` before `--`. Split
    mode: the new mode command with `--split` before `--`. With `continue`, also add
    `--continue <session id>`, and the summary goes on fd 3 as in next mode. Next mode: the same
@@ -171,8 +171,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    is empty, read it again. JSON is exit `0`. A line that starts with `work-start:` is an error.
    If the line ends with `(branch <branch> stays)`, it is exit `2`. Else, it is exit `1`.
 
-   Existing mode: the slug text only if it is a ticket title, then `--branch <name>`, and no
-   `--base`:
+   Existing mode: if the slug text is a ticket title, add it. Then add `--branch <name>`. Do not
+   add `--base`:
 
    ```sh
    ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' --branch 'ABC-123/foo' \
