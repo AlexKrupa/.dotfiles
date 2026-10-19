@@ -42,8 +42,8 @@
 - Git: make commits (vertical slices). Do not push, publish, or open PRs. The `draft-pr` file is
   permitted.
 - Finishing a development branch, also in a fresh session with only the plan:
-  1. Read `~/.claude/skills/review-me/SKILL.md` and follow it in auto mode in this session, with
-     the plan path.
+  1. Read `~/.claude/skills/review-me/SKILL.md` and follow it in auto mode in this session, with the
+     plan path.
   2. If the `review-me` verdict is "ready to push", run `draft-pr`. If it needs my decision, or the
      validation failed, stop. After I answer and the fixes are in, run `draft-pr`.
   3. If `draft-pr` stops at its preflight (no git repo, mainline branch), end with the `review-me`
@@ -143,7 +143,7 @@ Layout:
 
 ## Environment
 
-- MacOS, Fish shell, Ghostty terminal, tmux
+- MacOS, Fish shell, Ghostty terminal, herdr
 - Dotfiles managed with chezmoi (`chezmoi managed`). Edit live files, then use
   `chezmoi re-add/add/forget`, not the source repo. These commands commit and push automatically.
   - Update dotfiles automatically when applying confirmed or explicitly requested changes.
