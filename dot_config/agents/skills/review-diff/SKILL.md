@@ -519,7 +519,7 @@ Review guide:
 - **M1** `<file>:<line>` - <short title>
 - **L1** `<file>:<line>` - <short title>
 
-Report: `<path>`
+📄 Report: `<path>`
 ```
 
 - Copy the high-impact items, without their `Impact:` lines. Omit the block when the report has no

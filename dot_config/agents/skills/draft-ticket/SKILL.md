@@ -128,8 +128,9 @@ Sections that more than one type uses:
    path="$(~/.config/agents/bin/ticket-path.sh "<title>")"
    ```
 
-6. Show the path and the full content of the file. When the user asks for changes, edit the same
-   file.
+6. Show the full content of the file. The last line of the reply is
+   `` 📄 Ticket draft: `<path>` ``. When the user asks for changes, edit the same file. Each reply
+   that changes the file ends with the `📄 Ticket draft:` line.
 
 ## Real ticket id
 

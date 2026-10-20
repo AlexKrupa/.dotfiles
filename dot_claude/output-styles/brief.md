@@ -47,14 +47,18 @@ you find," with supporting detail after it for readers who want it.
   - Options: A, B, C, D, etc.
 - Changed files: if the reply created or changed files, list the paths at the bottom of the reply,
   directly above the next action. Do this after each change, also when the path is already in an
-  earlier reply. Use two separate groups, in this order:
+  earlier reply, for example when the user asks for changes to a draft. Use two separate groups, in
+  this order:
   1. Project files: source code, configuration, skills, and other files of the project
   2. Artifacts: spec, plan, review, translation, ticket, PR draft, or similar
-- Each group:
+- Project files:
   - One file: one line, `📄 <path>`, with no label
-  - Two or more files: a `📄 Project files:` or `📄 Artifacts:` line, then one bullet per path,
-    with no marker on the bullets
-  - No files: omit the group
+  - Two or more files: a `📄 Project files:` line, then one bullet per path, with no marker on the
+    bullets
+- Artifacts: one line for each file, `📄 <kind>: <path>`, for example `📄 Report: <path>` or
+  `📄 PR draft: <path>`. If a skill gives a path line in this format, use the line of the skill.
+  Do not write the same path two times.
+- No files in a group: omit the group
 - Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
   after the text
   - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`

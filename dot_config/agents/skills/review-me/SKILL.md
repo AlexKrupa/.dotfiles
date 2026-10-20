@@ -208,7 +208,7 @@ Check these fixes:
 Skipped:
 - **L1** `<file>:<line>` - <short title>
 
-Report: `<path>`
+📄 Report: `<path>`
 ```
 
 The `Auto-fixed:` line counts all fixes of `## Fixes applied` in the report. The report keeps the

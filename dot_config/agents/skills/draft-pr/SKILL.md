@@ -309,7 +309,7 @@ Sections, in this order:
 
 ## Reply
 
-1. The path and the full content of the file.
+1. The full content of the file.
 2. One line for each item that applies, with its marker:
    - 🧹 Branch preparation and cleanup: the tracked branches and their bases, sync, restack, the
      squashed commits and the backup ref. Or "no git-spice, preparation skipped".
@@ -324,7 +324,10 @@ Sections, in this order:
    - 📸 Capture suggestion: a UI change with no media and no changed reference images of screenshot
      tests, and no 🧪 line already tells what to capture. Do not capture until the user asks.
 
-When the user asks for changes, edit the same file.
+3. The last line: `` 📄 PR draft: `<path>` ``.
+
+When the user asks for changes, edit the same file. Each reply that changes the file ends with the
+`📄 PR draft:` line.
 
 ## Watch
 

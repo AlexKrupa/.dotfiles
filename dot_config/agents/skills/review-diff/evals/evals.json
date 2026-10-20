@@ -10,7 +10,7 @@
     {"id": "adjacent", "type": "adjacent_capped", "text": "Each (adjacent) finding is medium or low and states a count"},
     {"id": "reply-ids", "type": "reply_lists_findings", "text": "Final reply lists every finding id of the report"},
     {"id": "reply-format", "type": "reply_not_regex", "patterns": ["\\*\\*Counts:\\*\\*", "^Then:"], "text": "Final reply has no Counts line and no `Then:` line"},
-    {"id": "reply-path", "type": "reply_regex", "patterns": ["^Report: `[^`]+\\.md`"], "text": "Final reply has the `Report: <path>` line"},
+    {"id": "reply-path", "type": "reply_regex", "patterns": ["^📄 Report: `[^`]+\\.md`$"], "text": "Final reply has the `📄 Report: <path>` line"},
     {"id": "boundary-format", "type": "boundary_format", "text": "Boundary changes section, when present, is one code block of Dependencies, Visibility, and Moves groups in that order, with valid lines, and the final reply has the lines"},
     {"id": "impact-format", "type": "impact_format", "text": "High-impact section is omitted when empty, and the final reply lists its items"},
     {"id": "writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_not_regex": "/\\.ai/[^/]+/reviews/", "max": 0, "text": "No file write except the report"},
