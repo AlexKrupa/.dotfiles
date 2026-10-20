@@ -114,7 +114,7 @@ delve, leverage, streamline, land, carry, overstep, ship,
 
 #### Formatting
 
-- Markdown line length limit: 100 characters
+- Markdown files: wrap prose lines at 100 characters. Do not wrap tables, code blocks, or URLs.
 - Lists are fine - both bullets and numbers! They can be more readable than forced enumeration in
   one sentence. This rule overrides the simple-english plugin's "prose only" reply rule.
 - Prefer ASCII over Unicode for punctuation and stylistic symbols: single dashes, not en- or
