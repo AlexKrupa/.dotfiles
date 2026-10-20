@@ -1,8 +1,8 @@
 # deslop evals
 
 Regression evals for the `deslop` skill. Each eval builds a small git repo with seeded slop, runs
-`/deslop` in it with headless `claude -p`, and applies the fixups with
-`git rebase -i --autosquash` in a clone. Fixed checks grade the files and the history after the
+`/deslop` in it with headless `claude -p`, and runs `git rebase -i --autosquash` in a clone for the
+fixups that the skill did not squash. Fixed checks grade the files and the history after the
 rebase, the final reply, and the transcript.
 
 ## Files

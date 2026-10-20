@@ -95,7 +95,7 @@ Expected result: you delete most comments. Almost all kept comments are one sent
 most comments, pass 2 defended them instead of judging them. Do pass 2 again.
 
 Never prompt the user about a comment. Deletion is the default. The user sees each deletion in the
-fixups before the rebase, or in `git diff` in the working-tree modes.
+diff of the backup ref against the branch, or in `git diff` in the working-tree modes.
 
 ## Branch and path loop
 
@@ -138,6 +138,13 @@ fixups before the rebase, or in `git diff` in the working-tree modes.
 8. If the repo lints prose, run the linter on the touched files. Examples: markdownlint, vale, a
    formatter with a comment width. If the repo has no linter, tell the user. Do not invent a
    command.
+9. If steps 6 and 7 made commits, squash them. Do not ask first:
+
+   ```
+   ~/.config/agents/bin/git-squash-fixups.sh <parent>
+   ```
+
+   If it exits non-zero, show its error and the backup ref. Do not resolve a conflict.
 
 ## Working-tree loop
 
@@ -180,15 +187,14 @@ the grouped prompt, if there are deferred items. Do not add an intro line, quote
 other lists. The fixups or `git diff` show each edit.
 
 - Files changed: count and one line for each
-- Comments: N deleted, N kept as one sentence, N kept longer
+- Comments: N deleted, N kept as one sentence, N kept longer. Write all three counts, also a 0.
 - Old comments (target mode): N deleted, N rewritten, N unchanged
 - Commit messages reworded (branch mode): count and `<sha-short> <old subject>` -> `<new subject>`
 - Deferred (the fix would remove data): count and one line for each
-- Fixups (branch and path mode): N by `git absorb`, N by blame, N as new commits
+- Squashed (branch and path mode): N fixups, N `amend!` commits, N new commits, and the backup ref
 - Linter: the command and its result, or `none in repo`
 - Out of scope: only if slop remains outside the targets - the paths, on one line
-- Next step: `git rebase -i --autosquash <parent>` in branch and path mode. In the working-tree
-  modes: review the edits with `git diff`.
+- Next step (working-tree modes): review the edits with `git diff`
 
 ## Mistakes - stop
 
@@ -198,6 +204,6 @@ other lists. The fixups or `git diff` show each edit.
 - You make an edit outside prose: a renamed symbol, a changed condition, moved code.
 - You delete a fact to make a sentence shorter. Make the sentence shorter instead.
 - You edit files outside the mode's target.
-- In branch and path mode, you do a git write that is not one of the two helper scripts and not a
-  `needs-message` commit. No `push`, `rebase`, `amend`, `reset`.
+- In branch and path mode, you do a git write that is not one of the three helper scripts and not
+  a `needs-message` commit. No `push`, `rebase`, `amend`, `reset`.
 - In the working-tree modes, you do a git write of any kind.

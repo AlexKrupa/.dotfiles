@@ -14,8 +14,9 @@ description:
 
 This skill applies the writing rules from the instructions to prose that an agent wrote. In branch
 and path mode, `git absorb` folds the file edits into their originating commits, and commit
-messages get `amend!` commits. The user applies the fixups. In the working-tree modes, the edits
-stay in the working tree. This skill does not push, rebase, or amend.
+messages get `amend!` commits. Then `git-squash-fixups.sh` squashes them, with no prompt. In the
+working-tree modes, the edits stay in the working tree. This skill does not push or amend. It
+rewrites history only through `git-squash-fixups.sh`.
 
 ## Rules source - read, do not recall
 
