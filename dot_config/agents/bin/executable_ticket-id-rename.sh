@@ -62,7 +62,7 @@ while ((${#chain[@]} < ${#branches[@]})); do
   next=""
   for b in "${branches[@]}"; do [[ $(down_of "$b") == "${chain[-1]}" ]] && next=$b; done
   [[ -n $next ]] || die "${branches[*]} are not one git-spice stack chain"
-  git merge-base --is-ancestor "${chain[-1]}" "$next" || die "$next needs a restack: run gs upstack restack"
+  git merge-base --is-ancestor "${chain[-1]}" "$next" || die "$next needs a restack: run git-spice upstack restack"
   chain+=("$next")
 done
 top=${chain[-1]}
@@ -186,7 +186,7 @@ fi
 ups=$(jq -r --arg b "$top" 'select(.name == $b) | .ups[]?.name' <<<"$stack" | paste -sd' ' -)
 if [[ -n $ups ]]; then
   git-spice upstack restack --branch "$(new_name "$top")" >/dev/null 2>&1 \
-    || die "restack of $ups stopped: fix the conflict, then run gs rebase continue" 3
+    || die "restack of $ups stopped: fix the conflict, then run git-spice rebase continue" 3
   echo "restacked: $ups"
 fi
 

@@ -21,7 +21,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 
 - The session runs in a herdr pane (`HERDR_ENV=1`).
 - The current folder is in the repo: the main checkout or one of its worktrees.
-- git-spice is set up in the repo (`gs repo init`).
+- git-spice is set up in the repo (`git-spice repo init`).
 - One-time setup: Claude trusts `~/.herdr/worktrees`. Run `claude` in that folder and accept the
   prompt.
 

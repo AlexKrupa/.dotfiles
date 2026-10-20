@@ -128,7 +128,7 @@ prompt=$(cat)
 if [[ -z $existing ]]; then
   if git show-ref --verify --quiet "refs/heads/$branch"; then die "branch exists: $branch"; fi
   git show-ref --verify --quiet "$spice_ref" \
-    || die "git-spice is not set up: run 'gs repo init' first"
+    || die "git-spice is not set up: run 'git-spice repo init' first"
 fi
 
 if [[ -z $existing$split && $(mode_of) == next ]]; then

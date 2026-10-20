@@ -249,7 +249,7 @@ git -C "$work" update-ref -d refs/spice/data
 run p ABC-0 'typo'
 check "no git-spice: exit 1" 1 "$code"
 check "no git-spice: message" \
-  "work-start: git-spice is not set up: run 'gs repo init' first" "$err"
+  "work-start: git-spice is not set up: run 'git-spice repo init' first" "$err"
 check "no git-spice: no branch" no "$(has_branch ABC-0/typo)"
 
 # main diverged from origin/main.
