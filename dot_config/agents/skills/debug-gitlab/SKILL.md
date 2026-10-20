@@ -205,7 +205,7 @@ If the request asks for a fix, skip steps 1 and 2. Apply the fix with no prompt.
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | The failed pipeline is on the default branch, the current branch is not the default branch, and it has no commits above the default branch | Edit in place. Do not check out a branch. The other rows and the checkout of "Repo-context analysis" do not apply. |
 | Checked out, the user is the majority author       | Edit in place.                                                                                                                          |
-| On `main` or the default branch                    | Create `fix/<short-cause>` from the default branch and check it out. Use the repo convention if `CONTRIBUTING.md` or `.gitlab/` has one. |
+| On `main` or the default branch                    | Create `fix/<short-cause>` from the default branch and check it out. In a repo with `refs/spice/data`, use `git-spice branch create <name> --target <default-branch> --no-commit --no-prompt`. Use the repo convention if `CONTRIBUTING.md` or `.gitlab/` has one. |
 | Not checked out, the user is the majority author   | Check it out as in "Repo-context analysis", then edit in place.                                                                         |
 | The user is not the majority author                | Refuse. Print "branch belongs to @<author>; ask before fixing" and stop.                                                                |
 

@@ -24,13 +24,11 @@
   a subagent report, make sure that its evidence is correct. Otherwise, one agent over several.
 - Plan for vertical slices for tasks within an architectural boundary. A small E2E functional
   capability is better than a non-functional layer.
-- Git commits: each commit is an atomic change that has value alone
 
 #### Non-Superpowers-driven plans
 
 - TDD for bugs: write a failing test first, then fix
-- Git: commit a change only after the user approves it, in a plan or in a discussion. Do not push or
-  open PRs unless requested.
+- Git: commit a change only after the user approves it, in a plan or in a discussion.
 
 #### Superpowers
 
@@ -42,8 +40,7 @@
   1. superpowers:writing-plans. Do not ask for a plan review or an execution mode.
   2. Read `~/.claude/skills/exec/SKILL.md` and follow it with the saved plan
   3. The execution session finishes the branch (see below)
-- Git: make commits (vertical slices). Do not push, publish, or open PRs. The `draft-pr` file is
-  permitted.
+- Git: make commits (vertical slices). The `draft-pr` file is permitted.
 - Finishing a development branch, also in a fresh session with only the plan:
   1. Read `~/.claude/skills/review-me/SKILL.md` and follow it in auto mode in this session, with the
      plan path.
@@ -51,6 +48,19 @@
      validation failed, stop. After I answer and the fixes are in, run `draft-pr`.
   3. If `draft-pr` stops at its preflight (no git repo, mainline branch), end with the `review-me`
      reply
+
+### Git
+
+- Each commit is an atomic change that has value alone
+- In a repo with `refs/spice/data`, use `git-spice` for branch and commit work: create, check out,
+  commit, amend, squash, restack, move, rename, delete. Use raw git for the rest. The command is
+  `git-spice`: `gs` does not exist in the agent shell. Put `--no-prompt` after the subcommand. After
+  a conflict, use `git-spice rebase continue` or `git-spice rebase abort`.
+- Push when the conversation shows that I want the change pushed. Do not assume. A force push that
+  updates my published branch with local changes is fine. Never force push `main` or the branches
+  of other people.
+- Never open, publish, or merge a PR or MR, unless I ask. With git-spice, push with
+  `git-spice branch submit --update-only` or `--no-publish`.
 
 ### Memory
 
