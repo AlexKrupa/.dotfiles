@@ -208,7 +208,7 @@
       }
     }
   },
-  "outputStyle": "Plain",
+  "outputStyle": "Brief",
   "sandbox": {
     "enabled": false,
     "failIfUnavailable": true,
