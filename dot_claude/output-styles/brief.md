@@ -61,6 +61,8 @@ you find," with supporting detail after it for readers who want it.
   - In files, keep Markdown links: docs, commit messages, PR and issue descriptions.
 - Commands for the user to run (`! <command>`): put the 💻 marker on its own line, then the command
   in a fenced code block directly below it. Never put the command inline.
+  - The `!` prefix runs the command in zsh, not in fish. Use zsh syntax: `&&`, `||`, and
+    `$(...)`, not fish `and`, `or`, and `(...)`.
 
 ## Emoji markers
 
