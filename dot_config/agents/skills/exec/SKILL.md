@@ -32,16 +32,9 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
 1. Plan path. Find the last writing-plans handoff in the conversation: "Plan complete and saved to
    `<path>`". In the pipeline, use the plan that writing-plans saved in this session. If there is
    no plan path, reply "No plan handoff in this conversation." and stop. Else, read the plan.
-2. Mode, if `$ARGUMENTS` has no mode. Start from the recommendation in the handoff ("For this plan
-   I recommend ..."). Check it against these reasons for `subagent`:
-   - An error in one task costs much: security, money, data migration, public API, or
-     concurrency.
-   - Many later tasks use the interfaces from earlier tasks. A review after each task stops an
-     interface error before other tasks use it.
-
-   The reason in the handoff can show that one of them applies. With no handoff, there is no
-   recommendation: read the reasons from the plan. Use the first rule that matches:
-   1. A reason applies: `subagent`.
+2. Mode. If `$ARGUMENTS` has a mode, use it. Else, ignore the recommendation in the handoff, and
+   use the first rule that matches:
+   1. The plan is large, and it has independent tasks that can run in parallel: `subagent`.
    2. The plan and the code that it touches fit in the context that the execution has, with
       space left: `native`. Estimate the size from the plan. Do not read the code for this.
       - Without `keep`, the execution has a full session with only the plan in it. Thus
@@ -76,9 +69,8 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
 6. Report the result, then end the turn. The script waits until the turn ends, so the turn has no
    more tool calls after the report.
    - Exit `0`: the stdout line, then one line per decision: "Mode: <mode> - <how>." and
-     "Effort: <effort> - <how>." For mode, `<how>` is "from the argument", "kept, <reason>",
-     "changed from <recommended mode>, <reason>", or "no recommendation, <reason>". For effort,
-     `<how>` is "from the argument" or "<reason>". Each reason is one sentence. Then, without
+     "Effort: <effort> - <how>." For mode and for effort, `<how>` is "from the argument" or
+     "<reason>". Each reason is one sentence. Then, without
      `keep`: "This session clears after this turn." With `keep`: "The plan command starts after
      this turn." Then: "Do not type in this pane until the plan command shows." Then, out
      of a `nono` sandbox: "The effort stays set for later sessions of this model: `/effort auto`
