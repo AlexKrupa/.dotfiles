@@ -3,17 +3,27 @@
 # <repo>.host/calls.log. A call that it does not know fails.
 host="$(git rev-parse --show-toplevel).host"
 echo "glab $*" >>"$host/calls.log"
+
+# The latest pipeline. After a push to the MR branch, it is a passed pipeline 901 for the new head.
+pipeline() {
+  local ref head
+  ref=$(jq -r .ref "$host/pipeline.json")
+  head=$(git ls-remote origin "refs/heads/$ref" | cut -f1)
+  jq --arg head "$head" 'if .sha == $head or $head == "" then . else
+    .id = 901 | .sha = $head | .status = "success" | .web_url |= sub("900$"; "901") end' \
+    "$host/pipeline.json"
+}
 case "$1 $2" in
   "auth status") exit 0 ;;
   "repo view") echo '{"fullPath":"acme/app"}' ;;
   "mr view") cat "$host/mr.json" ;;
   "mr list") jq -s . "$host/mr.json" ;;
-  "ci get") cat "$host/pipeline.json" ;;
+  "ci get") pipeline ;;
   "ci retry") echo "Retried job $3" ;;
   api*)
     case "$2" in
       */pipelines/900/jobs*) cat "$host/jobs.json" ;;
-      */merge_requests/7/pipelines) jq -s . "$host/pipeline.json" ;;
+      */merge_requests/7/pipelines) pipeline | jq -s . ;;
       */test_report) echo '{"total_count":0,"test_suites":[]}' ;;
       */jobs/9001/trace) cat "$host/9001.log" ;;
       *) echo "fake glab: unknown api path $2" >&2; exit 1 ;;
