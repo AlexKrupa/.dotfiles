@@ -16,9 +16,11 @@
 #      Reordering therefore happens as part of the same rewrite, not as a separate step.
 #   4. On any conflict or failure: `git rebase --abort`, reset back to the backup, exit 1.
 #      The script never leaves a half-rebased branch and never resolves a conflict itself.
+#   5. If git-spice tracks the branch and branches are stacked on it, restack them with
+#      `git-spice upstack restack --skip-start`.
 #
 # Emits a keyed text block on stdout for the caller's summary. Makes no other git writes
-# (no push, no remote change, no commit outside the rebase).
+# (no push, no remote change, no commit outside the rebase and the restack).
 set -euo pipefail
 
 die() { printf '%s\n' "$1" >&2; exit 1; }
@@ -148,10 +150,25 @@ if ! REVIEW_ME_SQUASHES="$squashes" \
 fi
 
 after="$(git rev-list --count "$parent_sha"..HEAD)"
+
+# The branches above a git-spice branch stay on the old commits until a restack.
+# Check refs/spice/data first: git-spice commands initialize git-spice in a repo that has none.
+restack=none
+if git rev-parse --verify --quiet refs/spice/data >/dev/null && command -v git-spice >/dev/null; then
+  current="$(git branch --show-current)"
+  ups="$(git-spice log short --json --no-prompt 2>/dev/null \
+    | jq -r --arg b "$current" 'select(.name == $b) | .ups // [] | length')"
+  if [ "${ups:-0}" -gt 0 ]; then
+    git-spice upstack restack --skip-start --no-prompt >/dev/null 2>&1 \
+      || die "Squash done, but the restack of the upper branches failed. Backup: $backup. Run: git-spice upstack restack --skip-start"
+    restack=done
+  fi
+fi
 printf 'backup-ref: %s\n' "$backup"
 printf 'squashes-applied: %d\n' "$#"
 while read -r src tgt; do
   [ -n "$src" ] || continue
   printf '  %s -> %s\n' "${src:0:7}" "${tgt:0:7}"
 done <<< "$squashes"
-printf 'commits-before: %d\ncommits-after: %d\nresult: ok\n' "$before" "$after"
+printf 'commits-before: %d\ncommits-after: %d\n' "$before" "$after"
+printf 'upstack-restack: %s\nresult: ok\n' "$restack"

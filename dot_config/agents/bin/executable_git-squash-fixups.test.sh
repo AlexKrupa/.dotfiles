@@ -220,4 +220,39 @@ check "update-refs: subjects" "A,B" "$(subjects)"
 check "update-refs: stacked branch moved" "$(git -C "$repo" rev-parse HEAD~1)" \
   "$(git -C "$repo" rev-parse mid)"
 
+# --- git-spice stack ---
+
+restack_line() { grep '^upstack-restack:' "$tmp/out"; }
+
+new_repo spice-ups
+git-spice -C "$repo" repo init --trunk main >/dev/null 2>&1
+commit a.txt 1 A
+commit a.txt 2 "fixup! A"
+git-spice -C "$repo" branch track feat --base main >/dev/null 2>&1
+git -C "$repo" switch -q -c top
+commit t.txt 1 T
+git-spice -C "$repo" branch track top --base feat >/dev/null 2>&1
+git -C "$repo" switch -q feat
+run main; code=$?
+check "spice ups: exit 0" 0 "$code"
+check "spice ups: subjects" "A" "$(subjects)"
+check "spice ups: output" "upstack-restack: done" "$(restack_line)"
+check "spice ups: top on new feat" "$(tip)" "$(git -C "$repo" rev-parse top~1)"
+check "spice ups: HEAD stays on feat" feat "$(git -C "$repo" branch --show-current)"
+
+new_repo spice-no-ups
+git-spice -C "$repo" repo init --trunk main >/dev/null 2>&1
+commit a.txt 1 A
+commit a.txt 2 "fixup! A"
+git-spice -C "$repo" branch track feat --base main >/dev/null 2>&1
+run main
+check "spice no ups: output" "upstack-restack: none" "$(restack_line)"
+
+new_repo no-spice
+commit a.txt 1 A
+commit a.txt 2 "fixup! A"
+run main
+check "no spice: output" "upstack-restack: none" "$(restack_line)"
+check "no spice: no git-spice data" "" "$(git -C "$repo" for-each-ref refs/spice/)"
+
 exit "$fail"

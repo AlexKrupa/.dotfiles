@@ -119,10 +119,8 @@ A PR branch is always clean. Do this step and do not ask the user first.
 
    Give one `<repair>:<target>` for each flagged commit. The script also squashes all `fixup!` and
    `amend!` commits. If it exits non-zero, stop. Show its output and the backup ref. A `fixup!`
-   commit whose target is below `parent` stays. Name it in the 🧹 line.
-4. If the script changed commits, and the object of the current branch in the second
-   `log short --json` output has `ups`, run `git-spice upstack restack --no-prompt`. Else the
-   branches above stay on the old commits.
+   commit whose target is below `parent` stays. Name it in the 🧹 line. The script also restacks
+   the git-spice branches above the current branch.
 
 ### 4. Reuse check
 
@@ -399,9 +397,8 @@ Run the wrapper command for the logs of the failed jobs. Find the cause of each 
      reports a file under `needs-message`, the fix is not trivial. Undo it with
      `git restore --staged --worktree -- <file>...` and put the failure under Needs you.
   5. Run `~/.config/agents/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)"`.
-  6. Run `git-spice upstack restack --no-prompt`.
-  7. Run `git-spice stack submit --update-only --no-prompt`.
-  8. Switch back to the branch that was current.
+  6. Run `git-spice stack submit --update-only --no-prompt`.
+  7. Switch back to the branch that was current.
 
   If the session is not idle, put the failure under Needs you as "fix waits, session not idle",
   with the proposed fix. If the session is idle at the next report, or if the user asks, do the fix.
