@@ -70,6 +70,7 @@ parent_gone() {
   for p in "${ancestors[@]}"; do ps -p "$p" >/dev/null || return 0; done
   return 1
 }
+exit_if_orphaned() { if parent_gone; then die "the parent process is gone"; fi; }
 
 # Fast-forwards the checkout to origin/$default, or dies. Returns with no change while a different
 # agent runs in the checkout.
@@ -108,5 +109,5 @@ while :; do
   fi
   [[ $once == 0 ]] || exit 0
   nap "$interval"
-  parent_gone && die "the parent process is gone"
+  exit_if_orphaned
 done

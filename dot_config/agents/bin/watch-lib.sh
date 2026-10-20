@@ -1,6 +1,7 @@
 # Sleep, wake, and network rules for the watch scripts. Source this file.
 # The caller declares sleeper='' and kills $sleeper in its EXIT trap. The caller sets WATCH_HOST
 # before the first nap. An empty WATCH_HOST (a local remote) skips the network probe.
+# The caller defines exit_if_orphaned: it exits when no session can use the events of the watch.
 
 # In the background: bash runs the TERM trap only after a foreground command ends.
 bg_sleep() {
@@ -33,7 +34,7 @@ online() {
 }
 
 wait_online() {
-  until online "$1"; do bg_sleep 10; done
+  until online "$1"; do bg_sleep 10; exit_if_orphaned; done
 }
 
 # Waits for N seconds of awake time. A clock jump of more than the step plus 30 seconds is a

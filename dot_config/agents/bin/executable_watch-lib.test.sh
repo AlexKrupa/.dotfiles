@@ -34,6 +34,7 @@ export PATH="$d/bin:$PATH" D="$d"
 # shellcheck source=watch-lib.sh
 source "$here/watch-lib.sh"
 sleeper=''
+exit_if_orphaned() { :; }
 WATCH_HOST=gitlab.example.com
 wake='Current System Capabilities are: CPU Graphics Audio Network'
 dark='Current System Capabilities are: CPU Network'
@@ -65,6 +66,10 @@ wait_online gitlab.example.com
 check "wait_online: returns" 0 $?
 check "wait_online: probes only during full wake" 2 "$(count nc)"
 check "wait_online: waits between probes" "10 10" "$(slept)"
+
+reset; lines pmset "$wake"; lines nc 1 1 0
+(exit_if_orphaned() { exit 7; }; wait_online gitlab.example.com)
+check "wait_online with no parent: exits after one wait" "7 10" "$? $(slept)"
 
 reset; lines pmset "$wake"; lines nc 1
 wait_online ''

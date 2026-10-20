@@ -101,6 +101,10 @@ parent_gone() {
   for p in "${ancestors[@]}"; do ps -p "$p" >/dev/null || return 0; done
   return 1
 }
+exit_if_orphaned() {
+  parent_gone && die "the parent process is gone"
+  [[ -d $top ]] || die "the worktree is gone: $top"
+}
 
 remote=$(git remote get-url origin 2>/dev/null \
   || git remote get-url "$(git remote | head -n1)" 2>/dev/null) || die "no git remote in $repo"
@@ -422,6 +426,5 @@ while :; do
     fi
   fi
   nap "$interval"
-  parent_gone && die "the parent process is gone"
-  [[ -d $top ]] || die "the worktree is gone: $top"
+  exit_if_orphaned
 done
