@@ -29,6 +29,8 @@
 set -euo pipefail
 
 die() { echo "watch-gitlab: $1" >&2; exit 1; }
+# shellcheck source=watch-lib.sh
+source "$HOME/.config/agents/bin/watch-lib.sh"
 
 repo=$PWD
 interval=120
@@ -105,6 +107,7 @@ parent_gone() {
 
 remote=$(git remote get-url origin 2>/dev/null \
   || git remote get-url "$(git remote | head -n1)" 2>/dev/null) || die "no git remote in $repo"
+WATCH_HOST=$(remote_host "$remote")
 project=$(sed -E 's#\.git$##; s#^[a-z+]+://[^/]+/##; s#^[^@/]+@[^:]+:##' <<<"$remote")
 
 permission_for() {
@@ -122,7 +125,8 @@ permission_for() {
 
 http_re='HTTP (401|403)'
 
-# On an error: returns 2 for HTTP 401 or 403, else 1, with the message in $tmp/error.
+# On an error: returns 2 for HTTP 401 or 403, 3 for a network error, else 1, with the message in
+# $tmp/error.
 api() {
   if glab api "$@" 2>"$tmp/stderr"; then return 0; fi
   local err
@@ -133,6 +137,7 @@ api() {
     return 2
   fi
   echo "$1: $err" >"$tmp/error"
+  is_network_error "$err" && return 3
   return 1
 }
 
@@ -373,18 +378,20 @@ while :; do
   else
     rc=$?
     [[ $rc == 2 ]] && die "$(cat "$tmp/error")"
-    fails=$((fails + 1))
-    [[ $once == 1 || $fails -ge 5 ]] && die "$(cat "$tmp/error")"
+    if [[ $rc == 3 && $once == 0 ]]; then
+      # A network error does not count. With the network up, as for HTTP 502, the normal wait
+      # follows.
+      if ! online "$WATCH_HOST"; then wait_online "$WATCH_HOST"; continue; fi
+    else
+      fails=$((fails + 1))
+      [[ $once == 1 || $fails -ge 5 ]] && die "$(cat "$tmp/error")"
+    fi
   fi
   if [[ -n $deadline ]] && (($(date +%s) >= deadline)); then
     echo "watch-gitlab: deadline reached" >&2
     exit 4
   fi
-  # In the background: bash runs the TERM trap only after a foreground command ends.
-  sleep "$interval" &
-  sleeper=$!
-  wait "$sleeper"
-  sleeper=''
+  nap "$interval"
   parent_gone && die "the parent process is gone"
   [[ -d $top ]] || die "the worktree is gone: $top"
 done

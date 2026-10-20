@@ -15,7 +15,8 @@ check() {
 
 # Fake glab: `api <path>` prints $MOCK_DIR/<fixture>.json. If the file does not exist, it prints
 # {} for an MR, {"approved_by": []} for approvals, and [] for a list.
-# MOCK_FAIL is a path pattern: a matching call writes $MOCK_FAIL_MSG on stderr and fails.
+# MOCK_FAIL is a path pattern: a matching call writes $MOCK_FAIL_MSG on stderr and fails. With
+# MOCK_FAIL_TIMES=N, only the first N matching calls fail. $MOCK_DIR/fails counts them.
 # MOCK_NOAUTH=1 makes `auth status` fail.
 mkdir -p "$d/bin" "$d/mock"
 cat >"$d/bin/glab" <<'EOF'
@@ -24,7 +25,11 @@ printf '%s\n' "$*" >>"$MOCK_LOG"
 if [ "$1" = auth ]; then [ -z "${MOCK_NOAUTH:-}" ]; exit; fi
 [ "$1" = api ] || { echo "unexpected glab call: $*" >&2; exit 2; }
 if [ -n "${MOCK_FAIL:-}" ]; then
-  case "$2" in $MOCK_FAIL) echo "$MOCK_FAIL_MSG" >&2; exit 1 ;; esac
+  case "$2" in $MOCK_FAIL)
+    n=$(($(cat "$MOCK_DIR/fails" 2>/dev/null || echo 0) + 1))
+    echo "$n" >"$MOCK_DIR/fails"
+    if [ "$n" -le "${MOCK_FAIL_TIMES:-$n}" ]; then echo "$MOCK_FAIL_MSG" >&2; exit 1; fi ;;
+  esac
 fi
 if [ "$2" = graphql ]; then
   for a; do case $a in iid=*) iid=${a#iid=} ;; esac; done
@@ -62,6 +67,11 @@ case "$f" in
 esac
 EOF
 chmod +x "$d/bin/glab"
+# Fake pmset and nc: full wake, and the network is up.
+printf '#!/bin/sh\necho "Current System Capabilities are: CPU Graphics Audio Network"\n' \
+  >"$d/bin/pmset"
+printf '#!/bin/sh\nexit 0\n' >"$d/bin/nc"
+chmod +x "$d/bin/pmset" "$d/bin/nc"
 export PATH="$d/bin:$PATH" MOCK_LOG="$d/calls.log" MOCK_DIR="$d/mock" XDG_STATE_HOME="$d/state"
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$d/gitconfig"
 git config --global init.defaultBranch main
@@ -108,15 +118,30 @@ check "HTTP 403: message" \
   "watch-gitlab: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the Read permission for Todo (user boundary)." \
   "$err"
 
-export MOCK_FAIL_MSG='dial tcp: connection refused'
+export MOCK_FAIL_MSG='HTTP 404 Not Found'
 : >"$MOCK_LOG"
 out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
-check "5 network errors: exit 1" 1 "$code"
-check "5 network errors: 5 tries" 5 "$(grep -c '^api todos' "$MOCK_LOG")"
-check "5 network errors: message" \
-  "watch-gitlab: todos?project_id=7&type=MergeRequest&state=pending&per_page=100: dial tcp: connection refused" \
+check "5 other errors: exit 1" 1 "$code"
+check "5 other errors: 5 tries" 5 "$(grep -c '^api todos' "$MOCK_LOG")"
+check "5 other errors: message" \
+  "watch-gitlab: todos?project_id=7&type=MergeRequest&state=pending&per_page=100: HTTP 404 Not Found" \
   "$(cat "$d/err")"
-unset MOCK_FAIL MOCK_FAIL_MSG
+
+cp "$d/mock/todos.json" "$d/todos.json"
+fixture todos '[{"id": 14, "action_name": "review_requested", "author": {"username": "anna"},
+  "target": {"iid": 5, "title": "Add foo", "source_branch": "ABC-1/foo"},
+  "target_url": "'"$url"'/5"}]'
+export MOCK_FAIL_MSG='dial tcp: connection refused' MOCK_FAIL_TIMES=6
+: >"$d/mock/fails"
+: >"$MOCK_LOG"
+out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
+check "6 network errors, then an event: exit 0" 0 "$code"
+check "6 network errors, then an event: event" \
+  '{"kind":"todo","iid":5,"title":"Add foo","url":"'"$url"'/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo"}' \
+  "$out"
+check "6 network errors, then an event: 7 tries" 7 "$(grep -c '^api todos' "$MOCK_LOG")"
+mv "$d/todos.json" "$d/mock/todos.json"
+unset MOCK_FAIL MOCK_FAIL_MSG MOCK_FAIL_TIMES
 
 # An older instance runs in its loop. A new instance stops it and takes the lock.
 start() { (cd "$d/app" && exec "$script" --interval 60 >/dev/null 2>"$d/$1.err") & }
@@ -268,13 +293,19 @@ echo '{"todos": [], "mrs": {}, "default_pipeline": null}' >"$state"
 run
 check "saved null pipeline: event with previous null" "null" "$(jq -r .previous <<<"$out")"
 
-export MOCK_FAIL='user' MOCK_FAIL_MSG='dial tcp: connection refused'
+cp "$d/mock/pipelines.json" "$d/pipelines.json"
+fixture pipelines '[{"id": 76, "status": "failed", "web_url": "'"$pipelines"'/76"}]'
+export MOCK_FAIL='user' MOCK_FAIL_MSG='dial tcp: connection refused' MOCK_FAIL_TIMES=6
+: >"$d/mock/fails"
 : >"$MOCK_LOG"
 out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
-check "network error at the start: 5 tries" 5 "$(grep -c '^api user' "$MOCK_LOG")"
-check "network error at the start: message" \
-  "watch-gitlab: user: dial tcp: connection refused" "$(cat "$d/err")"
-unset MOCK_FAIL MOCK_FAIL_MSG
+check "6 network errors at the start, then an event: exit 0" 0 "$code"
+check "6 network errors at the start, then an event: event" "$pipelines/76" \
+  "$(jq -r .url <<<"$out")"
+check "6 network errors at the start, then an event: 7 tries" 7 \
+  "$(grep -c '^api user$' "$MOCK_LOG")"
+mv "$d/pipelines.json" "$d/mock/pipelines.json"
+unset MOCK_FAIL MOCK_FAIL_MSG MOCK_FAIL_TIMES
 
 wt=$(printf %s "$d/app" | shasum | cut -c1-12)
 sstate="$d/state/watch-gitlab/app-$wt.json"
@@ -558,7 +589,8 @@ rm -rf "$d/gone"
 for _ in 1 2 3 4 5 6 7 8 9 10; do ps -p "$gone" >/dev/null || break; sleep 0.5; done
 wait "$gone"
 check "worktree gone: exit 1" 1 "$?"
-check "worktree gone: message" "watch-gitlab: the worktree is gone: $d/gone" "$(cat "$d/gone.err")"
+check "worktree gone: message" "watch-gitlab: the worktree is gone: $d/gone" \
+  "$(tail -n1 "$d/gone.err")"
 
 # The parent shell exits at once. The loop must stop after its next sleep.
 (cd "$d/app" && bash -c '"$0" --interval 1 >/dev/null 2>"$1" & echo $! >"$2"; sleep 1' \
