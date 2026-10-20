@@ -34,6 +34,9 @@
 
 #### Superpowers
 
+- Use brainstorming in these cases only: I ask to brainstorm, I ask for a design, or the work is
+  larger than one session. For a change to a few files, implement it directly. This rule
+  overrides the `using-superpowers` and `brainstorming` skills.
 - Spec-to-draft pipeline: after I approve a spec, run these steps with no stop, unless I say
   otherwise
   1. superpowers:writing-plans. Do not ask for a plan review or an execution mode.
@@ -58,8 +61,8 @@
 
 - Query context7 before each answer or code change that uses a library, framework, SDK, or CLI API
 - Mark each claim that has no source, and say where you looked
-- For definitions, references, call sites, and diagnostics, use the LSP tool or IDE MCP tools. Use
-  Grep only for plain-text search, or when no LSP or IDE server is connected.
+- For definitions, references, call sites, and diagnostics, use the available LSP tools. Use Grep
+  only for plain-text search, or when no LSP or IDE server is connected.
 - Every changed line should trace to the request. Implement only what was asked, nothing more.
   Mention unrelated issues or dead code only if important.
 - Validate only at system boundaries. Handle only errors that can actually happen.

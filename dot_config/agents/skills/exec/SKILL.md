@@ -34,13 +34,12 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
    no plan path, reply "No plan handoff in this conversation." and stop. Else, read the plan.
 2. Mode. If `$ARGUMENTS` has a mode, use it. Else, ignore the recommendation in the handoff, and
    use the first rule that matches:
-   1. The plan is large, and it has independent tasks that can run in parallel: `subagent`.
-   2. The plan and the code that it touches fit in the context that the execution has, with
+   1. The plan and the code that it touches fit in the context that the execution has, with
       space left: `native`. Estimate the size from the plan. Do not read the code for this.
       - Without `keep`, the execution has a full session with only the plan in it. Thus
         `native` can run a longer plan than the planning session assumed.
       - With `keep`, the execution has only the context that is left in this session.
-   3. Else: `subagent`.
+   2. Else: `subagent`.
 3. Effort, if `$ARGUMENTS` has no effort. The plan did the design, so the executor needs less
    reasoning:
    - `medium`: each step is exact. It gives the full code, or a mechanical edit at a named
