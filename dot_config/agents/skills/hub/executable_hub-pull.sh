@@ -3,12 +3,16 @@
 # Keeps the checkout of a repo on the newest commit of the default branch of origin. Each interval,
 # it fetches the branch and fast-forwards the checkout. It skips a round while a herdr agent other
 # than $HERDR_PANE_ID runs in the checkout. It gives no output. --once: do one round, then stop.
+# It pauses during system sleep. A fetch with a network error does not count: it waits for the
+# network, with no limit.
 # Exit codes: 0 --once done, 1 error: the checkout is on a different branch, has changes in
-# tracked files, or cannot fast-forward, or 5 fetches in sequence failed, 3 a new instance replaced
-# this one. A new instance stops an older instance of the same repo.
+# tracked files, or cannot fast-forward, or 5 fetches in sequence failed with other errors, 3 a new
+# instance replaced this one. A new instance stops an older instance of the same repo.
 set -euo pipefail
 
 die() { echo "hub-pull: $1" >&2; exit 1; }
+# shellcheck source=../../bin/watch-lib.sh
+source "$HOME/.config/agents/bin/watch-lib.sh"
 
 repo=$PWD
 interval=120
@@ -31,6 +35,7 @@ origin_head() { git symbolic-ref --quiet --short refs/remotes/origin/HEAD; }
 ref=$(origin_head || { git remote set-head origin --auto >/dev/null 2>&1 && origin_head; }) \
   || die "cannot find the default branch: origin/HEAD is not set"
 default=${ref#origin/}
+WATCH_HOST=$(remote_host "$(git remote get-url origin)")
 
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/hub
 slug=$(~/.config/agents/bin/repo-slug.sh)
@@ -92,16 +97,16 @@ while :; do
     fails=0
     update
   else
-    fails=$((fails + 1))
-    if [[ $once == 1 || $fails -ge 5 ]]; then
-      die "git fetch origin $default failed: $(paste -s -d ' ' "$tmp/stderr")"
+    err=$(paste -s -d ' ' "$tmp/stderr")
+    if [[ $once == 0 ]] && is_network_error "$err"; then
+      # With the network up, the normal wait follows.
+      if ! online "$WATCH_HOST"; then wait_online "$WATCH_HOST"; continue; fi
+    else
+      fails=$((fails + 1))
+      [[ $once == 1 || $fails -ge 5 ]] && die "git fetch origin $default failed: $err"
     fi
   fi
   [[ $once == 0 ]] || exit 0
-  # In the background: bash runs the TERM trap only after a foreground command ends.
-  sleep "$interval" &
-  sleeper=$!
-  wait "$sleeper"
-  sleeper=''
+  nap "$interval"
   parent_gone && die "the parent process is gone"
 done

@@ -23,6 +23,26 @@ case "$1 $2" in
 esac
 EOF
 chmod +x "$d/bin/herdr"
+# Fake pmset and nc: full wake, and the network is up.
+printf '#!/bin/sh\necho "Current System Capabilities are: CPU Graphics Audio Network"\n' \
+  >"$d/bin/pmset"
+printf '#!/bin/sh\nexit 0\n' >"$d/bin/nc"
+# Fake git: with MOCK_FETCH_FAIL_TIMES=N, the first N fetches fail with a network error.
+# $MOCK_FETCH_FAILS counts them. All other calls go to the real git.
+cat >"$d/bin/git" <<'EOF'
+#!/bin/sh
+if [ "$1" = fetch ] && [ -n "${MOCK_FETCH_FAIL_TIMES:-}" ]; then
+  n=$(($(cat "$MOCK_FETCH_FAILS" 2>/dev/null || echo 0) + 1))
+  echo "$n" >"$MOCK_FETCH_FAILS"
+  if [ "$n" -le "$MOCK_FETCH_FAIL_TIMES" ]; then
+    echo "fatal: unable to access 'https://gitlab.example.com/app.git/': Could not resolve host: gitlab.example.com" >&2
+    exit 1
+  fi
+fi
+exec "$REAL_GIT" "$@"
+EOF
+chmod +x "$d/bin/pmset" "$d/bin/nc" "$d/bin/git"
+export REAL_GIT="$(command -v git)" MOCK_FETCH_FAILS="$d/fetch-fails"
 export PATH="$d/bin:$PATH" MOCK_AGENTS="$d/agents.json" XDG_STATE_HOME="$d/state"
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$d/gitconfig" HERDR_PANE_ID=hub
 git config --global user.name tester
@@ -106,6 +126,16 @@ check "5 failed fetches: exit 1" 1 "$code"
 check "5 failed fetches: message" "hub-pull: git fetch origin dev/x failed" \
   "$(head -n1 <<<"$out" | cut -d: -f1-2)"
 git -C "$d/app" remote set-url origin "$d/origin.git"
+
+# Network errors do not count. Exit 3 shows that the script still ran after the pull.
+push seven
+(cd "$d/app" && MOCK_FETCH_FAIL_TIMES=6 exec "$script" --interval 0 >/dev/null 2>&1) &
+net=$!
+for _ in $(seq 40); do [ "$(app_head)" = "$(new)" ] && break; sleep 0.25; done
+kill "$net" 2>/dev/null
+wait "$net"
+check "6 network errors, then a new commit: exit 3" 3 "$?"
+check "6 network errors, then a new commit: pull" "$(new)" "$(app_head)"
 
 # An older instance runs in its loop. A new instance stops it and takes the lock.
 start() { (cd "$d/app" && exec "$script" --interval 60 >/dev/null 2>"$d/$1.err") & }
