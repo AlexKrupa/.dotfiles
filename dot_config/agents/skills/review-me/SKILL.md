@@ -12,18 +12,13 @@ disable-model-invocation: true
 
 This skill adds a fix loop to `review-diff`. `review-diff` does the audit and the report. This
 skill decides what to do with the findings. It folds the fixes into the commits that they fix, with
-`git absorb`. It never pushes. It rewrites history only through `git-squash-fixups.sh`, after the
-user confirms. In auto mode, it squashes with no prompt.
+`git absorb`. It never pushes. It rewrites history only through `git-squash-fixups.sh`, with no
+prompt, and reports each squash.
 
 ## Auto mode
 
 Auto mode is on when the caller tells you to use auto mode, for example the Superpowers branch
 finish in the global/user instructions. A direct `/review-me` call is standalone mode.
-
-In auto mode, the history pass (step 10) always runs `git-squash-fixups.sh`, also with no squashes.
-The script squashes all `fixup!` and `amend!` commits in `<parent>..HEAD` into their targets. Do not
-ask before this rewrite. Also apply the repair squashes of "Commit history" with no prompt: each
-suggestion counts as confirmed. `draft-pr` applies the same rules with no prompt later.
 
 ## REQUIRED SUB-SKILLS
 
@@ -73,8 +68,8 @@ Only these five. All other git writes are forbidden.
 - `git commit --fixup=<sha>`, where `<sha>` is in `<parent>..HEAD`. A fixup for a SHA outside that
   range changes the parent history on autosquash. In that case, use a normal commit.
 - `git commit -m <msg>`, only when there is no fixup target.
-- `git-squash-fixups.sh` (see "Commit history"), only after the user confirms, or in auto mode. It
-  is the only permitted history rewrite. Never run `git rebase` yourself.
+- `git-squash-fixups.sh` (see "Commit history"). It is the only permitted history rewrite. Never
+  run `git rebase` yourself.
 - The git writes of the `deslop` pass (step 7), which include the `amend!` commits from
   `git-reword-fixup.sh`.
 
@@ -91,17 +86,20 @@ branches of other people. Their history is not yours to change.
 
 Find the commits to squash with the rules in `~/.config/agents/references/commit-history.md`.
 
-### Report and confirm
+The history pass (step 10) always runs `git-squash-fixups.sh`, also with no squashes. The script
+squashes all `fixup!` and `amend!` commits in `<parent>..HEAD` into their targets. Also apply each
+repair squash that the rules find. Do not ask before this rewrite, in both modes. The backup ref
+lets the user undo it.
 
-Write one line for each suggestion:
+### Report
+
+Write one line for each repair squash, for the final reply:
 
 ```
 <src-sha> "<src subject>" -> squash into <tgt-sha> "<tgt subject>"
 ```
 
-Add `(reorder first)` if the two commits are not adjacent. In standalone mode, ask one time. The
-user selects apply or skip for each item. In auto mode, do not ask. If there are no suggestions,
-tell the user in one line. In standalone mode, skip the rest of this section.
+Add `(reorder first)` if the two commits are not adjacent.
 
 ### Rewrite
 
@@ -111,7 +109,7 @@ Only with the helper:
 ~/.config/agents/bin/git-squash-fixups.sh <parent> [<repair>:<target>...]
 ```
 
-- Give one squash for each item that the user confirmed. Each squash is `<repair>:<target>`. The
+- Give one squash for each repair squash. Each squash is `<repair>:<target>`. The
   repair commit is newer than the target. Both SHAs must be in `<parent>..HEAD`.
 - The script checks the squashes, saves a backup ref, and runs one
   `git rebase -i --autosquash <parent>`. This rebase also squashes all `fixup!` and `amend!`
@@ -119,12 +117,10 @@ Only with the helper:
 - On a conflict, the script stops the rebase, restores the branch, and exits `1`. Do not resolve
   the conflict and do not retry. Report the failure and the backup ref. Tell the user to squash by
   hand.
-- The script prints `backup-ref`, `squashes-applied`, `commits-before`, `commits-after`, and
-  `result`. The final reply shows only `backup-ref`.
+- If git-spice tracks the branch, the script also restacks the branches above it.
+- The script prints `backup-ref`, `squashes-applied`, `commits-before`, `commits-after`,
+  `upstack-restack`, and `result`.
 - With `--dry-run` as the first argument, the script prints the plan and writes nothing.
-
-If there are no confirmed items: in standalone mode, change nothing. In auto mode, run the script
-with no squashes.
 
 ## Loop
 
@@ -220,7 +216,8 @@ Add a line only in these cases:
 - The validation failed: the command and the error.
 - There is no validation command: no check verified the fixes.
 - The working tree is dirty: the paths.
-- `git-squash-fixups.sh` ran: the backup ref, and that only the push remains.
+- `git-squash-fixups.sh` changed commits: the lines of "Report", the count of squashed `fixup!`
+  and `amend!` commits, and the backup ref. If the restack failed, the script error.
 - The loop got to the pass limit: the ids that come back.
 
 ## Red flags - stop and think again
@@ -239,8 +236,7 @@ Add a line only in these cases:
 - You accept a re-review report that does not have a pass 1 finding that the scoped pass did not
   read.
 - You finish without the `deslop` pass, or you fix wording by hand.
-- You rewrite history without a confirmation for each item, or not through `git-squash-fixups.sh`.
-  The only exception is auto mode.
+- You rewrite history not through `git-squash-fixups.sh`, or you ask before the history pass.
 - You suggest a squash for a commit that has value by itself, or you suggest a split. Suggest only
   squashes of repair commits.
 - You resolve a conflict after `git-squash-fixups.sh` stops. Give it back to the user.
