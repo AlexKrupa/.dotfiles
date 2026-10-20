@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: npm-workspaces.sh <repo-dir>
 # Branch `feat/auth-package` vs `main` (with origin). npm workspaces, no Gradle.
-# Structure change (expect a module diagram):
+# Dependency changes (expect a Dependency changes section):
 #   new package @shop/auth, depends on @shop/shared
 #   @shop/web -> @shop/auth  new edge
 #   @shop/api -> @shop/auth  new edge

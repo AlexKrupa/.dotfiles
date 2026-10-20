@@ -2,7 +2,7 @@
 # Usage: single-module.sh <repo-dir>
 # Branch `fix/cart-total` vs `main` (with origin). Gradle, several modules.
 # The branch changes one function body in :feature:cart. No build file changes, no new class.
-# Expect no diagram.
+# Expect no Dependency changes section.
 source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 init_repo "$1"
 

@@ -306,15 +306,44 @@ When the diff has no item, omit the section.
 In re-review mode, copy the previous report's items. Change an item only when a modified file
 changes it.
 
-## Structure
+## Dependency changes
 
-Read `~/.claude/skills/review-diff/structure-diagram.md`. It says when to draw an ASCII diagram of
-the modules or classes that the diff changes, and how. Draw it yourself after the findings, because
-the diagram shows finding ids. Most small diffs get no diagram - then omit the section.
+List the dependencies between build units that the diff adds or removes. A build unit is what the
+build tool calls a module, package, crate, or workspace member. Source directories are not build
+units. When the diff changes no dependency, or the repo has one build unit, omit the section.
 
-In re-review mode, copy the previous report's diagram. Remove the finding ids that the new report
-does not have. Draw it again only when a modified file changes a module dependency or a class flow
-that the diagram shows.
+1. Find the build units and their manifests, for example `settings.gradle.kts` and
+   `build.gradle.kts`, `package.json` workspaces, `Cargo.toml`, `go.mod`, `pyproject.toml`, or
+   `pom.xml`.
+2. Compare the manifests at the parent and at the tip (`git show <parent>:<path>`). Also compare
+   shared build logic that adds a dependency to many units, for example a convention plugin or a
+   shared build script. Each unit that uses that logic gets the dependency.
+3. Write one line for each added or removed unit, and one line for each added or removed
+   dependency. Write an external library only when the diff adds it to a unit or removes it from a
+   unit. A version change is not a dependency change.
+
+Dependencies come from the manifests, not from imports. When the imports do not agree with a
+manifest (an unused or a missing dependency), list the manifest dependency and write a finding.
+
+Format: one code block, added lines first, then removed lines.
+
+```
++ :core:payments (new module)
++ :core:payments -> :core:network
++ :feature:checkout -> :core:payments
+- :feature:checkout -> :core:legacy
+- :core:legacy (removed module)
+```
+
+- `A -> B` means that A depends on B.
+- Use the unit names from the manifests, and the word that the build tool uses for a unit
+  (`module`, `package`, `crate`).
+- When shared build logic gives the same dependency to many units, write one line and name the
+  logic: `+ :feature:cart, :feature:search -> :core:analytics (shop.feature plugin)`.
+- Names only: no versions, no dependency scopes (`api`, `devDependencies`), no finding ids.
+
+In re-review mode, copy the previous report's section. Write it again only when a modified file is
+a manifest or shared build logic.
 
 ## Review guide
 
@@ -382,12 +411,10 @@ risk, naming that risk's finding id, e.g. `C1`.>
 1. `<file>:<line>` - <what changes>
    Impact: <why it is hard to undo or how far it reaches, with the evidence, plus finding ids>
 
-## Structure
+## Dependency changes
 
 ```
-<diagram from structure-diagram.md>
-
-<legend line>
+<one line for each added or removed unit or dependency>
 ```
 
 ## Review guide
@@ -432,9 +459,9 @@ Simplicity findings outside the diff take the `(adjacent)` suffix in the title a
 Pre-existing issues noticed but not introduced by this branch - mention, don't fix.
 ```
 
-Omit the High-impact changes section, the Structure section, and empty severity sections when they
-have no items. Reference `file:line`, do not paste surrounding context. Snippets only when prose is
-unclear.
+Omit the High-impact changes section, the Dependency changes section, and empty severity sections
+when they have no items. Reference `file:line`, do not paste surrounding context. Snippets only when
+prose is unclear.
 
 ## Final reply
 
@@ -446,8 +473,9 @@ A caller that invoked this skill writes its own reply with the same rules.
 High-impact changes:
 1. `<file>:<line>` - <what changes>
 
+Dependency changes:
 ```
-<the report's Structure diagrams and legend lines>
+<the report's Dependency changes lines>
 ```
 
 Review guide:
@@ -464,8 +492,8 @@ Report: `<path>`
 
 - Copy the high-impact items, without their `Impact:` lines. Omit the block when the report has no
   items.
-- Copy the Structure diagrams as they are. Omit the block when the report has no Structure
-  section.
+- Copy the Dependency changes lines as they are. Omit the block when the report has no
+  Dependency changes section.
 - Copy the guide's numbered list, or its one-line simple-change form. Omit the `Then:` line.
 - List all findings, one line each.
 - No counts. Add a line only when the user must act on it.
@@ -499,7 +527,6 @@ Report: `<path>`
 - Letting a review agent write the report, or dispatch its own agents.
 - Copying a returned finding into the report without verifying it against the diff.
 - Touching any file other than the report.
-- A Structure diagram with code in it (signatures, bodies, build-file lines), or a diagram for a
-  diff that changes no module dependency and no non-obvious class flow.
+- A Dependency changes line for an import, a version change, or a change inside one build unit.
 - Recommending an inline/simplification that loses clarity or reuse - simpler must be clearer, not
   just fewer lines.

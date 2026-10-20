@@ -30,7 +30,7 @@ Each run is a full audit, so select the evals for the change:
 
 - Evals for the changed rules: 3 runs (`-n 3`). Name them on the command line.
 - Other evals, as a regression check for a change to `SKILL.md`: 1 run (`-n 1`).
-- A change only to a rules file that one step reads (e.g. `structure-diagram.md`): its evals only.
+- A change only to a rules file that one step reads: its evals only.
 - The full set at `-n 3`: only for a large change to the audit flow.
 
 Compare the iteration with the last one. A drop of one run in three can be noise. Run that eval

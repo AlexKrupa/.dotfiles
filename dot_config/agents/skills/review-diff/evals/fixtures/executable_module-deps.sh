@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: module-deps.sh <repo-dir>
 # Branch `feat/payments-module` vs `main` (with origin). Gradle, no docs.
-# Structure change (expect a module diagram):
+# Dependency changes (expect a Dependency changes section):
 #   new module :core:payments, depends on :core:network
 #   :feature:checkout  -> :core:payments  new edge
 #   :feature:checkout  -> :core:legacy    removed edge
