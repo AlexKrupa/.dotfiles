@@ -59,6 +59,8 @@ you find," with supporting detail after it for readers who want it.
   after the text
   - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
   - In files, keep Markdown links: docs, commit messages, PR and issue descriptions.
+- Commands for the user to run (`! <command>`): put the 💻 marker on its own line, then the command
+  in a fenced code block directly below it. Never put the command inline.
 
 ## Emoji markers
 
