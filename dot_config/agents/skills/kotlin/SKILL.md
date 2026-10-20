@@ -1,0 +1,28 @@
+---
+name: kotlin
+description: 'Use when writing or changing Kotlin code in `.kt` or `.kts` files: data classes, value classes, sealed types, enums, coroutines, KDoc, time measurement, or `require`/`check` assertions.'
+---
+
+# Kotlin
+
+Rules for Kotlin types, naming, coroutines, KDoc, and assertions.
+
+- Data classes for DTOs and general domain modeling
+- Value classes for value objects
+- Sealed classes/interfaces for type hierarchies
+- Prefix boolean properties verbs, e.g, `isEnabled` over `enabled`
+- `PascalCase` enum entries
+- Empty function body: use `= Unit` expression over empty lambda `{}`
+- Coroutines over callbacks
+  - Convert library callbacks into coroutines using `suspendCancellableCoroutine`
+  - Convert library listeners into flows using flow builders
+- If catching generic `Exception` in a coroutines `suspend` function, handle `CancellationException`
+  by calling `currentCoroutineContext().ensureActive()`
+- Inline references in KDoc comments with `[foo.bar.Baz]` syntax
+- Use `TimeSource` for time measurements like metrics, instead of wall clock (`Clock`)
+- Assertions: use `require`/`check` and their `*NotNull` variants, never `assert` (JVM `-ea`-gated)
+  - `require` for argument checks, `check` for state/invariants
+  - In app code prefer handling recoverable errors over asserting. Assert only programmer
+    errors or invariants that must hold
+  - The two can coexist: `require`/`check` throw `IllegalArgumentException`/`IllegalStateException`,
+    which a caller can catch and recover from
