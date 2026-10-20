@@ -26,11 +26,30 @@ a network outage, it waits for the network with no report.
 | `3`  | A new watch replaced this one. Do not start again. No notification.     |
 
 On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
-`actor`, `detail`, and `branch`. A comment, a reaction, a resolved thread, or an `unaddressed`
-thread on a diff line also has `path` and `line`. A `pushed` event also has `old_base`,
-`old_head`, `new_base`, and `new_head`.
+`actor`, `detail`, and `branch`. A comment, an own comment, a reaction, a resolved thread, or an
+`unaddressed` thread on a diff line also has `path` and `line`. A `pushed` event also has
+`old_base`, `old_head`, `new_base`, and `new_head`. A `merged` or `closed` event that the user did
+has `own: true`. The watch gives no events for the other actions of the user, except
+`own-comment`.
 
 A `comment` and an `unaddressed` line with the same `url` are one item.
+
+## Own comments
+
+An `own-comment` event is a comment or a reply of the user. Make sure that it is correct:
+
+1. Read the full comment and its thread. The `detail` has only the first 100 characters.
+2. Read the code at `path:line` at the MR head, if the comment has a `path`.
+3. Compare the statements of the comment with the code, the diff, and the thread.
+
+Result:
+
+- The comment is correct and clear: one line under Info: `Your comment on <path:line> is OK.`
+- A statement is wrong, or the comment refers to the wrong code: put it under Needs you, with the
+  error and a short proposed change.
+- Small points only, for example an unclear word: one item under Info, with the points.
+
+Do not rewrite the full comment. The user edits it on GitLab.
 
 ## Report
 
@@ -73,3 +92,5 @@ herdr notification show '<title>' --body '<body>' --sound <sound>
 - Body: the most urgent item in one line, then the Done items. Example:
   `@anna asked on NoteEditor.kt:42. Pipeline fixed and pushed.`
 - Sound: if there are new Needs you items, `request`. Else `none`.
+- If all events of the result are `own-comment` events with no Needs you item, or events with
+  `own: true`, send no notification.

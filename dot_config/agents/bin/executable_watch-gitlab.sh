@@ -5,15 +5,18 @@
 # title, url, actor, detail, branch. With no state file, the first check only saves the state.
 # --once: do one check, then stop.
 # --fresh: delete the state file before the first check.
-# Hub mode (no --mr) watches to-do items, comments on MRs of other people, and the default
-# branch. The default-failed event of the default branch has a null iid and title. Its previous
-# field is the status of the saved default-branch pipeline, or null.
+# Hub mode (no --mr) watches to-do items, comments on MRs of other people, reactions on the
+# comments of the user in these MRs, and the default branch. The default-failed event of the
+# default branch has a null iid and title. Its previous field is the status of the saved
+# default-branch pipeline, or null.
 # A default-failed event is only for a pipeline id above the saved id. A lower id, for example
 # during a job retry, does not change the saved pipeline.
 # Stack mode (--mr, one for each MR, `!` prefix allowed) watches these MRs: pipeline, comment,
-# reaction, approved, unapproved, conflict, mergeable, merged, closed. Comments, reactions, and
-# threads on a diff line also have path and line. After the events, it prints one unaddressed
-# line for each open thread whose last comment is not from the user.
+# own-comment (a comment of the user), reaction, approved, unapproved, draft, ready, conflict,
+# mergeable, merged, closed. Other actions of the user give no events, except merged and closed:
+# they have `own: true`. Comments, reactions, and threads on a diff line also have path and line.
+# After the events, it prints one unaddressed line for each open thread whose last comment is not
+# from the user.
 # A new instance stops an older instance of the same repo and mode. A stack watch has one
 # instance for each worktree.
 # Review mode (--review and one --mr) watches one MR for its reviewer. It has the events of the
@@ -138,7 +141,7 @@ api() {
 MR_QUERY='query($path: ID!, $iid: String!, $endCursor: String) {
   currentUser { username }
   project(fullPath: $path) { mergeRequest(iid: $iid) {
-    iid title webUrl sourceBranch state
+    iid title webUrl sourceBranch state draft
     diffRefs { baseSha headSha }
     mergeUser { username }
     headPipeline { id status }
@@ -152,6 +155,12 @@ MR_QUERY='query($path: ID!, $iid: String!, $endCursor: String) {
         awardEmoji { nodes { name user { username } } } } } } }
   } }
 }'
+
+# The newest 100 comments of each MR. The iids go into the query text: `glab api -f` sends only
+# strings.
+HUB_QUERY='query($path: ID!) { project(fullPath: $path) { mergeRequests(iids: IIDS) { nodes {
+  iid notes(filter: ONLY_COMMENTS, last: 100) { nodes { id url author { username }
+    awardEmoji { nodes { name user { username } } } } } } } } }'
 
 # glab --paginate prints one JSON document for each page. On a GraphQL error, glab exits 1 and
 # prints the body. It returns 2, because a new try gives the same error.
@@ -181,13 +190,20 @@ def by_iid: map({key: (.iid | tostring), value: .}) | from_entries;
 $old[0] as $old | $todos[0] as $todos
 | ($watched[0] | map(select(.author.username != $me)) | by_iid) as $by
 | ($notes | map({key: (.iid | tostring), value: .notes}) | from_entries) as $notes_by
+| ([$reactions[0].data.project.mergeRequests.nodes[] | .iid as $iid | .notes.nodes[]
+    | select(.author.username == $me) | . as $n | .awardEmoji.nodes[]
+    | select(.user.username != $me)
+    | {iid: $iid, key: "\($n.id | split("/") | last):\(.name):\(.user.username)", name,
+       user: .user.username, url: $n.url}] | group_by(.iid)
+  | map({key: .[0].iid, value: .}) | from_entries) as $reactions_by
 | ($default[0][0] | if . then {id, status} else null end) as $new_pipeline
 | ($old.default_pipeline // null) as $saved_pipeline
 | (if $saved_pipeline == null or $saved_pipeline.id <= ($new_pipeline.id // 0)
    then $new_pipeline else $saved_pipeline end) as $default_pipeline
 | ($by | with_entries(.key as $k | ($old.mrs[$k] // {}) as $o | .value |= {
     updated_at,
-    last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max)
+    last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max),
+    reactions: [($reactions_by[$k] // [])[].key]
   })) as $mrs
 | {
     state: {todos: [$todos[].id], mrs: $mrs, default_pipeline: $default_pipeline},
@@ -207,7 +223,12 @@ $old[0] as $old | $todos[0] as $todos
         | select(.id > $o.last_note_id and (.system | not) and .author.username != $me)
         | {kind: "note", iid: $mr.iid, title: $mr.title, url: "\($mr.web_url)#note_\(.id)",
            actor: .author.username, detail: (.body | gsub("\\s+"; " ") | .[0:100]),
-           branch: $mr.source_branch})
+           branch: $mr.source_branch}),
+      ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k].reactions as $o
+        | select($o != null)
+        | ($reactions_by[$k] // [])[] | select(.key as $key | $o | index($key) | not)
+        | {kind: "reaction", iid: $mr.iid, title: $mr.title, url: .url, actor: .user,
+           detail: ":\(.name): on your comment", branch: $mr.source_branch})
     ] end)
   }
 JQ
@@ -222,12 +243,17 @@ def event($kind; $mr; $actor; $detail; $url):
    detail: $detail, branch: $mr.branch};
 # GitLab computes the merge status async. A transient status keeps the last stable values.
 def transient: IN("checking", "unchecked", "preparing", "approvals_syncing");
+# The newest system note of the MR that matches $re tells who did the action.
+def actor($re): [.discussions.nodes[].notes.nodes[] | select(.system and (.body | test($re)))
+  | .id |= num] | max_by(.id) | .author.username // "";
 def norm($me):
   [.discussions.nodes[] | {id, resolvable, resolved, resolved_by: (.resolvedBy.username // ""),
      notes: [.notes.nodes[] | select(.system | not) | .id |= num]}] as $ds
   | {
       iid: (.iid | tonumber), title, url: .webUrl, branch: .sourceBranch, state,
-      merge_user: (.mergeUser.username // ""),
+      merge_user: (.mergeUser.username // ""), draft,
+      draft_user: actor("^marked this merge request as \\*\\*(draft|ready)\\*\\*"),
+      close_user: actor("^closed$"),
       base: (.diffRefs.baseSha // null), head: (.diffRefs.headSha // null),
       resolved_mine: [$ds[] | select(.resolvable and .resolved
           and .notes[0].author.username == $me)
@@ -255,7 +281,7 @@ def norm($me):
 | $old[0] as $old
 | [$data[].project.mergeRequest | norm($me)] as $now
 | ($now | map({key: (.iid | tostring), value: (. as $n | ($old.mrs[.iid | tostring] // {}) as $o
-    | {state, pipeline, approved_by,
+    | {state, draft, pipeline, approved_by,
        conflicts: (if $n.merge_status | transient then $o.conflicts else $n.conflicts end),
        mergeable: (if $n.merge_status | transient then $o.mergeable else $n.mergeable end),
        last_note_id: ([$n.notes[].id, $o.last_note_id // 0] | max),
@@ -263,8 +289,9 @@ def norm($me):
        resolved: [$n.resolved_mine[].id]})}) | from_entries) as $mrs
 | [$now[] as $mr | ($old.mrs // {})[$mr.iid | tostring] as $o | $mrs[$mr.iid | tostring] as $n
     | select($o != null)
-    | (($mr.notes[] | select(.id > $o.last_note_id and .author.username != $me)
-         | event("comment"; $mr; .author.username; (.body | short); .url) + at(.position)),
+    | (($mr.notes[] | select(.id > $o.last_note_id)
+         | event(if .author.username == $me then "own-comment" else "comment" end; $mr;
+             .author.username; (.body | short); .url) + at(.position)),
        ($mr.reactions[] | select(.user != $me) | select(.key as $k | $o.reactions | index($k) | not)
          | event("reaction"; $mr; .user;
              ":\(.name): on " + (if .on == null then "the MR" elif .on == $me then "your comment"
@@ -273,18 +300,24 @@ def norm($me):
          | event("pipeline"; $mr; "";
              "pipeline \($n.pipeline.id) \(if $n.pipeline.status == "success" then "passed"
                else "failed" end)"; null)),
-       (($n.approved_by - $o.approved_by)[] | event("approved"; $mr; .; "approved"; null)),
-       (($o.approved_by - $n.approved_by)[]
+       (($n.approved_by - $o.approved_by)[] | select(. != $me)
+         | event("approved"; $mr; .; "approved"; null)),
+       (($o.approved_by - $n.approved_by)[] | select(. != $me)
          | event("unapproved"; $mr; .; "approval removed"; null)),
+       (select($o.draft != null and $n.draft != $o.draft and $mr.draft_user != $me)
+         | if $n.draft then event("draft"; $mr; $mr.draft_user; "marked as draft"; null)
+           else event("ready"; $mr; $mr.draft_user; "marked as ready"; null) end),
        (select($n.conflicts and ($o.conflicts | not))
          | event("conflict"; $mr; ""; "merge conflict"; null)),
        (select($n.mergeable and ($o.mergeable | not))
          | event("mergeable"; $mr; "";
              "now mergeable, \($mr.open_threads) open thread(s)"; null)),
        (select($o.state == "opened" and $n.state == "merged")
-         | event("merged"; $mr; $mr.merge_user; "merged"; null)),
+         | event("merged"; $mr; $mr.merge_user; "merged"; null)
+           + if $mr.merge_user == $me then {own: true} else {} end),
        (select($o.state == "opened" and $n.state == "closed")
-         | event("closed"; $mr; ""; "closed"; null)),
+         | event("closed"; $mr; $mr.close_user; "closed"; null)
+           + if $mr.close_user == $me then {own: true} else {} end),
        (select($review == 1 and $o.head != null and $n.head != null and $n.head != $o.head)
          | event("pushed"; $mr; ""; "pushed \($n.head[0:8])"; null)
            + {old_base: $o.base, old_head: $o.head, new_base: $n.base, new_head: $n.head}),
@@ -353,11 +386,18 @@ check() {
       >"$tmp/notes.json" || return
     jq -c --argjson iid "$iid" '{iid: $iid, notes: .}' "$tmp/notes.json" >>"$tmp/notes.jsonl"
   done
+  echo '{"data": {"project": {"mergeRequests": {"nodes": []}}}}' >"$tmp/reactions.json"
+  iids=$(jq -c --arg me "$me" '[.[] | select(.author.username != $me) | .iid | tostring]' \
+    "$tmp/watched.json")
+  if [[ $iids != '[]' ]]; then
+    api graphql -f query="${HUB_QUERY/IIDS/$iids}" -f path="$project" >"$tmp/reactions.json" \
+      || return
+  fi
   api "projects/$pid/pipelines?ref=$default_ref&scope=finished&per_page=1" >"$tmp/default.json" \
     || return
   jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
       --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
-      --slurpfile default "$tmp/default.json" \
+      --slurpfile default "$tmp/default.json" --slurpfile reactions "$tmp/reactions.json" \
       --arg me "$me" --arg default_branch "$default_branch" "$PROGRAM" >"$tmp/result.json" \
     || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
   jq '.state' "$tmp/result.json" >"$state.tmp" && mv "$state.tmp" "$state"

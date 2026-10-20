@@ -32,8 +32,12 @@ if [ -n "${MOCK_FAIL:-}" ]; then
   esac
 fi
 if [ "$2" = graphql ]; then
+  iid=
   for a; do case $a in iid=*) iid=${a#iid=} ;; esac; done
-  f="$MOCK_DIR/gql_$iid.json"
+  f="$MOCK_DIR/gql_${iid:-hub}.json"
+  if [ -z "$iid" ] && [ ! -f "$f" ]; then
+    echo '{"data": {"project": {"mergeRequests": {"nodes": []}}}}'; exit
+  fi
   if [ ! -f "$f" ]; then
     echo '{"data": {"currentUser": {"username": "me"}, "project": {"mergeRequest": null}}}'; exit
   fi
@@ -253,6 +257,29 @@ fixture todos '[{"id": 13, "action_name": "mentioned", "author": {"username": "a
 run
 check "to-do item on an own MR: no events" "" "$out"
 
+hub_gql() { # reactions on note 200 of the user, as a JSON array
+  jq -n --argjson r "$1" --arg u "$url/9#note_200" '{data: {project: {mergeRequests: {nodes: [
+    {iid: "9", notes: {nodes: [
+      {id: "gid://gitlab/Note/200", url: $u, author: {username: "me"}, awardEmoji: {nodes: $r}},
+      {id: "gid://gitlab/Note/201", url: "x", author: {username: "bob"},
+        awardEmoji: {nodes: [{name: "eyes", user: {username: "anna"}}]}}]}}]}}}}' \
+    >"$d/mock/gql_hub.json"
+}
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture events '[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}}]'
+fixture commented "[$(mr 9 'Fix bar' opened t1 bob ABC-2/bar)]"
+hub_gql '[]'
+run
+hub_gql '[{"name": "tada", "user": {"username": "anna"}},
+  {"name": "eyes", "user": {"username": "me"}}]'
+run
+check "hub: reaction on an own comment, not own reactions or reactions on other comments" \
+  '{"kind":"reaction","iid":9,"title":"Fix bar","url":"'"$url"'/9#note_200","actor":"anna","detail":":tada: on your comment","branch":"ABC-2/bar"}' \
+  "$out"
+run
+check "hub: same reaction: no events" "" "$out"
+
 pipelines="$(dirname "$url")/pipelines"
 reset_mock
 echo '{"todos": []}' >"$state"
@@ -312,7 +339,8 @@ sstate="$d/state/watch-gitlab/app-$wt.json"
 gql() { # iid, jq filter that changes the default MR
   jq -n --arg iid "$1" --arg u "$url/$1" '{data: {currentUser: {username: "me"},
     project: {mergeRequest: ({iid: $iid, title: "Add foo", webUrl: $u, sourceBranch: "ABC-1/foo",
-      state: "opened", author: {username: "me"}, mergeUser: null, headPipeline: null,
+      state: "opened", draft: false, author: {username: "me"}, mergeUser: null,
+      headPipeline: null,
       approvedBy: {nodes: []}, detailedMergeStatus: "NOT_APPROVED", conflicts: false,
       mergeable: false, awardEmoji: {nodes: []}, discussions: {nodes: []}} | '"${2:-.}"')}}}' \
     >"$d/mock/gql_$1.json"
@@ -327,6 +355,11 @@ thread() { # resolved, notes...
   local r=$1; shift
   jq -nc --argjson r "$r" '{resolvable: true, resolved: $r, notes: {nodes: $ARGS.positional}}' \
     --jsonargs "$@"
+}
+system_note() { # id author body, in a discussion of its own
+  jq -nc --argjson id "$1" --arg a "$2" --arg b "$3" '{resolvable: false, resolved: false,
+    notes: {nodes: [{id: "gid://gitlab/Note/\($id)", body: $b, system: true, url: "x",
+      author: {username: $a}, position: null, awardEmoji: {nodes: []}}]}}'
 }
 srun() { out=$(cd "$d/app" && "$script" --once "$@" 2>"$d/err"); code=$?; err=$(cat "$d/err"); }
 sev() { # kind iid actor detail [url] [path line]
@@ -365,6 +398,12 @@ check "stack: approved" "$(sev approved 5 anna approved)" "$out"
 gql 5
 srun --mr 5
 check "stack: unapproved" "$(sev unapproved 5 anna 'approval removed')" "$out"
+gql 5 '.approvedBy.nodes = [{username: "me"}]'
+srun --mr 5
+check "stack: own approval: no events" "" "$out"
+gql 5
+srun --mr 5
+check "stack: own approval removed: no events" "" "$out"
 
 gql 5 '.conflicts = true | .detailedMergeStatus = "CONFLICT"'
 srun --mr 5
@@ -392,7 +431,7 @@ $(sev unaddressed 5 anna 'Why not X?' "$url/5#note_101")" "$out"
 gql 5 ".discussions.nodes = [$(thread false "$(note 100 anna old)" "$(note 101 anna 'Why
 not X?' "$pos")" "$(note 102 me 'Because Y.')")]"
 srun --mr 5
-check "stack: own reply: no events" "" "$out"
+check "stack: own reply" "$(sev own-comment 5 me 'Because Y.' "$url/5#note_102")" "$out"
 gql 5 ".discussions.nodes = [$(thread true "$(note 103 bob 'Done?' "$pos")"),
   $(thread false "$(note 104 bob Typo "$pos")")]
   | .discussions.nodes[0].notes.nodes += [{id: \"gid://gitlab/Note/105\", body: \"added 1 commit\",
@@ -423,9 +462,37 @@ check "stack: merged" "$(sev merged 5 anna merged)" "$out"
 reset_mock
 gql 5
 srun --mr 5
-gql 5 '.state = "closed"'
+gql 5 ".state = \"closed\" | .discussions.nodes = [$(system_note 120 anna closed)]"
 srun --mr 5
-check "stack: closed" "$(sev closed 5 '' closed)" "$out"
+check "stack: closed" "$(sev closed 5 anna closed)" "$out"
+reset_mock
+gql 5
+srun --mr 5
+gql 5 ".state = \"closed\" | .discussions.nodes = [$(system_note 121 me closed)]"
+srun --mr 5
+check "stack: own close" "$(sev closed 5 me closed | jq -c '. + {own: true}')" "$out"
+reset_mock
+gql 5
+srun --mr 5
+gql 5 '.state = "merged" | .mergeUser = {username: "me"}'
+srun --mr 5
+check "stack: own merge" "$(sev merged 5 me merged | jq -c '. + {own: true}')" "$out"
+
+reset_mock
+gql 5
+srun --mr 5
+draft="$(system_note 122 anna 'marked this merge request as **draft**')"
+gql 5 ".draft = true | .discussions.nodes = [$draft]"
+srun --mr 5
+check "stack: marked as draft" "$(sev draft 5 anna 'marked as draft')" "$out"
+gql 5 ".discussions.nodes = [$draft,
+  $(system_note 123 me 'marked this merge request as **ready**')]"
+srun --mr 5
+check "stack: own ready: no events" "" "$out"
+srun --mr 5
+gql 5 ".draft = true"
+srun --mr 5
+check "stack: draft with no system note" "$(sev draft 5 '' 'marked as draft')" "$out"
 
 reset_mock
 gql 5

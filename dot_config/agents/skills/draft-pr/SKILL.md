@@ -368,6 +368,7 @@ If the session is not idle, do not do an auto-fix.
 | `conflict`             | See "Conflicts"                                 | Done or Needs you    |
 | `merged`               | See "Merged MRs"                                | Info, Done/Needs you |
 | `comment`              | See "Comments"                                  | Needs you            |
+| `own-comment`          | See "Own comments" in the reference             | Info or Needs you    |
 | `unaddressed`          | The thread waits for the user                   | Needs you            |
 | all other kinds        | None                                            | Info                 |
 
@@ -427,3 +428,5 @@ Read the code at `path:line` and the thread. Then assess the comment:
 
 Put the assessment and a proposed fix or answer under Needs you. Do not change the code until the
 user asks.
+
+If an `own-comment` is a review comment of the PR draft file, do not check it. You wrote it.

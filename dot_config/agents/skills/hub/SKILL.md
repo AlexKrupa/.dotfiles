@@ -46,8 +46,8 @@ Give the status when `/hub` starts, and each time the user asks for it.
 
 ## Watch
 
-The watch finds to-do items, comments on MRs of other people, and failed pipelines of the default
-branch, in the project of this repo. It gives no output while there are no events.
+The watch finds to-do items, comments on MRs of other people, reactions on your comments in
+these MRs, and failed pipelines of the default branch, in the project of this repo. It gives no output while there are no events.
 
 1. After the first status report, start the watch: run
    `~/.config/agents/bin/watch-gitlab.sh --interval 120` as a background Bash task. Start it
@@ -93,6 +93,7 @@ branch, in the project of this repo. It gives no output while there are no event
         | `todo`, `approval_required`  | `@<actor> requested your approval`                 |
         | `todo`, other `detail`       | `@<actor>: <detail>`, with `_` as a space          |
         | `note`                       | `@<actor> commented: "<detail>"`                   |
+        | `reaction`                   | `@<actor> reacted <detail>`                        |
         | all other kinds              | `<detail>`                                         |
 
       - Sort the groups by their most urgent event. Urgency, from high to low:

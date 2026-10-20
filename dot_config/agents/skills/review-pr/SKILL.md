@@ -170,14 +170,15 @@ The last reviewed head is `reviewed_head`, or the `new_head` of the last push th
 
 Handle a `pushed` event first. Then the other events read the new code.
 
-| `kind`               | Action                         | Report section          |
-| -------------------- | ------------------------------ | ----------------------- |
-| `pushed`             | See "Pushes"                   | Needs you, Done, Info   |
-| `comment`            | See "Comments"                 | Needs you or Info       |
-| `unaddressed`        | The thread waits for the user  | Needs you               |
-| `resolved`           | See "Resolved threads"         | Info or Needs you       |
-| `merged`, `closed`   | Do not start the watch again   | Info                    |
-| all other kinds      | None                           | Info                    |
+| `kind`             | Action                              | Report section        |
+| ------------------ | ----------------------------------- | --------------------- |
+| `pushed`           | See "Pushes"                        | Needs you, Done, Info |
+| `comment`          | See "Comments"                      | Needs you or Info     |
+| `own-comment`      | See "Own comments" in the reference | Needs you or Info     |
+| `unaddressed`      | The thread waits for the user       | Needs you             |
+| `resolved`         | See "Resolved threads"              | Info or Needs you     |
+| `merged`, `closed` | Do not start the watch again        | Info                  |
+| all other kinds    | None                                | Info                  |
 
 After you handle the events, start the watch again for the same MR, with no `--fresh`. The state
 has the events since the last check. If the MR is merged or closed, do not start it again. Tell it
