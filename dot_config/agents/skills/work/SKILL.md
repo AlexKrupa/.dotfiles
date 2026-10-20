@@ -5,7 +5,7 @@ description: >-
   worktree workspace with its own Claude Code agent, or as the next stacked branch in the current
   worktree. Also continues an existing branch, GitLab MR, or MR pipeline in its own workspace.
   Also splits a different issue off the default branch into a new workspace with a handoff.
-argument-hint: "[split|fork] <ticket | branch | MR> [base] [model] [effort]"
+argument-hint: "[ticket | branch | MR] [split] [fresh | continue] [from <ref>] [<model> <effort>]"
 disable-model-invocation: true
 ---
 
