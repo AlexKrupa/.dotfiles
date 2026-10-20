@@ -96,7 +96,9 @@ This is not an error.
 8. Optional: `"$FMR" diff-check "$iid" "$target_branch"`. If it exits `1`, write the difference in
    the report.
 9. Add the MR context to the report (see "Report").
-10. Reply as `review-diff` "Final reply" tells.
+10. Reply as `review-diff` "Final reply" tells. Put one line before the TL;DR:
+    `Change: <what the MR changes and why, in 1-2 sentences>`. Use the description and the diff.
+    Do not copy the description.
 11. Start the watch (see "Watch").
 
 ## Discussion filtering
