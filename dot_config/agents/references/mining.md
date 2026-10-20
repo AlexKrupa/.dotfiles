@@ -70,7 +70,7 @@ Default target: `CLAUDE.local.md` in the root of the current worktree. Other tar
 
 Show the findings in the chat as a numbered list: title, count, proposed rule, target. Ask the user
 to answer for each number: yes, edit with new text, or no. Ask in the reply, not with a question
-tool.
+tool. The last line of the reply is `` 📄 Findings: `<path>` ``.
 
 Before you write, run `git ls-files --error-unmatch <target>`. If git tracks the target, tell the
 user that the rule becomes visible to the team, and ask again. If the current worktree is a linked
@@ -78,4 +78,5 @@ worktree, tell the user that an untracked `CLAUDE.local.md` exists only in this 
 
 Write the approved rules. Keep the style of the target file. Then set `Decision` in the findings
 file to `approved`, `edited`, or `skipped`. Tell the user the path of the findings file and the
-files that you changed.
+files that you changed. The last lines of the reply are `` 📄 Findings: `<path>` ``, then one
+`` 📄 `<path>` `` line for each file that you changed.

@@ -42,7 +42,7 @@ Input: `$ARGUMENTS` is optional free text.
      in `:settings`". Without them, the next agent can try to fix it.
    - Redact sensitive data, for example API keys, passwords, or personal data.
 
-3. Park: tell the user the file path, then end the turn.
+3. Park: end the turn. The last line of the reply is `` 📄 Handoff: `<path>` ``.
 
 4. Else, refresh:
 
@@ -55,9 +55,10 @@ Input: `$ARGUMENTS` is optional free text.
    script runs its helper in the foreground of the background task.
 
 5. Report the result, then end the turn. Do not call more tools.
-   - Exit `0`: "Handoff: `<path>`. This session clears after this turn and continues from the
-     file. Do not type in this pane until the prompt shows." The log of the helper is
-     `${TMPDIR:-/tmp}/handoff-refresh.log`.
+   - Exit `0`: "This session clears after this turn and continues from the file. Do not type in
+     this pane until the prompt shows." The log of the helper is
+     `${TMPDIR:-/tmp}/handoff-refresh.log`. The last line of the reply is
+     `` 📄 Handoff: `<path>` ``.
    - Exit `4` (not in herdr): tell the user to type `/clear`, then send the line that the script
      printed.
    - Exit `1`: the stderr text, word for word.
