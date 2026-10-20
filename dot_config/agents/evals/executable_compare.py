@@ -6,8 +6,8 @@ Usage: compare.py <old-iteration-dir> <new-iteration-dir>
 Prints the model and effort of each iteration, each check whose pass rate changed, the pass rate
 per eval, and the mean tokens, time, and cost. A check that passed in more runs before than now is
 a REGRESSION. With 3 runs per eval, a drop of one run can be noise. Rerun that eval before you act
-on it. A change of instructions-agents.md or the rules between the iterations can also cause a
-regression.
+on it. A change of instructions-agents.md or the documenting skill between the iterations can also
+cause a regression.
 """
 import json
 import statistics
@@ -62,7 +62,7 @@ def setup(data):
 
 
 def instructions(data):
-    """Return the hashes of instructions-agents.md and the rules that the runs used."""
+    """Return the hashes of instructions-agents.md and the documenting skill that the runs used."""
     shas = {t.get("instructions_sha", "unknown") for entry in data.values() for t in entry["timing"]}
     return ", ".join(sorted(shas)) or "-"
 
@@ -73,7 +73,7 @@ def main():
     old, new = load(sys.argv[1]), load(sys.argv[2])
     print(f"model/effort: {setup(old)} -> {setup(new)}")
     if instructions(old) != instructions(new):
-        print(f"WARNING: instructions-agents.md or the rules changed: {instructions(old)} -> {instructions(new)}")
+        print(f"WARNING: instructions-agents.md or the documenting skill changed: {instructions(old)} -> {instructions(new)}")
     regressions = 0
     for name in sorted(set(old) | set(new)):
         o, n = old.get(name, {"checks": {}, "timing": []}), new.get(name, {"checks": {}, "timing": []})

@@ -25,14 +25,14 @@ tool, not with Bash:
 
 - `~/.config/agents/instructions-agents.md` - the `## Written communication` section. It has the
   simple language, banned words, and formatting rules.
-- `~/.config/agents/rules/documenting.md` - for Markdown and docs.
+- `~/.config/agents/skills/documenting/SKILL.md` - for Markdown and docs.
 
 In all modes except reply mode, also read these files in the same step:
 
 - `~/.claude/skills/deslop/git-modes.md` - the scope, the judgment call, the comment pass, the
   loops, and the summary.
-- `~/.config/agents/rules/code.md` - the `## Comments (inline and doc)` section. The comment pass
-  applies these rules.
+- `~/.config/agents/instructions-agents.md` - the `### Comments (inline and doc)` section of
+  `## Code`. The comment pass applies these rules.
 - The repo's own style docs, if they exist (`CONTRIBUTING*`, `docs/style*`). For files in that repo,
   these docs have priority over the personal rules.
 

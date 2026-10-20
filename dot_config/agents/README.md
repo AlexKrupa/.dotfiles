@@ -1,4 +1,4 @@
-This directory holds AI config: agent instructions, rules, and skills.
+This directory holds AI config: agent instructions and skills.
 
 Files here are symlinked into `~/.claude/` by `claude.sh`, so editing them changes Claude's live
 behavior after a sync.
@@ -7,12 +7,11 @@ behavior after a sync.
 
 Run `./claude.sh` to (re)create symlinks. Idempotent; safe to rerun. It prints each entry's status:
 `linked` (already correct), `NEW` (just created), `local` (real file at target, left untouched), or
-`removed` (stale managed link cleaned up). Rerun after adding/renaming a rule or skill.
+`removed` (stale managed link cleaned up). Rerun after adding/renaming a skill.
 
 Mapping:
 
 - `instructions-agents.md` -> `~/.claude/CLAUDE.md` (global instructions for every project)
-- `rules/*.md` -> `~/.claude/rules/`
 - `skills/*/` -> `~/.claude/skills/`
 
 `instructions-chat.md` is not symlinked. You paste it manually into the custom instructions of an AI
@@ -25,8 +24,6 @@ list of these skills. Rerun it on a new machine.
 
 ## Layout
 
-- `rules/` - topic rules loaded as context: `code.md`, `testing.md`, `documenting.md`, `kotlin.md`,
-  `gradle.md`. One concern per file, kebab-case names.
 - `skills/<name>/SKILL.md` - one skill per dir. Deterministic fetching/parsing lives in sibling
   helper scripts (e.g. `docs-index.sh`) that `SKILL.md` invokes, not inline prose.
 - `skills/doc/` - the `/doc` design-doc system: `bin/` helpers, `hooks/` (session-start, stop,
@@ -70,12 +67,12 @@ list of these skills. Rerun it on a new machine.
 - `skills/<name>/evals/` - regression evals for a skill, run with headless `claude -p`. Each has a
   `README.md`.
 - `evals/` - shared eval code: `harness.py` (run, isolation, timing, common checks), `compare.py`,
-  `snapshot.sh`, `fixture-lib.sh`. A run loads `instructions-agents.md` and the rules, but no auto
-  memory, MCP servers, or plugins, and only the skills in the `skills` list of `evals.json`
-  (default: `skill_name`).
+  `snapshot.sh`, `fixture-lib.sh`. A run loads `instructions-agents.md`, but no auto memory,
+  MCP servers, or plugins, and only the skills in the `skills` list of `evals.json` (default:
+  `skill_name`).
 
 ## Editing conventions
 
-- Rule and skill content follows `rules/documenting.md` (avoids AI writing tropes) and the reply
+- Skill content follows `skills/documenting/SKILL.md` (avoids AI writing tropes) and the reply
   style in `instructions-agents.md`.
 - A skill's `SKILL.md` needs YAML frontmatter (`name`, `description`) for the harness to load it.

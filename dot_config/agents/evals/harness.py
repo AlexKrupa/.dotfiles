@@ -7,7 +7,7 @@ Layout of an iteration dir: <iteration>/eval-<name>/with_skill/run-<k>/ with `ou
 `transcript.jsonl`, `timing.json`, `before.txt`, `after.txt`, `repo-diff.txt`, and
 `grading.json`. skill-creator's aggregate_benchmark and eval viewer read this layout.
 
-Isolation: a run loads `instructions-agents.md` and the rules, because the skills read them. It
+Isolation: a run loads `instructions-agents.md`, because the skills read it. It
 loads no auto memory, no MCP servers, no plugins, and only the skills in the `skills` list of
 `evals.json` (default: `skill_name`). Memory, MCP servers, and other skills change between sessions, so they
 add noise to the results.
@@ -33,7 +33,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 HOME = Path.home()
 REPO_SLUG = HERE.parent / "bin" / "repo-slug.sh"
-INSTRUCTIONS = [HERE.parent / "instructions-agents.md", *sorted((HERE.parent / "rules").glob("*.md"))]
+# The skills read these files by path, so a change of them can change the results.
+INSTRUCTIONS = [HERE.parent / "instructions-agents.md", HERE.parent / "skills/documenting/SKILL.md"]
 CONFIG = "with_skill"
 BASELINE_CONFIG = "without_skill"
 FLAGS = re.IGNORECASE | re.MULTILINE
@@ -138,9 +139,9 @@ def isolation_problems(init, keep):
 
 
 def instructions_sha():
-    """Return a short hash of instructions-agents.md and the rules.
+    """Return a short hash of instructions-agents.md and the documenting skill.
 
-    The hash tells runs under other rules apart.
+    The hash tells runs under other instructions apart.
     """
     digest = hashlib.sha256()
     for path in INSTRUCTIONS:

@@ -107,7 +107,6 @@ unlink_deprecated() {
   done
 }
 
-link_entries rules  "rules/*.md" .md
 unlink_deprecated skills "skills/deprecated/*/"
 link_entries      skills "skills/*/"
 
