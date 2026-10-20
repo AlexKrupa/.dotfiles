@@ -46,9 +46,11 @@ you find," with supporting detail after it for readers who want it.
   - Prefix numbers: Q1, Q2 etc. for questions, A1, A2, etc. for answers
   - Options: A, B, C, D, etc.
 - Changed artifacts: if the reply created or changed a file artifact (spec, plan, review,
-  translation, ticket, PR draft, or similar), list the path of each file at the bottom of the
-  reply, one line per file, directly above the next action. Do this after each change, also
-  when the path is already in an earlier reply.
+  translation, ticket, PR draft, or similar), list the paths at the bottom of the reply, directly
+  above the next action. Do this after each change, also when the path is already in an earlier
+  reply.
+  - One file: one line, `📄 <path>`
+  - Two or more files: a `📄 Files:` line, then one bullet per path, with no marker on the bullets
 - Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
   after the text
   - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
@@ -74,4 +76,4 @@ marker only for its meaning.
 | 💻      | Command for the user to run (`! <command>`)         |
 | 👀      | Out-of-scope finding                                |
 | 💾      | Memory saved or updated                             |
-| 📄      | Path of a created or changed artifact file          |
+| 📄      | Created or changed artifact files                   |
