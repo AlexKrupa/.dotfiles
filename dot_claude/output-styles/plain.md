@@ -45,12 +45,16 @@ you find," with supporting detail after it for readers who want it.
   - Each question and answer is a TLDR: 1 sentence limit
   - Prefix numbers: Q1, Q2 etc. for questions, A1, A2, etc. for answers
   - Options: A, B, C, D, etc.
-- Changed artifacts: if the reply created or changed a file artifact (spec, plan, review,
-  translation, ticket, PR draft, or similar), list the paths at the bottom of the reply, directly
-  above the next action. Do this after each change, also when the path is already in an earlier
-  reply.
-  - One file: one line, `📄 <path>`
-  - Two or more files: a `📄 Files:` line, then one bullet per path, with no marker on the bullets
+- Changed files: if the reply created or changed files, list the paths at the bottom of the reply,
+  directly above the next action. Do this after each change, also when the path is already in an
+  earlier reply. Use two separate groups, in this order:
+  1. Project files: source code, configuration, skills, and other files of the project
+  2. Artifacts: spec, plan, review, translation, ticket, PR draft, or similar
+- Each group:
+  - One file: one line, `📄 Project file: <path>` or `📄 Artifact: <path>`
+  - Two or more files: a `📄 Project files:` or `📄 Artifacts:` line, then one bullet per path,
+    with no marker on the bullets
+  - No files: omit the group
 - Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
   after the text
   - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
@@ -76,4 +80,4 @@ marker only for its meaning.
 | 💻      | Command for the user to run (`! <command>`)         |
 | 👀      | Out-of-scope finding                                |
 | 💾      | Memory saved or updated                             |
-| 📄      | Created or changed artifact files                   |
+| 📄      | Created or changed project files or artifacts       |
