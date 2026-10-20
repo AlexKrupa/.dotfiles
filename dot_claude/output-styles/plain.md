@@ -51,7 +51,7 @@ you find," with supporting detail after it for readers who want it.
   1. Project files: source code, configuration, skills, and other files of the project
   2. Artifacts: spec, plan, review, translation, ticket, PR draft, or similar
 - Each group:
-  - One file: one line, `📄 Project file: <path>` or `📄 Artifact: <path>`
+  - One file: one line, `📄 <path>`, with no label
   - Two or more files: a `📄 Project files:` or `📄 Artifacts:` line, then one bullet per path,
     with no marker on the bullets
   - No files: omit the group
