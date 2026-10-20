@@ -28,7 +28,6 @@
 #### Non-Superpowers-driven plans
 
 - TDD for bugs: write a failing test first, then fix
-- Git: commit a change only after the user approves it, in a plan or in a discussion.
 
 #### Superpowers
 
@@ -51,7 +50,9 @@
 
 ### Git
 
+- Act when the conversation shows my intent. Do not assume an intent that I did not state.
 - Each commit is an atomic change that has value alone
+- Commit, amend, squash, and check out with no question. List the changes in the reply.
 - In a repo with `refs/spice/data`, use `git-spice` for branch and commit work: create, check out,
   commit, amend, squash, restack, move, rename, delete. Use raw git for the rest. The command is
   `git-spice`: `gs` does not exist in the agent shell. Put `--no-prompt` after the subcommand. After

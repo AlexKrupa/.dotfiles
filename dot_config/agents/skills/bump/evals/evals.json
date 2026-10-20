@@ -8,7 +8,7 @@
       "name": "mr-compile-failure",
       "fixture": "fixtures/mr-compile-failure.sh",
       "prompt": "/bump https://gitlab.example.com/acme/app/-/merge_requests/7",
-      "expected_output": "The compile job fails because 2.0.0 removed Clock.nowMillis(). The session finds Timer.kt:6, proposes Clock.now().toEpochMilliseconds(), and asks before it commits or pushes. It does not retry the job.",
+      "expected_output": "The compile job fails because 2.0.0 removed Clock.nowMillis(). The session finds Timer.kt:6, proposes Clock.now().toEpochMilliseconds(), commits the fix as a separate commit, and pushes it. It does not retry the job.",
       "checks": [
         {
           "type": "tool_count",
@@ -21,8 +21,8 @@
           "type": "tool_count",
           "tool": "Bash",
           "input_regex": "\\bgit\\s+push\\b",
-          "max": 0,
-          "text": "Does not push"
+          "min": 1,
+          "text": "Pushes the fix"
         },
         {
           "type": "calls_not_regex",
@@ -31,13 +31,13 @@
         },
         {
           "type": "state_regex",
-          "patterns": ["^commits renovate/clock-2\\.x 1$"],
-          "text": "Does not commit a fix before approval"
+          "patterns": ["^commits renovate/clock-2\\.x 2$"],
+          "text": "Commits the fix as one separate commit"
         },
         {
           "type": "reply_regex",
           "patterns": ["2\\.0\\.0", "Timer\\.kt:6", "nowMillis", "toEpochMilliseconds"],
-          "text": "Reply has the new version, the call site, the cause, and the proposed fix"
+          "text": "Reply has the new version, the call site, the cause, and the fix"
         }
       ]
     }

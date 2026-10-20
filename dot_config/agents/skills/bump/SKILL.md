@@ -53,8 +53,7 @@ PR description and the CI state.
    - If CI fails, run `bump-host.sh failures <pipeline_id> <project_path>`. If a job failed for a
      cause that the bump did not make (a flaky test, an infra error), retry it once with
      `bump-host.sh retry <job_id> <project_path>` and wait again. Do not fix it.
-7. Fix a failure that the bump caused. Show the cause and the proposed fix, and ask the user. After
-   the user agrees:
+7. Fix a failure that the bump caused. Do not ask first:
    - Commit each fix as a separate commit on the bump branch.
    - If a local run of only the failed task or test is faster than CI, run it before the push.
    - If the bump branch is on the remote, push. Then wait for CI again with

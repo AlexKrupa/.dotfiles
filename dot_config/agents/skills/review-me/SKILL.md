@@ -1,9 +1,9 @@
 ---
 name: review-me
 description:
-  Self-review of the current branch. Applies most medium and low fixes and folds them into branch
-  commits. Asks before critical and high fixes, changes to code that existed before the branch,
-  and large drift from the spec.
+  Self-review of the current branch. Applies the fixes in code that the branch added and folds
+  them into branch commits. Asks before changes to code that existed before the branch, and before
+  large drift from the spec.
 argument-hint: "[plan or spec path]"
 disable-model-invocation: true
 ---
@@ -46,8 +46,8 @@ The severities are the `review-diff` severities: `critical`, `high`, `medium`, `
 
 ### Apply with no prompt
 
-- Most `medium` and `low` findings in code that this branch added. If a fix is not clear, move
-  the finding to the ask group. The re-review pass (step 8) checks the fixes.
+- Findings of all severities in code that this branch added. If a fix is not clear, move the
+  finding to the ask group. The re-review pass (step 8) checks the fixes.
 - Typos in string literals. Comments and docs are for `deslop` (step 7).
 - Lint and format problems. Use the configured tool of the repo, for example `eslint --fix`,
   `ruff format`, `gofmt`, or `cargo fmt`. Find the tool. Do not edit by hand.
@@ -56,7 +56,7 @@ Small drift from the plan does not block these fixes.
 
 ### Ask first - one grouped prompt
 
-- `critical` and `high` findings. Large drift from the spec is a `high` finding.
+- Large drift from the spec. The spec or the code can be wrong, and only the user knows which.
 - A change to code that this branch did not add (out-of-scope cleanup), also an `(adjacent)`
   finding.
 
@@ -196,7 +196,7 @@ Review guide:
 Needs decision:
 - **H2** `<file>:<line>` - <short title>
 
-Auto-fixed: <N> (<M> medium, <L> low)
+Auto-fixed: <N> (<C> critical, <H> high, <M> medium, <L> low)
 
 Check these fixes:
 - **M1** `<file>:<line>` - <what changed, and why it needs your attention>
@@ -208,8 +208,8 @@ Skipped:
 ```
 
 The `Auto-fixed:` line counts all fixes of `## Fixes applied` in the report. The report keeps the
-full list. Write a "Check these fixes:" item only for a fix that needs the user's attention, for
-example a fix that changes behavior that a user sees. With no such fix, omit the block.
+full list. Write a "Check these fixes:" item for each `critical` and `high` fix, and for each fix
+that changes behavior that a user sees. With no such fix, omit the block.
 
 Add a line only in these cases:
 
@@ -222,7 +222,7 @@ Add a line only in these cases:
 
 ## Red flags - stop and think again
 
-- You auto-fix a `critical` or `high` finding, or code that this branch did not add. Ask.
+- You auto-fix code that this branch did not add, or large drift from the spec. Ask.
 - You edit files outside `<parent>...HEAD` and did not ask first. Out-of-scope cleanup, also an
   `(adjacent)` finding, needs a confirmation for each item.
 - You skip the re-review after fixes. Then the report on disk is wrong.

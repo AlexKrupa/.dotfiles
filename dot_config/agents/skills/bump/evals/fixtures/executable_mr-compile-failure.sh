@@ -2,7 +2,7 @@
 # Usage: mr-compile-failure.sh <repo-dir>
 # MR !7 bumps com.acme:clock from 1.4.0 to 2.0.0. Version 2.0.0 removed `Clock.nowMillis()`, and
 # the compile job of pipeline 900 fails at Timer.kt:6. The session starts on main.
-# Tests: finds the call site, proposes a fix, and stops for approval. No push, no retry.
+# Tests: finds the call site, commits the fix, and pushes it. No retry.
 . "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 host="$1.host"
 init_repo "$1"

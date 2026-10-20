@@ -402,8 +402,9 @@ Run the wrapper command for the logs of the failed jobs. Find the cause of each 
 
   If the session is not idle, put the failure under Needs you as "fix waits, session not idle",
   with the proposed fix. If the session is idle at the next report, or if the user asks, do the fix.
-- All other causes: put the failure under Needs you, with the cause and a proposed fix. Do not
-  change the code until the user asks.
+- All other causes: if the session is idle and the cause is clear, do the fix with steps 1 to 7
+  above. In step 4, commit each `needs-message` file with a one-line message. Report the fix under
+  Done. Else put the failure under Needs you, with the cause and a proposed fix.
 
 ### Conflicts
 
