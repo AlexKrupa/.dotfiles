@@ -10,7 +10,8 @@ The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply t
 
 The watch is a background Bash task (`run_in_background: true`). Each 120 seconds, it checks the
 MRs. If it finds events, it stops. Then you handle the events, report, and start it again. Between
-events, the user can use the session for other work.
+events, the user can use the session for other work. The watch pauses during system sleep. During
+a network outage, it waits for the network with no report.
 
 - Give the command `--interval 120`.
 - If a watch task runs, do not start a new one.
@@ -23,10 +24,6 @@ events, the user can use the session for other work.
 | `0`  | Handle the events, report, and start again as the skill tells.          |
 | `1`  | Report the stderr text and send a notification. Do not start again.     |
 | `3`  | A new watch replaced this one. Do not start again. No notification.     |
-| `4`  | The deadline passed. Report it as below. Do not start again.            |
-
-On exit `4`, report that the watch stopped, list the open MRs, and tell the user to say "watch"
-to start it again.
 
 On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
 `actor`, `detail`, and `branch`. A comment, a reaction, a resolved thread, or an `unaddressed`

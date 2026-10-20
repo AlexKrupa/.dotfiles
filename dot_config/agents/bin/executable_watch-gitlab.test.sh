@@ -578,7 +578,7 @@ reset_mock
 gql 5
 srun --mr 5
 out=$(cd "$d/app" && "$script" --mr 5 --interval 0 --deadline 1 2>&1); code=$?
-check "stack: deadline: exit 4" "4 watch-gitlab: deadline reached" "$code $out"
+check "stack: --deadline is unknown" "1 watch-gitlab: unexpected argument: --deadline" "$code $out"
 
 git init -q "$d/gone"
 git -C "$d/gone" remote add origin https://gitlab.example.com/group/sub/app.git
