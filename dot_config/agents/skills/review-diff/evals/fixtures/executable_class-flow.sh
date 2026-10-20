@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: class-flow.sh <repo-dir>
 # Branch `feat/async-payment` vs `main` (with origin). Gradle. All changes are in
-# :feature:checkout. No build file changes - expect no Dependency changes section.
+# :feature:checkout. No build file changes - expect no Boundary changes section.
 # The branch replaces a direct call with an event round trip:
 #   CheckoutViewModel --PaymentRequested--> CheckoutEvents (SharedFlow)
 #   PaymentProcessor collects CheckoutEvents, calls PaymentGateway, writes PaymentStatusStore

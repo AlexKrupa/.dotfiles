@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: convention-plugin.sh <repo-dir>
 # Branch `feat/analytics` vs `main` (with origin). Gradle with a build-logic convention plugin.
-# Dependency changes (expect a Dependency changes section):
+# Dependency changes (expect a Dependencies group in Boundary changes):
 #   new module :core:analytics
 #   build-logic `shop.feature` plugin adds implementation(project(":core:analytics")) - this
 #   gives a new edge from every module that applies the plugin: :feature:cart, :feature:checkout,

@@ -79,13 +79,46 @@ def parse_impact(md):
     return items
 
 
-def parse_deps(md):
-    """Return the text under `## Dependency changes`, or None when there is no section."""
-    m = re.search(r"^## Dependency changes\n(.*?)(?=^## |\Z)", md, re.MULTILINE | re.DOTALL)
+def parse_boundary(md):
+    """Return the text under `## Boundary changes`, or None when there is no section."""
+    m = re.search(r"^## Boundary changes\n(.*?)(?=^## |\Z)", md, re.MULTILINE | re.DOTALL)
     return m.group(1) if m else None
 
 
-DEPS_LINE = r"[+-] [^\s>]+(, [^\s>]+)* (-> \S+( \([^)]+\))?|\(\w+ \w+\))"
+TAG = r"( \((wider|narrower)\))?"
+GROUPS = {
+    "Dependencies:": r"[+-] [^\s>]+(, [^\s>]+)* (-> \S+( \([^)]+\))?|\(\w+ \w+\))",
+    "Visibility:": r"\S+ \([^)]+\): \S.* -> \S.*?" + TAG,
+    "Moves:": r"[^\s:]+: \S+ -> \S+" + TAG,
+}
+
+
+def boundary_problems(section, reply):
+    """Return the format problems of a Boundary changes section."""
+    blocks = re.findall(r"```\w*\n(.*?)```", section, re.DOTALL)
+    if len(blocks) != 1:
+        return [f"{len(blocks)} code blocks"]
+    bad, groups, group = [], [], None
+    for line in (l.strip() for l in blocks[0].splitlines()):
+        if not line:
+            continue
+        if line in GROUPS:
+            group = line
+            groups.append([line])
+        elif group is None or not re.fullmatch(GROUPS[group], line):
+            bad.append(f"bad line in {group}: {line[:60]!r}")
+        else:
+            groups[-1].append(line)
+    names = [g[0] for g in groups]
+    if names != [n for n in GROUPS if n in names]:
+        bad.append(f"group order: {names}")
+    bad += [f"empty group {g[0]}" for g in groups if len(g) == 1]
+    signs = [l[0] for g in groups if g[0] == "Dependencies:" for l in g[1:]]
+    if signs != sorted(signs):
+        bad.append("removed dependency before an added one")
+    if groups and len(groups[0]) > 1 and groups[0][1] not in reply:
+        bad.append("final reply does not have the lines")
+    return bad
 
 
 def block(md, finding_id):
@@ -188,28 +221,19 @@ def run_check(check, run):
         if not re.search(r"(?i)high-impact", reply):
             return False, f"{len(items)} item(s), final reply does not list them"
         return True, f"{len(items)} item(s), listed in the final reply"
-    if t == "deps_present":
-        found = parse_deps(report) is not None
+    if t == "boundary_present":
+        found = parse_boundary(report) is not None
         return found == check["equals"], "section" if found else "no section"
-    if t in ("deps_regex", "deps_not_regex"):
-        section = parse_deps(report)
+    if t in ("boundary_regex", "boundary_not_regex"):
+        section = parse_boundary(report)
         if section is None:
-            return False, "no Dependency changes section"
-        return harness.regex_check(check, section, t == "deps_regex")
-    if t == "deps_format":
-        section = parse_deps(report)
+            return False, "no Boundary changes section"
+        return harness.regex_check(check, section, t == "boundary_regex")
+    if t == "boundary_format":
+        section = parse_boundary(report)
         if section is None:
             return True, "no section"
-        blocks = re.findall(r"```\w*\n(.*?)```", section, re.DOTALL)
-        lines = [l.strip() for b in blocks for l in b.splitlines() if l.strip()]
-        bad = [f"bad line: {l[:60]!r}" for l in lines if not re.fullmatch(DEPS_LINE, l)]
-        if len(blocks) != 1 or not lines:
-            bad.append(f"{len(blocks)} code blocks, {len(lines)} lines")
-        signs = [l[0] for l in lines]
-        if signs != sorted(signs):
-            bad.append("removed line before an added line")
-        if lines and lines[0] not in reply:
-            bad.append("final reply does not have the lines")
+        bad = boundary_problems(section, reply)
         return not bad, "ok" if not bad else "; ".join(bad)
     if t == "same_as_previous":
         old, new = block(run["previous"], check["id"]), block(report, check["id"])

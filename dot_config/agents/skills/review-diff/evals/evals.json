@@ -11,7 +11,7 @@
     {"id": "reply-ids", "type": "reply_lists_findings", "text": "Final reply lists every finding id of the report"},
     {"id": "reply-format", "type": "reply_not_regex", "patterns": ["\\*\\*Counts:\\*\\*", "^Then:"], "text": "Final reply has no Counts line and no `Then:` line"},
     {"id": "reply-path", "type": "reply_regex", "patterns": ["^Report: `[^`]+\\.md`"], "text": "Final reply has the `Report: <path>` line"},
-    {"id": "deps-format", "type": "deps_format", "text": "Dependency changes section, when present, is one code block of `+`/`-` lines, added lines first, and the final reply has the lines"},
+    {"id": "boundary-format", "type": "boundary_format", "text": "Boundary changes section, when present, is one code block of Dependencies, Visibility, and Moves groups in that order, with valid lines, and the final reply has the lines"},
     {"id": "impact-format", "type": "impact_format", "text": "High-impact section is omitted when empty, and the final reply lists its items"},
     {"id": "writes", "type": "tool_count", "tool": "Write|Edit|NotebookEdit", "input_not_regex": "/\\.ai/[^/]+/reviews/", "max": 0, "text": "No file write except the report"},
     {"id": "git-mutations", "type": "tool_count", "tool": "Bash", "input_regex": "\\bgit\\s+(add|commit|push|rebase|reset|checkout|switch|stash(?!\\s+(list|show))|merge|cherry-pick|branch\\s+-[dDmM])\\b", "max": 0, "text": "No git mutation commands"},
@@ -238,11 +238,11 @@
       "name": "deps-module-deps",
       "fixture": "fixtures/module-deps.sh",
       "prompt": "/review-diff",
-      "expected_output": "Dependency changes: new :core:payments, :core:payments -> :core:network, :feature:checkout -> :core:payments added, :feature:checkout -> :core:legacy removed. No search, profile, or ui.",
+      "expected_output": "Boundary changes: new :core:payments, :core:payments -> :core:network, :feature:checkout -> :core:payments added, :feature:checkout -> :core:legacy removed. No search, profile, or ui.",
       "checks": [
-        {"type": "deps_present", "equals": true, "text": "Report has a Dependency changes section"},
-        {"type": "deps_regex", "patterns": ["^\\+ :core:payments \\(new module\\)$", "^\\+ :core:payments -> :core:network$", "^\\+ :feature:checkout -> :core:payments$", "^- :feature:checkout -> :core:legacy$"], "text": "Lists the new :core:payments, its dependency, the new checkout dependency, and the removed :core:legacy dependency"},
-        {"type": "deps_not_regex", "patterns": [":feature:search", ":feature:profile", ":feature:cart", ":core:ui"], "text": "Omits the unchanged modules"}
+        {"type": "boundary_present", "equals": true, "text": "Report has a Boundary changes section"},
+        {"type": "boundary_regex", "patterns": ["^\\+ :core:payments \\(new module\\)$", "^\\+ :core:payments -> :core:network$", "^\\+ :feature:checkout -> :core:payments$", "^- :feature:checkout -> :core:legacy$"], "text": "Lists the new :core:payments, its dependency, the new checkout dependency, and the removed :core:legacy dependency"},
+        {"type": "boundary_not_regex", "patterns": [":feature:search", ":feature:profile", ":feature:cart", ":core:ui"], "text": "Omits the unchanged modules"}
       ]
     },
     {
@@ -250,12 +250,12 @@
       "name": "deps-convention-plugin",
       "fixture": "fixtures/convention-plugin.sh",
       "prompt": "/review-diff",
-      "expected_output": "Dependency changes: new :core:analytics, and one line: the 4 feature modules -> :core:analytics through the shop.feature plugin.",
+      "expected_output": "Boundary changes: new :core:analytics, and one line: the 4 feature modules -> :core:analytics through the shop.feature plugin.",
       "checks": [
-        {"type": "deps_present", "equals": true, "text": "Report has a Dependency changes section"},
-        {"type": "deps_regex", "patterns": ["^\\+ :core:analytics \\(new module\\)$", "^\\+ .*-> :core:analytics.*shop\\.feature"], "text": "Lists the new :core:analytics and names the shop.feature plugin"},
-        {"type": "deps_regex", "patterns": ["^\\+ (?=.*:feature:cart)(?=.*:feature:checkout)(?=.*:feature:search)(?=.*:feature:profile).*-> :core:analytics"], "text": "Shows the reach: all 4 feature modules -> :core:analytics"},
-        {"type": "deps_not_regex", "patterns": [":core:ui"], "text": "Omits :core:ui, which uses shop.library"}
+        {"type": "boundary_present", "equals": true, "text": "Report has a Boundary changes section"},
+        {"type": "boundary_regex", "patterns": ["^\\+ :core:analytics \\(new module\\)$", "^\\+ .*-> :core:analytics.*shop\\.feature"], "text": "Lists the new :core:analytics and names the shop.feature plugin"},
+        {"type": "boundary_regex", "patterns": ["^\\+ (?=.*:feature:cart)(?=.*:feature:checkout)(?=.*:feature:search)(?=.*:feature:profile).*-> :core:analytics"], "text": "Shows the reach: all 4 feature modules -> :core:analytics"},
+        {"type": "boundary_not_regex", "patterns": [":core:ui"], "text": "Omits :core:ui, which uses shop.library"}
       ]
     },
     {
@@ -263,9 +263,9 @@
       "name": "deps-single-module",
       "fixture": "fixtures/single-module.sh",
       "prompt": "/review-diff",
-      "expected_output": "No Dependency changes section: one function body in one module.",
+      "expected_output": "No Boundary changes section: one function body in one module.",
       "checks": [
-        {"type": "deps_present", "equals": false, "text": "No Dependency changes section for a one-function change"}
+        {"type": "boundary_present", "equals": false, "text": "No Boundary changes section for a one-function change"}
       ]
     },
     {
@@ -273,9 +273,9 @@
       "name": "deps-class-flow",
       "fixture": "fixtures/class-flow.sh",
       "prompt": "/review-diff",
-      "expected_output": "No Dependency changes section: the event flow is inside :feature:checkout and no build file changes.",
+      "expected_output": "No Boundary changes section: the event flow is inside :feature:checkout and no build file changes.",
       "checks": [
-        {"type": "deps_present", "equals": false, "text": "No Dependency changes section - the branch changes no build file"}
+        {"type": "boundary_present", "equals": false, "text": "No Boundary changes section - the branch changes no build file"}
       ]
     },
     {
@@ -283,11 +283,24 @@
       "name": "deps-npm-workspaces",
       "fixture": "fixtures/npm-workspaces.sh",
       "prompt": "/review-diff",
-      "expected_output": "Dependency changes: new @shop/auth, @shop/auth -> @shop/shared, @shop/web -> @shop/auth, @shop/api -> @shop/auth. No docs-site.",
+      "expected_output": "Boundary changes: new @shop/auth, @shop/auth -> @shop/shared, @shop/web -> @shop/auth, @shop/api -> @shop/auth. No docs-site.",
       "checks": [
-        {"type": "deps_present", "equals": true, "text": "Report has a Dependency changes section"},
-        {"type": "deps_regex", "patterns": ["^\\+ @shop/auth \\(new package\\)$", "^\\+ @shop/auth -> @shop/shared$", "^\\+ @shop/web -> @shop/auth$", "^\\+ @shop/api -> @shop/auth$"], "text": "Lists the new @shop/auth and its 3 new dependencies"},
-        {"type": "deps_not_regex", "patterns": ["docs-site"], "text": "Omits @shop/docs-site"}
+        {"type": "boundary_present", "equals": true, "text": "Report has a Boundary changes section"},
+        {"type": "boundary_regex", "patterns": ["^\\+ @shop/auth \\(new package\\)$", "^\\+ @shop/auth -> @shop/shared$", "^\\+ @shop/web -> @shop/auth$", "^\\+ @shop/api -> @shop/auth$"], "text": "Lists the new @shop/auth and its 3 new dependencies"},
+        {"type": "boundary_not_regex", "patterns": ["docs-site"], "text": "Omits @shop/docs-site"}
+      ]
+    },
+    {
+      "id": 19,
+      "name": "boundary-visibility-moves",
+      "fixture": "fixtures/visibility-moves.sh",
+      "prompt": "/review-diff",
+      "expected_output": "Boundary changes: Visibility group with PaymentApi.charge internal -> public (wider), Ledger.round private -> internal (wider), CartStore public -> internal (narrower). Moves group with PaymentMapper.kt :feature:checkout -> :core:payments (wider). No Dependencies group, no Receipt, no test helper, no Format.kt.",
+      "checks": [
+        {"type": "boundary_present", "equals": true, "text": "Report has a Boundary changes section"},
+        {"type": "boundary_regex", "patterns": ["^PaymentApi\\.charge \\(:core:payments\\): internal -> public \\(wider\\)$", "^Ledger\\.round \\(:core:payments\\): private -> internal \\(wider\\)$", "^CartStore \\(:feature:cart\\): public -> internal \\(narrower\\)$"], "text": "Visibility group lists the 3 changes with their direction"},
+        {"type": "boundary_regex", "patterns": ["^PaymentMapper\\.kt: :feature:checkout -> :core:payments \\(wider\\)$"], "text": "Moves group lists PaymentMapper.kt as wider"},
+        {"type": "boundary_not_regex", "patterns": ["^Dependencies:", "Receipt", "fixture", "Format\\.kt"], "text": "No Dependencies group, no new class, no test code, no move inside one unit"}
       ]
     }
   ]

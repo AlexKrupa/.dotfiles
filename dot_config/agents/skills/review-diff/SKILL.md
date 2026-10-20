@@ -306,11 +306,14 @@ When the diff has no item, omit the section.
 In re-review mode, copy the previous report's items. Change an item only when a modified file
 changes it.
 
-## Dependency changes
+## Boundary changes
 
-List the dependencies between build units that the diff adds or removes. A build unit is what the
-build tool calls a module, package, crate, or workspace member. Source directories are not build
-units. When the diff changes no dependency, or the repo has one build unit, omit the section.
+List the changes to the boundaries between build units. A build unit is what the build tool calls a
+module, package, crate, or workspace member. Source directories are not build units. The section
+has three groups: dependencies, visibility, and moves. Omit an empty group. When all three groups
+are empty, omit the section.
+
+### Dependencies
 
 1. Find the build units and their manifests, for example `settings.gradle.kts` and
    `build.gradle.kts`, `package.json` workspaces, `Cargo.toml`, `go.mod`, `pyproject.toml`, or
@@ -325,25 +328,54 @@ units. When the diff changes no dependency, or the repo has one build unit, omit
 Dependencies come from the manifests, not from imports. When the imports do not agree with a
 manifest (an unused or a missing dependency), list the manifest dependency and write a finding.
 
-Format: one code block, added lines first, then removed lines.
-
-```
-+ :core:payments (new module)
-+ :core:payments -> :core:network
-+ :feature:checkout -> :core:payments
-- :feature:checkout -> :core:legacy
-- :core:legacy (removed module)
-```
-
 - `A -> B` means that A depends on B.
 - Use the unit names from the manifests, and the word that the build tool uses for a unit
   (`module`, `package`, `crate`).
 - When shared build logic gives the same dependency to many units, write one line and name the
   logic: `+ :feature:cart, :feature:search -> :core:analytics (shop.feature plugin)`.
-- Names only: no versions, no dependency scopes (`api`, `devDependencies`), no finding ids.
 
-In re-review mode, copy the previous report's section. If a modified file is a manifest or shared
-build logic, write the section again.
+### Visibility
+
+Write one line for each declaration that exists at the parent and at the tip and changes its
+visibility. This includes a change to make a declaration visible to tests, for example `private` to
+`internal`. Use the words of the language: a modifier (`internal`, `pub(crate)`), a Go name that
+changes case, or an entry in the npm `exports` field. A new declaration is not a visibility change.
+Test code is not in the list.
+
+If more code can use the declaration, add `(wider)`. If less code can use it, add `(narrower)`.
+
+### Moves
+
+Find the files that move to a different build unit with `git diff -M --name-status
+<parent>...<tip>`. A move inside one unit is not in the list.
+
+If more units depend on the new unit than on the old unit, add `(wider)`. If fewer units depend on
+it, add `(narrower)`. If the direction is not clear, add no tag.
+
+### Format
+
+One code block. In each group, added lines go first, then removed lines.
+
+```
+Dependencies:
++ :core:payments (new module)
++ :core:payments -> :core:network
++ :feature:checkout -> :core:payments
+- :feature:checkout -> :core:legacy
+
+Visibility:
+PaymentApi.charge (:core:payments): internal -> public (wider)
+CartStore (:feature:cart): public -> internal (narrower)
+
+Moves:
+PaymentMapper.kt: :feature:checkout -> :core:payments (wider)
+```
+
+Names only: no versions, no dependency scopes (`api`, `devDependencies`), no signatures, no
+finding ids.
+
+In re-review mode, copy the previous report's section. If a modified file is a manifest, shared
+build logic, or a file with a line in the section, write the section again.
 
 ## Review guide
 
@@ -411,10 +443,10 @@ risk, naming that risk's finding id, e.g. `C1`.>
 1. `<file>:<line>` - <what changes>
    Impact: <why it is hard to undo or how far it reaches, with the evidence, plus finding ids>
 
-## Dependency changes
+## Boundary changes
 
 ```
-<one line for each added or removed unit or dependency>
+<the Dependencies, Visibility, and Moves groups>
 ```
 
 ## Review guide
@@ -459,7 +491,7 @@ Simplicity findings outside the diff take the `(adjacent)` suffix in the title a
 Pre-existing issues noticed but not introduced by this branch - mention, don't fix.
 ```
 
-Omit the High-impact changes section, the Dependency changes section, and empty severity sections
+Omit the High-impact changes section, the Boundary changes section, and empty severity sections
 when they have no items. Reference `file:line`, do not paste surrounding context. Snippets only when
 prose is unclear.
 
@@ -473,9 +505,9 @@ A caller that invoked this skill writes its own reply with the same rules.
 High-impact changes:
 1. `<file>:<line>` - <what changes>
 
-Dependency changes:
+Boundary changes:
 ```
-<the report's Dependency changes lines>
+<the report's Boundary changes lines>
 ```
 
 Review guide:
@@ -492,8 +524,8 @@ Report: `<path>`
 
 - Copy the high-impact items, without their `Impact:` lines. Omit the block when the report has no
   items.
-- Copy the Dependency changes lines as they are. Omit the block when the report has no
-  Dependency changes section.
+- Copy the Boundary changes lines as they are. Omit the block when the report has no Boundary
+  changes section.
 - Copy the guide's numbered list, or its one-line simple-change form. Omit the `Then:` line.
 - List all findings, one line each.
 - No counts. Add a line only when the user must act on it.
@@ -527,6 +559,7 @@ Report: `<path>`
 - Letting a review agent write the report, or dispatch its own agents.
 - Copying a returned finding into the report without verifying it against the diff.
 - Touching any file other than the report.
-- A Dependency changes line for an import, a version change, or a change inside one build unit.
+- A Boundary changes line for an import, a version change, a new declaration, test code, or a move
+  inside one build unit.
 - Recommending an inline/simplification that loses clarity or reuse - simpler must be clearer, not
   just fewer lines.
