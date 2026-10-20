@@ -296,8 +296,11 @@ Sections, in this order:
 
 ### Review comments
 
-- Each comment is an H2 with `` `path:line` ``, where the line is on the new side of the diff. The
-  comment text follows.
+- Each comment is an H2 with `` `path:line` `` or `` `path:start-end` ``. The lines are on the new
+  side of the diff. The comment text follows.
+- If the comment is about a block, for example a function, use a range that covers the block. Do
+  not use only its first line, its doc comment, or its signature. If the block is long, use the
+  range of the part that the comment is about.
 - Use them for context that helps during the review: "start here", "moved code, no changes", "I
   chose X over Y because Z", "check this edge case", "this part is important".
 - When the explanation stays true after merge, it belongs in a code comment. Add a review comment
