@@ -319,8 +319,8 @@ units. When the diff changes no dependency, or the repo has one build unit, omit
    shared build logic that adds a dependency to many units, for example a convention plugin or a
    shared build script. Each unit that uses that logic gets the dependency.
 3. Write one line for each added or removed unit, and one line for each added or removed
-   dependency. Write an external library only when the diff adds it to a unit or removes it from a
-   unit. A version change is not a dependency change.
+   dependency. If the diff adds an external library to a unit or removes it from a unit, write a
+   line for it. A version change is not a dependency change.
 
 Dependencies come from the manifests, not from imports. When the imports do not agree with a
 manifest (an unused or a missing dependency), list the manifest dependency and write a finding.
@@ -342,8 +342,8 @@ Format: one code block, added lines first, then removed lines.
   logic: `+ :feature:cart, :feature:search -> :core:analytics (shop.feature plugin)`.
 - Names only: no versions, no dependency scopes (`api`, `devDependencies`), no finding ids.
 
-In re-review mode, copy the previous report's section. Write it again only when a modified file is
-a manifest or shared build logic.
+In re-review mode, copy the previous report's section. If a modified file is a manifest or shared
+build logic, write the section again.
 
 ## Review guide
 
