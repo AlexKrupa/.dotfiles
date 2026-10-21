@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Fake glab for the bump evals. Answers from <repo>.host/ of the fixture and logs each call to
-# <repo>.host/calls.log. A call that it does not know fails.
+# <repo>.host/calls.log. A call that it does not know fails. `api graphql` comes only from
+# watch-gitlab.sh: it sends TERM to the watch, which then stops with exit 3 ("replaced by a new
+# watch"). Then no run waits for the watch.
 host="$(git rev-parse --show-toplevel).host"
 echo "glab $*" >>"$host/calls.log"
 
@@ -22,6 +24,7 @@ case "$1 $2" in
   "ci retry") echo "Retried job $3" ;;
   api*)
     case "$2" in
+      graphql) kill -TERM "$PPID" 2>/dev/null; exit 1 ;;
       */pipelines/900/jobs*) cat "$host/jobs.json" ;;
       */merge_requests/7/pipelines) pipeline | jq -s . ;;
       */test_report) echo '{"total_count":0,"test_suites":[]}' ;;

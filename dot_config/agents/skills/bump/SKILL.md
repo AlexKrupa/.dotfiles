@@ -59,6 +59,7 @@ PR description and the CI state.
    - If the bump branch is on the remote, push. Then wait for CI again with
      `bump-host.sh ci <URL or branch> --wait --sha <new head>`.
 8. Write the report.
+9. If the bump has an MR, start the watch (see "Watch").
 
 ## Report
 
@@ -74,3 +75,8 @@ PR description and the CI state.
   `path:line`.
 - The fix commits.
 - The CI result, with the pipeline URL.
+
+## Watch
+
+Watch the MR of the bump. Read `~/.config/agents/references/watch/common.md` and follow it, with
+the role file `bump.md`.

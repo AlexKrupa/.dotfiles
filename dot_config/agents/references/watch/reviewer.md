@@ -20,12 +20,6 @@ you reviewed.
 
 ## Events
 
-The review mode also gives these events:
-
-- `pushed`: the head changed. It has `old_base`, `old_head`, `new_base`, and `new_head`.
-- `resolved`: a different user resolved a thread that the user started.
-- `unaddressed`: only for the threads that have a comment of the user.
-
 Handle a `pushed` event first. Then the other events read the new code.
 
 | `kind`     | Action                   | Report section        |

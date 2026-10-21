@@ -56,6 +56,10 @@ This part is for the roles that watch MRs: `author.md`, `reviewer.md`, and `bump
 - A `merged` or `closed` event that the user did has `own: true`.
 - The watch gives no events for the other actions of the user, except `own-comment`.
 - A `comment` and an `unaddressed` line with the same `url` are one item.
+- The review mode also gives `pushed` and `resolved` events. A `pushed` event is a change of the
+  head, with `old_base`, `old_head`, `new_base`, and `new_head`. A `resolved` event is a thread
+  that the user started and a different user resolved. Its `unaddressed` lines are only for the
+  threads that have a comment of the user.
 
 These event kinds have the same action in each role. The table of the role file has only the
 other kinds.
