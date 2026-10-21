@@ -49,7 +49,7 @@ Run the host command for the logs of the failed jobs. Find the cause of each fai
      reports a file under `needs-message`, the fix is not trivial. Undo it with
      `git restore --staged --worktree -- <file>...` and put the failure under Needs you.
   5. Run `~/.config/agents/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)"`.
-  6. Run `git-spice stack submit --update-only --no-prompt`.
+  6. Do "Push".
   7. Switch back to the branch that was current.
 
   If the session is not idle, put the failure under Needs you as "fix waits, session not idle",
@@ -58,21 +58,27 @@ Run the host command for the logs of the failed jobs. Find the cause of each fai
   above. In step 4, commit each `needs-message` file with a one-line message. Report the fix under
   Done. Else put the failure under Needs you, with the cause and a proposed fix.
 
+## Push
+
+Each push of the watch also syncs and restacks the stack. The push starts a new pipeline anyway,
+so the pipeline then tests the newest base.
+
+1. Run `git-spice repo sync --no-prompt` and `git-spice stack restack --no-prompt`.
+2. On a conflict, do "Restack conflicts" of `draft-pr` step 2. It resolves a trivial conflict. If
+   it aborts the restack or the validation fails, put the conflict or the failure under Needs you,
+   with the files.
+3. Run `git-spice stack submit --update-only --no-prompt`. After an aborted restack, this pushes
+   the fix with no restack.
+
 ## Conflicts
 
 If the session is not idle, put the conflict under Needs you as "fix waits, session not idle".
-Else run `git-spice repo sync --no-prompt` and `git-spice stack restack --no-prompt`. On a
-conflict, do "Restack conflicts" of `draft-pr` step 2. If it stops, put the conflict or the failed
-validation under Needs you, with the files.
-
-When the restack succeeds, run `git-spice stack submit --update-only --no-prompt`.
+Else do "Push".
 
 ## Merged MRs
 
 If no open MR of the stack is above the merged MR, do nothing more. If the session is not idle,
-put the restack under Needs you as "fix waits, session not idle". Else run
-`git-spice repo sync --no-prompt`, `git-spice stack restack --no-prompt`, and
-`git-spice stack submit --update-only --no-prompt`. On a restack conflict, do as in "Conflicts".
+put the restack under Needs you as "fix waits, session not idle". Else do "Push".
 
 ## Comments
 

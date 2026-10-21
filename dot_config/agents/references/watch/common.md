@@ -16,12 +16,12 @@ Read this file, the host file, and the role file that the skill names. All files
   file. If no host file agrees with the host, do not start the watch. Tell it in one line.
 - Role file: the events of the role, and the action for each event.
 
-| Role file     | Skill       | Watches                                                        |
-| ------------- | ----------- | -------------------------------------------------------------- |
-| `hub.md`      | `hub`       | The project: to-do items, new MRs, comments, default branch    |
-| `author.md`   | `draft-pr`  | The MRs of the stack of the user                               |
-| `reviewer.md` | `review-pr` | One MR of a different person, for its reviewer                 |
-| `bump.md`     | `bump`      | One dependency bump MR                                         |
+| Role file     | Skill       | Watches                                                     |
+| ------------- | ----------- | ----------------------------------------------------------- |
+| `hub.md`      | `hub`       | The project: to-do items, new MRs, comments, default branch |
+| `author.md`   | `draft-pr`  | The MRs of the stack of the user                            |
+| `reviewer.md` | `review-pr` | One MR of a different person, for its reviewer              |
+| `bump.md`     | `bump`      | One dependency bump MR                                      |
 
 ## Task
 
@@ -61,15 +61,18 @@ This part is for the roles that watch MRs: `author.md`, `reviewer.md`, and `bump
   that the user started and a different user resolved. Its `unaddressed` lines are only for the
   threads that have a comment of the user.
 
-These event kinds have the same action in each role. The table of the role file has only the
-other kinds.
+These event kinds have the same action in each role, unless the role file has a row for the
+kind. The watch gives no event for a change of the user. The full event list with the exceptions
+is in the header of the watch script of the host.
 
-| `kind`             | Action                         | Report section    |
-| ------------------ | ------------------------------ | ----------------- |
-| `own-comment`      | See "Own comments"             | Info or Needs you |
-| `unaddressed`      | The thread waits for the user  | Needs you         |
-| `merged`, `closed` | Do not start the watch again   | Info              |
-| all other kinds    | None                           | Info              |
+| `kind`             | Action                        | Report section    |
+| ------------------ | ----------------------------- | ----------------- |
+| `own-comment`      | See "Own comments"            | Info or Needs you |
+| `unaddressed`      | The thread waits for the user | Needs you         |
+| `title`, `labels`  | None                          | Info              |
+| `description`      | None                          | Info              |
+| `merged`, `closed` | Do not start the watch again  | Info              |
+| all other kinds    | None                          | Info              |
 
 The user does these actions, never you: reply to a comment, resolve a thread, react, approve,
 merge, close, mark an MR ready, or change its title, description, or labels.

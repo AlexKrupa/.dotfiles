@@ -22,11 +22,12 @@ you reviewed.
 
 Handle a `pushed` event first. Then the other events read the new code.
 
-| `kind`     | Action                   | Report section        |
-| ---------- | ------------------------ | --------------------- |
-| `pushed`   | See "Pushes"             | Needs you, Done, Info |
-| `comment`  | See "Comments"           | Needs you or Info     |
-| `resolved` | See "Resolved threads"   | Info or Needs you     |
+| `kind`        | Action                                                                           | Report section        |
+| ------------- | -------------------------------------------------------------------------------- | --------------------- |
+| `pushed`      | See "Pushes"                                                                     | Needs you, Done, Info |
+| `comment`     | See "Comments"                                                                   | Needs you or Info     |
+| `resolved`    | See "Resolved threads"                                                           | Info or Needs you     |
+| `description` | Read the new description. If the purpose of the MR changed, propose a new review | Needs you or Info     |
 
 ## Pushes
 
