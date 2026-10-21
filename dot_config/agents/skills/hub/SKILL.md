@@ -2,9 +2,9 @@
 name: hub
 description: >-
   Use when the user runs /hub in a repo's main checkout to manage the herdr worktree agents of
-  that repo, watch its GitLab review requests, mentions, and default branch pipelines, start
-  review agents and debug agents, and keep the main checkout on the newest commit, or asks the hub
-  for the status of its agents.
+  that repo, watch its GitLab review requests, mentions, dependency bump MRs, and default branch
+  pipelines, start review agents, bump agents, and debug agents, and keep the main checkout on the
+  newest commit, or asks the hub for the status of its agents.
 disable-model-invocation: true
 ---
 
@@ -46,8 +46,9 @@ Give the status when `/hub` starts, and each time the user asks for it.
 
 ## Watch
 
-The watch finds to-do items, comments on MRs of other people, reactions on your comments in
-these MRs, and failed pipelines of the default branch, in the project of this repo. It gives no output while there are no events.
+The watch finds to-do items, new MRs of other people, comments on MRs of other people, reactions
+on your comments in these MRs, and failed pipelines of the default branch, in the project of this
+repo. It gives no output while there are no events.
 
 1. After the first status report, start the watch: run
    `~/.config/agents/bin/watch-gitlab.sh --interval 120` as a background Bash task. Start it
@@ -55,8 +56,11 @@ these MRs, and failed pipelines of the default branch, in the project of this re
 2. When the task stops with exit `0`, each output line is one JSON event with the fields `kind`,
    `iid`, `title`, `url`, `actor`, `detail`, and `branch`. A `default-failed` event is a failed
    pipeline of the default branch. Its `iid` and `title` are null. All other events are MR
-   events.
-   1. Send one notification. Replace each `'` in the text with a space.
+   events. The `actor` of an `opened` event is the MR author.
+   1. Do "Router" for each MR with an `opened` event or a `todo` event with the `detail`
+      `review_requested`. Remove the `opened` events that the router does not keep. If no events
+      remain, do step 5 and give no output.
+   2. Send one notification. Replace each `'` in the text with a space.
       - One MR event:
         `herdr notification show '!<iid>: <kind> from @<actor>' --body '<detail>' --sound request`.
         If `actor` is empty, leave out `from @<actor>`.
@@ -64,7 +68,7 @@ these MRs, and failed pipelines of the default branch, in the project of this re
         `herdr notification show '<branch> pipeline failed' --body '<detail>' --sound request`.
       - More events: `herdr notification show '<n> hub events' --body '<id>, <id>' --sound request`.
         The id of an MR event is `!<iid>`. The id of a `default-failed` event is `<branch>`.
-   2. Run `~/.claude/skills/hub/hub-status.sh` and `date +%H:%M`. Output the events in one
+   3. Run `~/.claude/skills/hub/hub-status.sh` and `date +%H:%M`. Output the events in one
       block. Put the events of one MR in one group. Put the `default-failed` event of a branch
       in one group.
 
@@ -94,15 +98,16 @@ these MRs, and failed pipelines of the default branch, in the project of this re
         | `todo`, other `detail`       | `@<actor>: <detail>`, with `_` as a space          |
         | `note`                       | `@<actor> commented: "<detail>"`                   |
         | `reaction`                   | `@<actor> reacted <detail>`                        |
+        | `opened`                     | `@<actor> opened a dependency bump`                |
         | all other kinds              | `<detail>`                                         |
 
       - Sort the groups by their most urgent event. Urgency, from high to low:
         1. `default-failed`
         2. `note`, `todo`
         3. All other events
-   3. For each `todo` event with the `detail` `review_requested`, do "Auto-review". For each
-      `default-failed` event, do "Auto-debug".
-   4. Start the watch again.
+   4. For each MR, do the action that the router selected in step 1. For each `default-failed`
+      event, do "Auto-debug".
+   5. Start the watch again.
 3. When the task stops with exit `1`, report its stderr text and run
    `herdr notification show 'Hub watch stopped' --body '<stderr text>' --sound request`. Do not
    start the watch again. If the text names a token permission, tell the user to add that
@@ -111,18 +116,41 @@ these MRs, and failed pipelines of the default branch, in the project of this re
    watch again. Do not send a notification.
 5. If the user asks to stop the watch, stop the task. If the user asks to start it, start it.
 
+## Router
+
+The router selects one action for each new MR or review request. Do these steps one time for each
+MR, also when the MR has an `opened` event and a `todo` event in the same round.
+
+1. Run `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`. The JSON has `author`,
+   `labels`, `source_branch`, and `description`. If the script fails, keep the events, select no
+   action, and output the stderr text below the event block.
+2. Decide if the MR is a dependency bump: an MR that only changes the versions of dependencies.
+   Use the title, the author, the branch, the labels, and the description. There is no fixed rule.
+   - Signs of a bump: the author or the branch has `renovate` or `dependabot`. The title is
+     similar to "Update dependency X to v2" or "Bump X from 1.0 to 1.1". A label is similar to
+     `dependencies`. The description has a table of packages with versions.
+   - Not a bump: a change to the bot configuration, for example `renovate.json` or a Renovate
+     preset. An MR that a person opened for other work and that also changes a version.
+   - If it is not clear, the MR is not a bump.
+3. Select the action:
+   - A bump: keep the events and select "Auto-bump". This rule applies also when the MR has a
+     review request.
+   - Not a bump, with a `review_requested` event: remove the `opened` event and select
+     "Auto-review".
+   - Not a bump, with no `review_requested` event: remove the `opened` event and select no
+     action.
+
 ## Auto-review
 
 The hub starts a review agent for each review request from a different person. The agent works in
-its own herdr worktree workspace. Do these steps for each `review_requested` event. Write each
-output line below the event block.
+its own herdr worktree workspace. Do these steps for each MR for which the router selected
+"Auto-review". Write each output line below the event block.
 
 1. Look for an earlier review report:
    `ls ~/.ai/$(~/.config/agents/bin/repo-slug.sh)/reviews/*-mr-<iid>-*.md`. If a report exists,
    start no agent and output `!<iid>: Already reviewed: <report path>`. This rule applies also
    when the MR has new commits, or when the person adds the user as reviewer again.
-2. Run `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`. The branch is `source_branch` in
-   the JSON. If the script fails, output its stderr text and stop.
+2. The branch is `source_branch` in the JSON of "Router" step 1.
 3. Ticket id: the issue key at the start of the branch name. Else, the placeholder id of the
    repo's `CLAUDE.md`. Else, start no agent and output
    `!<iid>: No placeholder id in CLAUDE.md, no review agent`.
@@ -138,8 +166,37 @@ output line below the event block.
    - Exit `0`: output `!<iid>: Review agent <pane id> started`. The pane id is `pane_id` in the
      JSON.
    - The stderr text has "is open in herdr workspace": an agent works on the branch already. Start
-     no agent. The group header has `(agent <pane id>)` from "Watch" step 2.2.
+     no agent. The group header has `(agent <pane id>)` from "Watch" step 2.3.
    - Other errors: output the stderr text, word for word. The user fixes the cause.
+
+## Auto-bump
+
+The hub starts a bump agent for each new dependency bump MR, also when the user is not a reviewer
+of the MR. The agent works in its own herdr worktree workspace. Do these steps for each MR for
+which the router selected "Auto-bump". Write each output line below the event block.
+
+1. The branch is `source_branch` in the JSON of "Router" step 1.
+2. Ticket id: the issue key at the start of the branch name. Else, the placeholder id of the
+   repo's `CLAUDE.md`. Else, start no agent and output
+   `!<iid>: No placeholder id in CLAUDE.md, no bump agent`.
+3. Run this command. The branch name goes in single quotes. Do not add `--effort`.
+
+   ```sh
+   ~/.claude/skills/work/work-start.sh <ticket-id> --branch '<source_branch>' <<'PROMPT'
+   /bump <mr-url>
+   PROMPT
+   ```
+
+4. Result:
+   - Exit `0`: output `!<iid>: Bump agent <pane id> started`. The pane id is `pane_id` in the
+     JSON.
+   - The stderr text has "is open in herdr workspace": an agent works on the branch already. Start
+     no agent. The group header has `(agent <pane id>)` from "Watch" step 2.3.
+   - Other errors: output the stderr text, word for word. The user fixes the cause.
+5. After exit `0`, find an older bump agent of the same dependency: a `hub-status.sh` line with a
+   different branch that names the same dependency, for example `renovate/foo-1.x` for a bump of
+   `foo`. For each such agent, output `!<iid>: Bump agent <old pane id> is stale`. Do not close its
+   workspace, because it can contain changes.
 
 ## Auto-debug
 

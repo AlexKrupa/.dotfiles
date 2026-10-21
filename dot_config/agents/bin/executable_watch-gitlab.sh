@@ -5,9 +5,10 @@
 # title, url, actor, detail, branch. With no state file, the first check only saves the state.
 # --once: do one check, then stop.
 # --fresh: delete the state file before the first check.
-# Hub mode (no --mr) watches to-do items, comments on MRs of other people, reactions on the
-# comments of the user in these MRs, and the default branch. The default-failed event of the
-# default branch has a null iid and title. Its previous field is the status of the saved
+# Hub mode (no --mr) watches to-do items, new MRs of other people, comments on MRs of other
+# people, reactions on the comments of the user in these MRs, and the default branch. The opened
+# event of a new MR has the MR author as actor. The default-failed event of the default branch has
+# a null iid and title. Its previous field is the status of the saved
 # default-branch pipeline, or null.
 # A default-failed event is only for a pipeline id above the saved id. A lower id, for example
 # during a job retry, does not change the saved pipeline.
@@ -224,6 +225,7 @@ $old[0] as $old | $todos[0] as $todos
     | {iid: $iid, key: "\($id):\(.name):\(.user.username)", name, user: .user.username,
        url: "\($by[$iid].web_url)#note_\($id)"}] | group_by(.iid)
   | map({key: .[0].iid, value: .}) | from_entries) as $reactions_by
+| ($opened[0] | map(select(.author.username != $me))) as $opened
 | ($default[0][0] | if . then {id, status} else null end) as $new_pipeline
 | ($old.default_pipeline // null) as $saved_pipeline
 | (if $saved_pipeline == null or $saved_pipeline.id <= ($new_pipeline.id // 0)
@@ -234,12 +236,17 @@ $old[0] as $old | $todos[0] as $todos
     reactions: [($reactions_by[$k] // [])[].key]
   })) as $mrs
 | {
-    state: {todos: [$todos[].id], mrs: $mrs, default_pipeline: $default_pipeline},
+    state: {todos: [$todos[].id], opened: [$opened[].iid], mrs: $mrs,
+      default_pipeline: $default_pipeline},
     events: (if $old == null then [] else [
       ($todos[] | select(.id as $id | $old.todos | any(. == $id) | not)
         | select(.target.author.username != $me)
         | {kind: "todo", iid: .target.iid, title: .target.title, url: .target_url,
            actor: .author.username, detail: .action_name, branch: .target.source_branch}),
+      ($opened[] | select($old | has("opened"))
+        | select(.iid as $iid | $old.opened | any(. == $iid) | not)
+        | {kind: "opened", iid, title, url: .web_url, actor: .author.username, detail: "opened",
+           branch: .source_branch}),
       ($default[0][0] | select($old | has("default_pipeline"))
         | select(. != null and .id > ($old.default_pipeline.id // 0) and .status == "failed")
         | {kind: "default-failed", iid: null, title: null, url: .web_url, actor: "",
@@ -394,6 +401,9 @@ check() {
   since=$(jq -nr 'now | floor - 14 * 86400 | todate')
   api "todos?project_id=$pid&type=MergeRequest&state=pending&per_page=100" >"$tmp/todos.json" \
     || return
+  # Only the newest 100: an older MR is not new.
+  api "projects/$pid/merge_requests?state=opened&order_by=created_at&sort=desc&per_page=100" \
+    >"$tmp/opened.json" || return
   api "users/$me_id/events?target_type=note&after=${since%%T*}&per_page=100" \
     >"$tmp/events.json" || return
   iids=$(jq -r --argjson pid "$pid" '[.[] | select(.project_id == $pid
@@ -430,6 +440,7 @@ check() {
   api "projects/$pid/pipelines?ref=$default_ref&scope=finished&per_page=1" >"$tmp/default.json" \
     || return
   jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
+      --slurpfile opened "$tmp/opened.json" \
       --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
       --slurpfile default "$tmp/default.json" --slurpfile reactions "$tmp/reactions.jsonl" \
       --arg me "$me" --arg default_branch "$default_branch" "$PROGRAM" >"$tmp/result.json" \

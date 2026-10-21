@@ -52,6 +52,7 @@ case "$2" in
   todos\?*) f=todos ;;
   users/1/events\?*) f=events ;;
   projects/7/merge_requests\?author_username=*) echo "own MRs call: $2" >&2; exit 2 ;;
+  projects/7/merge_requests\?state=opened\&*) f=opened ;;
   projects/7/merge_requests\?*) f=commented ;;
   projects/*/merge_requests/*/notes/*/award_emoji\?*) f=award_note_$(echo "$2" | cut -d/ -f6) ;;
   projects/*/merge_requests/*/award_emoji\?*) f=award_mr_$iid ;;
@@ -318,6 +319,25 @@ check "failure after a pass: previous success" "success" "$(jq -r .previous <<<"
 echo '{"todos": [], "mrs": {}, "default_pipeline": null}' >"$state"
 run
 check "saved null pipeline: event with previous null" "null" "$(jq -r .previous <<<"$out")"
+
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture opened "[$(mr 20 'Update dependency foo to v2' opened t1 renovate-bot renovate/foo-2.x)]"
+: >"$MOCK_LOG"
+run
+check "open MRs: newest first" \
+  "api projects/7/merge_requests?state=opened&order_by=created_at&sort=desc&per_page=100" \
+  "$(grep '^api projects/7/merge_requests?state=opened' "$MOCK_LOG")"
+check "state with no open MRs: no events for open MRs" "" "$out"
+fixture opened "[$(mr 22 'Add qux' opened t1 me ABC-4/qux),
+  $(mr 21 'Update dependency bar to v3' opened t1 renovate-bot renovate/bar-3.x),
+  $(mr 20 'Update dependency foo to v2' opened t1 renovate-bot renovate/foo-2.x)]"
+run
+check "new MR of a different user, not own MRs" \
+  '{"kind":"opened","iid":21,"title":"Update dependency bar to v3","url":"'"$url"'/21","actor":"renovate-bot","detail":"opened","branch":"renovate/bar-3.x"}' \
+  "$out"
+run
+check "same open MRs: no events" "" "$out"
 
 cp "$d/mock/pipelines.json" "$d/pipelines.json"
 fixture pipelines '[{"id": 76, "status": "failed", "web_url": "'"$pipelines"'/76"}]'
