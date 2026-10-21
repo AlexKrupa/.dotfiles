@@ -1,8 +1,8 @@
 # Watch: common rules
 
 A watch is a background task that checks the code host. It stops at the first check with events.
-You handle the events, report, and start the watch again. Between events, the user can use the session for
-other work.
+You handle the events, report, and start the watch again. Between events, the user can use the
+session for other work.
 
 The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply to PRs and checks.
 
