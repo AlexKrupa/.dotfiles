@@ -2,29 +2,52 @@
 # Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once] [--fresh] [--review]
 #   [--mr IID]...
 # Stops at the first check with new events and prints one JSON line for each event: kind, iid,
-# title, url, actor, detail, branch. With no state file, the first check only saves the state.
+# title, url, actor, detail, branch. With no state file, the first check only saves the state. A
+# value that the saved state does not have gives no event at its first check.
 # --once: do one check, then stop.
 # --fresh: delete the state file before the first check.
-# Hub mode (no --mr) watches to-do items, new MRs of other people, comments on MRs of other
-# people, reactions on the comments of the user in these MRs, and the default branch. The opened
-# event of a new MR has the MR author as actor. The default-failed event of the default branch has
-# a null iid and title. Its previous field is the status of the saved
-# default-branch pipeline, or null.
-# A default-failed event is only for a pipeline id above the saved id. A lower id, for example
-# during a job retry, does not change the saved pipeline.
-# Stack mode (--mr, one for each MR, `!` prefix allowed) watches these MRs: pipeline, comment,
-# own-comment (a comment of the user), reaction, approved, unapproved, draft, ready, conflict,
-# mergeable, merged, closed. Other actions of the user give no events, except merged and closed:
-# they have `own: true`. Comments, reactions, and threads on a diff line also have path and line.
-# After the events, it prints one unaddressed line for each open thread whose last comment is not
-# from the user.
+#
+# Hub mode (no --mr) watches the project of the repo, for the hub. Events:
+#   kind            when                                          except
+#   todo            a new pending to-do item on an MR             on an MR of the user
+#   opened          a new open MR, of the newest 100              an MR of the user
+#   note            a new comment on an MR of a different         a comment of the user, a system
+#                   person that the user commented on (14 days)   note
+#   reaction        a new reaction on a comment of the user       a reaction of the user
+#   default-failed  a new failed default-branch pipeline          a pipeline id below the saved id,
+#                                                                 for example during a job retry
+# An MR with a running review watch gives only the review_requested to-do item and the opened
+# event. The agent of the review watch reports the other events.
+# opened: actor is the MR author. default-failed: iid and title are null, and previous is the
+# status of the saved default-branch pipeline, or null.
+#
+# Stack mode (--mr, one for each MR, `!` prefix allowed) watches the MRs of the stack of the user.
+# Review mode (--review and one --mr) watches one MR for its reviewer. Events of both modes:
+#   kind                     when                                       except
+#   pipeline                 the head pipeline failed or passed
+#   comment                  a new comment                              a comment of the user
+#   own-comment              a new comment of the user
+#   reaction                 a new reaction, on the MR or a comment     a reaction of the user
+#   approved, unapproved     an approval added or removed               the user
+#   draft, ready             the draft state changed                    a change of the user
+#   title                    the title changed (detail: new title)      a change of the user
+#   description              the description changed                    a change of the user
+#   labels                   the labels changed (detail: +new, -gone)   a change of the user
+#   conflict                 a merge conflict started
+#   mergeable                the MR became mergeable
+#   merged, closed           the MR was merged or closed                none (the user: own true)
+#   unaddressed              after the other events: each open thread   a thread that the user
+#                            whose last comment is not of the user      answered last
+# Review mode only:
+#   pushed                   the head changed (old_base, old_head, new_base, new_head)
+#   resolved                 a different user resolved a thread that the user started
+#   unaddressed              only for the threads that have a comment of the user
+# Comments, reactions, and threads on a diff line also have path and line. The actor of a change
+# comes from the newest system note of that change, or is empty.
+#
 # A new instance stops an older instance of the same repo and mode. A stack watch has one
-# instance for each worktree.
-# Review mode (--review and one --mr) watches one MR for its reviewer. It has the events of the
-# stack mode, and also: pushed (the head changed, with old_base, old_head, new_base, new_head) and
-# resolved (a thread that the user started is resolved by a different user). Its unaddressed
-# lines are only for threads that have a note from the user. It has its own state and lock for
-# each MR, so it runs at the same time as a stack watch or a review watch of a different MR.
+# instance for each worktree. A review watch has its own state and lock for each MR, so it runs at
+# the same time as a stack watch or a review watch of a different MR.
 # Stack and review mode stop when the parent process or the repo directory is gone.
 # The watch pauses during system sleep. A network error does not count: it waits for the network,
 # with no limit.
@@ -73,8 +96,9 @@ lock=$state_dir/$key.lock
 mkdir -p "$state_dir"
 # A new watch replaces the old one: stop an older instance of this script that holds the lock.
 # The command check stops no different program that got the PID of a dead instance.
+is_watch() { ps -o command= -p "$1" 2>/dev/null | grep -q 'watch-gitlab\.sh'; }
 old=$(cat "$lock" 2>/dev/null || true)
-if [[ -n $old ]] && ps -o command= -p "$old" 2>/dev/null | grep -q 'watch-gitlab\.sh'; then
+if [[ -n $old ]] && is_watch "$old"; then
   kill "$old" 2>/dev/null || true
   for _ in {1..20}; do ps -p "$old" >/dev/null || break; sleep 0.5; done
   kill -KILL "$old" 2>/dev/null || true
@@ -197,6 +221,7 @@ fetch_mr() {
     ($note_emoji | add // {}) as $emoji_by_note
     | .data | .project.mergeRequest.webUrl as $url
     | .project.mergeRequest += {
+        description: ($mr[0].description // ""), labels: ($mr[0].labels // []),
         diffRefs: ($mr[0].diff_refs
           | if . then {baseSha: .base_sha, headSha: .head_sha} else null end),
         awardEmoji: ($mr_emoji[0] | emoji),
@@ -264,7 +289,9 @@ $old[0] as $old | $todos[0] as $todos
         | ($reactions_by[$k] // [])[] | select(.key as $key | $o | index($key) | not)
         | {kind: "reaction", iid: $mr.iid, title: $mr.title, url: .url, actor: .user,
            detail: ":\(.name): on your comment", branch: $mr.source_branch})
-    ] end)
+    ] | map(select(.kind == "opened" or .kind == "default-failed"
+        or (.kind == "todo" and .detail == "review_requested")
+        or (.iid as $iid | $reviewed | any(. == $iid) | not))) end)
   }
 JQ
 )
@@ -289,6 +316,10 @@ def norm($me):
       merge_user: (.mergeUser.username // ""), draft,
       draft_user: actor("^marked this merge request as \\*\\*(draft|ready)\\*\\*"),
       close_user: actor("^closed$"),
+      description, labels: (.labels | sort),
+      title_user: actor("^changed title "),
+      description_user: actor("^changed the description"),
+      labels_user: actor("^(added|removed) ~.* labels?( |$)"),
       base: (.diffRefs.baseSha // null), head: (.diffRefs.headSha // null),
       resolved_mine: [$ds[] | select(.resolvable and .resolved
           and .notes[0].author.username == $me)
@@ -316,7 +347,7 @@ def norm($me):
 | $old[0] as $old
 | [$data[].project.mergeRequest | norm($me)] as $now
 | ($now | map({key: (.iid | tostring), value: (. as $n | ($old.mrs[.iid | tostring] // {}) as $o
-    | {state, draft, pipeline, approved_by,
+    | {state, draft, pipeline, approved_by, title, description, labels,
        conflicts: (if $n.merge_status | transient then $o.conflicts else $n.conflicts end),
        mergeable: (if $n.merge_status | transient then $o.mergeable else $n.mergeable end),
        last_note_id: ([$n.notes[].id, $o.last_note_id // 0] | max),
@@ -342,6 +373,15 @@ def norm($me):
        (select($o.draft != null and $n.draft != $o.draft and $mr.draft_user != $me)
          | if $n.draft then event("draft"; $mr; $mr.draft_user; "marked as draft"; null)
            else event("ready"; $mr; $mr.draft_user; "marked as ready"; null) end),
+       (select($o.title != null and $n.title != $o.title and $mr.title_user != $me)
+         | event("title"; $mr; $mr.title_user; ($n.title | short); null)),
+       (select($o.description != null and $n.description != $o.description
+           and $mr.description_user != $me)
+         | event("description"; $mr; $mr.description_user; "description changed"; null)),
+       (select($o.labels != null and $n.labels != $o.labels and $mr.labels_user != $me)
+         | event("labels"; $mr; $mr.labels_user;
+             [(($n.labels - $o.labels)[] | "+\(.)"), (($o.labels - $n.labels)[] | "-\(.)")]
+             | join(", "); null)),
        (select($n.conflicts and ($o.conflicts | not))
          | event("conflict"; $mr; ""; "merge conflict"; null)),
        (select($n.mergeable and ($o.mergeable | not))
@@ -387,7 +427,7 @@ check_stack() {
 check_mode() { if ((${#mrs[@]})); then check_stack; else check; fi; }
 
 check() {
-  local old=$state since iids iid note user project_json
+  local old=$state since iids iid note user project_json review_lock reviewed=()
   if [[ -z $pid ]]; then
     user=$(api user) || return
     project_json=$(api "projects/$project_ref") || return
@@ -439,8 +479,16 @@ check() {
   done
   api "projects/$pid/pipelines?ref=$default_ref&scope=finished&per_page=1" >"$tmp/default.json" \
     || return
+  # The agent of an MR with a running review watch reports its events. The lock of a dead process
+  # does not count.
+  for review_lock in "$state_dir/$slug"-????????????-review-*.lock; do
+    [[ -e $review_lock ]] && is_watch "$(cat "$review_lock" 2>/dev/null)" || continue
+    iid=${review_lock##*-review-}
+    reviewed+=("${iid%.lock}")
+  done
   jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
       --slurpfile opened "$tmp/opened.json" \
+      --argjson reviewed "$(printf '%s\n' ${reviewed[@]+"${reviewed[@]}"} | jq -sc .)" \
       --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
       --slurpfile default "$tmp/default.json" --slurpfile reactions "$tmp/reactions.jsonl" \
       --arg me "$me" --arg default_branch "$default_branch" "$PROGRAM" >"$tmp/result.json" \

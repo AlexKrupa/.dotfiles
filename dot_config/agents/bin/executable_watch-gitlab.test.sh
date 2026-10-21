@@ -339,6 +339,40 @@ check "new MR of a different user, not own MRs" \
 run
 check "same open MRs: no events" "" "$out"
 
+# A fake review watch: a live process with watch-gitlab.sh in its command.
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture commented "[$(mr 9 'Fix bar' opened t1 bob ABC-2/bar)]"
+fixture events '[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}}]'
+run
+mkdir -p "$d/fake"
+printf '#!/bin/sh\nsleep 60\n' >"$d/fake/watch-gitlab.sh"
+chmod +x "$d/fake/watch-gitlab.sh"
+"$d/fake/watch-gitlab.sh" &
+reviewer=$!
+echo "$reviewer" >"$d/state/watch-gitlab/app-0123456789ab-review-9.lock"
+todo_9() { # id action_name
+  printf '{"id": %s, "action_name": "%s", "author": {"username": "anna"},
+    "target": {"iid": 9, "title": "Fix bar", "source_branch": "ABC-2/bar",
+      "author": {"username": "bob"}}, "target_url": "%s/9"}' "$1" "$2" "$url"
+}
+fixture todos "[$(todo_9 21 mentioned), $(todo_9 22 review_requested)]"
+fixture commented "[$(mr 9 'Fix bar' opened t2 bob ABC-2/bar)]"
+fixture notes_9 '[{"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}]'
+run
+check "MR with a review watch: only the review request" \
+  '{"kind":"todo","iid":9,"title":"Fix bar","url":"'"$url"'/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar"}' \
+  "$out"
+# The lock stays. Its process is dead, so it does not count.
+{ kill "$reviewer"; wait "$reviewer"; } 2>/dev/null
+fixture commented "[$(mr 9 'Fix bar' opened t3 bob ABC-2/bar)]"
+fixture notes_9 '[{"id": 302, "system": false, "body": "Still odd", "author": {"username": "anna"}},
+  {"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}]'
+run
+check "MR with a stopped review watch: events again" \
+  '{"kind":"note","iid":9,"title":"Fix bar","url":"'"$url"'/9#note_302","actor":"anna","detail":"Still odd","branch":"ABC-2/bar"}' \
+  "$out"
+
 cp "$d/mock/pipelines.json" "$d/pipelines.json"
 fixture pipelines '[{"id": 76, "status": "failed", "web_url": "'"$pipelines"'/76"}]'
 export MOCK_FAIL='user' MOCK_FAIL_MSG='dial tcp: connection refused' MOCK_FAIL_TIMES=6
@@ -520,6 +554,28 @@ gql 5 '.draft = true'
 discussions 5
 srun --mr 5
 check "stack: draft with no system note" "$(sev draft 5 '' 'marked as draft')" "$out"
+
+reset_mock
+gql 5
+fixture mr_5 '{"description": "Old text", "labels": ["wip", "app"]}'
+srun --mr 5
+gql 5 '.title = "Add foo and bar"'
+fixture mr_5 '{"description": "New text", "labels": ["app", "bug"]}'
+discussions 5 "$(system_note 130 anna 'changed title from **Add foo** to **Add foo and bar**')" \
+  "$(system_note 131 anna 'changed the description')" \
+  "$(system_note 132 bob 'added ~7 label and removed ~8 label')"
+srun --mr 5
+check "stack: title, description, and labels changed" \
+  "$(sev title 5 anna 'Add foo and bar' | jq -c '.title = "Add foo and bar"')
+$(sev description 5 anna 'description changed' | jq -c '.title = "Add foo and bar"')
+$(sev labels 5 bob '+bug, -wip' | jq -c '.title = "Add foo and bar"')" "$out"
+gql 5
+fixture mr_5 '{"description": "Own text", "labels": []}'
+discussions 5 "$(system_note 133 me 'changed title from **Add foo and bar** to **Add foo**')" \
+  "$(system_note 134 me 'changed the description')" \
+  "$(system_note 135 me 'removed ~7 ~9 labels')"
+srun --mr 5
+check "stack: own title, description, and label changes: no events" "" "$out"
 
 reset_mock
 gql 5
