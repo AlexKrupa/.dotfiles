@@ -110,6 +110,7 @@ remote=$(git remote get-url origin 2>/dev/null \
   || git remote get-url "$(git remote | head -n1)" 2>/dev/null) || die "no git remote in $repo"
 WATCH_HOST=$(remote_host "$remote")
 project=$(sed -E 's#\.git$##; s#^[a-z+]+://[^/]+/##; s#^[^@/]+@[^:]+:##' <<<"$remote")
+project_ref=$(jq -rn --arg p "$project" '$p | @uri')
 
 permission_for() {
   case "$1" in
@@ -117,6 +118,7 @@ permission_for() {
     users/*/events*) echo 'Event (user boundary)' ;;
     todos*) echo 'Todo (user boundary)' ;;
     projects/*/merge_requests/*/notes*) echo 'Work Item (group or project boundary)' ;;
+    projects/*/merge_requests/*/discussions*) echo 'Work Item (group or project boundary)' ;;
     projects/*/merge_requests*) echo 'Merge Request (group or project boundary)' ;;
     projects/*/pipelines*) echo 'Pipeline (group or project boundary)' ;;
     graphql) echo 'Merge Request (group or project boundary)' ;;
@@ -142,36 +144,24 @@ api() {
   return 1
 }
 
-MR_QUERY='query($path: ID!, $iid: String!, $endCursor: String) {
+MR_QUERY='query($path: ID!, $iid: String!) {
   currentUser { username }
   project(fullPath: $path) { mergeRequest(iid: $iid) {
     iid title webUrl sourceBranch state draft
-    diffRefs { baseSha headSha }
     mergeUser { username }
     headPipeline { id status }
     approvedBy { nodes { username } }
     detailedMergeStatus conflicts mergeable
-    awardEmoji { nodes { name user { username } } }
-    discussions(first: 100, after: $endCursor) { pageInfo { hasNextPage endCursor }
-      nodes { id resolvable resolved resolvedBy { username }
-      notes(first: 100) { nodes { id body system url author { username }
-        position { newPath newLine }
-        awardEmoji { nodes { name user { username } } } } } } }
   } }
 }'
 
-# The newest 100 comments of each MR. The iids go into the query text: `glab api -f` sends only
-# strings.
-HUB_QUERY='query($path: ID!) { project(fullPath: $path) { mergeRequests(iids: IIDS) { nodes {
-  iid notes(filter: ONLY_COMMENTS, last: 100) { nodes { id url author { username }
-    awardEmoji { nodes { name user { username } } } } } } } } }'
-
-# glab --paginate prints one JSON document for each page. On a GraphQL error, glab exits 1 and
-# prints the body. It returns 2, because a new try gives the same error.
-gql() {
-  local rc=0
-  api graphql --paginate -f query="$MR_QUERY" -f path="$project" -f iid="$1" >"$tmp/gql.json" \
-    || rc=$?
+# With a fine-grained token, GraphQL gives no discussions, diff refs, or reactions, and no error.
+# They come from REST, in the form of the GraphQL fields.
+# On a GraphQL error, glab exits 1 and prints the body. It returns 2, because a new try gives
+# the same error.
+fetch_mr() {
+  local rc=0 mr_path count note_id
+  api graphql -f query="$MR_QUERY" -f path="$project" -f iid="$1" >"$tmp/gql.json" || rc=$?
   if jq -se 'any(.[]; .errors)' "$tmp/gql.json" >/dev/null 2>&1; then
     echo "graphql: $(jq -rs '[.[].errors[]?.message] | join("; ")' "$tmp/gql.json")" \
       >"$tmp/error"
@@ -182,8 +172,43 @@ gql() {
     echo "MR !$1 not found in $project" >"$tmp/error"
     return 2
   fi
-  jq -cs '[.[].data.project.mergeRequest.discussions.nodes[]] as $all
-    | .[0].data | .project.mergeRequest.discussions.nodes = $all' "$tmp/gql.json"
+  mr_path=projects/$project_ref/merge_requests/$1
+  api "$mr_path" >"$tmp/mr.json" || return
+  api "$mr_path/discussions?per_page=100" --paginate >"$tmp/pages.json" || return
+  # glab can print one array for each page.
+  jq -s 'add // []' "$tmp/pages.json" >"$tmp/discussions.json"
+  count=$(jq '.user_notes_count // 0' "$tmp/mr.json")
+  if ((count > 0)) && jq -e 'all(.[].notes[]; .system)' "$tmp/discussions.json" >/dev/null; then
+    echo "MR !$1 has $count comment(s), but $mr_path/discussions?per_page=100 gave none." \
+      "The token needs the Read permission for $(permission_for "$mr_path/discussions")." \
+      >"$tmp/error"
+    return 2
+  fi
+  api "$mr_path/award_emoji?per_page=100" >"$tmp/mr_emoji.json" || return
+  : >"$tmp/note_emoji.jsonl"
+  for note_id in $(jq '.[].notes[] | select(.system | not) | .id' "$tmp/discussions.json"); do
+    api "$mr_path/notes/$note_id/award_emoji?per_page=100" >"$tmp/emoji.json" || return
+    jq -c --arg id "$note_id" '{($id): .}' "$tmp/emoji.json" >>"$tmp/note_emoji.jsonl"
+  done
+  jq -c --slurpfile mr "$tmp/mr.json" --slurpfile discussions "$tmp/discussions.json" \
+    --slurpfile mr_emoji "$tmp/mr_emoji.json" --slurpfile note_emoji "$tmp/note_emoji.jsonl" '
+    def emoji: {nodes: [.[] | {name, user: {username: .user.username}}]};
+    ($note_emoji | add // {}) as $emoji_by_note
+    | .data | .project.mergeRequest.webUrl as $url
+    | .project.mergeRequest += {
+        diffRefs: ($mr[0].diff_refs
+          | if . then {baseSha: .base_sha, headSha: .head_sha} else null end),
+        awardEmoji: ($mr_emoji[0] | emoji),
+        discussions: {nodes: [$discussions[0][] | [.notes[] | select(.resolvable)] as $resolvable
+          | {id, resolvable: ($resolvable != []),
+             resolved: ($resolvable != [] and all($resolvable[]; .resolved)),
+             resolvedBy: ($resolvable[0].resolved_by | if . then {username} else null end),
+             notes: {nodes: [.notes[] | {id: (.id | tostring), body, system,
+               url: "\($url)#note_\(.id)", author: {username: .author.username},
+               position: (.position
+                 | if . then {newPath: .new_path, newLine: .new_line} else null end),
+               awardEmoji: ($emoji_by_note[.id | tostring] // [] | emoji)}]}}]}
+      }' "$tmp/gql.json"
 }
 
 pid=''
@@ -194,11 +219,10 @@ def by_iid: map({key: (.iid | tostring), value: .}) | from_entries;
 $old[0] as $old | $todos[0] as $todos
 | ($watched[0] | map(select(.author.username != $me)) | by_iid) as $by
 | ($notes | map({key: (.iid | tostring), value: .notes}) | from_entries) as $notes_by
-| ([$reactions[0].data.project.mergeRequests.nodes[] | .iid as $iid | .notes.nodes[]
-    | select(.author.username == $me) | . as $n | .awardEmoji.nodes[]
+| ([$reactions[] | (.iid | tostring) as $iid | .id as $id | .emoji[]
     | select(.user.username != $me)
-    | {iid: $iid, key: "\($n.id | split("/") | last):\(.name):\(.user.username)", name,
-       user: .user.username, url: $n.url}] | group_by(.iid)
+    | {iid: $iid, key: "\($id):\(.name):\(.user.username)", name, user: .user.username,
+       url: "\($by[$iid].web_url)#note_\($id)"}] | group_by(.iid)
   | map({key: .[0].iid, value: .}) | from_entries) as $reactions_by
 | ($default[0][0] | if . then {id, status} else null end) as $new_pipeline
 | ($old.default_pipeline // null) as $saved_pipeline
@@ -344,7 +368,7 @@ check_stack() {
   [[ -f $old ]] || old=/dev/null
   : >"$tmp/mrs.jsonl"
   for iid in "${mrs[@]}"; do
-    gql "$iid" >>"$tmp/mrs.jsonl" || return
+    fetch_mr "$iid" >>"$tmp/mrs.jsonl" || return
   done
   jq -n --argjson review "$review" --slurpfile old "$old" --slurpfile data "$tmp/mrs.jsonl" \
     "$STACK_PROGRAM" >"$tmp/result.json" \
@@ -356,10 +380,10 @@ check_stack() {
 check_mode() { if ((${#mrs[@]})); then check_stack; else check; fi; }
 
 check() {
-  local old=$state since iids iid user project_json
+  local old=$state since iids iid note user project_json
   if [[ -z $pid ]]; then
     user=$(api user) || return
-    project_json=$(api "projects/$(jq -rn --arg p "$project" '$p | @uri')") || return
+    project_json=$(api "projects/$project_ref") || return
     me_id=$(jq -r .id <<<"$user")
     me=$(jq -r .username <<<"$user")
     pid=$(jq -r .id <<<"$project_json")
@@ -390,18 +414,24 @@ check() {
       >"$tmp/notes.json" || return
     jq -c --argjson iid "$iid" '{iid: $iid, notes: .}' "$tmp/notes.json" >>"$tmp/notes.jsonl"
   done
-  echo '{"data": {"project": {"mergeRequests": {"nodes": []}}}}' >"$tmp/reactions.json"
-  iids=$(jq -c --arg me "$me" '[.[] | select(.author.username != $me) | .iid | tostring]' \
-    "$tmp/watched.json")
-  if [[ $iids != '[]' ]]; then
-    api graphql -f query="${HUB_QUERY/IIDS/$iids}" -f path="$project" >"$tmp/reactions.json" \
-      || return
-  fi
+  # GraphQL gives no reactions to a fine-grained token. The comments of the user come from the
+  # events, one reaction call for each comment.
+  : >"$tmp/reactions.jsonl"
+  for note in $(jq -r --argjson pid "$pid" --arg me "$me" --slurpfile watched "$tmp/watched.json" \
+      '[$watched[0][] | select(.author.username != $me) | .iid] as $iids
+      | .[] | select(.project_id == $pid and .note.noteable_type == "MergeRequest")
+      | select(.note.noteable_iid | IN($iids[])) | "\(.note.noteable_iid)/\(.note.id)"' \
+      "$tmp/events.json"); do
+    api "projects/$pid/merge_requests/${note%/*}/notes/${note#*/}/award_emoji?per_page=100" \
+      >"$tmp/emoji.json" || return
+    jq -c --argjson iid "${note%/*}" --argjson id "${note#*/}" '{iid: $iid, id: $id, emoji: .}' \
+      "$tmp/emoji.json" >>"$tmp/reactions.jsonl"
+  done
   api "projects/$pid/pipelines?ref=$default_ref&scope=finished&per_page=1" >"$tmp/default.json" \
     || return
   jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
       --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
-      --slurpfile default "$tmp/default.json" --slurpfile reactions "$tmp/reactions.json" \
+      --slurpfile default "$tmp/default.json" --slurpfile reactions "$tmp/reactions.jsonl" \
       --arg me "$me" --arg default_branch "$default_branch" "$PROGRAM" >"$tmp/result.json" \
     || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
   jq '.state' "$tmp/result.json" >"$state.tmp" && mv "$state.tmp" "$state"
