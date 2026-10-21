@@ -175,9 +175,7 @@ tree can be dirty. The user's changes stay where they are, in the working tree o
 4. Edit the prose in place. Edit prose only. If you change one code line, you went too far.
 5. Run the comment pass on the code files in scope. In target mode, `git diff <base> -- <file>`
    shows the added comments. An untracked file has only added comments.
-6. Leave all edits in the working tree. Do not stage, commit, absorb, or reword. In staged mode, the
-   edits stay unstaged. The user stages them.
-7. If the repo lints prose, run the linter on the touched files, as in step 8 of the branch and
+6. If the repo lints prose, run the linter on the touched files, as in step 8 of the branch and
    path loop.
 
 ## Summary (git modes)
@@ -194,7 +192,6 @@ other lists. The fixups or `git diff` show each edit.
 - Squashed (branch and path mode): N fixups, N `amend!` commits, N new commits, and the backup ref
 - Linter: the command and its result, or `none in repo`
 - Out of scope: only if slop remains outside the targets - the paths, on one line
-- Next step (working-tree modes): review the edits with `git diff`
 
 ## Mistakes - stop
 
@@ -204,6 +201,4 @@ other lists. The fixups or `git diff` show each edit.
 - You make an edit outside prose: a renamed symbol, a changed condition, moved code.
 - You delete a fact to make a sentence shorter. Make the sentence shorter instead.
 - You edit files outside the mode's target.
-- In branch and path mode, you do a git write that is not one of the three helper scripts and not
-  a `needs-message` commit. No `push`, `rebase`, `amend`, `reset`.
-- In the working-tree modes, you do a git write of any kind.
+- In branch and path mode, you fold edits or reword messages without the three helper scripts.
