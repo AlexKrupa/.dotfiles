@@ -55,10 +55,15 @@ you find," with supporting detail after it for readers who want it.
   - One file: one line, `📄 <path>`, with no label
   - Two or more files: a `📄 Project files:` line, then one bullet per path, with no marker on the
     bullets
-- Artifacts: one line for each file, `📄 <kind>: <path>`, for example `📄 Report: <path>` or
-  `📄 PR draft: <path>`. If a skill gives a path line in this format, use the line of the skill.
-  Do not write the same path two times.
+- Artifacts: one group for each kind. A skill can give the kind and the path format in a path line,
+  for example `` 📄 PR draft: `<path>` ``. Use the kind and the format of the skill.
+  - One file of a kind: one line, `📄 <kind>: <path>`, for example `📄 Report: <path>`
+  - Two or more files of a kind: one `📄 <plural kind>:` line, for example `📄 PR drafts:`, then
+    one bullet per path, with no marker on the bullets
+  - Do not write the same path two times
 - No files in a group: omit the group
+- Put a blank line between groups. Markdown joins lines with no blank line between them into one
+  line.
 - Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
   after the text
   - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
