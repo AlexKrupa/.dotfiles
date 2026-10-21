@@ -83,21 +83,21 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      branch as the base, tell the user to run `/work` in the worktree of that branch, and stop.
    - Model and effort: for example "opus high" gives `--model opus --effort high`. The user can
      give only one of the two.
-   - Effort: if the user gave none, pick it from the ticket title (new mode) and the message.
-     Start at `medium`. If the ticket clearly matches a different level, use that level. If you
-     are not sure, use the lower level.
-     - `low`, less common: a trivial change. The message or ticket names the change and its
-       location, for example a typo, a text change, or a version bump.
+   - Effort: if the user gave none, pick it from the task: the message, and the ticket title in
+     new mode. Start at `medium`. If the task clearly matches a different level, use that level.
+     If you are not sure, use the lower level.
+     - `low`, less common: a trivial change. The task names the change and its location, for
+       example a typo, a text change, or a version bump.
      - `medium`, the default for most changes: features and bug fixes where the answer is in
-       the area that the ticket points to. Library docs, a code base search, and a small design
+       the area that the task points to. Library docs, a code base search, and a small design
        choice are still `medium`.
      - `high`, less common: a harder change. The answer is outside that area, for example in
-       other repos or in many modules, or the ticket has several separate unknowns.
+       other repos or in many modules, or the task has several separate unknowns.
      - `xhigh`, rare: a very hard change with unknowns. No test shows that an answer is
        correct, so the agent must compare possible answers. Examples:
        - a bug with no reproduction
        - a performance or concurrency problem with many possible causes
-       - an architecture choice across modules that the ticket does not settle
+       - an architecture choice across modules that the task does not settle
 
        Investigation alone, or a design choice in one module, is `high` at most.
      - Never `max`, unless the user asks for it.
