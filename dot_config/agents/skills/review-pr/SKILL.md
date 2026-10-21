@@ -147,86 +147,8 @@ Add to the base report:
 
 ## Watch
 
-The watch reports the events of the MR that are important to a reviewer. The hard constraints of
-this skill apply during the watch.
-
-Read `~/.config/agents/references/watch-gitlab-mr.md` first. It tells how to run the watch task,
-handle its exit codes, report, and send notifications. This section tells only the reviewer
-actions.
-
-The last reviewed head is `reviewed_head`, or the `new_head` of the last push that you reviewed.
-
-### Start
-
-1. If a watch task for a different MR runs in this session, tell it in one line and stop. This
-   skill watches one MR in each session.
-2. In `clone`, run `~/.config/agents/bin/watch-gitlab.sh --review --fresh --mr <iid> --interval 120`,
-   as the reference tells. `--fresh` deletes the state of an earlier watch of this MR.
-3. Run `git fetch <remote> <source_branch> <target_branch>`. If
-   `git rev-parse <remote>/<source_branch>` is not the last reviewed head, the author pushed during
-   the review. Handle it as a `pushed` event with these values:
-   - `old_base`: `git merge-base <target_ref> <last reviewed head>`
-   - `old_head`: the last reviewed head
-   - `new_base`: `git merge-base <target_ref> <remote>/<source_branch>`
-   - `new_head`: `<remote>/<source_branch>`
-
-### Events
-
-Handle a `pushed` event first. Then the other events read the new code.
-
-| `kind`             | Action                              | Report section        |
-| ------------------ | ----------------------------------- | --------------------- |
-| `pushed`           | See "Pushes"                        | Needs you, Done, Info |
-| `comment`          | See "Comments"                      | Needs you or Info     |
-| `own-comment`      | See "Own comments" in the reference | Needs you or Info     |
-| `unaddressed`      | The thread waits for the user       | Needs you             |
-| `resolved`         | See "Resolved threads"              | Info or Needs you     |
-| `merged`, `closed` | Do not start the watch again        | Info                  |
-| all other kinds    | None                                | Info                  |
-
-After you handle the events, start the watch again for the same MR, with no `--fresh`. The state
-has the events since the last check. If the MR is merged or closed, do not start it again. Tell it
-in one line.
-
-### Pushes
-
-1. Run `git fetch <remote> <source_branch> <target_branch>`. Do not use `"$FMR" fetch`. After a
-   force push, it stops. The local branch does not move.
-2. Run `~/.config/agents/bin/git-interdiff.sh <old_base> <old_head> <new_base> <new_head>`.
-   - If it exits `1` with `unknown commit`, the old version is not in the local repo. Put it under
-     Needs you, and propose a full review of the MR. Stop here.
-   - If the output is empty, put "Rebased, no content change." under Info. Stop here.
-3. Review only the lines of the output. Read the files at `new_head` with
-   `git show <new_head>:<path>`, because the working tree has the old version. Use the severity
-   rules and the finding format of `review-diff`. Do not use `review-diff` for the full MR again.
-4. Add a section to the end of the report: `## Update <date> <first 8 characters of new_head>`.
-   It has the findings that the push fixed, the new findings, and the findings that stay open.
-5. Under Needs you: one item for each new finding. Under Done: "Reviewed push <short new_head>,
-   report updated." Under Info: the findings that the push fixed.
-6. If the local branch is not at `new_head`, add under Info: "The local branch is behind the MR.
-   The review read the files at <short new_head>."
-
-### Comments
-
-Read the code at `path:line` at the MR head, and the thread.
-
-- A reply in a thread that the user started or replied in: assess the reply. Does it answer the
-  point of the user? Propose a response. Put it under Needs you.
-- A different comment about the code of a finding, or against the review: give your assessment
-  and the id of the finding. Put it under Needs you.
-- All other comments: one line under Info.
-
-The user writes all responses on GitLab. Do not post them.
-
-### Resolved threads
-
-Run `git diff <reviewed_head> <remote>/<source_branch> -- <path>`. Then compare the change with
-the point of the thread. Use `reviewed_head`, not the last reviewed head: the fix can be in a push
-that you reviewed.
-
-- The change fixes the point: one line under Info.
-- There is no change, or the change does not fix the point: put "resolved with no fix" under
-  Needs you, with the point of the thread.
+Watch the MR for its reviewer. Read `~/.config/agents/references/watch/common.md` and follow it,
+with the role file `reviewer.md`.
 
 ## Hard constraints
 

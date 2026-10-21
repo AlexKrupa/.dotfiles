@@ -35,6 +35,9 @@ list of these skills. Rerun it on a new machine.
   `instructions-agents.md`.
 - `references/` - rules that more than one skill reads by absolute path
   (`~/.config/agents/references/...`). Not symlinked.
+- `references/watch/` - the watch rules of `hub`, `draft-pr`, `review-pr`, and `bump`.
+  `common.md` has the shared rules, a host file (`gitlab.md`) has the commands of a code host, and
+  one role file for each skill has its events and actions.
 - `bin/herdr-worktree.sh` - opens a local branch as a Herdr worktree workspace, optionally moves the
   calling pane into it. Used by `work`, not tied to it.
 - `bin/fetch-gitlab-mr.sh` - resolves a GitLab MR, pipeline, or job to its branches, and

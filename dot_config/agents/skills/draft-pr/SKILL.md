@@ -12,8 +12,8 @@ argument-hint: "[draft] [notes]"
 # draft-pr
 
 Writes one PR draft as a Markdown file: metadata, title, description, and review comments. A person
-or a wrapper skill (for example a GitLab `/mr` skill) reads the file and publishes it. This skill
-does not know the code host. It does not publish. After the wrapper publishes, the wrapper tells
+or a wrapper skill (for example a GitLab `/mr` skill) reads the file and publishes it. The draft
+does not depend on the code host. This skill does not publish. After the wrapper publishes, the wrapper tells
 this skill to watch the MRs (see "Watch"). During the watch, only trivial fixes are pushed.
 
 Before it writes, it prepares the branch: it syncs and restacks with git-spice, and it squashes
@@ -329,108 +329,7 @@ When the user asks for changes, edit the same file. Each reply that changes the 
 
 ## Watch
 
-If a wrapper skill tells you to do this step after it publishes, do it. Else do not do it. You
-get these from the wrapper:
+If a wrapper skill tells you to do this step after it publishes, do it. Else do not do it.
 
-- the watch command. It takes `--interval <seconds>` and `--mr <id>` once for each MR. It prints
-  the events in the stack mode format of `watch-gitlab.sh`.
-- the command that shows the logs of the failed jobs of a pipeline
-- the command that retries a job
-
-Read `~/.config/agents/references/watch-gitlab-mr.md` first. It tells how to run the watch task,
-handle its exit codes, report, and send notifications. This section tells only the author
-actions.
-
-### Rules
-
-The user does these actions, never you:
-
-- reply to a comment, resolve a thread, or react
-- approve or merge
-- mark an MR ready, or change its title, description, or labels
-
-If these three conditions are true, the session is idle:
-
-- the working tree is clean
-- no rebase or merge is in progress
-- you are not in the middle of a different task
-
-If the session is not idle, do not do an auto-fix.
-
-### Start
-
-1. Run `git-spice log short --all=false --json --no-prompt`. For each branch object with `change`,
-   take `change.id`. A branch with no `change` has no MR yet.
-2. If there is no MR, tell it in one line and stop.
-3. Run the watch command with one `--mr <change.id>` for each MR, as the reference tells.
-
-### Events
-
-| `kind`                 | Action                                          | Report section       |
-| ---------------------- | ----------------------------------------------- | -------------------- |
-| `pipeline`, failed     | See "Pipeline failures"                         | Done or Needs you    |
-| `conflict`             | See "Conflicts"                                 | Done or Needs you    |
-| `merged`               | See "Merged MRs"                                | Info, Done/Needs you |
-| `comment`              | See "Comments"                                  | Needs you            |
-| `own-comment`          | See "Own comments" in the reference             | Info or Needs you    |
-| `unaddressed`          | The thread waits for the user                   | Needs you            |
-| all other kinds        | None                                            | Info                 |
-
-After you handle the events, do "Start" again with the current list. A sync can delete a merged
-branch, and the user can add a branch. If all MRs are merged or closed, do not start again. Tell
-it in one line.
-
-Needs you also shows the failures that wait for the user, and the fixes that wait.
-
-### Pipeline failures
-
-Run the wrapper command for the logs of the failed jobs. Find the cause of each failed job.
-
-- The cause is outside the branch: a runner or system failure, the network, a cache, or a service
-  that is down. Retry the job with the wrapper command. A retry needs no idle session.
-- The cause is a formatter or lint error, or an obvious compile error, in the code of the branch.
-  If the session is idle, fix it:
-  1. Switch to the branch of the MR. Remember the branch that was current.
-  2. Make the fix.
-  3. Run `~/.config/agents/bin/git-diff-context.sh --parent-only` and get `parent`.
-  4. Run `~/.config/agents/bin/git-absorb-fixes.sh <parent> <file>...` with the changed files. If it
-     reports a file under `needs-message`, the fix is not trivial. Undo it with
-     `git restore --staged --worktree -- <file>...` and put the failure under Needs you.
-  5. Run `~/.config/agents/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)"`.
-  6. Run `git-spice stack submit --update-only --no-prompt`.
-  7. Switch back to the branch that was current.
-
-  If the session is not idle, put the failure under Needs you as "fix waits, session not idle",
-  with the proposed fix. If the session is idle at the next report, or if the user asks, do the fix.
-- All other causes: if the session is idle and the cause is clear, do the fix with steps 1 to 7
-  above. In step 4, commit each `needs-message` file with a one-line message. Report the fix under
-  Done. Else put the failure under Needs you, with the cause and a proposed fix.
-
-### Conflicts
-
-If the session is not idle, put the conflict under Needs you as "fix waits, session not idle".
-Else run `git-spice repo sync --no-prompt` and `git-spice stack restack --no-prompt`. On a
-conflict, do "Restack conflicts" of step 2. If it stops, put the conflict or the failed validation
-under Needs you, with the files.
-
-When the restack succeeds, run `git-spice stack submit --update-only --no-prompt`.
-
-### Merged MRs
-
-If no open MR of the stack is above the merged MR, do nothing more. If the session is not idle,
-put the restack under Needs you as "fix waits, session not idle". Else run
-`git-spice repo sync --no-prompt`, `git-spice stack restack --no-prompt`, and
-`git-spice stack submit --update-only --no-prompt`. On a restack conflict, do as in "Conflicts".
-
-### Comments
-
-Read the code at `path:line` and the thread. Then assess the comment:
-
-- A suggestion: is it good? Why or why not?
-- A reported bug: is it real?
-- A question: propose an answer.
-
-Put the assessment and a proposed fix or answer under Needs you. Do not change the code until the
-user asks.
-
-If an `own-comment` is a review comment of the PR draft file, do not check it. You wrote it.
+Watch the MRs of the stack. Read `~/.config/agents/references/watch/common.md` and follow it,
+with the role file `author.md`.

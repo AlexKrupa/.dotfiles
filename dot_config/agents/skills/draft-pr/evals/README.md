@@ -33,7 +33,7 @@ Use Opus with `--effort medium`. It is the usual setup for PR work.
 squash). They have no `repo_unchanged` check. Their `state_*` checks test the branch state.
 
 The `watch-*` evals test the Watch step. Each prompt has the output of one watch result. Each
-fixture has fake wrapper commands in `<repo>.host/`. They have `"common": false`, because they
+fixture has fake host commands and a host file in `<repo>.host/`. They have `"common": false`, because they
 write no PR file. `watch-lint` changes the fixture repo on purpose.
 
 `run.py` needs `claude -p` with `--permission-mode dontAsk` and an allowlist (`ALLOWED_TOOLS`).

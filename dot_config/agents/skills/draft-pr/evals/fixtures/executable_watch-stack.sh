@@ -2,9 +2,9 @@
 # Usage: watch-stack.sh <repo-dir>
 # notes-app.sh with a bare `origin`, git-spice on trunk `main`, and a pushed stack of 2 branches
 # with MRs: `tags-model` (!11, Add Tag model, with an unused wildcard import in Tag.kt) and
-# `tags-in-list` (!12). The current branch is `tags-model`. <repo>.host/ has the fake wrapper
-# commands. The scenario fixtures add the job logs. Prints host=<repo>.host, and intro= with the
-# prompt intro that names the wrapper commands.
+# `tags-in-list` (!12). The current branch is `tags-model`. <repo>.host/ has the fake host
+# commands and the host file host.md that names them. The scenario fixtures add the job logs.
+# Prints host=<repo>.host, and intro= with the prompt intro that names the host file.
 "$(dirname "$0")/../../../draft-ticket/evals/fixtures/notes-app.sh" "$1"
 source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 cd "$1"
@@ -61,7 +61,18 @@ echo "$1" >>"$(dirname "$0")/retried"
 echo "Retried job $1. New job: $(($1 + 1000))"
 EOF
 chmod +x "$host/watch" "$host/job-log" "$host/retry"
+put "$host/host.md" <<EOF
+# Watch: test host
+
+| Function                              | Command                                             |
+| ------------------------------------- | --------------------------------------------------- |
+| Watch command, stack mode             | \`$host/watch --interval 120 --mr <iid>\`, with one \`--mr\` for each MR |
+| Restart command                       | The same watch command                              |
+| Logs of the failed jobs of a pipeline | \`$host/job-log <pipeline-id>\`                     |
+| Retry a job                           | \`$host/retry <job-id>\`                            |
+
+The id of an MR is \`!<iid>\`.
+EOF
 echo "host=$host"
 echo "intro=Use the draft-pr skill. The wrapper published the MRs of this stack. This is the" \
-  "Watch step. Wrapper commands: watch: \`$host/watch\`. Logs of the failed jobs of a pipeline:" \
-  "\`$host/job-log <pipeline-id>\`. Retry a job: \`$host/retry <job-id>\`."
+  "Watch step. Use the host file \`$host/host.md\`."
