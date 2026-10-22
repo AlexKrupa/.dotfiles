@@ -9,8 +9,8 @@
 # subscriptions of the repo.
 # A network error does not count: the loop waits for the network, with no limit. A permanent
 # error, or 5 other errors in a row, end the subscription, and its client gets the error text.
-# A subscription also ends when all its MRs are merged or closed (its client still gets the last
-# events), and after 30 minutes with no client.
+# A subscription also ends when all its MRs are merged or closed, and after 30 minutes with no
+# client. The next client of its session still gets the events and the error that wait.
 # A poke file (watch.sh --once, or a new subscription) starts a round of the repo now.
 # With no subscription for 10 minutes, the daemon exits. With a restart file (new scripts), it
 # exits after the current round of each repo.
@@ -62,14 +62,38 @@ live_keys() {
 
 # Usage: end_sub SLUG KEY REASON [ERROR FILE]
 # The error file goes to the client. The lock makes sure that the client sees the error before it
-# sees that the record is gone.
+# sees that the record is gone. The owner file keeps the session of the results, so that only the
+# next client of that session gets them.
 end_sub() {
-  local sub=$WATCHD_DIR/subs/$2.json
+  local sub=$WATCHD_DIR/subs/$2.json session
   watch_lock "$sub.lock" || return
   if [[ -n ${4:-} ]]; then cp "$4" "$WATCHD_DIR/inbox/$2.error"; fi
+  session=$(jq -r .session_pid "$sub" 2>/dev/null)
+  if [[ -n $session ]]; then echo "$session" >"$WATCHD_DIR/inbox/$2.owner"; fi
   rm -f "$sub" "$WATCHD_DIR/poke/$2" "$WATCHD_DIR/rounds/$2"
   watch_unlock "$sub.lock"
   watch_log "$1" "$2" "subscription removed: $3"
+}
+
+# Removes the results of ended subscriptions whose session is gone, and results with no record and
+# no owner.
+sweep() {
+  local file key sub owner
+  for file in "$WATCHD_DIR"/inbox/*.jsonl "$WATCHD_DIR"/inbox/*.error; do
+    key=$(basename "${file%.*}")
+    sub=$WATCHD_DIR/subs/$key.json
+    [[ -f $sub ]] && continue
+    watch_lock "$sub.lock" || continue
+    owner=$(cat "$WATCHD_DIR/inbox/$key.owner" 2>/dev/null)
+    if [[ -f $sub ]] || { [[ -n $owner ]] && watch_alive "$owner"; }; then
+      watch_unlock "$sub.lock"
+      continue
+    fi
+    rm -f "$WATCHD_DIR/inbox/$key.jsonl" "$WATCHD_DIR/inbox/$key.error" \
+      "$WATCHD_DIR/inbox/$key.owner"
+    watch_unlock "$sub.lock"
+    watch_log "" "$key" "results of an ended subscription removed"
+  done
 }
 
 # Usage: route SLUG KEY EVENTS FILE
@@ -221,8 +245,8 @@ while :; do
       continue
     fi
     end_sub "$slug" "$key" "$reason"
-    rm -f "$WATCHD_DIR/inbox/$key.jsonl" "$WATCHD_DIR/inbox/$key.error"
   done
+  sweep
   slugs=$(for key in $(live_keys); do field "$key" .slug; done | sort -u)
   if [[ -n $slugs ]]; then
     idle_since=$now

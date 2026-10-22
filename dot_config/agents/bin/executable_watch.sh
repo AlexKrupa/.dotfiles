@@ -77,10 +77,11 @@ key=$(watch_key "$top" "$review" ${mrs[@]+"${mrs[@]}"})
 sub=$WATCHD_DIR/subs/$key.json
 inbox=$WATCHD_DIR/inbox/$key.jsonl
 error=$WATCHD_DIR/inbox/$key.error
+owner=$WATCHD_DIR/inbox/$key.owner
 
 if [[ $command == unsubscribe ]]; then
   watch_lock "$sub.lock" || exit 1
-  rm -f "$sub" "$inbox" "$error" "$WATCHD_DIR/poke/$key" "$WATCHD_DIR/rounds/$key"
+  rm -f "$sub" "$inbox" "$error" "$owner" "$WATCHD_DIR/poke/$key" "$WATCHD_DIR/rounds/$key"
   watch_unlock "$sub.lock"
   watch_log "$slug" "$key" "unsubscribed"
   exit 0
@@ -148,6 +149,7 @@ subscribe() {
        replaced_sessions: ($old.replaced_sessions // [] | . + [$replaced // empty] | unique),
        ended_mrs: ($ended - ($ended - $mrs))}' --args ${mrs[@]+"${mrs[@]}"} >"$sub.tmp"
   mv "$sub.tmp" "$sub"
+  rm -f "$owner"
   # A new subscription gets its first check now, as with --once.
   if [[ $old == null ]] || ((once)); then touch "$WATCHD_DIR/poke/$key"; fi
   watch_log "$slug" "$key" "subscribed: $mode ${mrs[*]+${mrs[*]}}"
@@ -160,6 +162,10 @@ if jq -e --argjson session "$session" '.replaced_sessions // [] | index($session
   >/dev/null; then
   watch_unlock "$sub.lock"
   replaced
+fi
+# The results of an ended subscription are only for the next client of its session.
+if [[ $old == null && $(cat "$owner" 2>/dev/null) != "$session" ]]; then
+  rm -f "$inbox" "$error" "$owner"
 fi
 # No record, but an error or events: the subscription ended with no client. This client gives the
 # result and does not subscribe again.
@@ -177,7 +183,7 @@ while :; do
   [[ -f $sub ]] || ended=1
   if [[ -f $error ]]; then
     cat "$error" >&2
-    rm -f "$error"
+    rm -f "$error" "$owner"
     watch_unlock "$sub.lock"
     exit 1
   fi
@@ -192,7 +198,11 @@ while :; do
   watch_lock "$inbox.lock" || exit 1
   [[ -s $inbox ]] && mv "$inbox" "$tmp"
   watch_unlock "$inbox.lock"
-  if [[ -s $tmp ]] || ((round_done)); then cat "$tmp"; exit 0; fi
+  if [[ -s $tmp ]] || ((round_done)); then
+    if ((ended)); then rm -f "$owner"; fi
+    cat "$tmp"
+    exit 0
+  fi
   ((ended)) && die "the subscription ended"
   daemon_alive || start_daemon
   watch_sub_update "$key" --argjson now "$(date +%s)" '.client_at = $now' || true

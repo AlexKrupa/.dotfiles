@@ -224,6 +224,35 @@ wait_for 8 "[ ! -e '$sub' ]"
 check "no client for the limit: subscription ends" yes "$(gone "$sub")"
 
 reset
+events app "$(ev todo 5)"
+WATCHD_CLIENT_SECONDS=2 watch
+events app "$(ev note 6)"
+wait_for 5 "[ -s '$WATCHD_DIR/inbox/app.jsonl' ]"
+wait_for 8 "[ ! -e '$sub' ]"
+check "no client for the limit: the inbox stays" "$(ev note 6)" \
+  "$(cat "$WATCHD_DIR/inbox/app.jsonl" 2>/dev/null)"
+watch
+check "no client for the limit: the inbox comes at the next client of the same session" \
+  "0 $(ev note 6)" "$code $out"
+
+reset
+events app "$(ev todo 5)"
+watch
+printf '5\n' >"$d/events/app.exit"
+echo 'watch-gitlab: HTTP 403 on todos' >"$d/events/app.err"
+wait_for 5 "[ -e '$WATCHD_DIR/inbox/app.error' ]"
+sleep 600 &
+other=$!
+events app "$(ev todo 6)"
+WATCH_SESSION_PID=$other watch
+check "leftover error does not go to a new session" "0 $(ev todo 6)" "$code $out"
+printf '5\n' >"$d/events/app.exit"
+wait_for 5 "[ -e '$WATCHD_DIR/inbox/app.error' ]"
+{ kill "$other"; wait "$other"; } 2>/dev/null
+wait_for 5 "[ ! -e '$WATCHD_DIR/inbox/app.error' ]"
+check "leftover of a dead session: removed" yes "$(gone "$WATCHD_DIR/inbox/app.error")"
+
+reset
 review="$WATCHD_DIR/subs/app-$wt-review-5.json"
 events "app-$wt-review-5" "$(ev comment 5)"
 WATCHD_CLIENT_SECONDS=2 watch --review --mr 5
