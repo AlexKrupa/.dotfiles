@@ -362,6 +362,31 @@ check "review and bump on the same MR: one fetch in each round" "2 2" \
 "$client" unsubscribe --repo "$d/app2" --review --mr 5
 code_of review >/dev/null
 wait "$bump"
+
+reset
+find "$d/mock" -name '*.json' ! -name user.json ! -name project.json -delete
+gql 5
+start stack --mr 5
+wait_for 10 "[ \$(rounds_of app-$wt) -ge 1 ]"
+jq '.data.project.mergeRequest.headPipeline = {id: "gid://gitlab/Ci::Pipeline/50", status: "FAILED"}' \
+  "$d/mock/gql_5.json" >"$d/gql.json" && mv "$d/gql.json" "$d/mock/gql_5.json"
+check "e2e stack: real engine gives a pipeline event" "0 pipeline 5 pipeline 50 failed" \
+  "$(code_of stack) $(jq -r '"\(.kind) \(.iid) \(.detail)"' "$d/stack.out")"
 export WATCHD_ENGINE="$d/bin/engine"
+
+reset
+stack="$WATCHD_DIR/subs/app-$wt.json"
+events "app-$wt" "$(ev pipeline 5)"
+watch --mr 5
+events "app-$wt" "$(ev pipeline 6)"
+watch --mr 5 --mr 6
+check "stack: a new MR list refreshes the subscription" "[5,6]" "$(jq -c .mrs "$stack")"
+start hub
+wait_for 10 "[ \$(rounds_of app) -ge 2 ]"
+check "stack: hub does not skip a stack MR" "yes no" \
+  "$(grep -q -- "--repo $d/app\$" "$d/args" && echo yes || echo no) $(grep -q -- --skip-mr "$d/args" \
+    && echo yes || echo no)"
+events app "$(ev todo 5)"
+code_of hub >/dev/null
 
 exit "$fail"
