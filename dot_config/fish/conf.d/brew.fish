@@ -155,6 +155,11 @@ function brew-upgrade --description 'Upgrade all packages, restart accessibility
         HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $bulk_casks
     end
 
+    # Download before quitting or asking, so the app is down only for the install
+    if test -n "$tagged_casks"
+        brew fetch --cask $tagged_casks
+    end
+
     for entry in $restart_entries
         __brew_upgrade_cask (string split ':' $entry)
     end
