@@ -2,7 +2,7 @@
 # Usage: search-fix.sh <repo-dir>
 # notes-app.sh with a bare `origin`, then branch `fix/search-case` with 1 commit: the note search
 # ignores letter case. No git-spice. Tests a small change: no review guide, no high-impact section,
-# and git-spice setup by the skill. With a remote, `git-spice log` can find the trunk.
+# and git-spice setup by the agent. Without `--trunk`, git-spice cannot find the trunk.
 "$(dirname "$0")/../../../draft-ticket/evals/fixtures/notes-app.sh" "$1"
 source "$(dirname "$0")/../../../../evals/fixture-lib.sh"
 cd "$1"

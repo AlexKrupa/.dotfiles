@@ -57,10 +57,7 @@ rules, for example `git-spice log:*`.
 git-spice log short --json --no-prompt
 ```
 
-In a repo with no git-spice data, this command sets up git-spice. If it sets up git-spice, tell it
-in the 🧹 line of the reply.
-
-If the command fails, skip the git-spice commands in this step and in step 3. Tell it in the 🧹
+If you set up git-spice in the repo, tell it in the 🧹 line of the reply. If the command fails, skip the git-spice commands in this step and in step 3. Tell it in the 🧹
 line.
 
 If no output object has `"name"` equal to the current branch, git-spice does not track the branch.

@@ -57,6 +57,8 @@
   squash, restack, move, rename, delete. Use raw git for the rest. The command is `git-spice`: `gs`
   does not exist in the agent shell. Put `--no-prompt` after the subcommand. After a conflict, use
   `git-spice rebase continue` or `git-spice rebase abort`.
+- If the repo has no `refs/spice/data`, run `git-spice repo init --trunk <default-branch>
+  --no-prompt` before the first git-spice command. Without it, git-spice cannot find the trunk.
 - If the branch is part of a stack, use `git-spice stack` commands, not `git-spice branch` commands.
   Only `stack` commands update the stack comment in each PR or MR.
 - Push when the conversation shows that I want the change pushed. Do not assume. A force push that
