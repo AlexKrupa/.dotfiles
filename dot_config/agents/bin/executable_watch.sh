@@ -115,18 +115,54 @@ exit_if_orphaned() {
 
 if ((review)); then mode=review; elif ((${#mrs[@]})); then mode=stack; else mode=hub; fi
 session=$(watch_session_pid)
+rounds=$WATCHD_DIR/rounds/$key
 ((fresh)) && rm -f "${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab/$key.json"
+# New scripts, for example after a chezmoi update: the daemon exits after its current round, and
+# this client starts the new daemon. The state is on disk, so no event is lost.
+if daemon_alive && [[ $(cat "$WATCHD_DIR/daemon.hash" 2>/dev/null) != "$(watch_scripts_hash)" ]]
+then
+  watch_log "" "" "new scripts: restart"
+  touch "$WATCHD_DIR/restart"
+  for _ in $(seq 300); do daemon_alive || break; sleep 0.2; done
+fi
 start_daemon
+
+replaced() { echo "watch: a new client or session replaced this one" >&2; exit 3; }
+# Writes the record. The newest session owns the key: it adds the old live session to
+# replaced_sessions.
+subscribe() {
+  local old_session replaced_session=null
+  old_session=$(jq -r '.session_pid // empty' <<<"$old")
+  if [[ -n $old_session && $old_session != "$session" ]] && watch_alive "$old_session"; then
+    replaced_session=$old_session
+  fi
+  jq -n --arg key "$key" --arg slug "$slug" --arg repo "$top" --arg mode "$mode" \
+    --argjson interval "$interval" --argjson session "$session" --argjson client $$ \
+    --argjson now "$(date +%s)" --argjson old "$old" --argjson replaced "$replaced_session" '
+    ($ARGS.positional | map(tonumber)) as $mrs | ($old.ended_mrs // []) as $ended
+    | {key: $key, slug: $slug, repo: $repo, mode: $mode, mrs: $mrs, interval: $interval,
+       session_pid: $session, client_pid: $client, client_at: $now,
+       replaced_sessions: ($old.replaced_sessions // [] | . + [$replaced // empty] | unique),
+       ended_mrs: ($ended - ($ended - $mrs))}' --args ${mrs[@]+"${mrs[@]}"} >"$sub.tmp"
+  mv "$sub.tmp" "$sub"
+  # A new subscription gets its first check now, as with --once.
+  if [[ $old == null ]] || ((once)); then touch "$WATCHD_DIR/poke/$key"; fi
+  watch_log "$slug" "$key" "subscribed: $mode ${mrs[*]+${mrs[*]}}"
+}
+
 watch_lock "$sub.lock" || exit 1
-jq -n --arg key "$key" --arg slug "$slug" --arg repo "$top" --arg mode "$mode" \
-  --argjson interval "$interval" --argjson session "$session" --argjson client $$ \
-  --argjson now "$(date +%s)" '$ARGS.positional as $mrs
-  | {key: $key, slug: $slug, repo: $repo, mode: $mode, mrs: ($mrs | map(tonumber)),
-     interval: $interval, session_pid: $session, client_pid: $client, client_at: $now,
-     replaced_sessions: [], ended_mrs: []}' --args ${mrs[@]+"${mrs[@]}"} >"$sub.tmp"
-mv "$sub.tmp" "$sub"
+old=$(cat "$sub" 2>/dev/null || echo null)
+before=$(cat "$rounds" 2>/dev/null || echo 0)
+if jq -e --argjson session "$session" '.replaced_sessions // [] | index($session)' <<<"$old" \
+  >/dev/null; then
+  watch_unlock "$sub.lock"
+  replaced
+fi
+# No record, but an error or events: the subscription ended with no client. This client gives the
+# result and does not subscribe again.
+ended_with_result() { [[ $old == null ]] && [[ -f $error || -s $inbox ]]; }
+ended_with_result || subscribe
 watch_unlock "$sub.lock"
-watch_log "$slug" "$key" "subscribed: $mode ${mrs[*]+${mrs[*]}}"
 
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
@@ -142,11 +178,18 @@ while :; do
     watch_unlock "$sub.lock"
     exit 1
   fi
+  if ((!ended)) && [[ $(jq -r '"\(.client_pid) \(.session_pid)"' "$sub") != "$$ $session" ]]; then
+    watch_unlock "$sub.lock"
+    replaced
+  fi
   watch_unlock "$sub.lock"
+  # The daemon counts the round after it routes the events of the round.
+  round_done=0
+  if ((once)) && [[ $(cat "$rounds" 2>/dev/null || echo 0) != "$before" ]]; then round_done=1; fi
   watch_lock "$inbox.lock" || exit 1
   [[ -s $inbox ]] && mv "$inbox" "$tmp"
   watch_unlock "$inbox.lock"
-  if [[ -s $tmp ]]; then cat "$tmp"; exit 0; fi
+  if [[ -s $tmp ]] || ((round_done)); then cat "$tmp"; exit 0; fi
   ((ended)) && die "the subscription ended"
   daemon_alive || start_daemon
   watch_sub_update "$key" --argjson now "$(date +%s)" '.client_at = $now' || true

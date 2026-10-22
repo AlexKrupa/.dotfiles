@@ -2,6 +2,8 @@
 # The caller declares sleeper='' and kills $sleeper in its EXIT trap. The caller sets WATCH_HOST
 # before the first nap. An empty WATCH_HOST (a local remote) skips the network probe.
 # The caller defines exit_if_orphaned: it exits when no session can use the events of the watch.
+# The caller can define nap_interrupted: if it returns true after a step, nap returns early. The
+# caller can set WATCH_NAP_STEP, the step of nap in seconds (default 10).
 
 # In the background: bash runs the TERM trap only after a foreground command ends.
 bg_sleep() {
@@ -40,9 +42,9 @@ wait_online() {
 # Waits for N seconds of awake time. A clock jump of more than the step plus 30 seconds is a
 # system sleep. After a sleep, or with no full wake, it waits for the network and returns at once.
 nap() {
-  local left=$1 step start
+  local left=$1 max_step=${WATCH_NAP_STEP:-10} step start
   while ((left > 0)); do
-    step=$((left < 10 ? left : 10))
+    step=$((left < max_step ? left : max_step))
     start=$(date +%s)
     bg_sleep "$step"
     if (($(date +%s) - start > step + 30)) || ! full_wake; then
@@ -50,5 +52,6 @@ nap() {
       return 0
     fi
     left=$((left - step))
+    if declare -F nap_interrupted >/dev/null && nap_interrupted; then return 0; fi
   done
 }

@@ -89,4 +89,14 @@ reset; lines pmset "$dark" "$dark" "$wake"; lines nc 0; lines date 1000 1010
 nap 25
 check "nap with no full wake: waits for full wake, then returns" "10 10" "$(slept)"
 
+reset; lines pmset "$wake"; lines nc 0; lines date 1000 1010
+nap_interrupted() { true; }
+nap 25
+check "nap: returns early when nap_interrupted is true" 10 "$(slept)"
+unset -f nap_interrupted
+
+reset; lines pmset "$wake"; lines nc 0; lines date 1000 1002 1002 1004 1004 1005
+WATCH_NAP_STEP=2 nap 5
+check "nap: WATCH_NAP_STEP sets the step" "2 2 1" "$(slept)"
+
 exit "$fail"
