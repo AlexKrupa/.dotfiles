@@ -134,6 +134,7 @@ cask "bettercmdtab" # restart-on-upgrade: BetterCmdTab:pro.bettercmdtab.BetterCm
 cask "bettertouchtool" # restart-on-upgrade: BetterTouchTool:com.hegenberg.BetterTouchTool
 # cask "bruno" # API-client, Postman alternative
 # cask "calibre" # ebook manager
+cask "claude-code@latest" # AI coding agent
 # cask "cyberduck" # FTP client
 # cask "discord"
 cask "espanso" # text expander # restart-on-upgrade: Espanso:com.federicoterzi.espanso
