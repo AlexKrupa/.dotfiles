@@ -125,7 +125,7 @@ brew "rbenv"
 #   prompt-on-upgrade  - if running, ask before upgrade and restart (for browsers)
 # Prefix with ! to temporarily disable (e.g. `# !restart-on-upgrade:`).
 
-# cask "1password" # restart-on-upgrade: 1Password:com.1password.1password
+cask "1password" # restart-on-upgrade: 1Password:com.1password.1password
 # cask "1password-cli" # required for Raycast/Alfred integration
 cask "nikitabobko/tap/aerospace" # restart-on-upgrade: AeroSpace:bobko.aerospace
 cask "battery" # stop charge at 80%
@@ -136,7 +136,7 @@ cask "bettertouchtool" # restart-on-upgrade: BetterTouchTool:com.hegenberg.Bette
 # cask "calibre" # ebook manager
 # cask "cyberduck" # FTP client
 # cask "discord"
-cask "espanso" # text expander
+cask "espanso" # text expander # restart-on-upgrade: Espanso:com.federicoterzi.espanso
 # cask "handbrake-app" # video converter / compressor
 cask "handy" # speech-to-text # restart-on-upgrade: Handy:com.pais.handy
 cask "ghostty" # terminal emulator
@@ -145,6 +145,7 @@ cask "google-chrome" # prompt-on-upgrade: Google Chrome:com.google.Chrome
 cask "grandperspective" # disk space visualizer
 # cask "finetune" # audio volume control
 cask "firefox" # prompt-on-upgrade: firefox:org.mozilla.firefox
+cask "fluidvoice" # speech-to-text # restart-on-upgrade: FluidVoice:com.FluidApp.app
 # cask "iina" # video player
 # cask "insomnia" # API client (Postmaan/RapidAPI alternative)
 # cask "imageoptim" # image compressor
@@ -153,7 +154,7 @@ cask "keyboardcleantool" # disable keyboard for cleaning
 cask "latest" # update all apps
 cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
 cask "lulu" # connection blocker
-# cask "microsoft-edge" # prompt-on-upgrade: Microsoft Edge:com.microsoft.edgemac
+cask "microsoft-edge" # prompt-on-upgrade: Microsoft Edge:com.microsoft.edgemac
 # cask "middleclick" # trackpad middle-click with 3 fingers
 # cask "mitmproxy" # network proxy / request debugging
 # cask "neru" # shortcat alternative
