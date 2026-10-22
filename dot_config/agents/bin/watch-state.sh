@@ -61,3 +61,25 @@ watch_scripts_hash() {
   cat "$WATCH_BIN"/watchd.sh "$WATCH_BIN"/watch-gitlab.sh "$WATCH_BIN"/watch-lib.sh \
     "$WATCH_BIN"/watch-state.sh 2>/dev/null | shasum | cut -c1-40
 }
+
+# Usage: watch_log SLUG KEY MESSAGE. An empty SLUG or KEY prints `-`.
+watch_log() {
+  printf '%s %s %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${1:--}" "${2:--}" "$3" \
+    >>"$WATCHD_DIR/watchd.log"
+}
+
+# Usage: watch_sub_update KEY [JQ OPTION]... FILTER
+# Changes the subscription record of KEY with a jq filter, under the lock of the key. Returns 1 if
+# the record does not exist.
+watch_sub_update() {
+  local file=$WATCHD_DIR/subs/$1.json rc=0
+  shift
+  watch_lock "$file.lock" || return
+  if [[ -f $file ]]; then
+    jq "$@" "$file" >"$file.tmp" && mv "$file.tmp" "$file" || rc=1
+  else
+    rc=1
+  fi
+  watch_unlock "$file.lock"
+  return "$rc"
+}
