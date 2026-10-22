@@ -8,7 +8,7 @@ The host file for GitLab. Run each command in the repo of the watched MRs. `$W` 
 | ----------------------------------------- | --------------------------------------------------------------- |
 | Watch command, hub mode                   | `$W --interval 120`                                             |
 | Watch command, stack mode                 | `$G --interval 120 --mr <iid>`, with one `--mr` for each MR     |
-| Watch command, review mode                | `$G --review --fresh --mr <iid> --interval 120`                 |
+| Watch command, review mode                | `$W --review --fresh --mr <iid> --interval 120`                 |
 | Restart command                           | The same watch command, with no `--fresh`                       |
 | Unsubscribe                               | `$W unsubscribe`, with the `--review` and `--mr` flags of the watch command |
 | Daemon status                             | `$W status`                                                     |
