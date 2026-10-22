@@ -1,4 +1,13 @@
-function claudes --description 'Run Claude Code at the git root, in a nono sandbox if the repo has a profile'
+function claude --description 'Run claudes if claude_sandbox is on, else the claude binary'
+    # Herdr agents and claude-upgrade relaunches type `claude`, so they follow the switch too.
+    if test "$claude_sandbox" = on
+        claudes $argv
+    else
+        command claude $argv
+    end
+end
+
+function claudes --description 'Run Claude Code at the git root, in a nono sandbox if claude_sandbox is on and the repo has a profile'
     if git rev-parse --git-dir >/dev/null 2>&1
         set -l git_root (git rev-parse --show-toplevel)
         set -l current_dir (pwd)
@@ -42,6 +51,12 @@ function claudes --description 'Run Claude Code at the git root, in a nono sandb
         end
     end
 
+    # The universal variable is per computer: chezmoi does not manage fish_variables.
+    if test "$claude_sandbox" != on
+        command claude $args
+        return
+    end
+
     # With no slug, the launcher cannot find the repo profile. It must not start without a sandbox.
     set -l slug (~/.config/agents/bin/repo-slug.sh)
     if test -z "$slug"
@@ -57,7 +72,7 @@ function claudes --description 'Run Claude Code at the git root, in a nono sandb
     if test -f ~/.config/nono/profiles/$profile.json
         __claude_nono $profile $args
     else
-        claude $args
+        command claude $args
     end
 end
 
@@ -211,7 +226,7 @@ function __claude_upgrade_cask
 end
 
 function __claude_plugin_versions --description 'Print "<id> <scope> <version>" for every installed plugin'
-    claude plugin list --json | jq -r '.[] | "\(.id) \(.scope) \(.version)"'
+    command claude plugin list --json | jq -r '.[] | "\(.id) \(.scope) \(.version)"'
 end
 
 function __claude_upgrade_plugins
@@ -226,13 +241,13 @@ function __claude_upgrade_plugins
             (claude plugin marketplace update "$name" >/dev/null ||
                 echo "claude-upgrade: marketplace update failed: $name" >&2) &
         done
-        wait' sh (claude plugin marketplace list --json | jq -r '.[].name')
+        wait' sh (command claude plugin marketplace list --json | jq -r '.[].name')
 
     echo "Updating plugins..."
     # Skip session (CLAUDE_CODE_PLUGIN_DIRS) and synced (claude.ai account) plugins: no CLI update.
-    for line in (claude plugin list --json | jq -r '.[] | select(.scope | IN("user", "project", "local", "managed")) | "\(.id) \(.scope)"')
+    for line in (command claude plugin list --json | jq -r '.[] | select(.scope | IN("user", "project", "local", "managed")) | "\(.id) \(.scope)"')
         set -l parts (string split ' ' -- $line)
-        claude plugin update $parts[1] --scope $parts[2]
+        command claude plugin update $parts[1] --scope $parts[2]
         or echo "claude-upgrade: plugin update failed: $parts[1]" >&2
     end
 end
