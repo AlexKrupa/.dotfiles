@@ -33,18 +33,30 @@ watch_session_pid() {
     if [[ ${comm##*/} == claude ]]; then echo "$p"; return; fi
     p=$(ps -o ppid= -p "$p" | tr -d ' ')
   done
+  # The parent dies with the client, so the subscription ends soon after each client.
+  watch_log "" "" "no claude process above PID $PPID: the session is PID $PPID"
   echo "$PPID"
 }
 
+# Usage: lock_stale DIR. True if DIR is older than 30 seconds.
+lock_stale() {
+  (($(date +%s) - $(stat -f %m "$1" 2>/dev/null || date +%s) > 30))
+}
+
 # A mkdir lock: macOS has no flock. Waits up to 10 seconds. A lock older than 30 seconds is of a
-# process that died before its unlock.
+# process that died before its unlock. Only one waiter at a time breaks it: a second waiter must
+# not remove the new lock of the first.
 watch_lock() {
   local try
   for try in $(seq 100); do
     mkdir "$1" 2>/dev/null && return 0
-    if (($(date +%s) - $(stat -f %m "$1" 2>/dev/null || date +%s) > 30)); then
-      rm -rf "$1"
-      continue
+    if lock_stale "$1"; then
+      if mkdir "$1.break" 2>/dev/null; then
+        if lock_stale "$1"; then rm -rf "$1"; fi
+        rmdir "$1.break"
+        continue
+      fi
+      if lock_stale "$1.break"; then rmdir "$1.break" 2>/dev/null; fi
     fi
     sleep 0.1
   done
@@ -59,7 +71,7 @@ watch_unlock() {
 # A different hash means new daemon code, for example after a chezmoi update.
 watch_scripts_hash() {
   cat "$WATCH_BIN"/watchd.sh "$WATCH_BIN"/watch-gitlab.sh "$WATCH_BIN"/watch-lib.sh \
-    "$WATCH_BIN"/watch-state.sh 2>/dev/null | shasum | cut -c1-40
+    "$WATCH_BIN"/watch-state.sh "$WATCH_BIN"/repo-slug.sh 2>/dev/null | shasum | cut -c1-40
 }
 
 # Usage: watch_log SLUG KEY MESSAGE. An empty SLUG or KEY prints `-`.

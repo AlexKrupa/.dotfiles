@@ -21,7 +21,8 @@ wt=$(printf %s "$d/app" | shasum | cut -c1-12)
 
 # Fake engine: prints and empties $D/events/<key>.jsonl. If $D/events/<key>.exit has lines, it
 # removes the first line, prints $D/events/<key>.err on stderr, and exits with that line.
-# It adds its key and arguments to $D/args.
+# It adds its key and arguments to $D/args. If $D/events/<key>.sleep exists, it reads the events,
+# then sleeps for that number of seconds, then prints the events.
 mkdir -p "$d/events"
 cat >"$d/bin/engine" <<'EOF'
 #!/usr/bin/env bash
@@ -43,8 +44,14 @@ if [ -s "$f.exit" ]; then
   cat "$f.err" >&2 2>/dev/null
   exit "$code"
 fi
-cat "$f.jsonl" 2>/dev/null
+out=$(cat "$f.jsonl" 2>/dev/null)
 : >"$f.jsonl"
+if [ -s "$f.sleep" ]; then
+  seconds=$(cat "$f.sleep")
+  rm -f "$f.sleep"
+  sleep "$seconds"
+fi
+if [ -n "$out" ]; then printf '%s\n' "$out"; fi
 EOF
 chmod +x "$d/bin/engine"
 export D="$d" WATCHD_ENGINE="$d/bin/engine" WATCHD_TICK=1 WATCH_CLIENT_TICK=1
@@ -325,6 +332,81 @@ check "daemon killed: client starts it, event not lost" "0 $(ev todo 7)" \
   "$(code_of a) $(cat "$d/a.out")"
 check "daemon killed: new daemon" yes \
   "$( [ "$(daemon_pid)" != "$old" ] && is_daemon "$(daemon_pid)" && echo yes || echo no)"
+
+start a
+wait_for 10 "[ -f '$sub' ] && [ -s '$WATCHD_DIR/repos/app.pid' ]"
+kill -9 "$(daemon_pid)" "$(cat "$WATCHD_DIR/repos/app.pid")"
+events app "$(ev todo 8)"
+check "daemon and repo loops killed: client starts them, event not lost" "0 $(ev todo 8)" \
+  "$(code_of a) $(cat "$d/a.out")"
+
+reset
+mkdir -p "$WATCHD_DIR"
+touch "$WATCHD_DIR/restart"
+events app "$(ev todo 5)"
+watch
+check "leftover restart file: client gets events" "0 $(ev todo 5)" "$code $out"
+
+reset
+mkdir -p "$WATCHD_DIR"
+seq 12000 >"$WATCHD_DIR/watchd.log"
+events app "$(ev todo 5)"
+watch
+check "log over 10000 lines: the daemon keeps the last 5000" 7001 \
+  "$(head -n1 "$WATCHD_DIR/watchd.log")"
+
+sleep 600 &
+other=$!
+WATCH_SESSION_PID=$other "$client" unsubscribe --repo "$d/app" 2>"$d/err"
+code=$?
+check "unsubscribe of a different session: exit 1, no change" \
+  "1 no watch: the subscription app is of session $session" "$code $(gone "$sub") $(cat "$d/err")"
+{ kill "$other"; wait "$other"; } 2>/dev/null
+
+reset
+events app "$(ev todo 5)"
+watch --interval 600
+echo 3 >"$d/events/app.sleep"
+events app "$(ev todo 6)"
+: >"$d/args"
+start once --interval 600 --once
+wait_for 5 "[ -s '$d/args' ]"
+pid=$(cat "$WATCHD_DIR/repos/app.pid")
+kill "$pid"
+check "repo loop stopped during a check: event not lost" "0 $(ev todo 6)" \
+  "$(code_of once) $(cat "$d/once.out")"
+check "repo loop stopped during a check: loop gone" no \
+  "$(ps -p "$pid" >/dev/null && echo yes || echo no)"
+
+reset
+events app "$(ev todo 5)"
+watch --interval 600
+echo 3 >"$d/events/app.sleep"
+events app "$(ev todo 6)"
+: >"$d/args"
+start once --interval 600 --once
+wait_for 5 "[ -s '$d/args' ]"
+events app "$(ev todo 7)"
+watch --interval 600 --once
+check "--once: waits for a round that starts after the poke" "0 $(ev todo 6)
+$(ev todo 7)" "$code $out"
+
+reset
+events app "$(ev todo 5)"
+watch
+printf '#!/bin/sh\nexit 1\n' >"$d/bin/nc"
+printf '4\n' >"$d/events/app.exit"
+start a
+wait_for 5 "grep -q 'network error' '$WATCHD_DIR/watchd.log'"
+sleep 2
+check "network down: no client error, subscription stays" "running no" \
+  "$( [ -s "$d/a.code" ] && echo stopped || echo running) $(gone "$sub")"
+"$client" unsubscribe --repo "$d/app"
+code_of a >/dev/null
+wait_for 15 "[ ! -e '$WATCHD_DIR/repos/app.pid' ]"
+check "network down: repo loop exits when its subscriptions end" yes \
+  "$(gone "$WATCHD_DIR/repos/app.pid")"
+printf '#!/bin/sh\nexit 0\n' >"$d/bin/nc"
 
 reset
 unset WATCHD_ENGINE

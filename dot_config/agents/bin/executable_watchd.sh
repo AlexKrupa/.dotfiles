@@ -11,7 +11,8 @@
 # error, or 5 other errors in a row, end the subscription, and its client gets the error text.
 # A subscription also ends when all its MRs are merged or closed, and after 30 minutes with no
 # client. The next client of its session still gets the events and the error that wait.
-# A poke file (watch.sh --once, or a new subscription) starts a round of the repo now.
+# A poke file (watch.sh --once, or a new subscription) starts a round of the repo now. After the
+# check of the key, rounds/<key>.poked has the text of the poke.
 # With no subscription for 10 minutes, the daemon exits. With a restart file (new scripts), it
 # exits after the current round of each repo.
 # State and log: $WATCHD_DIR, see watch-state.sh. The log has one line for each event of the
@@ -36,10 +37,6 @@ mkdir -p "$WATCHD_DIR"/{subs,inbox,poke,rounds,repos}
 sleeper=''
 # A short nap step, so that a poke or a restart gets an answer in seconds.
 WATCH_NAP_STEP=2
-# The wait for the network has no limit, but a restart ends it.
-exit_if_orphaned() {
-  if [[ -e $WATCHD_DIR/restart ]]; then exit 0; fi
-}
 
 # Usage: field KEY FILTER. Prints a field of the record of KEY.
 field() {
@@ -60,19 +57,43 @@ live_keys() {
   done
 }
 
-# Usage: end_sub SLUG KEY REASON [ERROR FILE]
+# Usage: remove_record SLUG KEY REASON [ERROR FILE]. The caller holds the lock of the record.
 # The error file goes to the client. The lock makes sure that the client sees the error before it
 # sees that the record is gone. The owner file keeps the session of the results, so that only the
 # next client of that session gets them.
-end_sub() {
+remove_record() {
   local sub=$WATCHD_DIR/subs/$2.json session
-  watch_lock "$sub.lock" || return
   if [[ -n ${4:-} ]]; then cp "$4" "$WATCHD_DIR/inbox/$2.error"; fi
   session=$(jq -r .session_pid "$sub" 2>/dev/null)
   if [[ -n $session ]]; then echo "$session" >"$WATCHD_DIR/inbox/$2.owner"; fi
-  rm -f "$sub" "$WATCHD_DIR/poke/$2" "$WATCHD_DIR/rounds/$2"
-  watch_unlock "$sub.lock"
+  rm -f "$sub" "$WATCHD_DIR/poke/$2" "$WATCHD_DIR/rounds/$2" "$WATCHD_DIR/rounds/$2.poked"
   watch_log "$1" "$2" "subscription removed: $3"
+}
+
+# Usage: end_sub SLUG KEY REASON [ERROR FILE]
+end_sub() {
+  local sub=$WATCHD_DIR/subs/$2.json
+  watch_lock "$sub.lock" || return
+  remove_record "$@"
+  watch_unlock "$sub.lock"
+}
+
+# Usage: end_if_due FILE NOW. Ends the subscription if its session is gone, or if it has no client
+# for the limit. The check is under the lock, so a new record of the key stays.
+end_if_due() {
+  local file=$1 now=$2 key session slug client client_at reason=''
+  key=$(basename "$file" .json)
+  watch_lock "$file.lock" || return
+  if read -r session slug client client_at < <(jq -r \
+    '"\(.session_pid) \(.slug) \(.client_pid) \(.client_at)"' "$file" 2>/dev/null); then
+    if ! watch_alive "$session"; then
+      reason="session $session is gone"
+    elif ! watch_alive "$client" && ((now - client_at > client_seconds)); then
+      reason="no client for $client_seconds seconds"
+    fi
+    if [[ -n $reason ]]; then remove_record "$slug" "$key" "$reason"; fi
+  fi
+  watch_unlock "$file.lock"
 }
 
 # Removes the results of ended subscriptions whose session is gone, and results with no record and
@@ -108,21 +129,24 @@ route() {
 # Usage: end_mrs SLUG KEY EVENTS_FILE. Adds the MRs of the merged and closed events to ended_mrs.
 # If all MRs ended, the subscription ends. Its inbox stays until the client takes it.
 end_mrs() {
-  local ended
+  local sub=$WATCHD_DIR/subs/$2.json ended
   ended=$(jq -sc '[.[] | select(.kind == "merged" or .kind == "closed") | .iid]' "$3")
   [[ $ended == "[]" ]] && return 0
-  watch_sub_update "$2" --argjson ended "$ended" '.ended_mrs = (.ended_mrs + $ended | unique)' \
-    || return 0
-  if [[ $(field "$2" '.mrs - .ended_mrs | length') == 0 ]]; then
-    end_sub "$1" "$2" "all MRs merged or closed"
+  watch_lock "$sub.lock" || return 0
+  if [[ -f $sub ]] && jq --argjson ended "$ended" '.ended_mrs = (.ended_mrs + $ended | unique)' \
+    "$sub" >"$sub.tmp" && mv "$sub.tmp" "$sub" \
+    && [[ $(jq '.mrs - .ended_mrs | length' "$sub") == 0 ]]; then
+    remove_record "$1" "$2" "all MRs merged or closed"
   fi
+  watch_unlock "$sub.lock"
 }
 
 # Usage: check SLUG KEY ROUND_DIR. One engine run for the subscription KEY. Returns 4 for a
 # network error.
 check() {
-  local slug=$1 key=$2 round=$3 mode repo iid rc=0 fails args
+  local slug=$1 key=$2 round=$3 mode repo iid rc=0 fails args poke
   read -r mode repo < <(field "$key" '"\(.mode) \(.repo)"') || return 0
+  poke=$(cat "$WATCHD_DIR/poke/$key" 2>/dev/null)
   rm -f "$WATCHD_DIR/poke/$key"
   args=(--repo "$repo")
   case $mode in
@@ -157,6 +181,7 @@ check() {
   if [[ -f $WATCHD_DIR/subs/$key.json ]]; then
     echo $(($(cat "$WATCHD_DIR/rounds/$key" 2>/dev/null || echo 0) + 1)) \
       >"$WATCHD_DIR/rounds/$key"
+    if [[ -n $poke ]]; then echo "$poke" >"$WATCHD_DIR/rounds/$key.poked"; fi
   fi
   return $((rc == 4 ? 4 : 0))
 }
@@ -165,24 +190,33 @@ check() {
 repo_loop() {
   local slug=$1 keys key round network interval
   fails_dir=$(mktemp -d)
+  # A stop request ends the loop after the current check, so that the check routes its events.
+  stopping=0
   trap 'if [[ -n $sleeper ]]; then kill "$sleeper" 2>/dev/null; fi; rm -rf "$fails_dir"' EXIT
-  trap 'exit 0' TERM
-  # True if a subscription of this repo asks for a round now, or the daemon must restart.
+  trap 'stopping=1' TERM
+  loop_stop() {
+    rm -f "$WATCHD_DIR/repos/$slug.pid"
+    watch_log "$slug" "" "repo loop stop"
+    exit 0
+  }
+  # True if a subscription of this repo asks for a round now, or the loop must stop.
   nap_interrupted() {
     local file
+    ((stopping)) && return 0
     for file in "$WATCHD_DIR"/poke/*; do
       if [[ $(field "$(basename "$file")" .slug) == "$slug" ]]; then return 0; fi
     done
     [[ -e $WATCHD_DIR/restart ]]
   }
+  # The wait for the network has no limit, but a restart, a stop, or the end of the subscriptions
+  # of the repo ends it.
+  exit_if_orphaned() {
+    if ((stopping)) || [[ -e $WATCHD_DIR/restart || -z $(live_keys "$slug") ]]; then loop_stop; fi
+  }
   watch_log "$slug" "" "repo loop start"
   while :; do
     keys=$(live_keys "$slug")
-    if [[ -z $keys || -e $WATCHD_DIR/restart ]]; then
-      rm -f "$WATCHD_DIR/repos/$slug.pid"
-      watch_log "$slug" "" "repo loop stop"
-      exit 0
-    fi
+    if ((stopping)) || [[ -z $keys || -e $WATCHD_DIR/restart ]]; then loop_stop; fi
     skip=()
     for key in $keys; do
       if [[ $(field "$key" .mode) == review ]]; then skip+=(--skip-mr "$(field "$key" '.mrs[0]')"); fi
@@ -191,10 +225,12 @@ repo_loop() {
     network=0
     for key in $keys; do
       check "$slug" "$key" "$round" || network=1
+      if ((stopping)); then break; fi
     done
     rm -rf "$round"
     touch "$WATCHD_DIR/repos/$slug.pid"
     watch_log "$slug" "" "round done: $(wc -w <<<"$keys" | tr -d ' ') subscription(s)"
+    if ((stopping)); then loop_stop; fi
     WATCH_HOST=$(remote_host "$(git -C "$(field "${keys%%$'\n'*}" .repo)" remote get-url origin \
       2>/dev/null)")
     # With the network up, as for HTTP 502, the normal wait follows.
@@ -218,6 +254,12 @@ stop() {
   watch_log "" "" "daemon stop $$"
 }
 
+# The log grows with each round. The clients and this daemon append to it, so it shrinks in place.
+log=$WATCHD_DIR/watchd.log
+if [[ -f $log ]] && (($(wc -l <"$log") > 10000)); then
+  tail -n 5000 "$log" >"$log.tmp" && cat "$log.tmp" >"$log"
+  rm -f "$log.tmp"
+fi
 # The hash first: a client that sees the PID compares the hash.
 watch_scripts_hash >"$WATCHD_DIR/daemon.hash"
 echo $$ >"$WATCHD_DIR/daemon.pid"
@@ -234,17 +276,7 @@ while :; do
   fi
   now=$(date +%s)
   for file in "$WATCHD_DIR"/subs/*.json; do
-    key=$(basename "$file" .json)
-    read -r session slug client client_at < <(jq -r \
-      '"\(.session_pid) \(.slug) \(.client_pid) \(.client_at)"' "$file" 2>/dev/null) || continue
-    if ! watch_alive "$session"; then
-      reason="session $session is gone"
-    elif ! watch_alive "$client" && ((now - client_at > client_seconds)); then
-      reason="no client for $client_seconds seconds"
-    else
-      continue
-    fi
-    end_sub "$slug" "$key" "$reason"
+    end_if_due "$file" "$now"
   done
   sweep
   slugs=$(for key in $(live_keys); do field "$key" .slug; done | sort -u)

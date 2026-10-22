@@ -14,8 +14,9 @@ On exit `1`, the notification is
 
 ## Events
 
-For an MR with a running review watch, for example of a review agent or a bump agent, the watch
-gives only the review request and the `opened` event. That agent reports the other events.
+An MR can have a live review subscription, for example of a review agent or a bump agent. For that
+MR, the watch gives only the review request and the `opened` event. That agent reports the other
+events.
 
 A `default-failed` event is a failed pipeline of the default branch. Its `iid` and `title` are
 null. Its `previous` is the status of the earlier default-branch pipeline. All other events are MR

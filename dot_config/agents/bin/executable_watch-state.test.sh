@@ -27,8 +27,12 @@ check "session pid: override" 4242 "$(WATCH_SESSION_PID=4242 watch_session_pid)"
 # A fake ps that hides the claude process of the session that runs this test.
 printf '#!/bin/sh\n/bin/ps "$@" | sed -E "s#(^|/)claude\$#\\1other#"\n' >"$d/bin/ps"
 chmod +x "$d/bin/ps"
+mkdir -p "$WATCHD_DIR"
 check "session pid: no claude ancestor gives PPID" "$PPID" \
   "$(unset WATCH_SESSION_PID; watch_session_pid)"
+check "session pid: no claude ancestor writes a log line" yes \
+  "$(grep -q "no claude process above PID $PPID" "$WATCHD_DIR/watchd.log" 2>/dev/null && echo yes \
+    || echo no)"
 rm "$d/bin/ps"
 
 sleep 30 &
@@ -61,5 +65,11 @@ check "hash: same scripts, same hash" "$before" "$(WATCH_BIN="$d/scripts" watch_
 echo '# changed' >>"$d/scripts/watchd.sh"
 after=$(WATCH_BIN="$d/scripts" watch_scripts_hash)
 check "hash changes when a script changes" yes "$([ "$before" != "$after" ] && echo yes || echo no)"
+cp "$here"/repo-slug.sh "$d/scripts/"
+before=$(WATCH_BIN="$d/scripts" watch_scripts_hash)
+echo '# changed' >>"$d/scripts/repo-slug.sh"
+after=$(WATCH_BIN="$d/scripts" watch_scripts_hash)
+check "hash changes when repo-slug.sh changes" yes \
+  "$([ "$before" != "$after" ] && echo yes || echo no)"
 
 exit "$fail"

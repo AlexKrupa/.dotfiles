@@ -6,9 +6,11 @@
 # daemon if no daemon runs, writes its subscription, waits for the events of the subscription,
 # and prints one JSON line for each event. The flags, the modes, and the events are as in the
 # header of watch-gitlab.sh.
-# The subscription stays live after the client exits, until the session exits: the events of the
-# time with no client wait for the next client.
-# unsubscribe: end the subscription of the repo and mode.
+# The subscription stays live after the client exits: the events of the time with no client wait
+# for the next client. It ends when the session exits, after unsubscribe, after an error (exit 1),
+# when all its MRs are merged or closed, and after 30 minutes with no client. The next client of
+# the session still gets the events and the error of an ended subscription.
+# unsubscribe: end the subscription of the repo and mode of this session.
 # status: the daemon PID, the last poll of each repo, and one TSV line for each subscription: key,
 # mode, MRs, live or dead session, inbox line count.
 # Exit codes: 0 events, 1 error, 3 a new client or session replaced this one
@@ -59,13 +61,15 @@ if [[ $command == status ]]; then
   done
   for file in "$WATCHD_DIR"/subs/*.json; do
     key=$(basename "$file" .json)
+    # The daemon can remove the record during the loop.
+    record=$(cat "$file" 2>/dev/null) || continue
     lines=0
     [[ -f $WATCHD_DIR/inbox/$key.jsonl ]] && lines=$(wc -l <"$WATCHD_DIR/inbox/$key.jsonl")
     live=dead
-    watch_alive "$(jq -r .session_pid "$file")" && live=live
+    watch_alive "$(jq -r .session_pid <<<"$record")" && live=live
     jq -r --arg live "$live" --arg lines "${lines// /}" '[.key, .mode,
         ([.mrs[] | tostring] | join(",") | if . == "" then "-" else . end), $live, $lines]
-      | @tsv' "$file"
+      | @tsv' <<<"$record"
   done
   exit 0
 fi
@@ -79,9 +83,18 @@ inbox=$WATCHD_DIR/inbox/$key.jsonl
 error=$WATCHD_DIR/inbox/$key.error
 owner=$WATCHD_DIR/inbox/$key.owner
 
+session=$(watch_session_pid)
 if [[ $command == unsubscribe ]]; then
   watch_lock "$sub.lock" || exit 1
-  rm -f "$sub" "$inbox" "$error" "$owner" "$WATCHD_DIR/poke/$key" "$WATCHD_DIR/rounds/$key"
+  # For example, an unsubscribe with no flags in a stack session has the key of the hub.
+  record_session=$(jq -r '.session_pid // empty' "$sub" 2>/dev/null || true)
+  if [[ -n $record_session && $record_session != "$session" ]] && watch_alive "$record_session"
+  then
+    watch_unlock "$sub.lock"
+    die "the subscription $key is of session $record_session"
+  fi
+  rm -f "$sub" "$inbox" "$error" "$owner" "$WATCHD_DIR/poke/$key" "$WATCHD_DIR/rounds/$key" \
+    "$WATCHD_DIR/rounds/$key.poked"
   watch_unlock "$sub.lock"
   watch_log "$slug" "$key" "unsubscribed"
   exit 0
@@ -93,8 +106,10 @@ fi
 start_daemon() {
   watch_lock "$WATCHD_DIR/start.lock" || exit 1
   if ! daemon_alive; then
-    rm -f "$WATCHD_DIR/daemon.pid"
-    (/usr/bin/perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$WATCH_BIN/watchd.sh" </dev/null \
+    # A restart file of a daemon that died makes the new daemon exit at once.
+    rm -f "$WATCHD_DIR/daemon.pid" "$WATCHD_DIR/restart"
+    (/usr/bin/perl -MPOSIX -e 'POSIX::setsid(); exec {$ARGV[0]} @ARGV' "$WATCH_BIN/watchd.sh" \
+      </dev/null \
       >>"$WATCHD_DIR/watchd.log" 2>&1 &)
     for _ in $(seq 50); do daemon_alive && break; sleep 0.2; done
   fi
@@ -118,8 +133,9 @@ exit_if_orphaned() {
 }
 
 if ((review)); then mode=review; elif ((${#mrs[@]})); then mode=stack; else mode=hub; fi
-session=$(watch_session_pid)
-rounds=$WATCHD_DIR/rounds/$key
+# The daemon writes the text of the poke to this file after the check of the key.
+poked=$WATCHD_DIR/rounds/$key.poked
+poke_token=$$-$(date +%s)
 ((fresh)) && rm -f "${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab/$key.json"
 # New scripts, for example after a chezmoi update: the daemon exits after its current round, and
 # this client starts the new daemon. The state is on disk, so no event is lost.
@@ -151,13 +167,12 @@ subscribe() {
   mv "$sub.tmp" "$sub"
   rm -f "$owner"
   # A new subscription gets its first check now, as with --once.
-  if [[ $old == null ]] || ((once)); then touch "$WATCHD_DIR/poke/$key"; fi
+  if [[ $old == null ]] || ((once)); then echo "$poke_token" >"$WATCHD_DIR/poke/$key"; fi
   watch_log "$slug" "$key" "subscribed: $mode ${mrs[*]+${mrs[*]}}"
 }
 
 watch_lock "$sub.lock" || exit 1
 old=$(cat "$sub" 2>/dev/null || echo null)
-before=$(cat "$rounds" 2>/dev/null || echo 0)
 if jq -e --argjson session "$session" '.replaced_sessions // [] | index($session)' <<<"$old" \
   >/dev/null; then
   watch_unlock "$sub.lock"
@@ -192,16 +207,20 @@ while :; do
     replaced
   fi
   watch_unlock "$sub.lock"
-  # The daemon counts the round after it routes the events of the round.
-  round_done=0
-  if ((once)) && [[ $(cat "$rounds" 2>/dev/null || echo 0) != "$before" ]]; then round_done=1; fi
-  watch_lock "$inbox.lock" || exit 1
-  [[ -s $inbox ]] && mv "$inbox" "$tmp"
-  watch_unlock "$inbox.lock"
-  if [[ -s $tmp ]] || ((round_done)); then
-    if ((ended)); then rm -f "$owner"; fi
-    cat "$tmp"
-    exit 0
+  # With --once, the client takes the inbox only after the check of its own poke. The daemon writes
+  # the token after it routes the events of that check, so a check that started before the poke
+  # does not count.
+  own_round=0
+  if [[ $(cat "$poked" 2>/dev/null) == "$poke_token" ]]; then own_round=1; fi
+  if ((!once || ended || own_round)); then
+    watch_lock "$inbox.lock" || exit 1
+    [[ -s $inbox ]] && mv "$inbox" "$tmp"
+    watch_unlock "$inbox.lock"
+    if [[ -s $tmp ]] || ((once && own_round)); then
+      if ((ended)); then rm -f "$owner"; fi
+      cat "$tmp"
+      exit 0
+    fi
   fi
   ((ended)) && die "the subscription ended"
   daemon_alive || start_daemon
