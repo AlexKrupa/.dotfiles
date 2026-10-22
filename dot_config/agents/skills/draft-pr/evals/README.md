@@ -29,8 +29,8 @@ W=~/.ai/ai/evals/draft-pr-workspace
 
 Use Opus with `--effort medium`. It is the usual setup for PR work.
 
-`stack-fixup` and `untracked-stack` change the fixture repo on purpose (track, sync, restack,
-squash). They have no `repo_unchanged` check. Their `state_*` checks test the branch state.
+`small-fix`, `stack-fixup`, and `untracked-stack` change the fixture repo on purpose (git-spice
+setup, track, sync, restack, squash). They have no `repo_unchanged` check. Their `state_*` checks test the branch state.
 
 The `watch-*` evals test the Watch step. Each prompt has the output of one watch result. Each
 fixture has fake host commands and a host file in `<repo>.host/`. They have `"common": false`, because they

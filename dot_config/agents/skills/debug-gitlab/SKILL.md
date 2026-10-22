@@ -192,8 +192,8 @@ name the fix. If you must examine the repo, go to "Repo-context analysis".
 1. Run `git status --porcelain`. If the output is not empty, stop and tell the user. Do not stash.
 2. Select the fix branch from the table below.
 3. Make the edit with the edit tools, not with shell `sed`.
-4. Commit the fix with a one-line conventional commit message. In a repo with `refs/spice/data`,
-   use `git-spice commit create -m <msg> --no-prompt`.
+4. Commit the fix with a one-line conventional commit message. Use
+   `git-spice commit create -m <msg> --no-prompt`.
 5. If the request asks for a fix and the branch is on the remote, push. Else, do not push.
 6. In the reply, give the commit SHA and the diff.
 
@@ -201,7 +201,7 @@ name the fix. If you must examine the repo, go to "Repo-context analysis".
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | The failed pipeline is on the default branch, the current branch is not the default branch, and it has no commits above the default branch | Edit in place. Do not check out a branch. The other rows and the checkout of "Repo-context analysis" do not apply. |
 | Checked out, the user is the majority author       | Edit in place.                                                                                                                          |
-| On `main` or the default branch                    | Create `fix/<short-cause>` from the default branch and check it out. In a repo with `refs/spice/data`, use `git-spice branch create <name> --target <default-branch> --no-commit --no-prompt`. Use the repo convention if `CONTRIBUTING.md` or `.gitlab/` has one. |
+| On `main` or the default branch                    | Create `fix/<short-cause>` from the default branch and check it out. Use `git-spice branch create <name> --target <default-branch> --no-commit --no-prompt`. Use the repo convention if `CONTRIBUTING.md` or `.gitlab/` has one. |
 | Not checked out, the user is the majority author   | Check it out as in "Repo-context analysis", then edit in place.                                                                         |
 | The user is not the majority author                | Refuse. Print "branch belongs to @<author>; ask before fixing" and stop.                                                                |
 

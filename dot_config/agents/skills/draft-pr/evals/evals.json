@@ -22,9 +22,9 @@
       "name": "small-fix",
       "fixture": "fixtures/search-fix.sh",
       "prompt": "/draft-pr I tested it on an emulator: a search for \"milk\" now finds the note \"Milk and eggs\".",
-      "expected_output": "A short fix PR: Context, Changes, Testing with the emulator check. No How to review, no High-impact changes, at most 1 review comment. The reply says that git-spice preparation was skipped.",
+      "expected_output": "A short fix PR: Context, Changes, Testing with the emulator check. No How to review, no High-impact changes, at most 1 review comment. The reply says that the skill set up git-spice.",
       "checks": [
-        {"type": "repo_unchanged", "text": "The fixture repo does not change"},
+        {"type": "state_regex", "case": true, "patterns": ["^branch fix/search-case\\nsubject Ignore letter case in note search\\nancestors"], "text": "fix/search-case has only its 1 commit"},
         {"type": "pr_name", "pattern": "^fix-search-case\\.md$", "text": "File name is the branch slug"},
         {"type": "pr_regex", "case": true, "patterns": ["^type: fix$", "^draft: false$", "^base: main$", "^breaking: false$"], "text": "Metadata: fix, not draft, base main, not breaking"},
         {"type": "pr_not_regex", "case": true, "patterns": ["^ticket:"], "text": "Has no ticket field, because there is no ticket"},

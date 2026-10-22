@@ -247,10 +247,11 @@ check "exists: message names the branch" "work-start: branch exists: ABC-0/typo"
 fresh
 git -C "$work" update-ref -d refs/spice/data
 run p ABC-0 'typo'
-check "no git-spice: exit 1" 1 "$code"
-check "no git-spice: message" \
-  "work-start: git-spice is not set up: run 'git-spice repo init' first" "$err"
-check "no git-spice: no branch" no "$(has_branch ABC-0/typo)"
+check "no git-spice: exit 0" 0 "$code"
+check "no git-spice: git-spice is set up, then tracks the branch" \
+  "git-spice -C $work repo init --trunk main --remote origin --no-prompt
+git-spice -C $work branch track ABC-0/typo --base main" \
+  "$(grep '^git-spice' "$MOCK_LOG")"
 
 # main diverged from origin/main.
 fresh

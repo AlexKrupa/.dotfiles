@@ -54,14 +54,14 @@ has no terminal. The flag after the subcommand keeps the command in the form of 
 rules, for example `git-spice log:*`.
 
 ```sh
-git rev-parse --verify -q refs/spice/data && git-spice log short --json --no-prompt
+git-spice log short --json --no-prompt
 ```
 
-Check `refs/spice/data` first. In a repo with no git-spice data, `git-spice log short` initializes
-git-spice, and that changes a repo that does not use it.
+In a repo with no git-spice data, this command sets up git-spice. If it sets up git-spice, tell it
+in the 🧹 line of the reply.
 
-If `refs/spice/data` does not exist, or the command fails, skip the git-spice commands in this step
-and in step 3. Tell it in the 🧹 line of the reply.
+If the command fails, skip the git-spice commands in this step and in step 3. Tell it in the 🧹
+line.
 
 If no output object has `"name"` equal to the current branch, git-spice does not track the branch.
 Run:

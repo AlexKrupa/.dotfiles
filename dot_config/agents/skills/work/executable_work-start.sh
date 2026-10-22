@@ -127,8 +127,6 @@ prompt=$(cat)
 
 if [[ -z $existing ]]; then
   if git show-ref --verify --quiet "refs/heads/$branch"; then die "branch exists: $branch"; fi
-  git show-ref --verify --quiet "$spice_ref" \
-    || die "git-spice is not set up: run 'git-spice repo init' first"
 fi
 
 if [[ -z $existing$split && $(mode_of) == next ]]; then
@@ -260,6 +258,9 @@ else
   # git-spice needs a local base branch, so a remote base gets no tracking.
   tracked=false
   if [[ $base == "$default" ]]; then
+    git show-ref --verify --quiet "$spice_ref" \
+      || git-spice -C "$main" repo init --trunk "$default" --remote origin --no-prompt >/dev/null 2>&1 \
+      || fail "git-spice repo init failed"
     git-spice -C "$main" branch track "$branch" --base "$default" >/dev/null 2>&1 \
       || fail "git-spice branch track failed"
     tracked=true
