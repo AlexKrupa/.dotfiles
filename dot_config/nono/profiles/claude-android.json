@@ -1,0 +1,277 @@
+{
+  "extends": "claude",
+  "meta": {
+    "name": "claude-android",
+    "description": "Claude Code with Android, Gradle, Java, and Kotlin tools"
+  },
+  "groups": {
+    "exclude": [
+      "unlink_protection"
+    ]
+  },
+  "filesystem": {
+    "allow": [
+      "$HOME/.gradle",
+      "$HOME/.android",
+      "$HOME/.config/.android",
+      "$HOME/.local/share/android"
+    ],
+    "read": [
+      "$HOME/.config/agents",
+      "$HOME/.agents/skills",
+      "$HOME/Library/Android/sdk",
+      "/Library/Java/JavaVirtualMachines",
+      "$HOME/Library/Java/JavaVirtualMachines"
+    ],
+    "read_file": [
+      "$HOME/.config/git/config-base",
+      "$HOME/.editorconfig"
+    ],
+    "deny": [
+      "$HOME/.gradle/daemon"
+    ]
+  },
+  "network": {
+    "network_profile": "developer",
+    "allow_http2": true,
+    "allow_domain": [
+      "dl.google.com",
+      "maven.google.com",
+      "services.gradle.org",
+      "downloads.gradle.org",
+      "plugins.gradle.org",
+      "plugins-artifacts.gradle.org",
+      "repo.gradle.org",
+      "repo1.maven.org",
+      "repo.maven.apache.org",
+      "jitpack.io",
+      "api.foojay.io",
+      "mcp-proxy.anthropic.com",
+      "statsig.anthropic.com"
+    ],
+    "open_port": [
+      5037
+    ],
+    "open_port_range": [
+      [
+        49152,
+        65535
+      ]
+    ]
+  },
+  "workdir": {
+    "access": "readwrite"
+  },
+  "environment": {
+    "set_vars": {
+      "GRADLE_OPTS": "-Djava.net.preferIPv4Stack=true",
+      "JAVA_TOOL_OPTIONS": "-Djava.net.preferIPv4Stack=true"
+    }
+  },
+  "unsafe_macos_seatbelt_rules": [
+    "(allow user-preference-read)",
+    "(allow network-outbound (remote udp \"localhost:*\"))",
+    "(deny file-write* (regex #\"^/Users/[^/]+/\\.claude(/.*)?$\" #\"^/Users/[^/]+/\\.claude\\.json$\"))",
+    "(deny file-write* (regex #\"/\\.git$\" #\"/\\.git/(config|config\\.worktree|commondir|hooks(/.*)?)$\" #\"/\\.git/worktrees/[^/]+/(commondir|gitdir|config\\.worktree)$\" #\"/\\.git/modules/.+/(config|hooks(/.*)?)$\"))"
+  ],
+  "command_policies": {
+    "commands": {
+      "herdr": {
+        "from": {
+          "session": {
+            "sandbox": {
+              "unix_socket_bind": [
+                "$HOME/.config/herdr/herdr.sock"
+              ],
+              "fs_read": [
+                "$HOME/.config/herdr"
+              ],
+              "environment": {
+                "allow_vars": [
+                  "HERDR_*",
+                  "HOME",
+                  "TERM*",
+                  "LANG",
+                  "LC_*"
+                ]
+              }
+            },
+            "invocation_policy": {
+              "default": "deny",
+              "allow": [
+                {
+                  "argv": {
+                    "prefix": [
+                      "agent"
+                    ]
+                  },
+                  "reason": "hub, work, exec skills"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "worktree"
+                    ]
+                  },
+                  "reason": "work skill"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "notification",
+                      "show"
+                    ]
+                  },
+                  "reason": "hub skill"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "workspace",
+                      "get"
+                    ]
+                  },
+                  "reason": "herdr-worktree.sh"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "pane",
+                      "current"
+                    ]
+                  },
+                  "reason": "exec, herdr-worktree.sh"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "pane",
+                      "move"
+                    ]
+                  },
+                  "reason": "herdr-worktree.sh"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "pane",
+                      "close"
+                    ]
+                  },
+                  "reason": "herdr-worktree.sh"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "pane",
+                      "report-metadata"
+                    ]
+                  },
+                  "reason": "statusline Herdr labels"
+                }
+              ],
+              "deny": [
+                {
+                  "argv": {
+                    "prefix": [
+                      "pane",
+                      "run"
+                    ]
+                  },
+                  "reason": "types into a shell outside the sandbox"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "pane",
+                      "send-keys"
+                    ]
+                  },
+                  "reason": "types into a shell outside the sandbox"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "agent",
+                      "attach"
+                    ]
+                  },
+                  "reason": "gives the sandbox the terminal of an agent outside the sandbox"
+                },
+                {
+                  "argv": {
+                    "prefix": [
+                      "agent",
+                      "start"
+                    ]
+                  },
+                  "reason": "starts any agent with any arguments: use herdr-start-claude"
+                }
+              ]
+            }
+          },
+          "herdr-start-claude": {
+            "sandbox": {
+              "unix_socket_bind": [
+                "$HOME/.config/herdr/herdr.sock"
+              ],
+              "fs_read": [
+                ".",
+                "$HOME/.config/herdr"
+              ],
+              "environment": {
+                "allow_vars": [
+                  "HERDR_*",
+                  "HOME",
+                  "TERM*",
+                  "LANG",
+                  "LC_*"
+                ]
+              }
+            },
+            "invocation_policy": {
+              "default": "deny",
+              "allow": [
+                {
+                  "argv": {
+                    "prefix": [
+                      "agent",
+                      "start"
+                    ]
+                  },
+                  "reason": "herdr-start-claude checks the arguments"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "herdr-start-claude": {
+        "can_use": [
+          "herdr"
+        ],
+        "from": {
+          "session": {
+            "sandbox": {
+              "fs_read": [
+                "."
+              ],
+              "environment": {
+                "allow_vars": [
+                  "HERDR_*",
+                  "HOME",
+                  "TERM*",
+                  "LANG",
+                  "LC_*"
+                ]
+              }
+            },
+            "invocation_policy": {
+              "default": "allow"
+            }
+          }
+        }
+      }
+    }
+  }
+}
