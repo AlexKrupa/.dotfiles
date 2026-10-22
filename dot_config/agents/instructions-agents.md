@@ -213,7 +213,11 @@ Layout:
 
 ## Environment
 
-- MacOS, Fish shell, Ghostty terminal, herdr
+- MacOS, Ghostty terminal, herdr
+- Shells:
+  - My terminal shell is Fish. Use Fish syntax for commands that I run in my own terminal.
+  - The Bash tool and the `! <command>` prompt prefix run zsh. Use zsh syntax for them, also
+    when you give me a `! <command>` to type.
 - Dotfiles managed with chezmoi (`chezmoi managed`). Edit live files, then use
   `chezmoi re-add/add/forget`, not the source repo. These commands commit and push automatically.
   - Update dotfiles automatically when applying confirmed or explicitly requested changes.
