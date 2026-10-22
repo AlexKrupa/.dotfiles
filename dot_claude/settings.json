@@ -1,7 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "respectGitignore": true,
-  "idleCompaction": false,
   "env": {
     "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
     "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
@@ -343,6 +342,7 @@
   "theme": "dark",
   "editorMode": "normal",
   "preferredNotifChannel": "notifications_disabled",
+  "idleCompaction": false,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
