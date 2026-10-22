@@ -61,6 +61,8 @@ set -euo pipefail
 die() { echo "watch-gitlab: $1" >&2; exit 1; }
 # shellcheck source=watch-lib.sh
 source "$HOME/.config/agents/bin/watch-lib.sh"
+# shellcheck source=watch-state.sh
+source "$HOME/.config/agents/bin/watch-state.sh"
 
 repo=$PWD
 interval=120
@@ -92,12 +94,7 @@ cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a 
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab
 slug=$(~/.config/agents/bin/repo-slug.sh)
 top=$(git rev-parse --show-toplevel)
-key=$slug
-# With the worktree hash in the key, the stack watch and the hub watch run at the same time.
-((${#mrs[@]})) && key=$slug-$(printf %s "$top" | shasum | cut -c1-12)
-# The review watch has its own state and lock for each MR, so it does not stop a stack watch or
-# a review watch of a different MR.
-((review)) && key=$key-review-${mrs[0]}
+key=$(watch_key "$PWD" "$review" ${mrs[@]+"${mrs[@]}"})
 state=$state_dir/$key.json
 lock=$state_dir/$key.lock
 mkdir -p "$state_dir"
