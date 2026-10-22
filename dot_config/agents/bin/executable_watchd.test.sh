@@ -389,4 +389,23 @@ check "stack: hub does not skip a stack MR" "yes no" \
 events app "$(ev todo 5)"
 code_of hub >/dev/null
 
+git init -q "$d/gone"
+git -C "$d/gone" remote add origin https://gitlab.example.com/group/sub/app.git
+(cd "$d/gone" && exec timeout 15 "$client" --interval 1 >/dev/null 2>"$d/gone.err") &
+gone_client=$!
+wait_for 10 "[ -f '$WATCHD_DIR/subs/gone.json' ]"
+rm -rf "$d/gone"
+wait "$gone_client"
+check "client: worktree gone: exit 1" "1 watch: the worktree is gone: $d/gone" \
+  "$? $(tail -n1 "$d/gone.err")"
+
+# The parent shell exits at once. The client must stop after its next check.
+(cd "$d/app" && bash -c '"$0" --interval 1 >/dev/null 2>"$1" & echo $! >"$2"; sleep 1' \
+  "$client" "$d/orphan.err" "$d/orphan.pid")
+orphan=$(cat "$d/orphan.pid")
+wait_for 10 "! ps -p $orphan >/dev/null"
+check "client: parent gone: client stops" "no watch: the parent process is gone" \
+  "$(ps -p "$orphan" >/dev/null && echo yes || echo no) $(cat "$d/orphan.err")"
+kill "$orphan" 2>/dev/null
+
 exit "$fail"

@@ -2,7 +2,7 @@
 # Usage: watchd.sh
 # The watch daemon: one process for each machine. watch.sh starts it when no daemon runs.
 # It runs one poll loop for each repo with a live subscription. A subscription is live while its
-# session process runs. Each round runs the check engine (watch-gitlab.sh --once) for each live
+# session process runs. Each round runs the check engine (watch-gitlab.sh) for each live
 # subscription of the repo, and appends the events to the inbox of the subscription. The hub check
 # skips the MRs of the live review subscriptions. The fetched MRs go to a cache of the round, so
 # two subscriptions of one MR get one fetch. The round interval is the smallest --interval of the
@@ -100,7 +100,7 @@ check() {
   local slug=$1 key=$2 round=$3 mode repo iid rc=0 fails args
   read -r mode repo < <(field "$key" '"\(.mode) \(.repo)"') || return 0
   rm -f "$WATCHD_DIR/poke/$key"
-  args=(--once --repo "$repo")
+  args=(--repo "$repo")
   case $mode in
     hub) args+=(${skip[@]+"${skip[@]}"}) ;;
     stack) for iid in $(field "$key" '.mrs[]'); do args+=(--mr "$iid"); done ;;

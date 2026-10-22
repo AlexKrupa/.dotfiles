@@ -45,9 +45,15 @@ list of these skills. Rerun it on a new machine.
 - `bin/gitlab-pipeline.sh` - read-only GitLab pipeline CLI: resolves a pipeline, lists the failed
   jobs with a verdict, and prints the test failures and the trace signals of a job. `failed-logs`
   prints the signals of each failed job that needs analysis. Used by `debug-gitlab`.
-- `bin/watch-gitlab.sh` - watches GitLab MRs and prints one JSON line for each new event. Without
-  `--mr`, it watches for the hub. With `--mr`, it watches the MRs of a stack. With `--review` and
-  one `--mr`, it watches an MR for its reviewer. Used by `hub`, `draft-pr`, and `review-pr`.
+- `bin/watch.sh` - the watch client: the background task of a session. It waits for the GitLab
+  events of its subscription and prints one JSON line for each event. Without `--mr`, it watches
+  for the hub. With `--mr`, it watches the MRs of a stack. With `--review` and one `--mr`, it
+  watches an MR for its reviewer. If no daemon runs, it starts `bin/watchd.sh`. Used by `hub`,
+  `draft-pr`, `review-pr`, and `bump`.
+- `bin/watchd.sh` - the watch daemon: one process for each machine. It polls each repo with a live
+  subscription and routes the events to the subscriptions.
+- `bin/watch-gitlab.sh` - the check engine of the daemon: one check of the project or of the MRs,
+  with the events on stdout. Its header has the list of events.
 - `bin/git-interdiff.sh` - prints the content change between two MR versions (base and head of
   each). After a rebase, it compares the patches, so the changes of the target branch are not in the
   output. Used by `review-pr`.

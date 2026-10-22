@@ -16,18 +16,16 @@ check() {
 # shellcheck source=watch-test-fakes.sh
 source "$here/watch-test-fakes.sh"
 state="$d/state/watch-gitlab/app.json"
-lock="$d/state/watch-gitlab/app.lock"
 url=https://gitlab.example.com/group/sub/app/-/merge_requests
 
 run() { # One check in the repo, with the arguments. Sets out, err, and code.
-  out=$(cd "$d/app" && "$script" --once "$@" 2>"$d/err"); code=$?; err=$(cat "$d/err")
+  out=$(cd "$d/app" && "$script" "$@" 2>"$d/err"); code=$?; err=$(cat "$d/err")
 }
 
 run
 check "first check: exit 0" 0 "$code"
 check "first check: no events" "" "$out"
 check "first check: state saved" '[]' "$(jq -c .todos "$state")"
-check "lock removed after exit" no "$([ -e "$lock" ] && echo yes || echo no)"
 
 fixture todos '[{"id": 11, "action_name": "review_requested", "author": {"username": "anna"},
   "target": {"iid": 5, "title": "Add foo", "source_branch": "ABC-1/foo"},
@@ -47,84 +45,34 @@ check "assigned to own MR: no events" "" "$out"
 
 export MOCK_FAIL='todos*' MOCK_FAIL_MSG='glab: 403 Forbidden (HTTP 403)'
 run
-check "--once, HTTP 403: exit 5" 5 "$code"
+check "HTTP 403: exit 5" 5 "$code"
 check "HTTP 403: message" \
   "watch-gitlab: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the Read permission for Todo (user boundary)." \
   "$err"
 export MOCK_FAIL_MSG='dial tcp: i/o timeout'
 run
-check "--once, network error: exit 4" 4 "$code"
+check "network error: exit 4" 4 "$code"
 export MOCK_FAIL_MSG='something odd'
 run
-check "--once, other error: exit 1" 1 "$code"
+check "other error: exit 1" 1 "$code"
 
 export MOCK_FAIL_MSG='HTTP 404 Not Found'
-: >"$MOCK_LOG"
-out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
-check "5 other errors: exit 1" 1 "$code"
-check "5 other errors: 5 tries" 5 "$(grep -c '^api todos' "$MOCK_LOG")"
-check "5 other errors: message" \
+run
+check "other error: message" \
   "watch-gitlab: todos?project_id=7&type=MergeRequest&state=pending&per_page=100: HTTP 404 Not Found" \
-  "$(cat "$d/err")"
-
-cp "$d/mock/todos.json" "$d/todos.json"
-fixture todos '[{"id": 14, "action_name": "review_requested", "author": {"username": "anna"},
-  "target": {"iid": 5, "title": "Add foo", "source_branch": "ABC-1/foo"},
-  "target_url": "'"$url"'/5"}]'
-export MOCK_FAIL_MSG='dial tcp: connection refused' MOCK_FAIL_TIMES=6
-: >"$d/mock/fails"
-: >"$MOCK_LOG"
-out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
-check "6 network errors, then an event: exit 0" 0 "$code"
-check "6 network errors, then an event: event" \
-  '{"kind":"todo","iid":5,"title":"Add foo","url":"'"$url"'/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo"}' \
-  "$out"
-check "6 network errors, then an event: 7 tries" 7 "$(grep -c '^api todos' "$MOCK_LOG")"
-mv "$d/todos.json" "$d/mock/todos.json"
-unset MOCK_FAIL MOCK_FAIL_MSG MOCK_FAIL_TIMES
-
-# An older instance runs in its loop. A new instance stops it and takes the lock.
-start() { (cd "$d/app" && exec "$script" --interval 60 >/dev/null 2>"$d/$1.err") & }
-lock_is() {
-  for _ in $(seq 40); do [ "$(cat "$lock" 2>/dev/null)" = "$1" ] && return; sleep 0.25; done
-}
-start old
-old=$!
-lock_is "$old"
-start new
-new=$!
-(sleep 15; kill -9 "$old") 2>/dev/null &
-wait "$old"
-check "older instance: exit 3" 3 "$?"
-check "older instance: message" "watch-gitlab: replaced by a new watch" "$(cat "$d/old.err")"
-lock_is "$new"
-check "new instance: lock" "$new" "$(cat "$lock" 2>/dev/null)"
-kill "$new"
-wait "$new"
-check "new instance stopped: lock removed" no "$([ -e "$lock" ] && echo yes || echo no)"
-
-sleep 30 &
-sleeper=$!
-echo "$sleeper" >"$lock"
-run
-check "lock of a different program: exit 0" 0 "$code"
-check "lock of a different program: not stopped" yes \
-  "$(ps -p "$sleeper" >/dev/null && echo yes || echo no)"
-{ kill "$sleeper"; wait "$sleeper"; } 2>/dev/null
-echo 999999 >"$lock"
-run
-check "lock of a dead process: exit 0" 0 "$code"
+  "$err"
+unset MOCK_FAIL MOCK_FAIL_MSG
 
 export MOCK_NOAUTH=1
 run
-check "--once, glab not authenticated: exit 5" 5 "$code"
+check "glab not authenticated: exit 5" 5 "$code"
 check "glab not authenticated: message" \
   "watch-gitlab: glab is not authenticated, run: glab auth login" "$err"
 unset MOCK_NOAUTH
 
 git init -q "$d/app2"
 git -C "$d/app2" remote add origin git@gitlab.example.com:group/sub/app.git
-out=$(cd "$d/app2" && "$script" --once 2>&1); code=$?
+out=$(cd "$d/app2" && "$script" 2>&1); code=$?
 check "scp-style SSH remote: same project" "0 " "$code $out"
 
 # reset_mock: removes the state files and all fixtures except user and project.
@@ -270,18 +218,11 @@ check "new MR of a different user, not own MRs" \
 run
 check "same open MRs: no events" "" "$out"
 
-# A fake review watch: a live process with watch-gitlab.sh in its command.
 reset_mock
 echo '{"todos": []}' >"$state"
 fixture commented "[$(mr 9 'Fix bar' opened t1 bob ABC-2/bar)]"
 fixture events '[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}}]'
 run
-mkdir -p "$d/fake"
-printf '#!/bin/sh\nsleep 60\n' >"$d/fake/watch-gitlab.sh"
-chmod +x "$d/fake/watch-gitlab.sh"
-"$d/fake/watch-gitlab.sh" &
-reviewer=$!
-echo "$reviewer" >"$d/state/watch-gitlab/app-0123456789ab-review-9.lock"
 todo_9() { # id action_name
   printf '{"id": %s, "action_name": "%s", "author": {"username": "anna"},
     "target": {"iid": 9, "title": "Fix bar", "source_branch": "ABC-2/bar",
@@ -290,40 +231,10 @@ todo_9() { # id action_name
 fixture todos "[$(todo_9 21 mentioned), $(todo_9 22 review_requested)]"
 fixture commented "[$(mr 9 'Fix bar' opened t2 bob ABC-2/bar)]"
 fixture notes_9 '[{"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}]'
-run
-check "MR with a review watch: only the review request" \
-  '{"kind":"todo","iid":9,"title":"Fix bar","url":"'"$url"'/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar"}' \
-  "$out"
-# The lock stays. Its process is dead, so it does not count.
-{ kill "$reviewer"; wait "$reviewer"; } 2>/dev/null
-fixture commented "[$(mr 9 'Fix bar' opened t3 bob ABC-2/bar)]"
-fixture notes_9 '[{"id": 302, "system": false, "body": "Still odd", "author": {"username": "anna"}},
-  {"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}]'
-run
-check "MR with a stopped review watch: events again" \
-  '{"kind":"note","iid":9,"title":"Fix bar","url":"'"$url"'/9#note_302","actor":"anna","detail":"Still odd","branch":"ABC-2/bar"}' \
-  "$out"
-fixture todos "[$(todo_9 23 mentioned), $(todo_9 24 review_requested)]"
-fixture commented "[$(mr 9 'Fix bar' opened t4 bob ABC-2/bar)]"
-fixture notes_9 '[{"id": 303, "system": false, "body": "Hm", "author": {"username": "anna"}}]'
 run --skip-mr 9
 check "--skip-mr: only the review request and opened" \
   '{"kind":"todo","iid":9,"title":"Fix bar","url":"'"$url"'/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar"}' \
   "$out"
-
-cp "$d/mock/pipelines.json" "$d/pipelines.json"
-fixture pipelines '[{"id": 76, "status": "failed", "web_url": "'"$pipelines"'/76"}]'
-export MOCK_FAIL='user' MOCK_FAIL_MSG='dial tcp: connection refused' MOCK_FAIL_TIMES=6
-: >"$d/mock/fails"
-: >"$MOCK_LOG"
-out=$(cd "$d/app" && "$script" --interval 0 2>"$d/err"); code=$?
-check "6 network errors at the start, then an event: exit 0" 0 "$code"
-check "6 network errors at the start, then an event: event" "$pipelines/76" \
-  "$(jq -r .url <<<"$out")"
-check "6 network errors at the start, then an event: 7 tries" 7 \
-  "$(grep -c '^api user$' "$MOCK_LOG")"
-mv "$d/pipelines.json" "$d/mock/pipelines.json"
-unset MOCK_FAIL MOCK_FAIL_MSG MOCK_FAIL_TIMES
 
 wt=$(printf %s "$d/app" | shasum | cut -c1-12)
 sstate="$d/state/watch-gitlab/app-$wt.json"
@@ -355,7 +266,7 @@ system_note() { # id author body, in a discussion of its own
     notes: [{id: $id, body: $b, system: true, author: {username: $a},
       resolvable: false, resolved: false, resolved_by: null}]}'
 }
-srun() { out=$(cd "$d/app" && "$script" --once "$@" 2>"$d/err"); code=$?; err=$(cat "$d/err"); }
+srun() { out=$(cd "$d/app" && "$script" "$@" 2>"$d/err"); code=$?; err=$(cat "$d/err"); }
 sev() { # kind iid actor detail [url] [path line]
   jq -nc --arg k "$1" --argjson i "$2" --arg a "$3" --arg dt "$4" --arg u "${5:-$url/$2}" \
     --arg p "${6:-}" --arg l "${7:-}" \
@@ -569,19 +480,8 @@ srun --mr 5
 check "stack: GraphQL error: exit 5" 5 "$code"
 check "stack: GraphQL error: message" \
   "watch-gitlab: graphql: Field 'awardEmoji' does not exist" "$err"
-: >"$MOCK_LOG"
-out=$(cd "$d/app" && "$script" --mr 5 --interval 0 2>&1); code=$?
-check "stack: GraphQL error: no new try" "1 1" "$code $(grep -c '^api graphql' "$MOCK_LOG")"
 srun --mr x
 check "stack: bad MR: message" "watch-gitlab: --mr needs an MR number" "$err"
-
-gql 5
-(cd "$d/app" && exec "$script" --interval 60 >/dev/null 2>"$d/hub.err") &
-hub=$!
-lock_is "$hub"
-srun --mr 5
-check "stack and hub: hub watch still runs" yes "$(ps -p "$hub" >/dev/null && echo yes || echo no)"
-kill "$hub"; wait "$hub" 2>/dev/null
 
 rstate="$d/state/watch-gitlab/app-$wt-review-5.json"
 refs() { fixture mr_5 '{"diff_refs": {"base_sha": "'"$1"'", "head_sha": "'"$2"'"}}'; }
@@ -660,59 +560,14 @@ check "review: unaddressed only for threads with a note from the user" \
   "$(sev comment 5 bob Because. "$url/5#note_142")
 $(sev unaddressed 5 bob Because. "$url/5#note_142" app/Foo.kt 42)" "$out"
 
-reset_mock
-gql 5
-refs b1 h1
-(cd "$d/app" && exec "$script" --mr 5 --interval 60 >/dev/null 2>"$d/stack.err") &
-stack=$!
-slock="$d/state/watch-gitlab/app-$wt.lock"
-for _ in $(seq 40); do [ "$(cat "$slock" 2>/dev/null)" = "$stack" ] && break; sleep 0.25; done
-srun --review --mr 5
-check "review and stack: stack watch still runs" yes \
-  "$(ps -p "$stack" >/dev/null && echo yes || echo no)"
-kill "$stack"; wait "$stack" 2>/dev/null
-
-reset_mock
-gql 6
-(cd "$d/app" && exec "$script" --review --mr 6 --interval 60 >/dev/null 2>"$d/review6.err") &
-review6=$!
-rlock6="$d/state/watch-gitlab/app-$wt-review-6.lock"
-for _ in $(seq 40); do [ "$(cat "$rlock6" 2>/dev/null)" = "$review6" ] && break; sleep 0.25; done
-srun --review --mr 5
-check "review of two MRs: the other review watch still runs" yes \
-  "$(ps -p "$review6" >/dev/null && echo yes || echo no)"
-kill "$review6"; wait "$review6" 2>/dev/null
-
-out=$("$script" --repo "$d/app" --once 2>&1); code=$?
+out=$("$script" --repo "$d/app" 2>&1); code=$?
 check "--repo from a different folder: exit 0" 0 "$code"
 
 reset_mock
 gql 5
 srun --mr 5
-out=$(cd "$d/app" && "$script" --mr 5 --interval 0 --deadline 1 2>&1); code=$?
+out=$(cd "$d/app" && "$script" --mr 5 --deadline 1 2>&1); code=$?
 check "stack: --deadline is unknown" "1 watch-gitlab: unexpected argument: --deadline" "$code $out"
-
-git init -q "$d/gone"
-git -C "$d/gone" remote add origin https://gitlab.example.com/group/sub/app.git
-(cd "$d/gone" && exec "$script" --interval 1 >/dev/null 2>"$d/gone.err") &
-gone=$!
-sleep 0.5
-rm -rf "$d/gone"
-for _ in 1 2 3 4 5 6 7 8 9 10; do ps -p "$gone" >/dev/null || break; sleep 0.5; done
-wait "$gone"
-check "worktree gone: exit 1" 1 "$?"
-check "worktree gone: message" "watch-gitlab: the worktree is gone: $d/gone" \
-  "$(tail -n1 "$d/gone.err")"
-
-# The parent shell exits at once. The loop must stop after its next sleep.
-(cd "$d/app" && bash -c '"$0" --interval 1 >/dev/null 2>"$1" & echo $! >"$2"; sleep 1' \
-  "$script" "$d/orphan.err" "$d/orphan.pid")
-orphan=$(cat "$d/orphan.pid")
-for _ in 1 2 3 4 5 6 7 8 9 10; do ps -p "$orphan" >/dev/null || break; sleep 0.5; done
-check "parent gone: process stops" no "$(ps -p "$orphan" >/dev/null && echo yes || echo no)"
-check "parent gone: message" "watch-gitlab: the parent process is gone" \
-  "$(cat "$d/orphan.err")"
-kill "$orphan" 2>/dev/null
 
 out=$("$script" --bogus 2>&1); code=$?
 check "unexpected argument: exit 1" 1 "$code"

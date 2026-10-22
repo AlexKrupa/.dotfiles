@@ -9,8 +9,8 @@
     {"id": "no-host-writes", "type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host, push, or send a notification directly"},
     {"id": "branch-stays", "type": "state_regex", "case": true, "patterns": ["^head tags-model$", "^branch-moved no$", "^status $"], "text": "The local branch and the working tree do not change"},
     {"id": "no-fmr-fetch", "type": "tool_count", "tool": "Bash", "input_regex": "fetch-gitlab-mr\\.sh(\\\\\")?\\s+fetch\\b|FMR(\\\\\")?\\s+fetch\\b", "max": 0, "text": "Does not use the fast-forward fetch of fetch-gitlab-mr.sh"},
-    {"id": "watch-restart", "type": "tool_count", "tool": "Bash", "input_regex": "\"command\": \"[^\"]*watch-gitlab\\.sh[^\"]*--review[^\"]*--mr[^\"]*11[^\"]*\".*\"run_in_background\": true", "min": 1, "text": "Starts the review watch of !11 in the background"},
-    {"id": "no-fresh-restart", "type": "tool_count", "tool": "Bash", "input_regex": "watch-gitlab\\.sh[^\"]*--fresh", "max": 0, "text": "Starts the watch again with no --fresh"}
+    {"id": "watch-restart", "type": "tool_count", "tool": "Bash", "input_regex": "\"command\": \"[^\"]*watch\\.sh[^\"]*--review[^\"]*--mr[^\"]*11[^\"]*\".*\"run_in_background\": true", "min": 1, "text": "Starts the review watch of !11 in the background"},
+    {"id": "no-fresh-restart", "type": "tool_count", "tool": "Bash", "input_regex": "watch\\.sh[^\"]*--fresh", "max": 0, "text": "Starts the watch again with no --fresh"}
   ],
   "evals": [
     {
@@ -70,7 +70,7 @@
       "checks": [
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-interdiff\\.sh", "min": 1, "text": "Runs git-interdiff.sh"},
         {"type": "report_regex", "patterns": ["(?m)^## Update", "(?s)## Update.*substring"], "text": "The report has an update with the substring finding"},
-        {"type": "tool_count", "tool": "Bash", "input_regex": "watch-gitlab\\.sh[^\"]*--fresh", "min": 1, "text": "Starts the watch with --fresh"}
+        {"type": "tool_count", "tool": "Bash", "input_regex": "watch\\.sh[^\"]*--fresh", "min": 1, "text": "Starts the watch with --fresh"}
       ]
     },
     {

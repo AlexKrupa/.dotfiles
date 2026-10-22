@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once] [--fresh] [--review]
-#   [--mr IID]... [--skip-mr IID]...
-# Stops at the first check with new events and prints one JSON line for each event: kind, iid,
-# title, url, actor, detail, branch. With no state file, the first check only saves the state. A
-# value that the saved state does not have gives no event at its first check.
-# --once: do one check, then stop.
-# --fresh: delete the state file before the first check.
-# --skip-mr: hub mode, an MR to handle as an MR with a running review watch.
+# Usage: watch-gitlab.sh [--repo PATH] [--fresh] [--review] [--mr IID]... [--skip-mr IID]...
+# The check engine of the watch daemon watchd.sh. It does one check and prints one JSON line for
+# each new event: kind, iid, title, url, actor, detail, branch. With no state file, the check only
+# saves the state. A value that the saved state does not have gives no event at its first check.
+# --fresh: delete the state file before the check.
+# --skip-mr: hub mode, an MR with a review watch.
 # WATCH_MR_CACHE=DIR: a fetched MR goes to DIR/<iid>.json, and a later fetch of the MR reads it.
 #
 # Hub mode (no --mr) watches the project of the repo, for the hub. Events:
@@ -18,8 +16,8 @@
 #   reaction        a new reaction on a comment of the user       a reaction of the user
 #   default-failed  a new failed default-branch pipeline          a pipeline id below the saved id,
 #                                                                 for example during a job retry
-# An MR with a running review watch gives only the review_requested to-do item and the opened
-# event. The agent of the review watch reports the other events.
+# An MR of --skip-mr gives only the review_requested to-do item and the opened event. The agent of
+# the review watch reports the other events.
 # opened: actor is the MR author. default-failed: iid and title are null, and previous is the
 # status of the saved default-branch pipeline, or null.
 #
@@ -47,14 +45,8 @@
 # Comments, reactions, and threads on a diff line also have path and line. The actor of a change
 # comes from the newest system note of that change, or is empty.
 #
-# A new instance stops an older instance of the same repo and mode. A stack watch has one
-# instance for each worktree. A review watch has its own state and lock for each MR, so it runs at
-# the same time as a stack watch or a review watch of a different MR.
-# Stack and review mode stop when the parent process or the repo directory is gone.
-# The watch pauses during system sleep. A network error does not count: it waits for the network,
-# with no limit.
-# Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one.
-# With --once: 0 check done, 1 error, 4 network error, 5 permanent error (HTTP 401 or 403, a
+# A stack watch has its own state for each worktree. A review watch has its own state for each MR.
+# Exit codes: 0 check done, 1 error, 4 network error, 5 permanent error (HTTP 401 or 403, a
 # GraphQL error, an unknown MR, unreadable comments, no glab authentication).
 set -euo pipefail
 
@@ -65,8 +57,6 @@ source "$HOME/.config/agents/bin/watch-lib.sh"
 source "$HOME/.config/agents/bin/watch-state.sh"
 
 repo=$PWD
-interval=120
-once=0
 mrs=()
 skip_mrs=()
 review=0
@@ -74,8 +64,6 @@ fresh=0
 while (($#)); do
   case "$1" in
     --repo) [[ $# -ge 2 ]] || die "--repo needs a path"; repo=$2; shift 2 ;;
-    --interval) [[ $# -ge 2 ]] || die "--interval needs seconds"; interval=$2; shift 2 ;;
-    --once) once=1; shift ;;
     --mr) [[ $# -ge 2 && ${2#!} =~ ^[0-9]+$ ]] || die "--mr needs an MR number"
       mrs+=("${2#!}"); shift 2 ;;
     --skip-mr) [[ $# -ge 2 && ${2#!} =~ ^[0-9]+$ ]] || die "--skip-mr needs an MR number"
@@ -92,55 +80,19 @@ command -v jq >/dev/null || die "jq is not installed"
 cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $repo"
 
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab
-slug=$(~/.config/agents/bin/repo-slug.sh)
-top=$(git rev-parse --show-toplevel)
 key=$(watch_key "$PWD" "$review" ${mrs[@]+"${mrs[@]}"})
 state=$state_dir/$key.json
-lock=$state_dir/$key.lock
 mkdir -p "$state_dir"
-# A new watch replaces the old one: stop an older instance of this script that holds the lock.
-# The command check stops no different program that got the PID of a dead instance.
-is_watch() { ps -o command= -p "$1" 2>/dev/null | grep -q 'watch-gitlab\.sh'; }
-old=$(cat "$lock" 2>/dev/null || true)
-if [[ -n $old ]] && is_watch "$old"; then
-  kill "$old" 2>/dev/null || true
-  for _ in {1..20}; do ps -p "$old" >/dev/null || break; sleep 0.5; done
-  kill -KILL "$old" 2>/dev/null || true
-fi
 if ! glab auth status >/dev/null 2>&1; then
   echo "watch-gitlab: glab is not authenticated, run: glab auth login" >&2
-  exit $((once ? 5 : 1))
+  exit 5
 fi
 tmp=$(mktemp -d)
-echo $$ >"$lock"
 ((fresh)) && rm -f "$state"
-sleeper=''
-cleanup() {
-  if [[ -n $sleeper ]]; then kill "$sleeper" 2>/dev/null || true; fi
-  rm -rf "$tmp"
-  if [[ $(cat "$lock" 2>/dev/null) == "$$" ]]; then rm -f "$lock"; fi
-}
-trap cleanup EXIT
-trap 'echo "watch-gitlab: replaced by a new watch" >&2; exit 3' TERM
-
-# The parent of this script can be a wrapper shell that stays alive after the agent is killed,
-# so the check covers all ancestors. `ps`, not `kill -0`: `kill -0` fails on processes of root.
-ancestors=()
-p=$PPID
-while ((p > 1)); do ancestors+=("$p"); p=$(ps -o ppid= -p "$p" | tr -d ' '); done
-parent_gone() {
-  local p
-  for p in "${ancestors[@]}"; do ps -p "$p" >/dev/null || return 0; done
-  return 1
-}
-exit_if_orphaned() {
-  parent_gone && die "the parent process is gone"
-  [[ -d $top ]] || die "the worktree is gone: $top"
-}
+trap 'rm -rf "$tmp"' EXIT
 
 remote=$(git remote get-url origin 2>/dev/null \
   || git remote get-url "$(git remote | head -n1)" 2>/dev/null) || die "no git remote in $repo"
-WATCH_HOST=$(remote_host "$remote")
 project=$(sed -E 's#\.git$##; s#^[a-z+]+://[^/]+/##; s#^[^@/]+@[^:]+:##' <<<"$remote")
 project_ref=$(jq -rn --arg p "$project" '$p | @uri')
 
@@ -440,8 +392,7 @@ check_stack() {
 check_mode() { if ((${#mrs[@]})); then check_stack; else check; fi; }
 
 check() {
-  local old=$state since iids iid note user project_json review_lock
-  local reviewed=(${skip_mrs[@]+"${skip_mrs[@]}"})
+  local old=$state since iids iid note user project_json
   if [[ -z $pid ]]; then
     user=$(api user) || return
     project_json=$(api "projects/$project_ref") || return
@@ -493,16 +444,9 @@ check() {
   done
   api "projects/$pid/pipelines?ref=$default_ref&scope=finished&per_page=1" >"$tmp/default.json" \
     || return
-  # The agent of an MR with a running review watch reports its events. The lock of a dead process
-  # does not count.
-  for review_lock in "$state_dir/$slug"-????????????-review-*.lock; do
-    [[ -e $review_lock ]] && is_watch "$(cat "$review_lock" 2>/dev/null)" || continue
-    iid=${review_lock##*-review-}
-    reviewed+=("${iid%.lock}")
-  done
   jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
       --slurpfile opened "$tmp/opened.json" \
-      --argjson reviewed "$(printf '%s\n' ${reviewed[@]+"${reviewed[@]}"} | jq -sc .)" \
+      --argjson reviewed "$(printf '%s\n' ${skip_mrs[@]+"${skip_mrs[@]}"} | jq -sc .)" \
       --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
       --slurpfile default "$tmp/default.json" --slurpfile reactions "$tmp/reactions.jsonl" \
       --arg me "$me" --arg default_branch "$default_branch" "$PROGRAM" >"$tmp/result.json" \
@@ -511,27 +455,12 @@ check() {
   jq -c '.events[]' "$tmp/result.json"
 }
 
-fails=0
-while :; do
-  if check_mode >"$tmp/events"; then
-    fails=0
-    if [[ -s $tmp/events || $once == 1 ]]; then cat "$tmp/events"; exit 0; fi
-  else
-    rc=$?
-    if ((once)) && [[ $rc == 2 || $rc == 3 ]]; then
-      echo "watch-gitlab: $(cat "$tmp/error")" >&2
-      exit $((rc == 2 ? 5 : 4))
-    fi
-    [[ $rc == 2 ]] && die "$(cat "$tmp/error")"
-    if [[ $rc == 3 && $once == 0 ]]; then
-      # A network error does not count. With the network up, as for HTTP 502, the normal wait
-      # follows.
-      if ! online "$WATCH_HOST"; then wait_online "$WATCH_HOST"; continue; fi
-    else
-      fails=$((fails + 1))
-      [[ $once == 1 || $fails -ge 5 ]] && die "$(cat "$tmp/error")"
-    fi
-  fi
-  nap "$interval"
-  exit_if_orphaned
-done
+rc=0
+check_mode >"$tmp/events" || rc=$?
+if ((rc == 0)); then cat "$tmp/events"; exit 0; fi
+echo "watch-gitlab: $(cat "$tmp/error")" >&2
+case $rc in
+  2) exit 5 ;;
+  3) exit 4 ;;
+  *) exit 1 ;;
+esac
