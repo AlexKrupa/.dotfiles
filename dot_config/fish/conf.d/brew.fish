@@ -30,8 +30,13 @@ function __brew_upgrade_cask --argument-names cask_name app_name bundle_id --des
     __brew_quit_app $app_name
     HOMEBREW_NO_INSTALL_CLEANUP=true brew upgrade --cask $cask_name
     echo "Restarting $app_name..."
-    # `open` gives the app this shell's environment. `env -i` gives it the login environment.
-    env -i /usr/bin/open -b "$bundle_id" -g
+    # LaunchServices registers a moved app with a delay, so an early lookup by bundle ID fails
+    for attempt in (seq 10)
+        # `open` gives the app this shell's environment. `env -i` gives it the login environment.
+        env -i /usr/bin/open -b "$bundle_id" -g 2>/dev/null; and return
+        sleep 1
+    end
+    echo "Failed to restart $app_name ($bundle_id) after 10 attempts" >&2
 end
 
 function __brew_release_notes --description 'Append a release notes URL to each `brew outdated --verbose` line read from stdin'
