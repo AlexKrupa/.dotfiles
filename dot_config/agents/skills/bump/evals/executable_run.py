@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -49,5 +50,9 @@ def collect(ev, ctx, run_dir):
 
 if __name__ == "__main__":
     os.environ["PATH"] = f"{HERE / 'shims'}:{os.environ['PATH']}"
+    # Own watch daemon state: no run joins the real daemon. The eval daemon exits 60 seconds after
+    # its last subscription ends.
+    os.environ["XDG_STATE_HOME"] = tempfile.mkdtemp(prefix="watchd-")
+    os.environ["WATCHD_IDLE_SECONDS"] = "60"
     harness.run_main(__doc__, HERE, "bump-", ALLOWED_TOOLS, [HOME / ".claude", HOME / ".config"],
                      setup, collect, grade.load_run, grade.run_check)

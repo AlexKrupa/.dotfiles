@@ -9,6 +9,7 @@ use the live skill at ~/.claude/skills/review-pr.
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -44,8 +45,12 @@ def collect(ev, ctx, run_dir):
 
 
 if __name__ == "__main__":
-    # The glab shim stops each watch at its first GitLab call.
+    # The glab shim stops each watch client at its first GitLab call, with exit 3.
     os.environ["PATH"] = f"{SHIMS}:{os.environ['PATH']}"
+    # Own watch daemon state: no run joins the real daemon. The eval daemon exits 60 seconds after
+    # its last subscription ends.
+    os.environ["XDG_STATE_HOME"] = tempfile.mkdtemp(prefix="watchd-")
+    os.environ["WATCHD_IDLE_SECONDS"] = "60"
     harness.run_main(__doc__, HERE, "rgl-", ALLOWED_TOOLS,
                      [HOME / ".claude", HOME / ".config" / "agents", HOME / ".ai"],
                      setup, collect, grade.load_run, grade.run_check)
