@@ -1,14 +1,17 @@
 # Watch: GitLab
 
 The host file for GitLab. Run each command in the repo of the watched MRs. `$W` is
+`~/.config/agents/bin/watch.sh`, the client of the watch daemon. `$G` is
 `~/.config/agents/bin/watch-gitlab.sh`.
 
 | Function                                  | Command                                                         |
 | ----------------------------------------- | --------------------------------------------------------------- |
 | Watch command, hub mode                   | `$W --interval 120`                                             |
-| Watch command, stack mode                 | `$W --interval 120 --mr <iid>`, with one `--mr` for each MR     |
-| Watch command, review mode                | `$W --review --fresh --mr <iid> --interval 120`                 |
+| Watch command, stack mode                 | `$G --interval 120 --mr <iid>`, with one `--mr` for each MR     |
+| Watch command, review mode                | `$G --review --fresh --mr <iid> --interval 120`                 |
 | Restart command                           | The same watch command, with no `--fresh`                       |
+| Unsubscribe                               | `$W unsubscribe`, with the `--review` and `--mr` flags of the watch command |
+| Daemon status                             | `$W status`                                                     |
 | MR details: branches, author, labels      | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`         |
 | Logs of the failed jobs of a pipeline     | `~/.config/agents/bin/gitlab-pipeline.sh failed-logs <pipeline id>` |
 | Retry a job                               | `glab ci retry <job id>`                                        |

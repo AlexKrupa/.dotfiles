@@ -86,12 +86,15 @@ if [[ $command == unsubscribe ]]; then
   exit 0
 fi
 
-# The lock makes sure that two clients do not start two daemons.
+# The lock makes sure that two clients do not start two daemons. Claude Code stops a background task
+# with its process group, so the daemon gets a new session (setsid), and the subshell makes launchd
+# its parent.
 start_daemon() {
   watch_lock "$WATCHD_DIR/start.lock" || exit 1
   if ! daemon_alive; then
     rm -f "$WATCHD_DIR/daemon.pid"
-    nohup "$WATCH_BIN/watchd.sh" </dev/null >>"$WATCHD_DIR/watchd.log" 2>&1 &
+    (/usr/bin/perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$WATCH_BIN/watchd.sh" </dev/null \
+      >>"$WATCHD_DIR/watchd.log" 2>&1 &)
     for _ in $(seq 50); do daemon_alive && break; sleep 0.2; done
   fi
   watch_unlock "$WATCHD_DIR/start.lock"

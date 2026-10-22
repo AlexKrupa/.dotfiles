@@ -29,7 +29,8 @@ Read this file, the host file, and the role file that the skill names. All files
   host file for the role.
 - A session has one watch task. If a watch task runs, do not start a new one. If it watches a
   different MR, tell it in one line.
-- If the user says "watch", start the watch. If the user says "stop watch", stop the task.
+- If the user says "watch", start the watch. If the user says "stop watch", stop the task. Then run
+  the unsubscribe command of the host file.
 - The watch pauses during system sleep. During a network outage, it waits for the network with no
   report.
 
