@@ -158,7 +158,6 @@ cask "lulu" # connection blocker
 cask "microsoft-edge" # prompt-on-upgrade: Microsoft Edge:com.microsoft.edgemac
 # cask "middleclick" # trackpad middle-click with 3 fingers
 # cask "mitmproxy" # network proxy / request debugging
-# cask "neru" # shortcat alternative
 cask "notunes" # disable iTunes on media button press
 # cask "obsidian" # note taking, Markdown
 cask "omnidisksweeper" # disk space visualizer and cleaner
