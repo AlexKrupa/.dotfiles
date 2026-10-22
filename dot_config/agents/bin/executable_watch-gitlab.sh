@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Usage: watch-gitlab.sh [--repo PATH] [--interval SECONDS] [--once] [--fresh] [--review]
-#   [--mr IID]...
+#   [--mr IID]... [--skip-mr IID]...
 # Stops at the first check with new events and prints one JSON line for each event: kind, iid,
 # title, url, actor, detail, branch. With no state file, the first check only saves the state. A
 # value that the saved state does not have gives no event at its first check.
 # --once: do one check, then stop.
 # --fresh: delete the state file before the first check.
+# --skip-mr: hub mode, an MR to handle as an MR with a running review watch.
+# WATCH_MR_CACHE=DIR: a fetched MR goes to DIR/<iid>.json, and a later fetch of the MR reads it.
 #
 # Hub mode (no --mr) watches the project of the repo, for the hub. Events:
 #   kind            when                                          except
@@ -51,7 +53,9 @@
 # Stack and review mode stop when the parent process or the repo directory is gone.
 # The watch pauses during system sleep. A network error does not count: it waits for the network,
 # with no limit.
-# Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one
+# Exit codes: 0 events found or --once done, 1 error, 3 a new instance replaced this one.
+# With --once: 0 check done, 1 error, 4 network error, 5 permanent error (HTTP 401 or 403, a
+# GraphQL error, an unknown MR, unreadable comments, no glab authentication).
 set -euo pipefail
 
 die() { echo "watch-gitlab: $1" >&2; exit 1; }
@@ -62,6 +66,7 @@ repo=$PWD
 interval=120
 once=0
 mrs=()
+skip_mrs=()
 review=0
 fresh=0
 while (($#)); do
@@ -71,6 +76,8 @@ while (($#)); do
     --once) once=1; shift ;;
     --mr) [[ $# -ge 2 && ${2#!} =~ ^[0-9]+$ ]] || die "--mr needs an MR number"
       mrs+=("${2#!}"); shift 2 ;;
+    --skip-mr) [[ $# -ge 2 && ${2#!} =~ ^[0-9]+$ ]] || die "--skip-mr needs an MR number"
+      skip_mrs+=("${2#!}"); shift 2 ;;
     --review) review=1; shift ;;
     --fresh) fresh=1; shift ;;
     *) die "unexpected argument: $1" ;;
@@ -103,7 +110,10 @@ if [[ -n $old ]] && is_watch "$old"; then
   for _ in {1..20}; do ps -p "$old" >/dev/null || break; sleep 0.5; done
   kill -KILL "$old" 2>/dev/null || true
 fi
-glab auth status >/dev/null 2>&1 || die "glab is not authenticated, run: glab auth login"
+if ! glab auth status >/dev/null 2>&1; then
+  echo "watch-gitlab: glab is not authenticated, run: glab auth login" >&2
+  exit $((once ? 5 : 1))
+fi
 tmp=$(mktemp -d)
 echo $$ >"$lock"
 ((fresh)) && rm -f "$state"
@@ -186,6 +196,10 @@ MR_QUERY='query($path: ID!, $iid: String!) {
 # the same error.
 fetch_mr() {
   local rc=0 mr_path count note_id
+  if [[ -n ${WATCH_MR_CACHE:-} && -f $WATCH_MR_CACHE/$1.json ]]; then
+    cat "$WATCH_MR_CACHE/$1.json"
+    return
+  fi
   api graphql -f query="$MR_QUERY" -f path="$project" -f iid="$1" >"$tmp/gql.json" || rc=$?
   if jq -se 'any(.[]; .errors)' "$tmp/gql.json" >/dev/null 2>&1; then
     echo "graphql: $(jq -rs '[.[].errors[]?.message] | join("; ")' "$tmp/gql.json")" \
@@ -234,7 +248,9 @@ fetch_mr() {
                position: (.position
                  | if . then {newPath: .new_path, newLine: .new_line} else null end),
                awardEmoji: ($emoji_by_note[.id | tostring] // [] | emoji)}]}}]}
-      }' "$tmp/gql.json"
+      }' "$tmp/gql.json" >"$tmp/fetched.json" || return
+  if [[ -n ${WATCH_MR_CACHE:-} ]]; then cp "$tmp/fetched.json" "$WATCH_MR_CACHE/$1.json"; fi
+  cat "$tmp/fetched.json"
 }
 
 pid=''
@@ -427,7 +443,8 @@ check_stack() {
 check_mode() { if ((${#mrs[@]})); then check_stack; else check; fi; }
 
 check() {
-  local old=$state since iids iid note user project_json review_lock reviewed=()
+  local old=$state since iids iid note user project_json review_lock
+  local reviewed=(${skip_mrs[@]+"${skip_mrs[@]}"})
   if [[ -z $pid ]]; then
     user=$(api user) || return
     project_json=$(api "projects/$project_ref") || return
@@ -504,6 +521,10 @@ while :; do
     if [[ -s $tmp/events || $once == 1 ]]; then cat "$tmp/events"; exit 0; fi
   else
     rc=$?
+    if ((once)) && [[ $rc == 2 || $rc == 3 ]]; then
+      echo "watch-gitlab: $(cat "$tmp/error")" >&2
+      exit $((rc == 2 ? 5 : 4))
+    fi
     [[ $rc == 2 ]] && die "$(cat "$tmp/error")"
     if [[ $rc == 3 && $once == 0 ]]; then
       # A network error does not count. With the network up, as for HTTP 502, the normal wait

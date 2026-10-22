@@ -13,89 +13,14 @@ check() {
   else printf 'FAIL %s\n  expected: %s\n  actual:   %s\n' "$1" "$2" "$3"; fail=1; fi
 }
 
-# Fake glab: `api <path>` prints $MOCK_DIR/<fixture>.json. With --paginate, the other pages
-# <fixture>_p<N>.json follow. If the file does not exist, it prints {} for an MR,
-# {"approved_by": []} for approvals, and [] for a list.
-# MOCK_FAIL is a path pattern: a matching call writes $MOCK_FAIL_MSG on stderr and fails. With
-# MOCK_FAIL_TIMES=N, only the first N matching calls fail. $MOCK_DIR/fails counts them.
-# MOCK_NOAUTH=1 makes `auth status` fail.
-mkdir -p "$d/bin" "$d/mock"
-cat >"$d/bin/glab" <<'EOF'
-#!/bin/sh
-printf '%s\n' "$*" >>"$MOCK_LOG"
-if [ "$1" = auth ]; then [ -z "${MOCK_NOAUTH:-}" ]; exit; fi
-[ "$1" = api ] || { echo "unexpected glab call: $*" >&2; exit 2; }
-if [ -n "${MOCK_FAIL:-}" ]; then
-  case "$2" in $MOCK_FAIL)
-    n=$(($(cat "$MOCK_DIR/fails" 2>/dev/null || echo 0) + 1))
-    echo "$n" >"$MOCK_DIR/fails"
-    if [ "$n" -le "${MOCK_FAIL_TIMES:-$n}" ]; then echo "$MOCK_FAIL_MSG" >&2; exit 1; fi ;;
-  esac
-fi
-if [ "$2" = graphql ]; then
-  iid=
-  for a; do case $a in iid=*) iid=${a#iid=} ;; esac; done
-  f="$MOCK_DIR/gql_$iid.json"
-  if [ ! -f "$f" ]; then
-    echo '{"data": {"currentUser": {"username": "me"}, "project": {"mergeRequest": null}}}'; exit
-  fi
-  cat "$f"
-  # Like glab: a response with errors also goes to stderr, and the exit code is 1.
-  msg=$(jq -r '[.errors[]?.message] | join("; ")' "$f")
-  if [ -n "$msg" ]; then echo "glab: $msg" >&2; exit 1; fi
-  exit
-fi
-iid=$(echo "$2" | cut -d/ -f4 | cut -d'?' -f1)
-case "$2" in
-  user) f=user ;;
-  projects/group%2Fsub%2Fapp) f=project ;;
-  todos\?*) f=todos ;;
-  users/1/events\?*) f=events ;;
-  projects/7/merge_requests\?author_username=*) echo "own MRs call: $2" >&2; exit 2 ;;
-  projects/7/merge_requests\?state=opened\&*) f=opened ;;
-  projects/7/merge_requests\?*) f=commented ;;
-  projects/*/merge_requests/*/notes/*/award_emoji\?*) f=award_note_$(echo "$2" | cut -d/ -f6) ;;
-  projects/*/merge_requests/*/award_emoji\?*) f=award_mr_$iid ;;
-  projects/group%2Fsub%2Fapp/merge_requests/*/discussions\?*) f=discussions_$iid ;;
-  projects/group%2Fsub%2Fapp/merge_requests/*) f=mr_$iid ;;
-  projects/7/merge_requests/*/approvals) f=approvals_$iid ;;
-  projects/7/merge_requests/*/notes\?*) f=notes_$iid ;;
-  projects/7/pipelines\?*) f=pipelines ;;
-  projects/7/merge_requests/*) f=mr_$iid ;;
-  *) echo "unexpected glab api path: $2" >&2; exit 2 ;;
-esac
-if [ -f "$MOCK_DIR/$f.json" ]; then
-  cat "$MOCK_DIR/$f.json"
-  case " $* " in *" --paginate "*) cat "$MOCK_DIR/${f}_p"[0-9].json 2>/dev/null || true ;; esac
-  exit
-fi
-case "$f" in
-  mr_*) echo '{}' ;;
-  approvals_*) echo '{"approved_by": []}' ;;
-  *) echo '[]' ;;
-esac
-EOF
-chmod +x "$d/bin/glab"
-# Fake pmset and nc: full wake, and the network is up.
-printf '#!/bin/sh\necho "Current System Capabilities are: CPU Graphics Audio Network"\n' \
-  >"$d/bin/pmset"
-printf '#!/bin/sh\nexit 0\n' >"$d/bin/nc"
-chmod +x "$d/bin/pmset" "$d/bin/nc"
-export PATH="$d/bin:$PATH" MOCK_LOG="$d/calls.log" MOCK_DIR="$d/mock" XDG_STATE_HOME="$d/state"
-export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$d/gitconfig"
-git config --global init.defaultBranch main
-
-git init -q "$d/app"
-git -C "$d/app" remote add origin https://gitlab.example.com/group/sub/app.git
-echo '{"id": 1, "username": "me"}' >"$d/mock/user.json"
-echo '{"id": 7, "default_branch": "dev/x"}' >"$d/mock/project.json"
+# shellcheck source=watch-test-fakes.sh
+source "$here/watch-test-fakes.sh"
 state="$d/state/watch-gitlab/app.json"
 lock="$d/state/watch-gitlab/app.lock"
 url=https://gitlab.example.com/group/sub/app/-/merge_requests
 
-fixture() { printf '%s\n' "$2" >"$d/mock/$1.json"; }
-run() { # One check in the repo. Sets out, err, and code.
-  out=$(cd "$d/app" && "$script" --once 2>"$d/err"); code=$?; err=$(cat "$d/err")
+run() { # One check in the repo, with the arguments. Sets out, err, and code.
+  out=$(cd "$d/app" && "$script" --once "$@" 2>"$d/err"); code=$?; err=$(cat "$d/err")
 }
 
 run
@@ -122,10 +47,16 @@ check "assigned to own MR: no events" "" "$out"
 
 export MOCK_FAIL='todos*' MOCK_FAIL_MSG='glab: 403 Forbidden (HTTP 403)'
 run
-check "HTTP 403: exit 1" 1 "$code"
+check "--once, HTTP 403: exit 5" 5 "$code"
 check "HTTP 403: message" \
   "watch-gitlab: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the Read permission for Todo (user boundary)." \
   "$err"
+export MOCK_FAIL_MSG='dial tcp: i/o timeout'
+run
+check "--once, network error: exit 4" 4 "$code"
+export MOCK_FAIL_MSG='something odd'
+run
+check "--once, other error: exit 1" 1 "$code"
 
 export MOCK_FAIL_MSG='HTTP 404 Not Found'
 : >"$MOCK_LOG"
@@ -186,7 +117,7 @@ check "lock of a dead process: exit 0" 0 "$code"
 
 export MOCK_NOAUTH=1
 run
-check "glab not authenticated: exit 1" 1 "$code"
+check "--once, glab not authenticated: exit 5" 5 "$code"
 check "glab not authenticated: message" \
   "watch-gitlab: glab is not authenticated, run: glab auth login" "$err"
 unset MOCK_NOAUTH
@@ -372,6 +303,13 @@ run
 check "MR with a stopped review watch: events again" \
   '{"kind":"note","iid":9,"title":"Fix bar","url":"'"$url"'/9#note_302","actor":"anna","detail":"Still odd","branch":"ABC-2/bar"}' \
   "$out"
+fixture todos "[$(todo_9 23 mentioned), $(todo_9 24 review_requested)]"
+fixture commented "[$(mr 9 'Fix bar' opened t4 bob ABC-2/bar)]"
+fixture notes_9 '[{"id": 303, "system": false, "body": "Hm", "author": {"username": "anna"}}]'
+run --skip-mr 9
+check "--skip-mr: only the review request and opened" \
+  '{"kind":"todo","iid":9,"title":"Fix bar","url":"'"$url"'/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar"}' \
+  "$out"
 
 cp "$d/mock/pipelines.json" "$d/pipelines.json"
 fixture pipelines '[{"id": 76, "status": "failed", "web_url": "'"$pipelines"'/76"}]'
@@ -433,6 +371,12 @@ srun --mr 5
 check "stack: first check: exit 0" 0 "$code"
 check "stack: first check: no events" "" "$out"
 check "stack: own state file" yes "$([ -f "$sstate" ] && echo yes || echo no)"
+mkdir -p "$d/cache"
+: >"$MOCK_LOG"
+WATCH_MR_CACHE="$d/cache" srun --mr 5
+WATCH_MR_CACHE="$d/cache" srun --fresh --mr 5
+check "MR cache: second fetch reads the cache" 1 "$(grep -c ' iid=5$' "$MOCK_LOG")"
+check "MR cache: file written" yes "$([ -f "$d/cache/5.json" ] && echo yes || echo no)"
 
 gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/50", status: "FAILED"}'
 srun --mr 5
@@ -605,7 +549,7 @@ gql 5
 fixture mr_5 '{"user_notes_count": 2}'
 discussions 5 "$(system_note 125 anna 'added 1 commit')"
 srun --mr 5
-check "stack: comments that the token cannot read: exit 1" 1 "$code"
+check "stack: comments that the token cannot read: exit 5" 5 "$code"
 check "stack: comments that the token cannot read: message" \
   "watch-gitlab: MR !5 has 2 comment(s), but projects/group%2Fsub%2Fapp/merge_requests/5/discussions?per_page=100 gave none. The token needs the Read permission for Work Item (group or project boundary)." \
   "$err"
@@ -618,11 +562,11 @@ check "stack: HTTP 403 on discussions: message" \
 unset MOCK_FAIL MOCK_FAIL_MSG
 
 srun --mr 7
-check "stack: unknown MR: exit 1" 1 "$code"
+check "stack: unknown MR: exit 5" 5 "$code"
 check "stack: unknown MR: message" "watch-gitlab: MR !7 not found in group/sub/app" "$err"
 echo '{"errors": [{"message": "Field '"'"'awardEmoji'"'"' does not exist"}]}' >"$d/mock/gql_5.json"
 srun --mr 5
-check "stack: GraphQL error: exit 1" 1 "$code"
+check "stack: GraphQL error: exit 5" 5 "$code"
 check "stack: GraphQL error: message" \
   "watch-gitlab: graphql: Field 'awardEmoji' does not exist" "$err"
 : >"$MOCK_LOG"
