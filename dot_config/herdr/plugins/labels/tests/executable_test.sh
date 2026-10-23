@@ -108,21 +108,21 @@ check "a worktree with no open checkout keeps its place" "4" "$(slot wD)"
 # watch <tokens-json> -> a slot filter that gives wC, slot 2, these tokens
 watch() { printf '.result.snapshot.workspaces[2].tokens = %s' "$1"; }
 check "no watch tokens: idx unchanged" "2" "$(slot wC)"
-check "kind only: started" "2 Ms" "$(slot wC "$(watch '{"watch_kind": "mine"}')")"
+check "kind only: started" "2 M s" "$(slot wC "$(watch '{"watch_kind": "mine"}')")"
 check "hub with no watch: no stage" "2 H" "$(slot wC "$(watch '{"watch_kind": "hub"}')")"
-check "watching with needs: first needs glyph" "2 MwF" "$(slot wC "$(watch \
+check "watching with needs: first needs glyph" "2 M w F" "$(slot wC "$(watch \
   '{"watch_kind": "mine", "watch_stage": "watching", "watch_needs": "failed,reply"}')")"
-check "done: no needs glyph" "2 Md" "$(slot wC "$(watch \
+check "done: no needs glyph" "2 M d" "$(slot wC "$(watch \
   '{"watch_kind": "mine", "watch_stage": "done", "watch_needs": "failed"}')")"
-check "kind set again during a watch keeps the stage" "2 Rw" "$(slot wC "$(watch \
+check "kind set again during a watch keeps the stage" "2 R w" "$(slot wC "$(watch \
   '{"watch_kind": "review", "watch_stage": "watching"}')")"
-check "slot 10 and up: glyphs only" "Mw" "$(slot w11 '.result.snapshot.workspaces +=
+check "slot 10 and up: glyphs only" "M w" "$(slot w11 '.result.snapshot.workspaces +=
   [range(5; 12) | {workspace_id: "w\(.)", number: .}]
   | .result.snapshot.workspaces[-1].tokens = {watch_kind: "mine", watch_stage: "watching"}')"
 check "a value with no glyph shows nothing" "2 M" "$(slot wC "$(watch \
   '{"watch_kind": "mine", "watch_stage": "unknown"}')")"
 check "a written idx is not written again" "" "$(slot wC "$(watch \
-  '{"idx": "2 Ms", "watch_kind": "mine"}')")"
+  '{"idx": "2 M s", "watch_kind": "mine"}')")"
 
 # The agents panel, from a fixture with two repo groups and one plain workspace.
 Z=$'​'
@@ -178,12 +178,12 @@ check "a rank past 9 shows no number"              "<none>" "$(tok "$out" wZ:p1 
 out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_id == "wH"
   then .tokens = {watch_kind: "mine", watch_stage: "watching", watch_needs: "failed,reply"}
   else . end)')")
-check "agent row lists all needs" "MwF pipeline failed, reply" "$(tok "$out" wH:p1 work)"
+check "agent row lists all needs" "M w F pipeline failed, reply" "$(tok "$out" wH:p1 work)"
 check "agent row is empty with no watch tokens" "<none>" "$(tok "$out" wA:p1 work)"
 out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_id == "wH"
   then .tokens = {watch_kind: "mine", watch_stage: "done"} else . end)
   | .result.snapshot.agents[0].tokens.work = "MwF pipeline failed"')")
-check "agent row of a done watch has no words" "Md" "$(tok "$out" wH:p1 work)"
+check "agent row of a done watch has no words" "M d" "$(tok "$out" wH:p1 work)"
 
 out=$(agents '{}' "$(fixture 'del(.result.snapshot.agents)')")
 check "a snapshot with no agents writes no pane"   "{}" "$(jq -c .panes <<<"$out")"

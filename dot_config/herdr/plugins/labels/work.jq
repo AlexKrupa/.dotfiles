@@ -24,9 +24,10 @@ def work_words: {
   draft: "draft", todo: "to-do", "main-failed": "main failed" };
 
 # The glyph of the kind, of the stage, and of the first needs-you value. A value with no
-# glyph shows nothing.
+# glyph shows nothing. A space after a glyph lets the terminal draw it 2 cells wide.
 def work_glyphs($glyphs):
-  [.watch_kind // "", work_stage, (work_needs[0] // "")] | map($glyphs[.] // "") | join("");
+  [.watch_kind // "", work_stage, (work_needs[0] // "")] | map($glyphs[.] // "")
+  | map(select(. != "")) | join(" ");
 
 def work_line($glyphs):
   [work_glyphs($glyphs), (work_needs | map(work_words[.] // .) | join(", "))]
