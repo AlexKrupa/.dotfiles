@@ -2,6 +2,7 @@
 # Usage: watch.sh [--repo PATH] [--interval SECONDS] [--once] [--fresh] [--review] [--mr IID]...
 #        watch.sh unsubscribe [--repo PATH] [--review] [--mr IID]...
 #        watch.sh status
+#        watch.sh kind KIND [--workspace ID]
 # The client of the watch daemon watchd.sh, for the background task of a session. It starts the
 # daemon if no daemon runs, writes its subscription, waits for the events of the subscription,
 # and prints one JSON line for each event. The flags, the modes, and the events are as in the
@@ -13,12 +14,37 @@
 # unsubscribe: end the subscription of the repo and mode of this session.
 # status: the daemon PID, the last poll of each repo, and one TSV line for each subscription: key,
 # mode, MRs, live or dead session, inbox line count.
+# kind: set the kind of work of the herdr workspace (mine, review, bump, debug, or hub) for the
+# sidebar. The workspace is ID, else $HERDR_WORKSPACE_ID. Outside herdr it does nothing. A stack
+# subscription in a workspace with no kind sets mine.
+# In herdr, the subscription also writes its stage and its needs-you values to the workspace.
 # Exit codes: 0 events, 1 error, 3 a new client or session replaced this one
 set -euo pipefail
 
 die() { echo "watch: $1" >&2; exit 1; }
 # shellcheck source=watch-state.sh
 source "$HOME/.config/agents/bin/watch-state.sh"
+
+if [[ ${1:-} == kind ]]; then
+  [[ $# -ge 2 ]] || die "kind needs a kind"
+  kind=$2
+  workspace=${HERDR_WORKSPACE_ID:-}
+  shift 2
+  while (($#)); do
+    case "$1" in
+      --workspace) [[ $# -ge 2 ]] || die "--workspace needs an ID"; workspace=$2; shift 2 ;;
+      *) die "unexpected argument: $1" ;;
+    esac
+  done
+  case $kind in
+    mine | review | bump | debug | hub) ;;
+    *) die "unknown kind: $kind" ;;
+  esac
+  [[ -n $workspace ]] || exit 0
+  mkdir -p "$WATCHD_DIR"
+  watch_herdr_tokens "$workspace" "watch_kind=$kind"
+  exit 0
+fi
 
 command=wait
 case ${1:-} in
@@ -150,6 +176,15 @@ fi
 start_daemon
 
 replaced() { echo "watch: a new client or session replaced this one" >&2; exit 3; }
+# The role skills set their kind before they watch, so a stack watch with no kind is own work.
+default_kind() {
+  local answer
+  command -v herdr >/dev/null || return 0
+  answer=$(herdr workspace get "$HERDR_WORKSPACE_ID" 2>/dev/null) || return 0
+  if ! jq -e '.result.workspace.tokens.watch_kind' <<<"$answer" >/dev/null 2>&1; then
+    watch_herdr_tokens "$HERDR_WORKSPACE_ID" watch_kind=mine
+  fi
+}
 # Writes the record. The newest session owns the key: it adds the old live session to
 # replaced_sessions.
 subscribe() {
@@ -171,6 +206,7 @@ subscribe() {
     --args ${mrs[@]+"${mrs[@]}"} >"$sub.tmp"
   mv "$sub.tmp" "$sub"
   rm -f "$owner"
+  if [[ $mode == stack && -n ${HERDR_WORKSPACE_ID:-} ]]; then default_kind; fi
   # A new subscription gets its first check now, as with --once.
   if [[ $old == null ]] || ((once)); then echo "$poke_token" >"$WATCHD_DIR/poke/$key"; fi
   watch_log "$slug" "$key" "subscribed: $mode ${mrs[*]+${mrs[*]}}"

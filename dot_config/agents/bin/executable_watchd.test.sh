@@ -470,6 +470,38 @@ wait_for 5 "[ -s '$WATCHD_DIR/rounds/app-$wt' ]"
 "$client" unsubscribe --repo "$d/app" --mr 5
 check "no herdr workspace: no herdr call" 0 "$(cat "$d/herdr.log" 2>/dev/null | wc -l | tr -d ' ')"
 
+# kind needs no git repo: $d is not a repo.
+kind() { out=$(cd "$d" && "$client" kind "$@" 2>&1); code=$?; }
+HERDR_WORKSPACE_ID=wT kind review
+check "kind writes the token" "0 $(herdr_line wT '--token watch_kind=review')" \
+  "$code $(tail -n1 "$d/herdr.log")"
+kind mine --workspace wX
+check "kind with --workspace" "0 $(herdr_line wX '--token watch_kind=mine')" \
+  "$code $(tail -n1 "$d/herdr.log")"
+kind foo
+check "unknown kind" "1 watch: unknown kind: foo" "$code $out"
+rm -f "$d/herdr.log"
+kind mine
+check "kind outside herdr does nothing" "0 " "$code $(cat "$d/herdr.log" 2>/dev/null)"
+
+reset
+echo '{"result": {"workspace": {"tokens": {"idx": "2"}}}}' >"$d/herdr.get"
+events "app-$wt" "$(ev pipeline 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
+check "stack subscribe with no kind sets mine" "$(herdr_line wT '--token watch_kind=mine')" \
+  "$(grep watch_kind "$d/herdr.log")"
+"$client" unsubscribe --repo "$d/app" --mr 5
+
+reset
+rm -f "$d/herdr.log"
+echo '{"result": {"workspace": {"tokens": {"idx": "2", "watch_kind": "bump"}}}}' >"$d/herdr.get"
+events "app-$wt" "$(ev pipeline 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
+check "stack subscribe keeps an existing kind" "workspace get wT" \
+  "$(grep -E 'watch_kind|workspace get' "$d/herdr.log")"
+"$client" unsubscribe --repo "$d/app" --mr 5
+rm -f "$d/herdr.get"
+
 reset
 unset WATCHD_ENGINE
 mkdir -p "$d/state/watch-gitlab"

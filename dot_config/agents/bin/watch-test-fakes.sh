@@ -66,12 +66,15 @@ esac
 EOF
 chmod +x "$d/bin/glab"
 # Fake herdr: appends its arguments to $d/herdr.log. If $d/herdr.fail exists, it exits 1.
+# `workspace get` prints $d/herdr.get.
 # The tests must never reach the real herdr.
 unset HERDR_ENV HERDR_WORKSPACE_ID HERDR_PANE_ID HERDR_SOCKET_PATH
 cat >"$d/bin/herdr" <<EOF
 #!/bin/sh
 printf '%s\n' "\$*" >>"$d/herdr.log"
 if [ -e "$d/herdr.fail" ]; then echo "herdr: server_not_running" >&2; exit 1; fi
+if [ "\$1 \$2" = "workspace get" ]; then cat "$d/herdr.get" 2>/dev/null; fi
+exit 0
 EOF
 chmod +x "$d/bin/herdr"
 # Fake pmset and nc: full wake, and the network is up.
