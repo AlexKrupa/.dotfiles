@@ -605,6 +605,48 @@ ABC-5/review-me and origin/ABC-5/review-me diverged, reconcile them and re-run" 
 check "existing diverged: branch not moved" "$before" "$(git -C "$work" rev-parse ABC-5/review-me)"
 check "existing diverged: no herdr call" "" "$(cat "$MOCK_LOG")"
 
+# Existing local branch diverged from origin, with --reset-local.
+fresh
+push_branch ABC-5/review-me
+git -C "$work" fetch -q origin
+git -C "$work" switch -q -c ABC-5/review-me origin/ABC-5/review-me
+git -C "$work" commit -q --allow-empty -m local
+git -C "$work" switch -q main
+push_branch ABC-5/review-me
+run p ABC-5 --branch ABC-5/review-me --reset-local
+check "existing reset: exit 0" 0 "$code"
+check "existing reset: local branch at the remote tip" \
+  "$(remote_tip ABC-5/review-me)" "$(git -C "$work" rev-parse ABC-5/review-me)"
+
+# Diverged local branch in a clean worktree, with --reset-local.
+fresh
+push_branch ABC-5/review-me
+git -C "$work" fetch -q origin
+git -C "$work" worktree add -q "$d/old" -b ABC-5/review-me origin/ABC-5/review-me
+git -C "$d/old" commit -q --allow-empty -m local
+push_branch ABC-5/review-me
+run p ABC-5 --branch ABC-5/review-me --reset-local
+check "existing reset worktree: exit 0" 0 "$code"
+check "existing reset worktree: worktree at the remote tip" \
+  "$(remote_tip ABC-5/review-me)" "$(git -C "$d/old" rev-parse HEAD)"
+
+# Diverged local branch in a worktree with local changes, with --reset-local.
+fresh
+push_branch ABC-5/review-me
+git -C "$work" fetch -q origin
+git -C "$work" worktree add -q "$d/old" -b ABC-5/review-me origin/ABC-5/review-me
+git -C "$d/old" commit -q --allow-empty -m local
+push_branch ABC-5/review-me
+before=$(git -C "$work" rev-parse ABC-5/review-me)
+touch "$d/old/draft.txt"
+run p ABC-5 --branch ABC-5/review-me --reset-local
+check "existing reset dirty: exit 1" 1 "$code"
+check "existing reset dirty: message" \
+  "work-start: cannot reset ABC-5/review-me: $d/old has local changes" "$err"
+check "existing reset dirty: branch not moved" \
+  "$before" "$(git -C "$work" rev-parse ABC-5/review-me)"
+check "existing reset dirty: no herdr call" "" "$(cat "$MOCK_LOG")"
+
 # Existing branch only in the local repo: no fetch.
 fresh
 git -C "$work" branch -q ABC-5/local-only

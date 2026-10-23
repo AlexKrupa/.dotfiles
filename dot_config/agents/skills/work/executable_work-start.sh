@@ -5,7 +5,7 @@
 #          [--split [--continue SESSION-ID]] [-- <claude flags>...]
 #        work-start.sh <ticket-id> <slug-text> [--onto BRANCH] [--placeholder ID]
 #          [--continue SESSION-ID [--mr URL]]
-#        work-start.sh <ticket-id> [<title>] --branch NAME [-- <claude flags>...]
+#        work-start.sh <ticket-id> [<title>] --branch NAME [--reset-local] [-- <claude flags>...]
 # Starts work on a ticket. Reads the first prompt on stdin. Branch: <ticket-id>/<slug>.
 # Session name: "[<ticket-id>] <slug-text>", only "<slug-text>" for the placeholder ID. In
 # existing mode: "[<ticket-id>] <title>", or NAME with no title.
@@ -26,7 +26,8 @@
 # script as a background task there.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
 # creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
-# NAME is used again. A workspace that is open already stops the script.
+# NAME is used again. A workspace that is open already stops the script. --reset-local first moves
+# a local NAME to the origin tip, also in a worktree with no local changes. The local commits go.
 # New and next mode set the kind `mine` of the herdr workspace with bin/watch.sh, for the
 # sidebar. Existing mode does not: the skill in the first prompt sets the kind.
 # In a nono sandbox, new and existing mode start the agent with bin/herdr-start-claude, and the
@@ -84,6 +85,7 @@ if [[ ${1:-} == tops && $# -eq 1 ]]; then
 fi
 
 ticket="" text="" base="" existing="" onto="" session="" mr="" placeholder="" split=""
+reset_local=""
 claude_args=()
 while (($#)); do
   case "$1" in
@@ -94,6 +96,7 @@ while (($#)); do
     --mr) [[ $# -ge 2 ]] || die "--mr needs a URL"; mr=$2; shift 2 ;;
     --placeholder) [[ $# -ge 2 ]] || die "--placeholder needs an id"; placeholder=$2; shift 2 ;;
     --split) split=1; shift ;;
+    --reset-local) reset_local=1; shift ;;
     --) shift; claude_args=("$@"); break ;;
     -*) die "unknown option: $1" ;;
     *)
@@ -106,11 +109,12 @@ done
 
 if [[ -n $existing ]]; then
   [[ -n $ticket && -z $base$split ]] \
-    || die "usage: work-start.sh <ticket-id> [<title>] --branch NAME [-- <claude flags>...]"
+    || die "usage: work-start.sh <ticket-id> [<title>] --branch NAME [--reset-local]\
+ [-- <claude flags>...]"
   branch=$existing
   if [[ -n $text ]]; then title="[$ticket] $text"; else title=$branch; fi
 else
-  [[ -n $ticket && -n $text ]] \
+  [[ -n $ticket && -n $text && -z $reset_local ]] \
     || die "usage: work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]"
   slug=$(slugify "$text" 40)
   [[ -n $slug ]] || die "slug text has no letters or digits: $text"
@@ -222,12 +226,28 @@ ref=$(origin_head || { git remote set-head origin --auto >/dev/null 2>&1 && orig
   || die "cannot find the default branch: origin/HEAD is not set"
 default=${ref#origin/}
 
-main=$(git worktree list --porcelain | awk -v ref="branch refs/heads/$default" \
-  '/^worktree /{p = substr($0, 10)} $0 == ref {print p; exit}')
+# worktree_of <branch>: the path of the worktree that has the branch checked out, else empty.
+worktree_of() {
+  git worktree list --porcelain | awk -v ref="branch refs/heads/$1" \
+    '/^worktree /{p = substr($0, 10)} $0 == ref {print p; exit}'
+}
+
+main=$(worktree_of "$default")
 [[ -n $main ]] || die "no worktree has $default checked out"
 
 if [[ -n $existing ]]; then
   if git -C "$main" ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+    if [[ -n $reset_local ]]; then
+      git -C "$main" fetch --quiet origin "$branch" || die "git fetch origin $branch failed"
+      checkout=$(worktree_of "$branch")
+      if [[ -n $checkout ]]; then
+        [[ -z $(git -C "$checkout" status --porcelain) ]] \
+          || die "cannot reset $branch: $checkout has local changes"
+        git -C "$checkout" reset --hard --quiet "origin/$branch"
+      else
+        git -C "$main" branch --force --quiet "$branch" "origin/$branch"
+      fi
+    fi
     out=$(cd "$main" && "$bin/fetch-gitlab-mr.sh" fetch "$branch" 2>&1) \
       || die "cannot update $branch: $out"
   elif ! git -C "$main" show-ref --verify --quiet "refs/heads/$branch"; then
