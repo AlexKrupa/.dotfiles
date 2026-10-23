@@ -13,8 +13,8 @@
 # client. The next client of its session still gets the events and the error that wait.
 # A poke file (watch.sh --once, or a new subscription) starts a round of the repo now. After the
 # check of the key, rounds/<key>.poked has the text of the poke.
-# With no subscription for 10 minutes, the daemon exits. With a restart file (new scripts), it
-# exits after the current round of each repo.
+# With no subscription for 10 minutes, the daemon exits. With new scripts or a restart file, it
+# starts itself again with the same PID, after the current round of each repo.
 # State and log: $WATCHD_DIR, see watch-state.sh. The log has one line for each event of the
 # daemon: time, repo slug, subscription key, message.
 # Test seams: WATCHD_TICK (main loop seconds), WATCHD_IDLE_SECONDS, WATCHD_CLIENT_SECONDS,
@@ -281,18 +281,24 @@ if [[ -f $log ]] && (($(wc -l <"$log") > 10000)); then
   rm -f "$log.tmp"
 fi
 # The hash first: a client that sees the PID compares the hash.
-watch_scripts_hash >"$WATCHD_DIR/daemon.hash"
+hash=$(watch_scripts_hash)
+seen_hash=$hash
+echo "$hash" >"$WATCHD_DIR/daemon.hash"
 echo $$ >"$WATCHD_DIR/daemon.pid"
 watch_log "" "" "daemon start $$"
 trap stop EXIT
 trap 'exit 0' TERM INT
 idle_since=$(date +%s)
 while :; do
+  # chezmoi writes the files one by one: a hash that stays for one tick is the full update.
+  new_hash=$(watch_scripts_hash)
+  if [[ $new_hash != "$hash" && $new_hash == "$seen_hash" ]]; then touch "$WATCHD_DIR/restart"; fi
+  seen_hash=$new_hash
   if [[ -e $WATCHD_DIR/restart ]]; then
     watch_log "" "" "restart: waiting for the repo loops"
     wait
     rm -f "$WATCHD_DIR/restart"
-    exit 0
+    exec "$WATCH_BIN/watchd.sh"
   fi
   now=$(date +%s)
   for file in "$WATCHD_DIR"/subs/*.json; do

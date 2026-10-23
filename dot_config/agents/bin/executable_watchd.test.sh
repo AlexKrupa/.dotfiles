@@ -321,10 +321,41 @@ old=$(daemon_pid)
 echo changed >"$WATCHD_DIR/daemon.hash"
 events app "$(ev todo 6)"
 watch
-check "script hash changed: daemon restarts" "0 yes no" \
-  "$code $( [ "$(daemon_pid)" != "$old" ] && is_daemon "$(daemon_pid)" && echo yes || echo no) \
-$(ps -p "$old" >/dev/null && echo yes || echo no)"
+check "script hash changed: daemon restarts with the same PID" "0 yes" \
+  "$code $( [ "$(daemon_pid)" = "$old" ] && is_daemon "$old" && echo yes || echo no)"
 check "script hash changed: new hash" "$(watch_scripts_hash)" "$(cat "$WATCHD_DIR/daemon.hash")"
+
+# A copy of the scripts, so that a check can change them under a live daemon and client.
+reset
+mkdir -p "$d/wbin"
+for file in watch.sh watchd.sh watch-gitlab.sh watch-lib.sh watch-state.sh repo-slug.sh; do
+  cp "$here/$file" "$d/wbin/"
+done
+export WATCH_BIN="$d/wbin"
+start a --interval 600 --fresh
+wait_for 10 "[ -f '$sub' ] && [ -s '$WATCHD_DIR/rounds/app' ]"
+old=$(daemon_pid)
+client_pid=$(jq -r .client_pid "$sub")
+mkdir -p "$WATCH_ENGINE_DIR"
+echo '{"todo": 1}' >"$WATCH_ENGINE_DIR/app.json"
+# The interval is long: the first round of the new daemon gives this event.
+events app "$(ev todo 5)"
+before=$(cat "$WATCHD_DIR/daemon.hash")
+echo '# new' >>"$d/wbin/watch.sh"
+wait_for 10 "[ \"\$(cat '$WATCHD_DIR/daemon.hash')\" = '$(watch_scripts_hash)' ] &&
+  grep -q 'new scripts: client restart' '$WATCHD_DIR/watchd.log'"
+check "new scripts: the daemon restarts by itself" "yes $old" \
+  "$( [ "$(cat "$WATCHD_DIR/daemon.hash")" = "$(watch_scripts_hash)" ] &&
+  [ "$before" != "$(watch_scripts_hash)" ] && echo yes || echo no) \
+$(daemon_pid)"
+check "new scripts: the client restarts and gets the events" "0 $(ev todo 5)" \
+  "$(code_of a) $(cat "$d/a.out")"
+check "new scripts: the client keeps its process and its flags, not --fresh" \
+  "$client_pid 600 no 1" \
+  "$(jq -r '"\(.client_pid) \(.interval)"' "$sub") $(gone "$WATCH_ENGINE_DIR/app.json") \
+$(grep -c 'new scripts: client restart' "$WATCHD_DIR/watchd.log")"
+export WATCH_BIN="$here"
+reset
 
 start a
 wait_for 10 "[ -f '$sub' ]"

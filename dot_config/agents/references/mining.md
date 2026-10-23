@@ -78,5 +78,5 @@ worktree, tell the user that an untracked `CLAUDE.local.md` exists only in this 
 
 Write the approved rules. Keep the style of the target file. Then set `Decision` in the findings
 file to `approved`, `edited`, or `skipped`. Tell the user the path of the findings file and the
-files that you changed. The last lines of the reply are `` 📄 Findings: `<path>` ``, then one
-`` 📄 `<path>` `` line for each file that you changed.
+files that you changed. The last lines of the reply are `` 📄 Findings: `<path>` ``, then the
+changed files in the format of the output style.

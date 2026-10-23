@@ -19,6 +19,7 @@
 # live subscription in the workspace, it also clears the stage. A subscription in a workspace with
 # no kind sets the kind of its mode: mine for a stack, review, or hub.
 # In herdr, the subscription also writes its stage and its needs-you values to the workspace.
+# With new scripts, a waiting client starts itself again with the same PID and flags.
 # Exit codes: 0 events, 1 error, 3 a new client or session replaced this one
 set -euo pipefail
 
@@ -60,6 +61,9 @@ command=wait
 case ${1:-} in
   unsubscribe | status) command=$1; shift ;;
 esac
+# --fresh applies once: the client starts again with new scripts and keeps the saved state.
+restart_args=()
+for arg in "$@"; do [[ $arg == --fresh ]] || restart_args+=("$arg"); done
 repo=$PWD
 interval=120
 once=0
@@ -175,13 +179,18 @@ if ((review)); then mode=review; elif ((${#mrs[@]})); then mode=stack; else mode
 poked=$WATCHD_DIR/rounds/$key.poked
 poke_token=$$-$(date +%s)
 ((fresh)) && rm -f "$WATCH_ENGINE_DIR/$key.json"
-# New scripts, for example after a chezmoi update: the daemon exits after its current round, and
-# this client starts the new daemon. The state is on disk, so no event is lost.
-if daemon_alive && [[ $(cat "$WATCHD_DIR/daemon.hash" 2>/dev/null) != "$(watch_scripts_hash)" ]]
-then
+# New scripts, for example after a chezmoi update: the daemon starts again after its current
+# round. An older daemon exits, and this client starts the new one. The state is on disk, so no
+# event is lost.
+hash=$(watch_scripts_hash)
+seen_hash=$hash
+if daemon_alive && [[ $(cat "$WATCHD_DIR/daemon.hash" 2>/dev/null) != "$hash" ]]; then
   watch_log "" "" "new scripts: restart"
   touch "$WATCHD_DIR/restart"
-  for _ in $(seq 300); do daemon_alive || break; sleep 0.2; done
+  for _ in $(seq 300); do
+    daemon_alive && [[ $(cat "$WATCHD_DIR/daemon.hash" 2>/dev/null) != "$hash" ]] || break
+    sleep 0.2
+  done
 fi
 start_daemon
 
@@ -284,5 +293,13 @@ while :; do
   daemon_alive || start_daemon
   watch_sub_update "$key" --argjson now "$(date +%s)" '.client_at = $now' || true
   exit_if_orphaned
+  # The same PID keeps the subscription. A hash that stays for one tick is the full update.
+  new_hash=$(watch_scripts_hash)
+  if [[ $new_hash != "$hash" && $new_hash == "$seen_hash" ]]; then
+    watch_log "$slug" "$key" "new scripts: client restart"
+    rm -f "$tmp"
+    exec "$WATCH_BIN/watch.sh" ${restart_args[@]+"${restart_args[@]}"}
+  fi
+  seen_hash=$new_hash
   sleep "${WATCH_CLIENT_TICK:-3}"
 done

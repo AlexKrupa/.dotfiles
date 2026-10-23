@@ -69,9 +69,10 @@ watch_unlock() {
   rm -rf "$1"
 }
 
-# A different hash means new daemon code, for example after a chezmoi update.
+# A different hash means new code of the daemon or the client, for example after a chezmoi update.
 watch_scripts_hash() {
-  cat "$WATCH_BIN"/watchd.sh "$WATCH_BIN"/watch-gitlab.sh "$WATCH_BIN"/watch-lib.sh \
+  cat "$WATCH_BIN"/watchd.sh "$WATCH_BIN"/watch.sh "$WATCH_BIN"/watch-gitlab.sh \
+    "$WATCH_BIN"/watch-lib.sh \
     "$WATCH_BIN"/watch-state.sh "$WATCH_BIN"/repo-slug.sh 2>/dev/null | shasum | cut -c1-40
 }
 

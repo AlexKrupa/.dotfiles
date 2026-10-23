@@ -53,14 +53,24 @@ you find," with supporting detail after it for readers who want it.
   2. Artifacts: spec, plan, review, translation, ticket, PR draft, or similar
 - Project files:
   - One file: one line, `📄 <path>`, with no label
-  - Two or more files: a `📄 Project files:` line, then one bullet per path, with no marker on the
-    bullets
+  - Two or more files: a `📄 Project files:` line, then one Markdown list item per path
+    (`- <path>`). Do not put the 📄 marker on the list items.
 - Artifacts: one group for each kind. A skill can give the kind and the path format in a path line,
   for example `` 📄 PR draft: `<path>` ``. Use the kind and the format of the skill.
   - One file of a kind: one line, `📄 <kind>: <path>`, for example `📄 Report: <path>`
   - Two or more files of a kind: one `📄 <plural kind>:` line, for example `📄 PR drafts:`, then
-    one bullet per path, with no marker on the bullets
+    one Markdown list item per path (`- <path>`). Do not put the 📄 marker on the list items.
+  - A path line in a skill is the format for one file. For two or more files of a kind, use the
+    group format.
   - Do not write the same path two times
+- Example of a group with two files:
+
+  ```
+  📄 PR drafts:
+  - `<path 1>`
+  - `<path 2>`
+  ```
+
 - No files in a group: omit the group
 - Put a blank line between groups. Markdown joins lines with no blank line between them into one
   line.
