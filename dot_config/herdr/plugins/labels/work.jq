@@ -6,6 +6,10 @@
 #
 # Pure, like policy.jq, which includes it.
 
+# A space where an agent runs with no kind is own work: the role skills set their kind at
+# the start.
+def work_agent_kind: if .watch_kind then . else .watch_kind = "mine" end;
+
 # A kind with no watch yet is `started`. The hub watches no MR of its own, so it has no
 # `started` stage.
 def work_stage:

@@ -74,7 +74,7 @@ def wanted($since; $now; $glyphs):
       rank: (.rank | slot),
       group_parent: (if .header then .repo else "" end),
       idx: "",
-      work: (.workspace_tokens | work_line($glyphs)) }
+      work: (.workspace_tokens | work_agent_kind | work_line($glyphs)) }
     + (dot_states | map({key: ("dot_" + .), value: ""}) | from_entries)
     # herdr indents every row of an entry after its first, so the name row under a repo
     # header is indented already.

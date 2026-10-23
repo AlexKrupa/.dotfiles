@@ -94,7 +94,8 @@ slot() {
         {workspace_id: "wA", number: 1, worktree: {repo_key: "r", is_linked_worktree: false}},
         {workspace_id: "wB", number: 2},
         {workspace_id: "wC", number: 3, worktree: {repo_key: "r", is_linked_worktree: true}},
-        {workspace_id: "wD", number: 4, worktree: {repo_key: "s", is_linked_worktree: true}}]' \
+        {workspace_id: "wD", number: 4, worktree: {repo_key: "s", is_linked_worktree: true}}]
+      | .result.snapshot.agents = []' \
     snapshot.json | jq "${2:-.}" |
     jq -r --slurpfile st "$tmp/state.json" --argjson fg "$fg" --argjson now 10000 \
       --argjson glyphs "$glyphs" -f ../policy.jq |
@@ -123,6 +124,10 @@ check "a value with no glyph shows nothing" "2 M" "$(slot wC "$(watch \
   '{"watch_kind": "mine", "watch_stage": "unknown"}')")"
 check "a written idx is not written again" "" "$(slot wC "$(watch \
   '{"idx": "2 M s", "watch_kind": "mine"}')")"
+agent='.result.snapshot.agents = [{pane_id: "wC:p1", workspace_id: "wC"}]'
+check "an agent with no kind is own work" "2 M s" "$(slot wC "$agent")"
+check "an agent keeps the kind of its space" "2 R s" "$(slot wC "$agent | $(watch \
+  '{"watch_kind": "review"}')")"
 
 # The agents panel, from a fixture with two repo groups and one plain workspace.
 Z=$'​'
@@ -179,7 +184,7 @@ out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_i
   then .tokens = {watch_kind: "mine", watch_stage: "watching", watch_needs: "failed,reply"}
   else . end)')")
 check "agent row lists all needs" "M w F pipeline failed, reply" "$(tok "$out" wH:p1 work)"
-check "agent row is empty with no watch tokens" "<none>" "$(tok "$out" wA:p1 work)"
+check "agent row with no kind is own work" "M s" "$(tok "$out" wA:p1 work)"
 out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_id == "wH"
   then .tokens = {watch_kind: "mine", watch_stage: "done"} else . end)
   | .result.snapshot.agents[0].tokens.work = "MwF pipeline failed"')")
