@@ -2,18 +2,18 @@
 
 ## What is here
 
-| Path                      | Purpose                                                   |
-| ------------------------- | --------------------------------------------------------- |
-| `config.toml`             | All settings and keybindings                              |
-| `bin/`                    | Scripts run by keybindings and plugins                    |
-| `plugins/balance-panes/`  | If a pane's process ends on its own, even out its tab     |
-| `plugins/worktree-links/` | Symlink gitignored files into new worktrees               |
-| `plugins/labels/`         | Name tabs, number rows, group agents by repo              |
-| `plugins/caffeinate/`     | Keep the Mac awake while an agent works                   |
-| `plugins/config/`         | Configuration for installed plugins                       |
-| `projects.local`          | Machine-local project paths, not in the dotfiles          |
-| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync` |
-| `setup.sh`                | Installs and links every plugin                           |
+| Path                      | Purpose                                                         |
+| ------------------------- | --------------------------------------------------------------- |
+| `config.toml`             | All settings and keybindings                                    |
+| `bin/`                    | Scripts run by keybindings and plugins                          |
+| `plugins/balance-panes/`  | If a pane's process ends on its own, even out its tab           |
+| `plugins/worktree-links/` | Symlink gitignored files into new worktrees                     |
+| `plugins/labels/`         | Name tabs, number rows, group agents by repo, show watch glyphs |
+| `plugins/caffeinate/`     | Keep the Mac awake while an agent works                         |
+| `plugins/config/`         | Configuration for installed plugins                             |
+| `projects.local`          | Machine-local project paths, not in the dotfiles                |
+| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`       |
+| `setup.sh`                | Installs and links every plugin                                 |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files. Leave
 those alone.
