@@ -21,6 +21,7 @@ wt=$(printf %s "$d/app" | shasum | cut -c1-12)
 
 # Fake engine: prints and empties $D/events/<key>.jsonl. If $D/events/<key>.exit has lines, it
 # removes the first line, prints $D/events/<key>.err on stderr, and exits with that line.
+# If $D/events/<key>.state exists, it is the saved state of the engine.
 # It adds its key and arguments to $D/args. If $D/events/<key>.sleep exists, it reads the events,
 # then sleeps for that number of seconds, then prints the events.
 mkdir -p "$d/events"
@@ -37,7 +38,9 @@ while (($#)); do
     *) shift ;;
   esac
 done
-f=$D/events/$(watch_key "$repo" "$review" ${mrs[@]+"${mrs[@]}"})
+key=$(watch_key "$repo" "$review" ${mrs[@]+"${mrs[@]}"})
+f=$D/events/$key
+if [ -f "$f.state" ]; then mkdir -p "$WATCH_ENGINE_DIR"; cp "$f.state" "$WATCH_ENGINE_DIR/$key.json"; fi
 if [ -s "$f.exit" ]; then
   code=$(head -n1 "$f.exit")
   sed -i '' 1d "$f.exit"
@@ -407,6 +410,65 @@ wait_for 15 "[ ! -e '$WATCHD_DIR/repos/app.pid' ]"
 check "network down: repo loop exits when its subscriptions end" yes \
   "$(gone "$WATCHD_DIR/repos/app.pid")"
 printf '#!/bin/sh\nexit 0\n' >"$d/bin/nc"
+
+herdr_line() { # workspace, tokens
+  printf 'workspace report-metadata %s --source watch %s' "$1" "$2"
+}
+last_stage() { grep watch_stage "$d/herdr.log" | tail -n1; }
+reset
+rm -f "$d/herdr.log"
+stack="$WATCHD_DIR/subs/app-$wt.json"
+echo '{"mrs": {}, "needs": ["failed", "reply"]}' >"$d/events/app-$wt.state"
+events "app-$wt" "$(ev pipeline 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
+check "record has the herdr workspace" wT "$(jq -r .herdr_workspace "$stack")"
+wait_for 5 "grep -q watch_stage=watching '$d/herdr.log'"
+check "first round writes watching and the needs" \
+  "$(herdr_line wT '--token watch_stage=watching --token watch_needs=failed,reply')" "$(last_stage)"
+echo '{"mrs": {}, "needs": []}' >"$d/events/app-$wt.state"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --once --mr 5
+check "each round writes the tokens again" 2 "$(grep -c watch_stage=watching "$d/herdr.log")"
+check "no needs: the needs token is cleared" \
+  "$(herdr_line wT '--token watch_stage=watching --clear-token watch_needs')" "$(last_stage)"
+events "app-$wt" "$(ev merged 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --once --mr 5
+wait_for 5 "[ ! -e '$stack' ]"
+check "all MRs merged gives done" \
+  "$(herdr_line wT '--token watch_stage=done --clear-token watch_needs')" "$(last_stage)"
+
+reset
+printf '5\n' >"$d/events/app-$wt.exit"
+echo 'watch-gitlab: HTTP 403 on graphql' >"$d/events/app-$wt.err"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
+check "an error end gives stopped" \
+  "1 $(herdr_line wT '--token watch_stage=stopped --clear-token watch_needs')" \
+  "$code $(last_stage)"
+
+reset
+events "app-$wt" "$(ev pipeline 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
+wait_for 5 "[ -s '$WATCHD_DIR/rounds/app-$wt' ]"
+"$client" unsubscribe --repo "$d/app" --mr 5
+check "unsubscribe gives stopped" \
+  "$(herdr_line wT '--token watch_stage=stopped --clear-token watch_needs')" "$(last_stage)"
+
+reset
+touch "$d/herdr.fail"
+events "app-$wt" "$(ev pipeline 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
+wait_for 5 "grep -q 'herdr workspace wT' '$WATCHD_DIR/watchd.log'"
+check "a herdr error does not end the subscription" "0 live" \
+  "$code $("$client" status | awk -F '\t' -v k="app-$wt" '$1 == k { print $4 }')"
+rm -f "$d/herdr.fail"
+"$client" unsubscribe --repo "$d/app" --mr 5
+
+reset
+rm -f "$d/herdr.log"
+events "app-$wt" "$(ev pipeline 5)"
+watch --interval 600 --mr 5
+wait_for 5 "[ -s '$WATCHD_DIR/rounds/app-$wt' ]"
+"$client" unsubscribe --repo "$d/app" --mr 5
+check "no herdr workspace: no herdr call" 0 "$(cat "$d/herdr.log" 2>/dev/null | wc -l | tr -d ' ')"
 
 reset
 unset WATCHD_ENGINE

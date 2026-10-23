@@ -1,6 +1,6 @@
 # Fakes for the watch tests. Source this file after `d` is set to an empty temp folder.
-# It creates a fake glab, pmset, and nc in $d/bin, the fixtures folder $d/mock, and the git repo
-# $d/app with a GitLab origin, and exports the variables for them.
+# It creates a fake glab, herdr, pmset, and nc in $d/bin, the fixtures folder $d/mock, and the git
+# repo $d/app with a GitLab origin, and exports the variables for them.
 
 # Fake glab: `api <path>` prints $MOCK_DIR/<fixture>.json. With --paginate, the other pages
 # <fixture>_p<N>.json follow. If the file does not exist, it prints {} for an MR,
@@ -65,6 +65,15 @@ case "$f" in
 esac
 EOF
 chmod +x "$d/bin/glab"
+# Fake herdr: appends its arguments to $d/herdr.log. If $d/herdr.fail exists, it exits 1.
+# The tests must never reach the real herdr.
+unset HERDR_ENV HERDR_WORKSPACE_ID HERDR_PANE_ID HERDR_SOCKET_PATH
+cat >"$d/bin/herdr" <<EOF
+#!/bin/sh
+printf '%s\n' "\$*" >>"$d/herdr.log"
+if [ -e "$d/herdr.fail" ]; then echo "herdr: server_not_running" >&2; exit 1; fi
+EOF
+chmod +x "$d/bin/herdr"
 # Fake pmset and nc: full wake, and the network is up.
 printf '#!/bin/sh\necho "Current System Capabilities are: CPU Graphics Audio Network"\n' \
   >"$d/bin/pmset"

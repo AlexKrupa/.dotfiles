@@ -81,6 +81,23 @@ watch_log() {
     >>"$WATCHD_DIR/watchd.log"
 }
 
+# Usage: watch_herdr_tokens WORKSPACE NAME=VALUE... Writes the tokens of the herdr workspace, with
+# the source `watch`. An empty VALUE clears the token. A herdr error goes to the log only: the
+# sidebar is display, and the watch must go on without it.
+watch_herdr_tokens() {
+  local workspace=$1 pair args=() err
+  shift
+  command -v herdr >/dev/null || return 0
+  for pair; do
+    if [[ -n ${pair#*=} ]]; then args+=(--token "$pair"); else args+=(--clear-token "${pair%%=*}"); fi
+  done
+  if ! err=$(herdr workspace report-metadata "$workspace" --source watch "${args[@]}" 2>&1 >/dev/null)
+  then
+    watch_log "" "" "herdr workspace $workspace: ${err//$'\n'/ }"
+  fi
+  return 0
+}
+
 # Usage: watch_sub_update KEY [JQ OPTION]... FILTER
 # Changes the subscription record of KEY with a jq filter, under the lock of the key. Returns 1 if
 # the record does not exist.

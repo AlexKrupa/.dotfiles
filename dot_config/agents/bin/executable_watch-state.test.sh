@@ -57,6 +57,16 @@ watch_lock "$d/lock"
 check "lock: stale lock broken" "0 yes" "$? $( (($(date +%s) - start < 3)) && echo yes || echo no)"
 watch_unlock "$d/lock"
 
+check "no herdr on PATH: watch_herdr_tokens returns 0" "0 no" \
+  "$(PATH=/usr/bin:/bin watch_herdr_tokens wT watch_stage=watching; echo "$?") \
+$([ -e "$d/herdr.log" ] && echo yes || echo no)"
+touch "$d/herdr.fail"
+watch_herdr_tokens wT watch_stage=watching
+check "herdr error: watch_herdr_tokens returns 0 and writes a log line" "0 yes" \
+  "$? $(grep -q 'herdr workspace wT: herdr: server_not_running' "$WATCHD_DIR/watchd.log" \
+    && echo yes || echo no)"
+rm -f "$d/herdr.fail"
+
 mkdir "$d/scripts"
 cp "$here"/watch-gitlab.sh "$here"/watch-lib.sh "$here"/watch-state.sh "$d/scripts/"
 echo '# daemon' >"$d/scripts/watchd.sh"

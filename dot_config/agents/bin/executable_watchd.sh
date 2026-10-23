@@ -62,12 +62,31 @@ live_keys() {
 # sees that the record is gone. The owner file keeps the session of the results, so that only the
 # next client of that session gets them.
 remove_record() {
-  local sub=$WATCHD_DIR/subs/$2.json session
+  local sub=$WATCHD_DIR/subs/$2.json session workspace stage=stopped
   if [[ -n ${4:-} ]]; then cp "$4" "$WATCHD_DIR/inbox/$2.error"; fi
   session=$(jq -r .session_pid "$sub" 2>/dev/null)
   if [[ -n $session ]]; then echo "$session" >"$WATCHD_DIR/inbox/$2.owner"; fi
+  workspace=$(jq -r '.herdr_workspace // empty' "$sub" 2>/dev/null)
   rm -f "$sub" "$WATCHD_DIR/poke/$2" "$WATCHD_DIR/rounds/$2" "$WATCHD_DIR/rounds/$2.poked"
   watch_log "$1" "$2" "subscription removed: $3"
+  if [[ -n $workspace ]]; then
+    if [[ $3 == "all MRs merged or closed" ]]; then stage=done; fi
+    watch_herdr_tokens "$workspace" "watch_stage=$stage" watch_needs=
+  fi
+}
+
+# Usage: write_tokens KEY. Writes the stage and the needs-you values of a live subscription to
+# its herdr workspace. Under the lock of the record, so that it cannot come after the stage of
+# the end. Also with no change: herdr loses the tokens at a restart of its server.
+write_tokens() {
+  local sub=$WATCHD_DIR/subs/$1.json workspace needs
+  watch_lock "$sub.lock" || return 0
+  workspace=$(jq -r '.herdr_workspace // empty' "$sub" 2>/dev/null)
+  if [[ -n $workspace ]]; then
+    needs=$(jq -r '.needs // [] | join(",")' "$WATCH_ENGINE_DIR/$1.json" 2>/dev/null)
+    watch_herdr_tokens "$workspace" watch_stage=watching "watch_needs=$needs"
+  fi
+  watch_unlock "$sub.lock"
 }
 
 # Usage: end_sub SLUG KEY REASON [ERROR FILE]
@@ -162,6 +181,7 @@ check() {
         route "$slug" "$key" "$round/out"
         end_mrs "$slug" "$key" "$round/out"
       fi
+      write_tokens "$key"
       ;;
     4) watch_log "$slug" "$key" "network error: $(head -n1 "$round/err")" ;;
     5)

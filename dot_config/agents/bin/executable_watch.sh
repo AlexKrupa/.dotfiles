@@ -93,8 +93,10 @@ if [[ $command == unsubscribe ]]; then
     watch_unlock "$sub.lock"
     die "the subscription $key is of session $record_session"
   fi
+  workspace=$(jq -r '.herdr_workspace // empty' "$sub" 2>/dev/null || true)
   rm -f "$sub" "$inbox" "$error" "$owner" "$WATCHD_DIR/poke/$key" "$WATCHD_DIR/rounds/$key" \
     "$WATCHD_DIR/rounds/$key.poked"
+  if [[ -n $workspace ]]; then watch_herdr_tokens "$workspace" watch_stage=stopped watch_needs=; fi
   watch_unlock "$sub.lock"
   watch_log "$slug" "$key" "unsubscribed"
   exit 0
@@ -158,12 +160,15 @@ subscribe() {
   fi
   jq -n --arg key "$key" --arg slug "$slug" --arg repo "$top" --arg mode "$mode" \
     --argjson interval "$interval" --argjson session "$session" --argjson client $$ \
-    --argjson now "$(date +%s)" --argjson old "$old" --argjson replaced "$replaced_session" '
+    --argjson now "$(date +%s)" --argjson old "$old" --argjson replaced "$replaced_session" \
+    --arg workspace "${HERDR_WORKSPACE_ID:-}" '
     ($ARGS.positional | map(tonumber)) as $mrs | ($old.ended_mrs // []) as $ended
     | {key: $key, slug: $slug, repo: $repo, mode: $mode, mrs: $mrs, interval: $interval,
        session_pid: $session, client_pid: $client, client_at: $now,
        replaced_sessions: ($old.replaced_sessions // [] | . + [$replaced // empty] | unique),
-       ended_mrs: ($ended - ($ended - $mrs))}' --args ${mrs[@]+"${mrs[@]}"} >"$sub.tmp"
+       ended_mrs: ($ended - ($ended - $mrs))}
+      + if $workspace == "" then {} else {herdr_workspace: $workspace} end' \
+    --args ${mrs[@]+"${mrs[@]}"} >"$sub.tmp"
   mv "$sub.tmp" "$sub"
   rm -f "$owner"
   # A new subscription gets its first check now, as with --once.
