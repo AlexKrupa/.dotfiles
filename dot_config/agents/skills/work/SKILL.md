@@ -182,8 +182,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 8. Report the result, then end the turn. The user fixes each error, so the turn has no more tool
    calls after the report. The stale bump branch below is the only exception.
    - Exit `1`, existing mode, the stderr has `diverged`, and this turn loaded `/bump`: the local
-     branch can be from an older bump. A bot such as Renovate uses the same branch name for each
-     version. Run `git fetch origin`. Find each dependency version that
+     branch can be from an older bump with the same branch name. Run `git fetch origin`. Find each dependency version that
      `git diff origin/<default>...<branch>` changes. If `origin/<default>` has the same version or
      a newer version of each dependency, the local branch is stale. Run the script again with
      `--reset-local` after `--branch <name>`, then report its result. Else, report the error.
