@@ -32,8 +32,8 @@
 #### Superpowers
 
 - Use brainstorming in these cases only: I ask to brainstorm, I ask for a design, or the work is
-  larger than one session. For a change to a few files, implement it directly. This rule
-  overrides the `using-superpowers` and `brainstorming` skills.
+  larger than one session. For a change to a few files, implement it directly. This rule overrides
+  the `using-superpowers` and `brainstorming` skills.
 - Spec-to-draft pipeline: after I approve a spec, run these steps with no stop, unless I say
   otherwise
   1. superpowers:writing-plans. Do not ask for a plan review or an execution mode.
@@ -56,16 +56,22 @@
 - When possible, use `git-spice` for branch and commit work: create, check out, commit, amend,
   squash, restack, move, rename, delete. Use raw git for the rest. The command is `git-spice`: `gs`
   does not exist in the agent shell. Put `--no-prompt` after the subcommand. After a conflict, use
-  `git-spice rebase continue` or `git-spice rebase abort`.
-- If the repo has no `refs/spice/data`, run `git-spice repo init --trunk <default-branch>
-  --no-prompt` before the first git-spice command. Without it, git-spice cannot find the trunk.
+  `git-spice rebase continue` or `git-spice rebase abort`. Create a branch with
+  `git-spice branch create`, not `git switch -c <name> origin/<branch>`: that command makes the
+  remote branch the upstream.
+- If the repo has no `refs/spice/data`, run
+  `git-spice repo init --trunk <default-branch> --no-prompt` before the first git-spice command.
+  Without it, git-spice cannot find the trunk.
 - If the branch is part of a stack, use `git-spice stack` commands, not `git-spice branch` commands.
   Only `stack` commands update the stack comment in each PR or MR.
 - Push when the conversation shows that I want the change pushed. Do not assume. A force push that
-  updates my published branch with local changes is fine. Never force push `main` or the branches
-  of other people.
+  updates my published branch with local changes is fine. Never force push `main` or the branches of
+  other people.
 - Never open, publish, or merge a PR or MR, unless I ask. With git-spice, push with
   `submit --update-only` or `submit --no-publish`.
+- Before each `submit`, run `git-spice repo sync --no-prompt` and
+  `git-spice stack restack --no-prompt`. Other sessions move the shared local trunk, and git-spice
+  does not submit a branch that needs a restack.
 
 ### Memory
 
@@ -216,8 +222,8 @@ Layout:
 - MacOS, Ghostty terminal, herdr
 - Shells:
   - My terminal shell is Fish. Use Fish syntax for commands that I run in my own terminal.
-  - The Bash tool and the `! <command>` prompt prefix run zsh. Use zsh syntax for them, also
-    when you give me a `! <command>` to type.
+  - The Bash tool and the `! <command>` prompt prefix run zsh. Use zsh syntax for them, also when
+    you give me a `! <command>` to type.
 - Dotfiles managed with chezmoi (`chezmoi managed`). Edit live files, then use
   `chezmoi re-add/add/forget`, not the source repo. These commands commit and push automatically.
   - Update dotfiles automatically when applying confirmed or explicitly requested changes.
