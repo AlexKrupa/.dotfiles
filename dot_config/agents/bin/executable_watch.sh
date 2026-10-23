@@ -16,8 +16,8 @@
 # mode, MRs, live or dead session, inbox line count.
 # kind: set the kind of work of the herdr workspace (mine, review, bump, debug, or hub) for the
 # sidebar. The workspace is ID, else $HERDR_WORKSPACE_ID. Outside herdr it does nothing. With no
-# live subscription in the workspace, it also clears the stage. A stack subscription in a
-# workspace with no kind sets mine.
+# live subscription in the workspace, it also clears the stage. A subscription in a workspace with
+# no kind sets the kind of its mode: mine for a stack, review, or hub.
 # In herdr, the subscription also writes its stage and its needs-you values to the workspace.
 # Exit codes: 0 events, 1 error, 3 a new client or session replaced this one
 set -euo pipefail
@@ -186,13 +186,14 @@ fi
 start_daemon
 
 replaced() { echo "watch: a new client or session replaced this one" >&2; exit 3; }
-# The role skills set their kind before they watch, so a stack watch with no kind is own work.
+# Usage: default_kind KIND. The role skills set their kind before they watch. A watch that started
+# before its skill set a kind gets the kind of its mode.
 default_kind() {
   local answer
   command -v herdr >/dev/null || return 0
   answer=$(herdr workspace get "$HERDR_WORKSPACE_ID" 2>/dev/null) || return 0
   if ! jq -e '.result.workspace.tokens.watch_kind' <<<"$answer" >/dev/null 2>&1; then
-    watch_herdr_tokens "$HERDR_WORKSPACE_ID" watch_kind=mine
+    watch_herdr_tokens "$HERDR_WORKSPACE_ID" "watch_kind=$1"
   fi
 }
 # Writes the record. The newest session owns the key: it adds the old live session to
@@ -216,7 +217,13 @@ subscribe() {
     --args ${mrs[@]+"${mrs[@]}"} >"$sub.tmp"
   mv "$sub.tmp" "$sub"
   rm -f "$owner"
-  if [[ $mode == stack && -n ${HERDR_WORKSPACE_ID:-} ]]; then default_kind; fi
+  if [[ -n ${HERDR_WORKSPACE_ID:-} ]]; then
+    case $mode in
+      stack) default_kind mine ;;
+      review) default_kind review ;;
+      hub) default_kind hub ;;
+    esac
+  fi
   # A new subscription gets its first check now, as with --once.
   if [[ $old == null ]] || ((once)); then echo "$poke_token" >"$WATCHD_DIR/poke/$key"; fi
   watch_log "$slug" "$key" "subscribed: $mode ${mrs[*]+${mrs[*]}}"

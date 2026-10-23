@@ -505,6 +505,23 @@ HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
 check "stack subscribe keeps an existing kind" "workspace get wT" \
   "$(grep -E 'watch_kind|workspace get' "$d/herdr.log")"
 "$client" unsubscribe --repo "$d/app" --mr 5
+
+reset
+rm -f "$d/herdr.log"
+echo '{"result": {"workspace": {"tokens": {"idx": "2"}}}}' >"$d/herdr.get"
+events "app-$wt-review-5" "$(ev comment 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --review --mr 5
+check "review subscribe with no kind sets review" "$(herdr_line wT '--token watch_kind=review')" \
+  "$(grep watch_kind "$d/herdr.log")"
+"$client" unsubscribe --repo "$d/app" --review --mr 5
+
+reset
+rm -f "$d/herdr.log"
+events app "$(ev todo 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600
+check "hub subscribe with no kind sets hub" "$(herdr_line wT '--token watch_kind=hub')" \
+  "$(grep watch_kind "$d/herdr.log")"
+"$client" unsubscribe --repo "$d/app"
 rm -f "$d/herdr.get"
 
 reset
