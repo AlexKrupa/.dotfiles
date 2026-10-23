@@ -26,6 +26,10 @@ fg=$(jq -c 'to_entries | map(.value.result.process_info as $i
                     | select(.pid == $i.foreground_process_group_id) | .name) // "") })
   | from_entries' process-info.json)
 
+# A glyph table of ASCII letters, so a check reads as text.
+glyphs='{"mine":"M","review":"R","hub":"H","started":"s","watching":"w","done":"d","stopped":"x",
+  "failed":"F","reply":"C"}'
+
 # run <state-json> [jq-filter-to-mutate-the-fixture] -> policy output as {rename, state}
 #
 # policy.jq emits a text stream for watch.sh. The checks below read one object, so this
@@ -34,7 +38,7 @@ run() {
   printf '%s' "$1" >"$tmp/state.json"
   if [ -n "${2:-}" ]; then jq "$2" snapshot.json; else cat snapshot.json; fi |
     jq -r --slurpfile st "$tmp/state.json" --argjson fg "$fg" --argjson now 10000 \
-      -f ../policy.jq |
+      --argjson glyphs "$glyphs" -f ../policy.jq |
     jq -cRn '[inputs] | { state:  (.[0] | fromjson),
                           rename: (.[1:] | map(split("\t"))
                                    | map(select(.[0] == "tab") | {tab_id: .[1], label: .[2]})) }'
@@ -81,9 +85,9 @@ check "a backslash in a label is kept" '2 • a\b' "$(label_of "$out" wB:t2)"
 out=$(run '{"wB:t4":"cargo"}' '.result.snapshot.tabs[8].label = "4 • cargo"')
 check "ignored command keeps the owned name" "" "$(label_of "$out" wB:t4)"
 
-# slot <workspace_id> -> the idx token a run writes, from workspaces in sidebar order. herdr
-# appends a new worktree to the end of its list, but the sidebar and `alt+1..9` put it
-# under its checkout.
+# slot <workspace_id> [jq-filter] -> the idx token a run writes, from workspaces in sidebar
+# order. herdr appends a new worktree to the end of its list, but the sidebar and `alt+1..9`
+# put it under its checkout. The filter changes the snapshot after the workspaces are set.
 slot() {
   printf '{}' >"$tmp/state.json"
   jq '.result.snapshot.workspaces = [
@@ -91,15 +95,34 @@ slot() {
         {workspace_id: "wB", number: 2},
         {workspace_id: "wC", number: 3, worktree: {repo_key: "r", is_linked_worktree: true}},
         {workspace_id: "wD", number: 4, worktree: {repo_key: "s", is_linked_worktree: true}}]' \
-    snapshot.json |
+    snapshot.json | jq "${2:-.}" |
     jq -r --slurpfile st "$tmp/state.json" --argjson fg "$fg" --argjson now 10000 \
-      -f ../policy.jq |
+      --argjson glyphs "$glyphs" -f ../policy.jq |
     awk -F'\t' -v w="$1" '$1 == "workspace" && $2 == w { sub("^idx=", "", $3); print $3 }'
 }
 check "a checkout keeps its slot"                   "1" "$(slot wA)"
 check "a worktree follows its checkout"             "2" "$(slot wC)"
 check "a workspace after a worktree group moves down" "3" "$(slot wB)"
 check "a worktree with no open checkout keeps its place" "4" "$(slot wD)"
+
+# watch <tokens-json> -> a slot filter that gives wC, slot 2, these tokens
+watch() { printf '.result.snapshot.workspaces[2].tokens = %s' "$1"; }
+check "no watch tokens: idx unchanged" "2" "$(slot wC)"
+check "kind only: started" "2 Ms" "$(slot wC "$(watch '{"watch_kind": "mine"}')")"
+check "hub with no watch: no stage" "2 H" "$(slot wC "$(watch '{"watch_kind": "hub"}')")"
+check "watching with needs: first needs glyph" "2 MwF" "$(slot wC "$(watch \
+  '{"watch_kind": "mine", "watch_stage": "watching", "watch_needs": "failed,reply"}')")"
+check "done: no needs glyph" "2 Md" "$(slot wC "$(watch \
+  '{"watch_kind": "mine", "watch_stage": "done", "watch_needs": "failed"}')")"
+check "kind set again during a watch keeps the stage" "2 Rw" "$(slot wC "$(watch \
+  '{"watch_kind": "review", "watch_stage": "watching"}')")"
+check "slot 10 and up: glyphs only" "Mw" "$(slot w11 '.result.snapshot.workspaces +=
+  [range(5; 12) | {workspace_id: "w\(.)", number: .}]
+  | .result.snapshot.workspaces[-1].tokens = {watch_kind: "mine", watch_stage: "watching"}')"
+check "a value with no glyph shows nothing" "2 M" "$(slot wC "$(watch \
+  '{"watch_kind": "mine", "watch_stage": "unknown"}')")"
+check "a written idx is not written again" "" "$(slot wC "$(watch \
+  '{"idx": "2 Ms", "watch_kind": "mine"}')")"
 
 # The agents panel, from a fixture with two repo groups and one plain workspace.
 Z=$'​'
@@ -109,7 +132,7 @@ Z=$'​'
 agents() {
   printf '%s' "$1" >"$tmp/state.json"
   jq -r --slurpfile st "$tmp/state.json" --argjson fg '{}' --argjson now 10000 \
-    -f ../policy.jq "${2:-agents.json}" |
+    --argjson glyphs "$glyphs" -f ../policy.jq "${2:-agents.json}" |
     jq -cRn '[inputs] | { state: (.[0] | fromjson),
       panes: (.[1:] | map(split("\t")) | map(select(.[0] == "pane"))
               | map({ key: .[1],
@@ -151,6 +174,16 @@ out=$(agents '{}' "$(fixture '.result.snapshot.agents +=
   [range(1; 4) | {pane_id: "wZ:p\(.)", workspace_id: "wZ", state_change_seq: .}]')")
 check "a rank past 9 is padded"                    "010" "$(tok "$out" wZ:p1 ord)"
 check "a rank past 9 shows no number"              "<none>" "$(tok "$out" wZ:p1 rank)"
+
+out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_id == "wH"
+  then .tokens = {watch_kind: "mine", watch_stage: "watching", watch_needs: "failed,reply"}
+  else . end)')")
+check "agent row lists all needs" "MwF pipeline failed, reply" "$(tok "$out" wH:p1 work)"
+check "agent row is empty with no watch tokens" "<none>" "$(tok "$out" wA:p1 work)"
+out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_id == "wH"
+  then .tokens = {watch_kind: "mine", watch_stage: "done"} else . end)
+  | .result.snapshot.agents[0].tokens.work = "MwF pipeline failed"')")
+check "agent row of a done watch has no words" "Md" "$(tok "$out" wH:p1 work)"
 
 out=$(agents '{}' "$(fixture 'del(.result.snapshot.agents)')")
 check "a snapshot with no agents writes no pane"   "{}" "$(jq -c .panes <<<"$out")"

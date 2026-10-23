@@ -32,7 +32,9 @@ tab_bar_position = "top"
 # renders the title. {hostname} is the host that runs the panes.
 window_title = "{workspace} • {tab}"   # default
 
-# `$idx` is the slot number for the 1-9 focus binding, reported by the labels plugin.
+# `$idx` is the slot number for the 1-9 focus binding, then the glyphs of the watch state: kind,
+# stage, and the first needs-you value. The labels plugin reports it. The glyph table is
+# plugins/config/local.labels/glyphs.json.
 [ui.sidebar.spaces]
 rows = [["state_icon", "$idx", "workspace"]]
 
@@ -42,6 +44,7 @@ rows = [["state_icon", "$idx", "workspace"]]
 #          The dot fades after 15 min idle, and again after 1 h.
 # Line 3 - session title reported by the Claude Code statusline script. A worktree title starts
 #          with a tree line, `│` or `└` for the last worktree of the group.
+# Line 4 - the glyphs of the watch state of the workspace, and the words of all needs-you values
 [ui.sidebar.agents]
 rows = [
   [{ token = "$group_parent", bold = true }],
@@ -57,6 +60,7 @@ rows = [
     "workspace",
   ],
   ["$title"],
+  ["$work"],
 ]
 
 [ui.sound]

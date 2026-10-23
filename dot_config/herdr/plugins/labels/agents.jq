@@ -2,6 +2,8 @@
 #
 # Pure, like policy.jq, which includes it.
 
+include "work" {search: "./"};
+
 # No binding reaches a 10th row, so those stay bare. No bullet either: herdr puts its own
 # separator between the tokens of a sidebar row.
 def slot: if . <= 9 then tostring else "" end;
@@ -26,6 +28,7 @@ def agent_rows($s):
           status: (if (["working", "blocked", "done", "idle"] | index($status)) != null
                    then $status else "unknown" end),
           tokens: (.tokens // {}),
+          workspace_tokens: ($w.tokens // {}),
           title: (.tokens.session // .terminal_title_stripped // "" | gsub("[\t\r\n]"; " ")),
           seq: (.state_change_seq // 0),
           family: ($w.worktree.repo_key // ("workspace:" + .workspace_id)),
@@ -64,13 +67,14 @@ def dot_state($since; $now):
 
 # Every token this plugin owns on an agent pane. Empty means clear. config.toml sets the
 # dot color by the name of the one dot token.
-def wanted($since; $now):
+def wanted($since; $now; $glyphs):
   dot_state($since; $now) as $state
   | (.title | herdr_text) as $title
   | { ord: ("00" + (.rank | tostring))[-3:],
       rank: (.rank | slot),
       group_parent: (if .header then .repo else "" end),
-      idx: "" }
+      idx: "",
+      work: (.workspace_tokens | work_line($glyphs)) }
     + (dot_states | map({key: ("dot_" + .), value: ""}) | from_entries)
     # herdr indents every row of an entry after its first, so the name row under a repo
     # header is indented already.
@@ -85,9 +89,9 @@ def wanted($since; $now):
 
 # One line per pane with any token to change, so watch.sh makes one call for it. Only
 # differing tokens, so a write does not feed its own event back as more work.
-def pane_line($since; $now):
+def pane_line($since; $now; $glyphs):
   . as $r
-  | [ wanted($since; $now) | map_values(herdr_text) | to_entries[]
+  | [ wanted($since; $now; $glyphs) | map_values(herdr_text) | to_entries[]
       | select(.value != ($r.tokens[.key] // "")) ]
   | select(length > 0)
   | ["pane", $r.pane_id] + map("\(.key)=\(.value)")

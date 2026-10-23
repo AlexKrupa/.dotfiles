@@ -63,4 +63,14 @@ check "apply clears a workspace token in one call" \
   "workspace report-metadata wZ --source labels --clear-token idx" \
   "$(grep '^workspace report-metadata wZ' "$log")"
 
+jq '.result.snapshot.workspaces[1].tokens.watch_kind = "mine"' snapshot.json >"$tmp/watched.json"
+echo '{"mine": "M"}' >"$tmp/glyphs.json"
+check "sweep puts the glyphs of the table in idx" "workspace wB -> idx=2 M" "$(
+  LABELS_SNAPSHOT="$tmp/watched.json" LABELS_GLYPHS="$tmp/glyphs.json" ../watch.sh sweep \
+    | grep '^workspace wB')"
+echo 'not json' >"$tmp/glyphs.json"
+check "a bad glyph table shows no glyphs" "workspace wA -> idx=1" "$(
+  LABELS_SNAPSHOT="$tmp/watched.json" LABELS_GLYPHS="$tmp/glyphs.json" ../watch.sh sweep 2>&1 \
+    | grep '^workspace wA')"
+
 exit $fail

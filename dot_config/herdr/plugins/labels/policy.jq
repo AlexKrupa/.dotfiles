@@ -2,7 +2,8 @@
 #
 #   in:  snapshot JSON on stdin, --slurpfile st <state.json>,
 #        --argjson fg {pane_id: foreground program}, a shell name for an idle pane,
-#        --argjson now <epoch seconds>
+#        --argjson now <epoch seconds>,
+#        --argjson glyphs <glyph table, see work.jq>
 #   out: with `jq -r`, line 1 is the new state as JSON, every line after is
 #        "<kind>\t<id>\t...". It is one text stream. The caller needs no second jq to
 #        split it. `tab` is a label to apply. `workspace` and `pane` are followed by
@@ -11,6 +12,7 @@
 # Pure: no herdr calls, no clock, no files.
 
 include "agents" {search: "./"};
+include "work" {search: "./"};
 
 def ignored: ["ls","cd","cat","echo","clear","git","jj","rm","cp","mv","grep","rg","fd",
               "which","type","printf","test"];
@@ -76,6 +78,8 @@ def label_of($pane; $program):
   # The slot is the sidebar row, which is what `alt+1..9` counts. herdr appends a new
   # worktree to the end of its list, but the sidebar puts it under its checkout. A collapsed
   # group hides rows from that count too, but no client reports that state.
+  #
+  # The watch glyphs share the token: the spaces row must stay one line.
   (($s.workspaces // [] | sort_by(.number)) as $list
    | ($list | map(select(linked | not) | .worktree.repo_key // empty)) as $checkouts
    | [ $list[]
@@ -85,7 +89,8 @@ def label_of($pane; $program):
    | to_entries[]
    | (.key + 1 | slot) as $slot
    | .value
-   | select((.tokens.idx // "") != $slot)
-   | ["workspace", .workspace_id, "idx=" + $slot] | @tsv),
+   | ([$slot, (.tokens // {} | work_glyphs($glyphs))] | map(select(. != "")) | join(" ")) as $idx
+   | select((.tokens.idx // "") != $idx)
+   | ["workspace", .workspace_id, "idx=" + $idx] | @tsv),
   # This plugin sets the panel order: herdr sorts by `ord`, and `focus_agent` counts the panel.
-  ($rows[] | pane_line($since; $now))
+  ($rows[] | pane_line($since; $now; $glyphs))

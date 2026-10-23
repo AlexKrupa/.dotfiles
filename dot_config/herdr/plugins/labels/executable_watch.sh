@@ -13,12 +13,14 @@
 #   LABELS_SNAPSHOT  read this file instead of running `herdr api snapshot`
 #   LABELS_STATE     use this state file instead of the XDG one
 #   LABELS_DRY       set to 1 to print renames instead of applying them
+#   LABELS_GLYPHS    read the glyph table of the watch state from this file
 
 set -u
 
 root=${HERDR_PLUGIN_ROOT:-$(cd "$(dirname "$0")" && pwd)}
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/herdr-labels
 state=${LABELS_STATE:-$state_dir/state.json}
+glyphs_file=${LABELS_GLYPHS:-${HERDR_PLUGIN_CONFIG_DIR:-$HOME/.config/herdr/plugins/config/local.labels}/glyphs.json}
 
 # Only the directory in use. With LABELS_STATE set, a test does not touch the XDG one.
 mkdir -p "$(dirname "$state")"
@@ -70,11 +72,15 @@ meta() { # meta <kind> <id> <name=value>...
 agent_panes=
 
 sweep() {
-  local snap out first f
+  local snap out first f glyphs
   snap=$(snapshot) || return 0
   agent_panes=$(jq -r '[.result.snapshot.agents[]?.pane_id] | sort | join(" ")' <<<"$snap")
+  # Read on each sweep, so that a change of the table shows at the next sweep. A table that
+  # the user broke shows no glyphs, not no labels.
+  glyphs=$(jq -c 'objects' "$glyphs_file" 2>/dev/null) || glyphs=
   out=$(jq -r --slurpfile st "$state" --argjson fg "$(programs "$snap")" \
-    --argjson now "$(date +%s)" -f "$root/policy.jq" <<<"$snap") || return 0
+    --argjson now "$(date +%s)" --argjson glyphs "${glyphs:-{\}}" \
+    -f "$root/policy.jq" <<<"$snap") || return 0
   [ -n "$out" ] || return 0
   first=${out%%$'\n'*}
 
@@ -119,7 +125,8 @@ subscribe_req() { # subscribe_req <pane_id>...
       ([ "pane.updated", "pane.focused", "pane.exited", "pane.closed",
          "pane.agent_detected", "layout.updated",
          "tab.created", "tab.closed", "tab.moved", "tab.renamed",
-         "workspace.created", "workspace.closed", "workspace.moved", "workspace.reordered"
+         "workspace.created", "workspace.closed", "workspace.moved", "workspace.reordered",
+         "workspace.metadata_updated"
        ] | map({type: .}))
       + ($ARGS.positional | map({type: "pane.agent_status_changed", pane_id: .}))) }
   }' --args "$@"
