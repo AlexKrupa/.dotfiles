@@ -3,6 +3,7 @@
 
 WATCH_BIN=${WATCH_BIN:-$HOME/.config/agents/bin}
 WATCHD_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/watchd
+WATCH_ENGINE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab
 
 # Usage: watch_key REPO REVIEW(0|1) [IID]...
 # The repo slug. With MRs, also the worktree hash, so that a stack watch and the hub watch of one

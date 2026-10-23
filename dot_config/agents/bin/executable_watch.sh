@@ -136,7 +136,7 @@ if ((review)); then mode=review; elif ((${#mrs[@]})); then mode=stack; else mode
 # The daemon writes the text of the poke to this file after the check of the key.
 poked=$WATCHD_DIR/rounds/$key.poked
 poke_token=$$-$(date +%s)
-((fresh)) && rm -f "${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab/$key.json"
+((fresh)) && rm -f "$WATCH_ENGINE_DIR/$key.json"
 # New scripts, for example after a chezmoi update: the daemon exits after its current round, and
 # this client starts the new daemon. The state is on disk, so no event is lost.
 if daemon_alive && [[ $(cat "$WATCHD_DIR/daemon.hash" 2>/dev/null) != "$(watch_scripts_hash)" ]]

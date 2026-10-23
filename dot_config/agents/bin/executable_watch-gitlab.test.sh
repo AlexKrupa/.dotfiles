@@ -560,6 +560,68 @@ check "review: unaddressed only for threads with a note from the user" \
   "$(sev comment 5 bob Because. "$url/5#note_142")
 $(sev unaddressed 5 bob Because. "$url/5#note_142" app/Foo.kt 42)" "$out"
 
+reset_mock
+gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/60", status: "FAILED"}'
+discussions 5 "$(thread '' "$(note 150 anna Nit)")"
+srun --mr 5
+check "stack needs: failed pipeline and an open thread" '["failed","reply"]' \
+  "$(jq -c .needs "$sstate")"
+
+reset_mock
+gql 5 '.detailedMergeStatus = "MERGEABLE" | .mergeable = true'
+srun --mr 5
+check "stack needs: mergeable MR is ready" '["ready"]' "$(jq -c .needs "$sstate")"
+gql 5 '.detailedMergeStatus = "CHECKING"'
+srun --mr 5
+check "stack needs: a transient merge status keeps ready" '["ready"]' "$(jq -c .needs "$sstate")"
+
+reset_mock
+gql 5 '.detailedMergeStatus = "NEED_REBASE"'
+srun --mr 5
+check "stack needs: need_rebase is a conflict" '["conflict"]' "$(jq -c .needs "$sstate")"
+
+reset_mock
+gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/61", status: "FAILED"}'
+gql 6 '.iid = "6" | .draft = true'
+srun --mr 5 --mr 6
+check "stack needs: worst over two MRs" '["failed","draft"]' "$(jq -c .needs "$sstate")"
+
+reset_mock
+gql 5 '.state = "merged" | .draft = true'
+srun --mr 5
+check "stack needs: a merged MR needs nothing" '[]' "$(jq -c .needs "$sstate")"
+
+reset_mock
+gql 5
+refs b1 h1
+srun --review --mr 5
+refs b1 h2
+srun --review --mr 5
+check "review needs: a push after the first check gives commits" '["commits"]' \
+  "$(jq -c .needs "$rstate")"
+discussions 5 "$(thread '' "$(note 160 me 'Looks good now')")"
+srun --review --mr 5
+check "review needs: a comment of the user after the push clears commits" '[]' \
+  "$(jq -c .needs "$rstate")"
+refs b1 h3
+srun --review --mr 5
+gql 5 '.approvedBy.nodes = [{username: "me"}]'
+srun --review --mr 5
+check "review needs: an approval of the user after the push clears commits" '[]' \
+  "$(jq -c .needs "$rstate")"
+
+reset_mock
+fixture todos "[$(todo_9 31 review_requested)]"
+fixture pipelines '[{"id": 80, "status": "failed", "web_url": "'"$pipelines"'/80"}]'
+run
+check "hub needs: pending to-do and failed default pipeline" '["todo","main-failed"]' \
+  "$(jq -c .needs "$state")"
+
+reset_mock
+gql 5
+srun --mr 5
+check "stack needs: nothing" '[]' "$(jq -c .needs "$sstate")"
+
 out=$("$script" --repo "$d/app" 2>&1); code=$?
 check "--repo from a different folder: exit 0" 0 "$code"
 

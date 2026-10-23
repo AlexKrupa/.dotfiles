@@ -79,7 +79,7 @@ command -v glab >/dev/null || die "glab is not installed"
 command -v jq >/dev/null || die "jq is not installed"
 cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $repo"
 
-state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/watch-gitlab
+state_dir=$WATCH_ENGINE_DIR
 key=$(watch_key "$PWD" "$review" ${mrs[@]+"${mrs[@]}"})
 state=$state_dir/$key.json
 mkdir -p "$state_dir"
@@ -227,7 +227,9 @@ $old[0] as $old | $todos[0] as $todos
   })) as $mrs
 | {
     state: {todos: [$todos[].id], opened: [$opened[].iid], mrs: $mrs,
-      default_pipeline: $default_pipeline},
+      default_pipeline: $default_pipeline,
+      needs: [(select(any($todos[]; .target.author.username != $me)) | "todo"),
+        (select($default_pipeline.status == "failed") | "main-failed")]},
     events: (if $old == null then [] else [
       ($todos[] | select(.id as $id | $old.todos | any(. == $id) | not)
         | select(.target.author.username != $me)
@@ -315,6 +317,14 @@ def norm($me):
     | {state, draft, pipeline, approved_by, title, description, labels,
        conflicts: (if $n.merge_status | transient then $o.conflicts else $n.conflicts end),
        mergeable: (if $n.merge_status | transient then $o.mergeable else $n.mergeable end),
+       merge_status: (if $n.merge_status | transient then $o.merge_status
+         else $n.merge_status end),
+       # The head that the user last saw: at the first check, or at a new comment or approval of
+       # the user.
+       seen_head: (if ($o.seen_head // null) == null
+           or any($n.notes[]; .id > ($o.last_note_id // 0) and .author.username == $me)
+           or (any($n.approved_by[]; . == $me) and (any(($o.approved_by // [])[]; . == $me) | not))
+         then $n.head else $o.seen_head end),
        last_note_id: ([$n.notes[].id, $o.last_note_id // 0] | max),
        reactions: [$n.reactions[].key], base: $n.base, head: $n.head,
        resolved: [$n.resolved_mine[].id]})}) | from_entries) as $mrs
@@ -366,8 +376,18 @@ def norm($me):
          | event("resolved"; $mr; .by; (.first.body | short); .first.url)
            + at(.first.position)))
   ] as $events
+| [$now[] | select(.state == "opened") | . as $mr | $mrs[.iid | tostring] as $s
+    | (select($s.pipeline.status == "failed") | "failed"),
+      (select($s.merge_status | IN("conflict", "need_rebase")) | "conflict"),
+      (select($mr.unaddressed != []) | "reply"),
+      (select($s.merge_status == "requested_changes") | "requested_changes"),
+      (select($s.head != null and $s.head != $s.seen_head) | "commits"),
+      (select($s.merge_status == "mergeable") | "ready"),
+      (select($s.draft) | "draft")] as $present
+| (if $review == 1 then ["reply", "commits"]
+   else ["failed", "conflict", "reply", "requested_changes", "ready", "draft"] end) as $order
 | {
-    state: {mrs: $mrs},
+    state: {mrs: $mrs, needs: [$order[] | select(IN($present[]))]},
     events: (if $events == [] then [] else $events + [$now[] as $mr | $mr.unaddressed[]
       | event("unaddressed"; $mr; .last.author.username; (.last.body | short); .last.url)
         + at(.position)] end)
