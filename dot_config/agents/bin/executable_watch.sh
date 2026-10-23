@@ -15,8 +15,9 @@
 # status: the daemon PID, the last poll of each repo, and one TSV line for each subscription: key,
 # mode, MRs, live or dead session, inbox line count.
 # kind: set the kind of work of the herdr workspace (mine, review, bump, debug, or hub) for the
-# sidebar. The workspace is ID, else $HERDR_WORKSPACE_ID. Outside herdr it does nothing. A stack
-# subscription in a workspace with no kind sets mine.
+# sidebar. The workspace is ID, else $HERDR_WORKSPACE_ID. Outside herdr it does nothing. With no
+# live subscription in the workspace, it also clears the stage. A stack subscription in a
+# workspace with no kind sets mine.
 # In herdr, the subscription also writes its stage and its needs-you values to the workspace.
 # Exit codes: 0 events, 1 error, 3 a new client or session replaced this one
 set -euo pipefail
@@ -42,7 +43,16 @@ if [[ ${1:-} == kind ]]; then
   esac
   [[ -n $workspace ]] || exit 0
   mkdir -p "$WATCHD_DIR"
-  watch_herdr_tokens "$workspace" "watch_kind=$kind"
+  # With no live watch in the workspace, a new task starts: the end stage of an earlier watch
+  # does not apply to it.
+  for session in $(jq -r --arg w "$workspace" 'select(.herdr_workspace == $w) | .session_pid' \
+      "$WATCHD_DIR"/subs/*.json 2>/dev/null); do
+    if watch_alive "$session"; then
+      watch_herdr_tokens "$workspace" "watch_kind=$kind"
+      exit 0
+    fi
+  done
+  watch_herdr_tokens "$workspace" "watch_kind=$kind" watch_stage= watch_needs=
   exit 0
 fi
 
