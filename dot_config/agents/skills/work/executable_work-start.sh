@@ -16,7 +16,6 @@
 # handoff: the session id, the current branch, and the summary on fd 3.
 # "tops" prints the top branches of the git-spice stack above the current branch, one on each
 # line. No output: no branch is above the current branch.
-# New and next mode set the kind `mine` of the herdr workspace with bin/watch.sh, for the sidebar.
 # Mode "next" (linked worktree): creates the branch with git-spice on top of the current branch, or
 # on top of BRANCH. Adds a handoff to the prompt: the stack base. With --continue, the handoff also
 # has the session id, the MR of the current branch (URL, else from glab), the files in
@@ -28,6 +27,8 @@
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
 # creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
 # NAME is used again. A workspace that is open already stops the script.
+# New and next mode set the kind `mine` of the herdr workspace with bin/watch.sh, for the
+# sidebar. Existing mode does not: the skill in the first prompt sets the kind.
 # In a nono sandbox, new and existing mode start the agent with bin/herdr-start-claude, and the
 # only claude flag is --effort.
 # Prints JSON: mode, branch, base, tracked, worktree, pane_id, and in new and existing mode
