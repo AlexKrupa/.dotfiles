@@ -77,9 +77,15 @@ printf 'herdr-start-claude'  >>"$MOCK_LOG"
 printf ' [%s]' "$@" >>"$MOCK_LOG"
 echo >>"$MOCK_LOG"
 EOF
+# Fake watch.sh: logs each call.
+cat >"$tmp/bin/watch.sh" <<'EOF'
+#!/bin/sh
+printf 'watch.sh %s\n' "$*" >>"$MOCK_LOG"
+EOF
 chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab" \
-  "$tmp/bin/herdr-start-claude"
-export PATH="$tmp/bin:$PATH" WORK_NEXT="$tmp/bin/work-next" TMPDIR="$tmp" HERDR_ENV=1
+  "$tmp/bin/herdr-start-claude" "$tmp/bin/watch.sh"
+export PATH="$tmp/bin:$PATH" WORK_NEXT="$tmp/bin/work-next" TMPDIR="$tmp" HERDR_ENV=1 \
+  WATCH_BIN="$tmp/bin"
 unset NONO_CAP_FILE
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$tmp/gitconfig"
 git config --global user.name tester
@@ -175,6 +181,8 @@ herdr agent prompt wT:p1 ABC-0 fix the typo" "$(grep -B1 '^herdr agent prompt' "
 check "new: output has pane, worktree, and agent" "wT:p1 /wt/path abc-0-fix-readme-typo" \
   "$(jq -r '"\(.pane_id) \(.worktree) \(.agent)"' <<<"$out")"
 check "new: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
+check "new: sets kind mine on the new workspace" "watch.sh kind mine --workspace wT" \
+  "$(grep '^watch.sh' "$MOCK_LOG")"
 
 # New mode, default base: a default branch that is not main.
 fresh dev/x
@@ -344,6 +352,7 @@ Handoff from the previous session in this worktree:
 check "next: no worktree create" "" "$(grep '^herdr worktree create' "$MOCK_LOG")"
 check "next: no glab call" "" "$(grep '^glab' "$MOCK_LOG")"
 check "next: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
+check "next: sets kind mine" "watch.sh kind mine" "$(grep '^watch.sh' "$MOCK_LOG")"
 
 # Next mode with no sandbox: herdr-after-turn.sh is detached. In a nono sandbox: the JSON, then
 # herdr-after-turn.sh in the foreground.
@@ -567,6 +576,7 @@ check "existing: output has pane, worktree, and workspace" "wT:p1 /wt/path wT" \
 check "existing: no git-spice call" "" "$(grep '^git-spice' "$MOCK_LOG")"
 check "existing: main not moved" "$before" "$(git -C "$work" rev-parse main)"
 check "existing: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
+check "existing: no kind" "" "$(grep '^watch.sh' "$MOCK_LOG")"
 
 # Existing local branch behind origin.
 fresh

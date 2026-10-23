@@ -16,6 +16,7 @@
 # handoff: the session id, the current branch, and the summary on fd 3.
 # "tops" prints the top branches of the git-spice stack above the current branch, one on each
 # line. No output: no branch is above the current branch.
+# New and next mode set the kind `mine` of the herdr workspace with bin/watch.sh, for the sidebar.
 # Mode "next" (linked worktree): creates the branch with git-spice on top of the current branch, or
 # on top of BRANCH. Adds a handoff to the prompt: the stack base. With --continue, the handoff also
 # has the session id, the MR of the current branch (URL, else from glab), the files in
@@ -37,6 +38,7 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd -P)
 bin=$(cd "$here/../../bin" && pwd)
 WORK_NEXT=${WORK_NEXT:-$bin/herdr-after-turn.sh}
+watch_client=${WATCH_BIN:-$bin}/watch.sh
 spice_ref=refs/spice/data
 
 die() { echo "work-start: $1" >&2; exit 1; }
@@ -151,6 +153,8 @@ if [[ -z $existing$split && $(mode_of) == next ]]; then
     fi
     die "git-spice branch create failed: $out"
   fi
+  # The kind of work, for the herdr sidebar. Display only, so an error does not stop the work.
+  "$watch_client" kind mine >/dev/null 2>&1 || true
 
   handoff="---
 Handoff from the previous session in this worktree:
@@ -272,6 +276,7 @@ else
   workspace=$(jq -r '.result.workspace.workspace_id' <<<"$made")
   pane=$(jq -r '.result.root_pane.pane_id' <<<"$made")
   mode=new
+  "$watch_client" kind mine --workspace "$workspace" >/dev/null 2>&1 || true
 fi
 
 # herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max.

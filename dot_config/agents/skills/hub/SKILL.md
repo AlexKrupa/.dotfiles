@@ -19,6 +19,9 @@ of that branch.
 The pull task is a background Bash task (`run_in_background: true`). It does one round each 120
 seconds: give the script `--interval 120`.
 
+At the start, run `~/.config/agents/bin/watch.sh kind hub`. It sets the kind of work of the
+herdr workspace for the sidebar. Outside herdr, it does nothing.
+
 ## Role
 
 - Do no code work in this session, unless the user asks for it.

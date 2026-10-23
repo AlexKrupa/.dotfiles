@@ -15,6 +15,9 @@ skill applies and commits the fix after the analysis.
 
 An empty argument means "the failed pipeline on the current branch".
 
+At the start, run `~/.config/agents/bin/watch.sh kind debug`. It sets the kind of work of the
+herdr workspace for the sidebar. Outside herdr, it does nothing.
+
 ## Prerequisites
 
 The working directory is the user's repo, not the skill directory. Always run the helper by its
