@@ -33,14 +33,15 @@ Read this file, the host file, and the role file that the skill names. All files
   the unsubscribe command of the host file.
 - The watch pauses during system sleep. During a network outage, it waits for the network with no
   report.
+- The `watch` herdr plugin sends all notifications of the watch. Do not send a notification.
 
 ## Result
 
 | Exit | Action                                                                                 |
 | ---- | -------------------------------------------------------------------------------------- |
 | `0`  | Handle the events and report, as the role file tells. Then start the watch again.      |
-| `1`  | Report the stderr text and send a notification. Do not start again. See the host file. |
-| `3`  | A new watch replaced this one. Do not start again. No notification.                    |
+| `1`  | Report the stderr text. Do not start again. See the host file.                         |
+| `3`  | A new watch replaced this one. Do not start again.                                     |
 
 On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
 `actor`, `detail`, and `branch`. The role file tells the other fields of its events.
@@ -123,18 +124,3 @@ Info
 - Done shows the actions that you did for the events of this result.
 - Info shows the other events of this result.
 
-### Notification
-
-If `HERDR_ENV` is `1`, send one notification for each report. Replace each `'` in the text with a
-space.
-
-```sh
-herdr notification show '<title>' --body '<body>' --sound <sound>
-```
-
-- Title: `!<iid>: <n> needs you`. If Needs you is empty, `!<iid>`. For more MRs: `<n> MRs`.
-- Body: the most urgent item in one line, then the Done items. Example:
-  `@anna asked on NoteEditor.kt:42. Pipeline fixed and pushed.`
-- Sound: if there are new Needs you items, `request`. Else `none`.
-- If all events of the result are `own-comment` events with no Needs you item, or events with
-  `own: true`, send no notification.

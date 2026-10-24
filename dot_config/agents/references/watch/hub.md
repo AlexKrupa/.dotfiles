@@ -2,15 +2,12 @@
 
 The role file of `hub`: the hub mode for the project of the repo. The watch finds to-do items, new
 MRs of other people, comments on MRs of other people, reactions on your comments in these MRs, and
-failed pipelines of the default branch. The hub has its own report and notification, so the "MR
-events" part of `common.md` does not apply.
+failed pipelines of the default branch. The hub has its own report, so the "MR events" part of
+`common.md` does not apply.
 
 ## Start
 
 After the first status report of `hub`, run the hub mode watch command.
-
-On exit `1`, the notification is
-`herdr notification show 'Hub watch stopped' --body '<stderr text>' --sound request`.
 
 ## Events
 
@@ -27,15 +24,7 @@ For each result with exit `0`, do these steps:
 1. Do "Router" for each MR with an `opened` event or a `todo` event with the `detail`
    `review_requested`. Remove the `opened` events that the router does not keep. If no events
    remain, start the watch again and give no output.
-2. Send one notification. Replace each `'` in the text with a space.
-   - One MR event:
-     `herdr notification show '!<iid>: <kind> from @<actor>' --body '<detail>' --sound request`.
-     If `actor` is empty, leave out `from @<actor>`.
-   - One `default-failed` event:
-     `herdr notification show '<branch> pipeline failed' --body '<detail>' --sound request`.
-   - More events: `herdr notification show '<n> hub events' --body '<id>, <id>' --sound request`.
-     The id of an MR event is `!<iid>`. The id of a `default-failed` event is `<branch>`.
-3. Run `~/.claude/skills/hub/hub-status.sh` and `date +%H:%M`. Output the events in one
+2. Run `~/.claude/skills/hub/hub-status.sh` and `date +%H:%M`. Output the events in one
    block. Put the events of one MR in one group. Put the `default-failed` event of a branch
    in one group.
 
@@ -72,9 +61,9 @@ For each result with exit `0`, do these steps:
      1. `default-failed`
      2. `note`, `todo`
      3. All other events
-4. For each MR, do the action that the router selected in step 1. For each `default-failed`
+3. For each MR, do the action that the router selected in step 1. For each `default-failed`
    event, do "Auto-debug".
-5. Start the watch again.
+4. Start the watch again.
 
 ## Router
 
@@ -99,6 +88,9 @@ MR, also when the MR has an `opened` event and a `todo` event in the same round.
      "Auto-review".
    - Not a bump, with no `review_requested` event: remove the `opened` event and select no
      action.
+4. If the MR has an `opened` event, run the host command "Router result" with the selected
+   action: `bump` for "Auto-bump", `review` for "Auto-review", `none` for no action. The `watch`
+   herdr plugin uses it for the notification of the new MR.
 
 ## Auto-review
 
@@ -126,7 +118,7 @@ its own herdr worktree workspace. Do these steps for each MR for which the route
    - Exit `0`: output `!<iid>: Review agent <pane id> started`. The pane id is `pane_id` in the
      JSON.
    - The stderr text has "is open in herdr workspace": an agent works on the branch already. Start
-     no agent. The group header has `(agent <pane id>)` from "Events" step 3.
+     no agent. The group header has `(agent <pane id>)` from "Events" step 2.
    - Other errors: output the stderr text, word for word. The user fixes the cause.
 
 ## Auto-bump
@@ -151,7 +143,7 @@ which the router selected "Auto-bump". Write each output line below the event bl
    - Exit `0`: output `!<iid>: Bump agent <pane id> started`. The pane id is `pane_id` in the
      JSON.
    - The stderr text has "is open in herdr workspace": an agent works on the branch already. Start
-     no agent. The group header has `(agent <pane id>)` from "Events" step 3.
+     no agent. The group header has `(agent <pane id>)` from "Events" step 2.
    - Other errors: output the stderr text, word for word. The user fixes the cause.
 5. After exit `0`, find an older bump agent of the same dependency: a `hub-status.sh` line with a
    different branch that names the same dependency, for example `renovate/foo-1.x` for a bump of
