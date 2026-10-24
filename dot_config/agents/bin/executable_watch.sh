@@ -116,7 +116,7 @@ while (($#)); do
 done
 if ((review)) && ((${#mrs[@]} != 1)); then die "--review needs exactly one --mr"; fi
 command -v jq >/dev/null || die "jq is not installed"
-mkdir -p "$WATCHD_DIR"/{subs,inbox,poke,rounds,repos}
+mkdir -p "$WATCHD_DIR"/{subs,inbox,poke,rounds,repos,items}
 shopt -s nullglob
 
 daemon_alive() {
@@ -155,6 +155,7 @@ error=$WATCHD_DIR/inbox/$key.error
 owner=$WATCHD_DIR/inbox/$key.owner
 
 session=$(watch_session_pid)
+if ((review)); then mode=review; elif ((${#mrs[@]})); then mode=stack; else mode=hub; fi
 if [[ $command == unsubscribe ]]; then
   watch_lock "$sub.lock" || exit 1
   # For example, an unsubscribe with no flags in a stack session has the key of the hub.
@@ -165,6 +166,11 @@ if [[ $command == unsubscribe ]]; then
     die "the subscription $key is of session $record_session"
   fi
   workspace=$(jq -r '.herdr_workspace // empty' "$sub" 2>/dev/null || true)
+  # The open items of a review go back to the hub. The hub keeps its items.
+  case $mode in
+    review) watch_items_move "$key" "$slug" ;;
+    stack) rm -f "$WATCHD_DIR/items/$key.json" ;;
+  esac
   rm -f "$sub" "$inbox" "$error" "$owner" "$WATCHD_DIR/poke/$key" "$WATCHD_DIR/rounds/$key" \
     "$WATCHD_DIR/rounds/$key.poked"
   if [[ -n $workspace ]]; then watch_workspace_update "$workspace" '.stage = "stopped"'; fi
@@ -205,7 +211,6 @@ exit_if_orphaned() {
   [[ -d $top ]] || die "the worktree is gone: $top"
 }
 
-if ((review)); then mode=review; elif ((${#mrs[@]})); then mode=stack; else mode=hub; fi
 # The daemon writes the text of the poke to this file after the check of the key.
 poked=$WATCHD_DIR/rounds/$key.poked
 poke_token=$$-$(date +%s)

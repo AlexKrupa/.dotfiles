@@ -32,7 +32,7 @@ fixture todos '[{"id": 11, "action_name": "review_requested", "author": {"userna
   "target_url": "'"$url"'/5"}]'
 run
 check "new to-do item" \
-  '{"kind":"todo","iid":5,"title":"Add foo","url":"'"$url"'/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo"}' \
+  '{"kind":"todo","iid":5,"title":"Add foo","url":"'"$url"'/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11"}' \
   "$out"
 run
 check "same to-do item: no events" "" "$out"
@@ -109,7 +109,7 @@ fixture notes_9 '[
   {"id": 100, "system": false, "body": "old", "author": {"username": "bob"}}]'
 run
 check "new note from a different user" \
-  '{"kind":"note","iid":9,"title":"Fix bar","url":"'"$url"'/9#note_101","actor":"anna","detail":"Please rename this","branch":"ABC-2/bar"}' \
+  '{"kind":"note","iid":9,"title":"Fix bar","url":"'"$url"'/9#note_101","actor":"anna","detail":"Please rename this","branch":"ABC-2/bar","item":"note:101"}' \
   "$out"
 
 long=$(printf 'x%.0s' $(seq 300))
@@ -172,7 +172,7 @@ check "state with no default pipeline: no events" "" "$out"
 fixture pipelines '[{"id": 71, "status": "failed", "web_url": "'"$pipelines"'/71"}]'
 run
 check "default branch pipeline failed" \
-  '{"kind":"default-failed","iid":null,"title":null,"url":"'"$pipelines"'/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x","previous":"failed","jobs":[]}' \
+  '{"kind":"default-failed","iid":null,"title":null,"url":"'"$pipelines"'/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x","previous":"failed","item":"main-failed:dev/x","jobs":[]}' \
   "$out"
 run
 check "same default branch pipeline: no events" "" "$out"
@@ -237,7 +237,7 @@ fixture commented "[$(mr 9 'Fix bar' opened t2 bob ABC-2/bar)]"
 fixture notes_9 '[{"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}]'
 run --skip-mr 9
 check "--skip-mr: only the review request and opened" \
-  '{"kind":"todo","iid":9,"title":"Fix bar","url":"'"$url"'/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar"}' \
+  '{"kind":"todo","iid":9,"title":"Fix bar","url":"'"$url"'/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar","item":"todo:22"}' \
   "$out"
 
 wt=$(printf %s "$d/app" | shasum | cut -c1-12)
@@ -278,6 +278,7 @@ sev() { # kind iid actor detail [url] [path line]
      + if $p == "" then {} else {path: $p, line: ($l | tonumber)} end'
 }
 pos='{"new_path": "app/Foo.kt", "new_line": 42, "old_path": "app/Foo.kt", "old_line": null}'
+item() { jq -c --arg i "$1" '. + {item: $i}'; }
 
 reset_mock
 gql 5
@@ -296,7 +297,7 @@ check "MR cache: file written" yes "$([ -f "$d/cache/5.json" ] && echo yes || ec
 gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/50", status: "FAILED"}'
 srun --mr 5
 check "stack: pipeline failed" \
-  "$(sev pipeline 5 '' 'pipeline 50 failed' | jq -c '. + {jobs: []}')" "$out"
+  "$(sev pipeline 5 '' 'pipeline 50 failed' | jq -c '. + {item: "pipeline:5", jobs: []}')" "$out"
 srun --mr 5
 check "stack: same pipeline: no events" "" "$out"
 gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/51", status: "RUNNING"}'
@@ -329,7 +330,8 @@ check "stack: own approval removed: no events" "" "$out"
 
 gql 5 '.conflicts = true | .detailedMergeStatus = "CONFLICT"'
 srun --mr 5
-check "stack: conflict" "$(sev conflict 5 '' 'merge conflict')" "$out"
+check "stack: conflict" "$(sev conflict 5 '' 'merge conflict' | jq -c '. + {item: "conflict:5"}')" \
+  "$out"
 gql 5 '.detailedMergeStatus = "CHECKING"'
 srun --mr 5
 check "stack: transient status: no events" "" "$out"
@@ -350,8 +352,8 @@ discussions 5 "$(thread '' "$(note 100 anna old)" "$(note 101 anna 'Why
 not X?' "$pos")")"
 srun --mr 5
 check "stack: new comment and its thread" \
-  "$(sev comment 5 anna 'Why not X?' "$url/5#note_101" app/Foo.kt 42)
-$(sev unaddressed 5 anna 'Why not X?' "$url/5#note_101")" "$out"
+  "$(sev comment 5 anna 'Why not X?' "$url/5#note_101" app/Foo.kt 42 | item thread:d100)
+$(sev unaddressed 5 anna 'Why not X?' "$url/5#note_101" | item thread:d100)" "$out"
 discussions 5 "$(thread '' "$(note 100 anna old)" "$(note 101 anna 'Why
 not X?' "$pos")" "$(note 102 me 'Because Y.')")"
 srun --mr 5
@@ -362,8 +364,8 @@ discussions 5 "$(thread bob "$(note 103 bob 'Done?' "$pos")")" \
 srun --mr 5
 check "stack: resolved thread and system note: no unaddressed line for them" \
   "$(sev comment 5 bob 'Done?' "$url/5#note_103" app/Foo.kt 42)
-$(sev comment 5 bob Typo "$url/5#note_104" app/Foo.kt 42)
-$(sev unaddressed 5 bob Typo "$url/5#note_104" app/Foo.kt 42)" "$out"
+$(sev comment 5 bob Typo "$url/5#note_104" app/Foo.kt 42 | item thread:d104)
+$(sev unaddressed 5 bob Typo "$url/5#note_104" app/Foo.kt 42 | item thread:d104)" "$out"
 check "stack: one reaction call for each comment, none for a system note" "103 104" \
   "$(grep -o 'notes/[0-9]*/award_emoji' "$MOCK_LOG" | cut -d/ -f2 | sort -u | paste -s -d ' ' -)"
 
@@ -464,9 +466,9 @@ jq -n --argjson t "$(thread '' "$(note 121 bob 'On page 2')")" '[$t]' \
   >"$d/mock/discussions_5_p2.json"
 srun --mr 5
 check "stack: comment on the second page of discussions" \
-  "$(sev comment 5 bob 'On page 2' "$url/5#note_121")
-$(sev unaddressed 5 anna old "$url/5#note_120")
-$(sev unaddressed 5 bob 'On page 2' "$url/5#note_121")" "$out"
+  "$(sev comment 5 bob 'On page 2' "$url/5#note_121" | item thread:d121)
+$(sev unaddressed 5 anna old "$url/5#note_120" | item thread:d120)
+$(sev unaddressed 5 bob 'On page 2' "$url/5#note_121" | item thread:d121)" "$out"
 
 reset_mock
 gql 5
@@ -570,8 +572,8 @@ discussions 5 "$(thread '' "$(note 140 me 'Why?' "$pos")" "$(note 142 bob Becaus
   "$(thread '' "$(note 141 anna Nit "$pos")")"
 srun --review --mr 5
 check "review: unaddressed only for threads with a note from the user" \
-  "$(sev comment 5 bob Because. "$url/5#note_142")
-$(sev unaddressed 5 bob Because. "$url/5#note_142" app/Foo.kt 42)" "$out"
+  "$(sev comment 5 bob Because. "$url/5#note_142" | item thread:d140)
+$(sev unaddressed 5 bob Because. "$url/5#note_142" app/Foo.kt 42 | item thread:d140)" "$out"
 
 reset_mock
 gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/60", status: "FAILED"}'
@@ -634,6 +636,76 @@ reset_mock
 gql 5
 srun --mr 5
 check "stack needs: nothing" '[]' "$(jq -c .needs "$sstate")"
+
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture todos "[$(todo_9 41 mentioned)]"
+run
+check "todo: item key" todo:41 "$(jq -r .item <<<"$out")"
+check "todo: present" '["todo:41"]' "$(jq -c .present "$state")"
+fixture todos '[]'
+run
+check "todo done: not present" '[]' "$(jq -c .present "$state")"
+
+hub_note() { # id author [resolved]
+  jq -nc --argjson id "$1" --arg a "$2" --argjson r "${3:-false}" \
+    '{id: $id, system: false, body: "Why?", author: {username: $a}, resolvable: true, resolved: $r}'
+}
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture events '[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}}]'
+fixture commented "[$(mr 9 'Fix bar' opened t1 bob ABC-2/bar)]"
+fixture notes_9 "[$(hub_note 500 anna)]"
+run
+fixture commented "[$(mr 9 'Fix bar' opened t2 bob ABC-2/bar)]"
+fixture notes_9 "[$(hub_note 501 anna), $(hub_note 500 anna)]"
+run
+check "note: item key" note:501 "$(jq -r .item <<<"$out")"
+check "note: present" '["note:501"]' "$(jq -c .present "$state")"
+fixture commented "[$(mr 9 'Fix bar' opened t3 bob ABC-2/bar)]"
+fixture notes_9 "[$(hub_note 502 me), $(hub_note 501 anna), $(hub_note 500 anna)]"
+run
+check "own reply: note not present" '[]' "$(jq -c .present "$state")"
+fixture commented "[$(mr 9 'Fix bar' opened t4 bob ABC-2/bar)]"
+fixture notes_9 "[$(hub_note 503 anna), $(hub_note 502 me)]"
+run
+fixture commented "[$(mr 9 'Fix bar' opened t5 bob ABC-2/bar)]"
+fixture notes_9 "[$(hub_note 503 anna true), $(hub_note 502 me)]"
+run
+check "resolved: note not present" '[]' "$(jq -c .present "$state")"
+
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture pipelines '[{"id": 90, "status": "failed", "web_url": "'"$pipelines"'/90"}]'
+run
+fixture pipelines '[{"id": 91, "status": "failed", "web_url": "'"$pipelines"'/91"}]'
+run
+check "default-failed: item key" "main-failed:dev/x" "$(jq -r .item <<<"$out")"
+check "default-failed: present" '["main-failed:dev/x"]' "$(jq -c .present "$state")"
+fixture pipelines '[{"id": 92, "status": "success", "web_url": "'"$pipelines"'/92"}]'
+run
+check "default passed: not present" '[]' "$(jq -c .present "$state")"
+
+reset_mock
+gql 5
+discussions 5 "$(thread '' "$(note 600 anna old)")"
+srun --mr 5
+discussions 5 "$(thread '' "$(note 600 anna old)" "$(note 601 anna 'Why?')")"
+srun --mr 5
+check "comment and unaddressed: one item key" "thread:d600 thread:d600" \
+  "$(jq -r .item <<<"$out" | paste -s -d ' ' -)"
+check "unaddressed thread: present" '["thread:d600"]' "$(jq -c .present "$sstate")"
+discussions 5 "$(thread '' "$(note 600 anna old)" "$(note 601 anna 'Why?')" "$(note 602 me 'Because.')")"
+srun --mr 5
+check "answered thread: not present" '[]' "$(jq -c .present "$sstate")"
+
+reset_mock
+gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/62", status: "FAILED"}'
+srun --mr 5
+check "pipeline failed: present" '["pipeline:5"]' "$(jq -c .present "$sstate")"
+gql 5 '.conflicts = true | .detailedMergeStatus = "CONFLICT"'
+srun --mr 5
+check "conflict: present" '["conflict:5"]' "$(jq -c .present "$sstate")"
 
 out=$("$script" --repo "$d/app" 2>&1); code=$?
 check "--repo from a different folder: exit 0" 0 "$code"

@@ -12,6 +12,9 @@ check() {
   else printf 'FAIL %s\n  expected: %s\n  actual:   %s\n' "$1" "$2" "$3"; fail=1; fi
 }
 
+# The events without the row number of the daemon. The row checks read $raw.
+norow() { jq -c 'del(.row)' 2>/dev/null; }
+
 # shellcheck source=watch-test-fakes.sh
 source "$here/watch-test-fakes.sh"
 export WATCH_BIN="$here"
@@ -95,8 +98,9 @@ events() { # key, lines
 }
 # One client in the repo, with the arguments. Sets out, err, and code.
 watch() {
-  out=$(cd "$d/app" && timeout 15 "$client" --interval 1 "$@" 2>"$d/err"); code=$?
+  raw=$(cd "$d/app" && timeout 15 "$client" --interval 1 "$@" 2>"$d/err"); code=$?
   err=$(cat "$d/err")
+  out=$(norow <<<"$raw")
 }
 sub="$WATCHD_DIR/subs/app.json"
 
@@ -134,7 +138,7 @@ one=$!
 two=$!
 wait "$one" "$two"
 check "two clients at once: both get events" "$(ev todo 5) $(ev pipeline 5)" \
-  "$(cat "$d/one") $(cat "$d/two")"
+  "$(norow <"$d/one") $(norow <"$d/two")"
 check "two clients at once: one daemon" 1 "$(grep -c 'daemon start' "$WATCHD_DIR/watchd.log")"
 
 printf '4\n' >"$d/events/app.exit"
@@ -208,7 +212,7 @@ check "new client of the same session: old client exit 3" 3 "$(code_of a)"
 wait_for 5 "[ \"\$(client_is)\" != '$first' ]"
 events app "$(ev todo 5)"
 check "new client of the same session: new client gets the events" "0 $(ev todo 5)" \
-  "$(code_of b) $(cat "$d/b.out")"
+  "$(code_of b) $(norow <"$d/b.out")"
 
 first=$(client_is)
 start a
@@ -240,7 +244,7 @@ events app "$(ev note 6)"
 wait_for 5 "[ -s '$WATCHD_DIR/inbox/app.jsonl' ]"
 wait_for 8 "[ ! -e '$sub' ]"
 check "no client for the limit: the inbox stays" "$(ev note 6)" \
-  "$(cat "$WATCHD_DIR/inbox/app.jsonl" 2>/dev/null)"
+  "$(norow 2>/dev/null <"$WATCHD_DIR/inbox/app.jsonl")"
 watch
 check "no client for the limit: the inbox comes at the next client of the same session" \
   "0 $(ev note 6)" "$code $out"
@@ -288,7 +292,7 @@ events "app-$wt" "$(ev merged 5)"
 wait_for 5 "[ ! -e '$stack' ]"
 check "all MRs merged: subscription ends" yes "$(gone "$stack")"
 check "all MRs merged: inbox waits for the client" "$(ev merged 5)" \
-  "$(cat "$WATCHD_DIR/inbox/app-$wt.jsonl" 2>/dev/null)"
+  "$(norow 2>/dev/null <"$WATCHD_DIR/inbox/app-$wt.jsonl")"
 watch --mr 5
 check "all MRs merged: the client takes the inbox" "0 $(ev merged 5)" "$code $out"
 check "all MRs merged: the client does not subscribe again" yes "$(gone "$stack")"
@@ -301,7 +305,7 @@ out=$(cd "$d/app" && timeout 5 "$client" --interval 600 --once 2>"$d/err"); code
 check "--once: one round now, exit 0" "0  yes" \
   "$code $out $( (($(date +%s) - started <= 5)) && echo yes || echo no)"
 events app "$(ev todo 6)"
-out=$(cd "$d/app" && timeout 5 "$client" --interval 600 --once 2>"$d/err"); code=$?
+out=$(cd "$d/app" && timeout 5 "$client" --interval 600 --once 2>"$d/err" | norow); code=$?
 check "--once: events of the round" "0 $(ev todo 6)" "$code $out"
 
 reset
@@ -349,7 +353,7 @@ check "new scripts: the daemon restarts by itself" "yes $old" \
   [ "$before" != "$(watch_scripts_hash)" ] && echo yes || echo no) \
 $(daemon_pid)"
 check "new scripts: the client restarts and gets the events" "0 $(ev todo 5)" \
-  "$(code_of a) $(cat "$d/a.out")"
+  "$(code_of a) $(norow <"$d/a.out")"
 check "new scripts: the client keeps its process and its flags, not --fresh" \
   "$client_pid 600 no 1" \
   "$(jq -r '"\(.client_pid) \(.interval)"' "$sub") $(gone "$WATCH_ENGINE_DIR/app.json") \
@@ -363,7 +367,7 @@ old=$(daemon_pid)
 kill -9 "$old"
 events app "$(ev todo 7)"
 check "daemon killed: client starts it, event not lost" "0 $(ev todo 7)" \
-  "$(code_of a) $(cat "$d/a.out")"
+  "$(code_of a) $(norow <"$d/a.out")"
 check "daemon killed: new daemon" yes \
   "$( [ "$(daemon_pid)" != "$old" ] && is_daemon "$(daemon_pid)" && echo yes || echo no)"
 
@@ -372,7 +376,7 @@ wait_for 10 "[ -f '$sub' ] && [ -s '$WATCHD_DIR/repos/app.pid' ]"
 kill -9 "$(daemon_pid)" "$(cat "$WATCHD_DIR/repos/app.pid")"
 events app "$(ev todo 8)"
 check "daemon and repo loops killed: client starts them, event not lost" "0 $(ev todo 8)" \
-  "$(code_of a) $(cat "$d/a.out")"
+  "$(code_of a) $(norow <"$d/a.out")"
 
 reset
 mkdir -p "$WATCHD_DIR"
@@ -408,7 +412,7 @@ wait_for 5 "[ -s '$d/args' ]"
 pid=$(cat "$WATCHD_DIR/repos/app.pid")
 kill "$pid"
 check "repo loop stopped during a check: event not lost" "0 $(ev todo 6)" \
-  "$(code_of once) $(cat "$d/once.out")"
+  "$(code_of once) $(norow <"$d/once.out")"
 check "repo loop stopped during a check: loop gone" no \
   "$(ps -p "$pid" >/dev/null && echo yes || echo no)"
 
@@ -549,6 +553,82 @@ check "old log lines go away" '[2]' \
 check "old engine state goes away" "yes no" \
   "$(gone "$d/state/watch-gitlab/old.json") $(gone "$d/state/watch-gitlab/new.json")"
 
+items_of() { jq -c "$2" "$WATCHD_DIR/items/$1.json" 2>/dev/null; }
+rows() { jq -r .row <<<"$raw" | paste -s -d ' ' -; }
+iev() { # kind iid item
+  jq -nc --arg k "$1" --argjson i "$2" --arg it "$3" '{kind: $k, iid: $i, title: "Add foo",
+    url: "u", actor: "anna", detail: "d", branch: "b", item: $it}'
+}
+reset
+echo '{"present": ["todo:11"]}' >"$d/events/app.state"
+events app "$(iev todo 5 todo:11)"
+watch
+check "item event: row 1, items file has item 1" '1 [[1,"todo:11","daemon",5]]' \
+  "$(rows) $(items_of app '[.items[] | [.n, .item, .owner, .iid]]')"
+events app "$(iev todo 5 todo:11)"
+watch
+check "second event of the same item: same row" 1 "$(rows)"
+events app "$(ev reaction 5)"
+watch
+check "info event: new row, no item" '2 1' "$(rows) $(items_of app '.items | length')"
+jq -c '.items += [{n: .next, item: "model:1", owner: "model", iid: 5}] | .next += 1' \
+  "$WATCHD_DIR/items/app.json" >"$d/items.json" && mv "$d/items.json" "$WATCHD_DIR/items/app.json"
+echo '{"present": []}' >"$d/events/app.state"
+events app "$(ev reaction 5)"
+watch
+wait_for 5 "[ \"\$(items_of app '[.items[].item]')\" = '[\"model:1\"]' ]"
+check "not present: item removed" no "$(items_of app '.items[].item' | grep -q todo && echo yes || echo no)"
+check "model item: stays with no cause in GitLab" '["model:1"]' "$(items_of app '[.items[].item]')"
+"$client" unsubscribe --repo "$d/app"
+check "unsubscribe of the hub: items stay" '["model:1"]' "$(items_of app '[.items[].item]')"
+
+reset
+mkdir -p "$WATCHD_DIR/items" "$WATCH_ENGINE_DIR"
+echo '{"next": 4, "items": [{"n": 3, "item": "todo:11", "owner": "daemon", "iid": 5},
+  {"n": 2, "item": "todo:12", "owner": "daemon", "iid": 6}]}' >"$WATCHD_DIR/items/app.json"
+echo '{"present": ["todo:11", "todo:12"]}' >"$WATCH_ENGINE_DIR/app.json"
+echo '{"present": []}' >"$d/events/app-$wt-review-5.state"
+events "app-$wt-review-5" "$(ev comment 5)"
+watch --review --mr 5
+check "live review: hub item moves" '[[1,"todo:11"]] [[2,"todo:12"]]' \
+  "$(items_of "app-$wt-review-5" '[.items[] | [.n, .item]]') $(items_of app '[.items[] | [.n, .item]]')"
+events "app-$wt-review-5" "$(ev merged 5)"
+watch --review --mr 5
+wait_for 5 "[ ! -e '$WATCHD_DIR/subs/app-$wt-review-5.json' ]"
+check "ended review: items go back to the hub" '[[2,"todo:12"],[4,"todo:11"]] yes' \
+  "$(items_of app '[.items[] | [.n, .item]]') $(gone "$WATCHD_DIR/items/app-$wt-review-5.json")"
+
+reset
+mkdir -p "$WATCHD_DIR/items"
+echo '{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}' \
+  >"$WATCHD_DIR/items/app.json"
+events "app-$wt-review-5" "$(ev comment 5)"
+watch --review --mr 5
+"$client" unsubscribe --repo "$d/app" --review --mr 5
+check "unsubscribe of a review: items go back to the hub" '[[2,"todo:11"]] yes' \
+  "$(items_of app '[.items[] | [.n, .item]]') $(gone "$WATCHD_DIR/items/app-$wt-review-5.json")"
+
+reset
+echo '{"present": ["thread:d1"]}' >"$d/events/app-$wt.state"
+events "app-$wt" "$(iev comment 5 thread:d1)" "$(iev unaddressed 5 thread:d1)"
+watch --mr 5
+first=$(rows)
+events "app-$wt" "$(ev approved 5)" "$(iev unaddressed 5 thread:d1)"
+raw=$(cd "$d/app" && timeout 5 "$client" --interval 1 --once --mr 5 2>/dev/null)
+check "open item keeps its row in a second delivery" "1 1 | 2 1" "$first | $(rows)"
+"$client" unsubscribe --repo "$d/app" --mr 5
+check "unsubscribe of a stack: items removed" yes "$(gone "$WATCHD_DIR/items/app-$wt.json")"
+
+reset
+sleep 600 &
+other=$!
+echo '{"present": ["thread:d1"]}' >"$d/events/app-$wt.state"
+events "app-$wt" "$(iev comment 5 thread:d1)"
+WATCH_SESSION_PID=$other watch --mr 5
+{ kill "$other"; wait "$other"; } 2>/dev/null
+wait_for 10 "[ ! -e '$WATCHD_DIR/items/app-$wt.json' ]"
+check "ended stack: items go away with the results" yes "$(gone "$WATCHD_DIR/items/app-$wt.json")"
+
 reset
 unset WATCHD_ENGINE
 mkdir -p "$d/state/watch-gitlab"
@@ -559,7 +639,7 @@ fixture todos '[{"id": 11, "action_name": "review_requested", "author": {"userna
   "target_url": "'"$url"'/5"}]'
 watch
 check "e2e: real engine and fake glab give a todo event" \
-  '0 {"kind":"todo","iid":5,"title":"Add foo","url":"'"$url"'/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo"}' \
+  '0 {"kind":"todo","iid":5,"title":"Add foo","url":"'"$url"'/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11"}' \
   "$code $out"
 
 rounds_of() { cat "$WATCHD_DIR/rounds/$1" 2>/dev/null || echo 0; }

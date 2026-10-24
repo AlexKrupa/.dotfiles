@@ -46,6 +46,22 @@
 # Comments, reactions, and threads on a diff line also have path and line. The actor of a change
 # comes from the newest system note of that change, or is empty.
 #
+# Open items. An event that opens an item waits for the user has the item key in item. The state
+# file has present: the item keys whose cause GitLab still shows. The daemon closes the other
+# items.
+#   item                     event                        present while
+#   todo:<to-do id>          todo                         the to-do item is pending
+#   note:<note id>           note                         the MR is open, the note is not
+#                                                         resolved, and the user has no later
+#                                                         note on the MR (at the last notes fetch)
+#   main-failed:<branch>     default-failed               the newest default-branch pipeline
+#                                                         failed
+#   thread:<discussion id>   comment (only if the thread  the open MR has the thread in
+#                            is unaddressed), unaddressed unaddressed
+#   pipeline:<iid>           failed pipeline              the head pipeline of the open MR failed
+#   conflict:<iid>           conflict                     the merge status of the open MR is
+#                                                         conflict or need_rebase
+#
 # A stack watch has its own state for each worktree. A review watch has its own state for each MR.
 # Exit codes: 0 check done, 1 error, 4 network error, 5 permanent error (HTTP 401 or 403, a
 # GraphQL error, an unknown MR, unreadable comments, no glab authentication).
@@ -221,21 +237,37 @@ $old[0] as $old | $todos[0] as $todos
 | ($old.default_pipeline // null) as $saved_pipeline
 | (if $saved_pipeline == null or $saved_pipeline.id <= ($new_pipeline.id // 0)
    then $new_pipeline else $saved_pipeline end) as $default_pipeline
-| ($by | with_entries(.key as $k | ($old.mrs[$k] // {}) as $o | .value |= {
+| ($by | with_entries(.key as $k | ($old.mrs[$k] // {}) as $o | ($notes_by[$k] // []) as $fetched
+  | ([($fetched[] | select(.author.username == $me) | .id), $o.last_own_note_id // 0] | max)
+    as $own
+  | .value |= {
     updated_at,
-    last_note_id: ([($notes_by[$k] // [])[].id, $o.last_note_id // 0] | max),
+    last_note_id: ([$fetched[].id, $o.last_note_id // 0] | max),
+    last_own_note_id: $own,
+    # The comments that gave a note event and wait for the user.
+    open_notes: (($o.open_notes // [])
+        + [$fetched[] | select($old.mrs[$k] != null and .id > $o.last_note_id
+            and (.system | not) and .author.username != $me) | .id]
+      | unique
+      | map(. as $id | select($id > $own)
+        | select(any($fetched[]; .id == $id and .resolved == true) | not))),
     reactions: [($reactions_by[$k] // [])[].key]
   })) as $mrs
 | {
     state: {todos: [$todos[].id], opened: [$opened[].iid], mrs: $mrs,
       default_pipeline: $default_pipeline,
       needs: [(select(any($todos[]; .target.author.username != $me)) | "todo"),
-        (select($default_pipeline.status == "failed") | "main-failed")]},
+        (select($default_pipeline.status == "failed") | "main-failed")],
+      present: [($todos[] | select(.target.author.username != $me) | "todo:\(.id)"),
+        ($mrs | to_entries[] | select($by[.key].state == "opened") | .value.open_notes[]
+          | "note:\(.)"),
+        (select($default_pipeline.status == "failed") | "main-failed:\($default_branch)")]},
     events: (if $old == null then [] else [
       ($todos[] | select(.id as $id | $old.todos | any(. == $id) | not)
         | select(.target.author.username != $me)
         | {kind: "todo", iid: .target.iid, title: .target.title, url: .target_url,
-           actor: .author.username, detail: .action_name, branch: .target.source_branch}),
+           actor: .author.username, detail: .action_name, branch: .target.source_branch,
+           item: "todo:\(.id)"}),
       ($opened[] | select($old | has("opened"))
         | select(.iid as $iid | $old.opened | any(. == $iid) | not)
         | {kind: "opened", iid, title, url: .web_url, actor: .author.username, detail: "opened",
@@ -244,14 +276,14 @@ $old[0] as $old | $todos[0] as $todos
         | select(. != null and .id > ($old.default_pipeline.id // 0) and .status == "failed")
         | {kind: "default-failed", iid: null, title: null, url: .web_url, actor: "",
            detail: "pipeline \(.id) failed", branch: $default_branch,
-           previous: $old.default_pipeline.status}),
+           previous: $old.default_pipeline.status, item: "main-failed:\($default_branch)"}),
       ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k] as $o
         | select($o != null)
         | ($notes_by[$k] // [])[]
         | select(.id > $o.last_note_id and (.system | not) and .author.username != $me)
         | {kind: "note", iid: $mr.iid, title: $mr.title, url: "\($mr.web_url)#note_\(.id)",
            actor: .author.username, detail: (.body | gsub("\\s+"; " ") | .[0:100]),
-           branch: $mr.source_branch}),
+           branch: $mr.source_branch, item: "note:\(.id)"}),
       ($by | to_entries[] | .key as $k | .value as $mr | $old.mrs[$k].reactions as $o
         | select($o != null)
         | ($reactions_by[$k] // [])[] | select(.key as $key | $o | index($key) | not)
@@ -277,8 +309,10 @@ def transient: IN("checking", "unchecked", "preparing", "approvals_syncing");
 def actor($re): [.discussions.nodes[].notes.nodes[] | select(.system and (.body | test($re)))
   | .id |= num] | max_by(.id) | .author.username // "";
 def norm($me):
-  [.discussions.nodes[] | {id, resolvable, resolved, resolved_by: (.resolvedBy.username // ""),
-     notes: [.notes.nodes[] | select(.system | not) | .id |= num]}] as $ds
+  [.discussions.nodes[] | .id as $discussion
+   | {id, resolvable, resolved, resolved_by: (.resolvedBy.username // ""),
+      notes: [.notes.nodes[] | select(.system | not) | .id |= num | .discussion = $discussion]}]
+  as $ds
   | {
       iid: (.iid | tonumber), title, url: .webUrl, branch: .sourceBranch, state,
       merge_user: (.mergeUser.username // ""), draft,
@@ -305,10 +339,10 @@ def norm($me):
           | {key: "\($n.id):\(.name):\(.user.username)", name, user: .user.username,
              on: $n.author.username, url: $n.url, position: $n.position}]),
       open_threads: ([$ds[] | select(.resolvable and (.resolved | not))] | length),
-      unaddressed: [$ds[] | select(.resolvable and (.resolved | not)) | .notes
+      unaddressed: [$ds[] | select(.resolvable and (.resolved | not)) | .id as $discussion | .notes
         | select(length > 0 and .[-1].author.username != $me)
         | select($review == 0 or any(.[]; .author.username == $me))
-        | {last: .[-1], position: .[0].position}]
+        | {last: .[-1], position: .[0].position, discussion: $discussion}]
     };
 
 ($data[0].currentUser.username) as $me
@@ -333,7 +367,9 @@ def norm($me):
     | select($o != null)
     | (($mr.notes[] | select(.id > $o.last_note_id)
          | event(if .author.username == $me then "own-comment" else "comment" end; $mr;
-             .author.username; (.body | short); .url) + at(.position)),
+             .author.username; (.body | short); .url) + at(.position)
+           + (.discussion as $d | if any($mr.unaddressed[]; .discussion == $d)
+             then {item: "thread:\($d)"} else {} end)),
        ($mr.reactions[] | select(.user != $me) | select(.key as $k | $o.reactions | index($k) | not)
          | event("reaction"; $mr; .user;
              ":\(.name): on " + (if .on == null then "the MR" elif .on == $me then "your comment"
@@ -341,7 +377,8 @@ def norm($me):
        (select($n.pipeline != $o.pipeline and ($n.pipeline.status | IN("failed", "success")))
          | event("pipeline"; $mr; "";
              "pipeline \($n.pipeline.id) \(if $n.pipeline.status == "success" then "passed"
-               else "failed" end)"; null)),
+               else "failed" end)"; null)
+           + if $n.pipeline.status == "failed" then {item: "pipeline:\($mr.iid)"} else {} end),
        (($n.approved_by - $o.approved_by)[] | select(. != $me)
          | event("approved"; $mr; .; "approved"; null)),
        (($o.approved_by - $n.approved_by)[] | select(. != $me)
@@ -359,7 +396,7 @@ def norm($me):
              [(($n.labels - $o.labels)[] | "+\(.)"), (($o.labels - $n.labels)[] | "-\(.)")]
              | join(", "); null)),
        (select($n.conflicts and ($o.conflicts | not))
-         | event("conflict"; $mr; ""; "merge conflict"; null)),
+         | event("conflict"; $mr; ""; "merge conflict"; null) + {item: "conflict:\($mr.iid)"}),
        (select($n.mergeable and ($o.mergeable | not))
          | event("mergeable"; $mr; "";
              "now mergeable, \($mr.open_threads) open thread(s)"; null)),
@@ -388,10 +425,14 @@ def norm($me):
 | (if $review == 1 then ["reply", "commits"]
    else ["failed", "conflict", "reply", "requested_changes", "ready", "draft"] end) as $order
 | {
-    state: {mrs: $mrs, needs: [$order[] | select(IN($present[]))]},
+    state: {mrs: $mrs, needs: [$order[] | select(IN($present[]))],
+      present: [$now[] | select(.state == "opened") | . as $mr | $mrs[.iid | tostring] as $s
+        | ($mr.unaddressed[] | "thread:\(.discussion)"),
+          (select($s.pipeline.status == "failed") | "pipeline:\($mr.iid)"),
+          (select($s.merge_status | IN("conflict", "need_rebase")) | "conflict:\($mr.iid)")]},
     events: (if $events == [] then [] else $events + [$now[] as $mr | $mr.unaddressed[]
       | event("unaddressed"; $mr; .last.author.username; (.last.body | short); .last.url)
-        + at(.position)] end)
+        + at(.position) + {item: "thread:\(.discussion)"}] end)
   }
 JQ
 )

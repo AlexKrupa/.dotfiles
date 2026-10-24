@@ -104,6 +104,40 @@ watch_workspace_update() {
   return "$rc"
 }
 
+# Usage: watch_items_move SOURCE_KEY TARGET_KEY [IID]
+# Moves the open items of SOURCE_KEY, or only the items of the MR IID, to TARGET_KEY, with new
+# numbers of the target. With no IID, the source file goes away. The locks are taken in key
+# order, so two moves in opposite directions cannot block each other.
+# $WATCHD_DIR/items/<key>.json: {"next": <n>, "items": [{"n", "item", "owner": "daemon"|"model",
+# "iid", "title", "url", "what", "result", "since", "event"}]}.
+watch_items_move() {
+  local source=$WATCHD_DIR/items/$1.json target=$WATCHD_DIR/items/$2.json first second rc=0
+  [[ -f $source ]] || return 0
+  if [[ $1 < $2 ]]; then first=$source second=$target; else first=$target second=$source; fi
+  watch_lock "$first.lock" || return
+  if ! watch_lock "$second.lock"; then
+    watch_unlock "$first.lock"
+    return 1
+  fi
+  if [[ -f $source ]] && jq -n --argjson iid "${3:-null}" --slurpfile source "$source" \
+    --slurpfile target <(cat "$target" 2>/dev/null) '
+    ($target[0] // {next: 1, items: []}) as $target | $source[0] as $source
+    | [$source.items[] | select($iid == null or .iid == $iid)] as $moved
+    | {source: ($source | .items -= $moved),
+       target: (reduce $moved[] as $item ($target; .items += [$item + {n: .next}] | .next += 1)),
+       moved: ($moved | length)}' >"$source.move"; then
+    if [[ $(jq .moved "$source.move") != 0 ]]; then
+      jq .target "$source.move" >"$target.tmp" && mv "$target.tmp" "$target" || rc=1
+      jq .source "$source.move" >"$source.tmp" && mv "$source.tmp" "$source" || rc=1
+    fi
+    if [[ -z ${3:-} ]]; then rm -f "$source"; fi
+  fi
+  rm -f "$source.move"
+  watch_unlock "$second.lock"
+  watch_unlock "$first.lock"
+  return "$rc"
+}
+
 # Usage: watch_sub_update KEY [JQ OPTION]... FILTER
 # Changes the subscription record of KEY with a jq filter, under the lock of the key. Returns 1 if
 # the record does not exist.

@@ -24,6 +24,11 @@
 # "mode", "title", "error"}: title is the title of its first MR, null in hub mode, and error is
 # the first line of the error text. watch.sh route adds the router result of the hub model.
 # workspaces/<id>.json has the kind and the end stage (done or stopped) of a herdr workspace.
+# items/<key>.json has the open items of a subscription, see watch_items_move. Each routed event
+# gets row: the number of its open item (the item key of the engine), or a new number. After each
+# check, the daemon closes the daemon items whose cause GitLab does not show (the engine present
+# list). A live review key takes the open hub items of its MR, and gives its open items back to
+# the hub when it ends.
 # The daemon makes no herdr call. At its start and once an hour, it removes the event log lines
 # and the engine states with no record that are older than 7 days.
 # Test seams: WATCHD_TICK (main loop seconds), WATCHD_IDLE_SECONDS, WATCHD_CLIENT_SECONDS,
@@ -42,7 +47,7 @@ client_seconds=${WATCHD_CLIENT_SECONDS:-1800}
 engine=${WATCHD_ENGINE:-$WATCH_BIN/watch-gitlab.sh}
 shopt -s nullglob
 cd / || exit 1
-mkdir -p "$WATCHD_DIR"/{subs,inbox,poke,rounds,repos}
+mkdir -p "$WATCHD_DIR"/{subs,inbox,poke,rounds,repos,items}
 sleeper=''
 # A short nap step, so that a poke or a restart gets an answer in seconds.
 WATCH_NAP_STEP=2
@@ -82,6 +87,7 @@ remove_record() {
   fi
   session=$(jq -r .session_pid "$sub" 2>/dev/null)
   if [[ -n $session ]]; then echo "$session" >"$WATCHD_DIR/inbox/$2.owner"; fi
+  if [[ $(jq -r .mode "$sub" 2>/dev/null) == review ]]; then watch_items_move "$2" "$1"; fi
   workspace=$(jq -r '.herdr_workspace // empty' "$sub" 2>/dev/null)
   rm -f "$sub" "$WATCHD_DIR/poke/$2" "$WATCHD_DIR/rounds/$2" "$WATCHD_DIR/rounds/$2.poked"
   watch_log "$1" "$2" "subscription removed: $3"
@@ -118,10 +124,13 @@ end_if_due() {
 }
 
 # Removes the results of ended subscriptions whose session is gone, and results with no record and
-# no owner.
+# no owner. The open items of a stack or review key are results. The hub keeps its items: the
+# present rules close them, and a new hub session gets them.
 sweep() {
   local file key sub owner
-  for file in "$WATCHD_DIR"/inbox/*.jsonl "$WATCHD_DIR"/inbox/*.error; do
+  local stack_key='-[0-9a-f]{12}(-review-[0-9]+)?$'
+  for file in "$WATCHD_DIR"/inbox/*.jsonl "$WATCHD_DIR"/inbox/*.error \
+    "$WATCHD_DIR"/items/*.json; do
     key=$(basename "${file%.*}")
     sub=$WATCHD_DIR/subs/$key.json
     [[ -f $sub ]] && continue
@@ -133,23 +142,78 @@ sweep() {
     fi
     rm -f "$WATCHD_DIR/inbox/$key.jsonl" "$WATCHD_DIR/inbox/$key.error" \
       "$WATCHD_DIR/inbox/$key.owner"
+    if [[ $key =~ $stack_key ]]; then rm -f "$WATCHD_DIR/items/$key.json"; fi
     watch_unlock "$sub.lock"
     watch_log "" "$key" "results of an ended subscription removed"
   done
 }
 
-# Usage: route SLUG KEY MODE EVENTS_FILE. The events go to the event log, then to the inbox.
+# Usage: assign_rows KEY EVENTS_FILE. Writes EVENTS_FILE.rows: each event gets row, the number of
+# its open item. An event with a new item key opens a new item. An event with no item key gets a
+# new number.
+assign_rows() {
+  local items=$WATCHD_DIR/items/$1.json rc=0
+  watch_lock "$items.lock" || return
+  jq -n --slurpfile items <(cat "$items" 2>/dev/null) --slurpfile events "$2" \
+    --argjson now "$(date +%s)" '
+    reduce $events[] as $e ({items: ($items[0] // {next: 1, items: []}), out: []};
+      if $e.item then
+        ([.items.items[].item] | index($e.item)) as $i
+        | if $i != null then
+            .out += [$e + {row: .items.items[$i].n}]
+            | if $e.kind == "unaddressed" then . else .items.items[$i].event = $e end
+          else
+            .items.next as $n
+            | .items.items += [{n: $n, item: $e.item, owner: "daemon", iid: $e.iid,
+                title: $e.title, url: $e.url, what: null, result: null, since: $now, event: $e}]
+            | .items.next += 1
+            | .out += [$e + {row: $n}]
+          end
+      else
+        .out += [$e + {row: .items.next}] | .items.next += 1
+      end)' >"$items.assign" \
+    && jq '.items' "$items.assign" >"$items.tmp" && mv "$items.tmp" "$items" \
+    && jq -c '.out[]' "$items.assign" >"$2.rows" || rc=1
+  rm -f "$items.assign"
+  watch_unlock "$items.lock"
+  return "$rc"
+}
+
+# Usage: prune_items SLUG KEY MODE. After a check: removes each daemon item whose key is not in the
+# present list of the engine state. A hub item of a review key uses the present list of the hub
+# engine state, and stays if there is none.
+prune_items() {
+  local items=$WATCHD_DIR/items/$2.json present hub=null
+  [[ -f $items ]] || return 0
+  present=$(jq -c '.present // empty' "$WATCH_ENGINE_DIR/$2.json" 2>/dev/null)
+  [[ -n $present ]] || return 0
+  if [[ $3 != hub ]]; then
+    hub=$(jq -c '.present // null' "$WATCH_ENGINE_DIR/$1.json" 2>/dev/null)
+    [[ -n $hub ]] || hub=null
+  fi
+  watch_lock "$items.lock" || return 0
+  jq --argjson present "$present" --argjson hub "$hub" --arg mode "$3" '
+    .items |= map(select(.owner == "model"
+      or (if $mode != "hub" and (.item | test("^(todo|note|main-failed):"))
+          then $hub == null or (.item | IN($hub[]))
+          else .item | IN($present[]) end)))' "$items" >"$items.tmp" && mv "$items.tmp" "$items"
+  watch_unlock "$items.lock"
+}
+
+# Usage: route SLUG KEY MODE EVENTS_FILE. The events get their rows. Then they go to the event
+# log, then to the inbox.
 route() {
   local inbox=$WATCHD_DIR/inbox/$2.jsonl now
+  assign_rows "$2" "$4" || return
   now=$(date +%s)
   watch_event_log "$(jq -c --arg slug "$1" --arg key "$2" --arg mode "$3" --argjson now "$now" '
     {time: $now, round: "\($key)-\($now)", type: "event", slug: $slug, key: $key, mode: $mode,
      event: .,
      sound: (if (.kind | IN("todo", "note", "default-failed", "comment", "conflict"))
          or (.kind == "pipeline" and has("jobs"))
-       then "request" else "none" end)}' "$4")"
+       then "request" else "none" end)}' "$4.rows")"
   watch_lock "$inbox.lock" || return
-  cat "$4" >>"$inbox"
+  cat "$4.rows" >>"$inbox"
   watch_unlock "$inbox.lock"
   watch_log "$1" "$2" "routed $(wc -l <"$4" | tr -d ' ') event(s)"
 }
@@ -186,10 +250,9 @@ check() {
   case $rc in
     0)
       rm -f "$fails_dir/$key"
-      if [[ -s $round/out ]]; then
-        route "$slug" "$key" "$mode" "$round/out"
-        end_mrs "$slug" "$key" "$round/out"
-      fi
+      if [[ -s $round/out ]]; then route "$slug" "$key" "$mode" "$round/out"; fi
+      prune_items "$slug" "$key" "$mode"
+      if [[ -s $round/out ]]; then end_mrs "$slug" "$key" "$round/out"; fi
       ;;
     4) watch_log "$slug" "$key" "network error: $(head -n1 "$round/err")" ;;
     5)
@@ -246,8 +309,12 @@ repo_loop() {
     keys=$(live_keys "$slug")
     if ((stopping)) || [[ -z $keys || -e $WATCHD_DIR/restart ]]; then loop_stop; fi
     skip=()
+    # A live review key takes the open hub items of its MR.
     for key in $keys; do
-      if [[ $(field "$key" .mode) == review ]]; then skip+=(--skip-mr "$(field "$key" '.mrs[0]')"); fi
+      if [[ $(field "$key" .mode) == review ]]; then
+        skip+=(--skip-mr "$(field "$key" '.mrs[0]')")
+        watch_items_move "$slug" "$key" "$(field "$key" '.mrs[0]')"
+      fi
     done
     round=$(mktemp -d)
     network=0
