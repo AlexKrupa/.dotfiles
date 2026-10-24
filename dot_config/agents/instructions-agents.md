@@ -57,7 +57,8 @@ When my message starts with one of these phrases, do the action. Then read the r
 - `go`, `go ahead`, `continue` - do the next action that you proposed. Do not ask again.
 - `done` - I did the step that you gave me. Make sure that the result is correct, then continue.
 - `commit this` - commit the changes of this conversation as atomic commits. Do not push.
-- `push` - I permit a push of this branch or stack. Follow the push rules in `### Git`.
+- `push`, `update MR` - I permit a push. If the branch is part of a stack, push all branches of the
+  stack. Follow the push rules in `### Git`.
 - `fix nits`, `fix minors`, `fix majors`, `fix criticals` - fix the findings of the last review at
   one level: nit is `low`, minor is `medium`, major is `high`, critical is `critical`.
 - `squash fixups`, `squash branch` - find the repair commits of the branch in the same way that
