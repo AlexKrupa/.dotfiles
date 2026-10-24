@@ -14,6 +14,8 @@
 
 - Avoid excessive project builds between steps. Prefer superficial verification for safer or less
   important steps like local reformatting or refactoring.
+- CI is the broad test. Locally, run only the tests of the changed code. After a CI failure, run
+  only the failed tests, not the full suite.
 - If a step does not need my input, continue. Put status notes in the same message as the next
   action. Stop and ask only in two cases: you cannot continue without me, or the next action is
   destructive or outward-facing.
