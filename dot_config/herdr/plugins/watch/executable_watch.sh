@@ -32,8 +32,6 @@ config=${HERDR_PLUGIN_CONFIG_DIR:-$HOME/.config/herdr/plugins/config/local.watch
 log=$watchd/events.jsonl
 
 mkdir -p "$state_dir"
-[ -s "$state_dir/pending.json" ] || echo '[]' >"$state_dir/pending.json"
-[ -s "$state_dir/tokens.json" ] || echo '{}' >"$state_dir/tokens.json"
 
 # Prints the complete lines of the event log after the last read, and saves the new position
 # first: a crash loses a notification, but never sends one two times. The first run starts at
@@ -177,6 +175,9 @@ sidebar() {
 }
 
 sweep() {
+  # A cleanup can remove the state files while the watcher runs.
+  [ -s "$state_dir/pending.json" ] || echo '[]' >"$state_dir/pending.json"
+  [ -s "$state_dir/tokens.json" ] || echo '{}' >"$state_dir/tokens.json"
   notify
   sidebar
 }

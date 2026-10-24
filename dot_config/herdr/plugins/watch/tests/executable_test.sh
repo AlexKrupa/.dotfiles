@@ -202,4 +202,15 @@ line r9 comment bob Hi >"$tmp/state2/watchd/events.jsonl"
 XDG_STATE_HOME=$tmp/state2 ../watch.sh sweep
 check "no log at the first sweep: the first lines of a new log are read" 1 "$(notes | wc -l | tr -d ' ')"
 
+mkdir -p "$tmp/state3/watchd"
+XDG_STATE_HOME=$tmp/state3 ../watch.sh watch &
+watcher=$!
+for _ in $(seq 50); do [ -s "$tmp/state3/herdr-watch/reader" ] || sleep 0.1; done
+rm "$tmp/state3/herdr-watch/pending.json" "$tmp/state3/herdr-watch/tokens.json"
+line r9 comment bob Again >"$tmp/state3/watchd/events.jsonl"
+for _ in $(seq 80); do grep -q Again "$tmp/herdr.log" || sleep 0.1; done
+kill "$watcher"
+check "state files removed while the watcher runs: the next sweep sends the notification" 1 \
+  "$(grep -c Again "$tmp/herdr.log")"
+
 exit "$fail"
