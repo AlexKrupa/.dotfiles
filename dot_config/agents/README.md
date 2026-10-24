@@ -80,6 +80,23 @@ list of these skills. Rerun it on a new machine.
   MCP servers, or plugins, and only the skills in the `skills` list of `evals.json` (default:
   `skill_name`).
 
+## Scripts
+
+Skills call the scripts in `bin/` and `skills/<name>/`. No person runs them, so they have no
+`--help`, no prompts, and no color.
+
+- The header comment is the interface. It has the `# Usage:` lines, what the script does, what it
+  writes (or "Writes nothing"), the output format, and the exit codes. Agents read the header, so
+  change it together with the script.
+- stdout has only the result for the caller. Errors go to stderr, with the script name and the
+  value that failed, for example `work-start: agent not ready in pane 3`.
+- Output format: one value is one plain line, for example a path. Flat fields are `key: value`
+  lines. Records are JSON, one object per line.
+- Exit codes are 0 and 1. If a skill acts on a different code, add it from the shared codes: 2 not
+  found, 3 ambiguous, 4 missing dependency, auth, or herdr, 5 network, 6 timeout.
+- A script that rewrites commits saves a backup ref first. On a conflict or a failure, it resets to
+  the backup, so it never leaves a half-done rebase.
+
 ## Tests
 
 The scripts in `bin/` and `skills/` need bash 5 or later, for example Homebrew bash. They do not
