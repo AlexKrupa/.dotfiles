@@ -1,5 +1,5 @@
 function claude --description 'Run claudes if claude_sandbox is on, else the claude binary'
-    # Herdr agents and claude-upgrade relaunches type `claude`, so they follow the switch too.
+    # Herdr agents and claude-restart relaunches type `claude`, so they follow the switch too.
     if test "$claude_sandbox" = on
         claudes $argv
     else
@@ -88,7 +88,7 @@ function __claude_nono --description 'Run claude in the nono sandbox of profile 
         return 1
     end
 
-    # No review list at exit: its rows default to grant, and claude-upgrade types into the pane.
+    # No review list at exit: its rows default to grant, and claude-restart types into the pane.
     set -l nono_args --profile $profile --allow-cwd --suppress-save-prompt /
     if test -f $profiles/$base-local.json
         set -a nono_args --extends $base-local
@@ -253,7 +253,7 @@ function __claude_upgrade_plugins
 end
 
 # --- Multiplexer dispatch. Every tmux and herdr call lives in these nine helpers.
-# --- The rest of claude-upgrade works the same under either one.
+# --- The rest of claude-restart works the same under either one.
 
 function __claude_mux --description 'Which multiplexer this shell is inside: herdr, tmux, or empty'
     if set -q HERDR_PANE_ID
@@ -342,7 +342,7 @@ function __claude_resume_work --description 'Wait until the claude in <target> i
                 sleep 0.5
             end
             herdr agent wait $argv[2] --until idle --timeout 60000 >/dev/null
-            and herdr agent prompt $argv[2] 'An upgrade restarted this session. It interrupted your turn or stopped your background tasks. Check the state of your work, then continue it and start the stopped tasks again.' >/dev/null
+            and herdr agent prompt $argv[2] 'A restart stopped this session. It interrupted your turn or stopped your background tasks. Check the state of your work, then continue it and start the stopped tasks again.' >/dev/null
     end
 end
 
@@ -399,6 +399,31 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
             echo "Already up to date."
             return 0
         end
+    end
+
+    claude-restart $argv
+end
+
+function claude-restart --description 'Quit interactive claude sessions, relaunch each resuming its conversation'
+    set -l dry_run 0
+    for arg in $argv
+        switch $arg
+            case --dry-run -n
+                set dry_run 1
+            case '*'
+                echo "claude-restart: unknown argument: $arg" >&2
+                return 2
+        end
+    end
+
+    if not type -q jq
+        echo "claude-restart: jq not found" >&2
+        return 1
+    end
+    set -l mux (__claude_mux)
+    if test -z "$mux"
+        echo "claude-restart: not inside tmux or herdr" >&2
+        return 1
     end
 
     # Map pane shell pid -> pane target, once.
@@ -569,7 +594,7 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
         if test $dead -eq 1
             set -a quit_ok $i
         else
-            echo "claude-upgrade: pane $pane (pid $pid) did not exit in 15s; skipping its relaunch" >&2
+            echo "claude-restart: pane $pane (pid $pid) did not exit in 15s; skipping its relaunch" >&2
             __claude_pane_tail $mux $pane >&2
         end
     end
@@ -586,7 +611,7 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
         if __claude_resume_work $mux $rec_pane[$i]
             echo "Asked $where to continue its work."
         else
-            echo "claude-upgrade: ask $where to continue its work" >&2
+            echo "claude-restart: ask $where to continue its work" >&2
         end
     end
 end
