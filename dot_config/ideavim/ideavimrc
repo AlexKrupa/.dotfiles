@@ -141,51 +141,9 @@ Plug 'kana/vim-textobj-entire'
 Plug 'vim-scripts/argtextobj.vim'
 let g:argtextobj_pairs="[:],(:),<:>"
 
-"set anyobject
-" Prefer argtextobj for args - supports custom brackets
-"let g:anyobject_excluded = "anyArgument,anyArgOrItem"
-
 " In normal mode: Press " to see registers before using them in commands
 " In insert mode: Press Ctrl-R to see registers before pasting their contents
 set peekaboo
-
-" Dial plugin setup
-" Variables must be set before `set dial` - init() reads them once and caches executors.
-" `set nodial` forces re-init on reload so variables are re-read.
-set nodial
-let g:dial_include = "basic,numbers,dates,java,markdown"
-" Readme is wrong: dial_custom_definitions -> dial_custom
-let g:dial_custom = [
-  \ ['words', ['val', 'var']],
-  \ ['words', ['private', 'internal', 'protected', 'public']],
-  \ ['words', ['interface', 'class', 'object']],
-  \ ['words', ['open', 'abstract', 'sealed']],
-  \ ['words', ['check', 'require']],
-  \ ['words', ['checkNotNull', 'requireNotNull']],
-  \ ['words', ['isEmpty', 'isNotEmpty']],
-  \ ['words', ['isBlank', 'isNotBlank']],
-  \ ['words', ['onSuccess', 'onFailure']],
-  \ ['words', ['shouldBe', 'shouldNotBe']],
-  \ ['words', ['shouldBeNull', 'shouldNotBeNull']],
-  \ ['words', ['shouldBeSuccess', 'shouldBeFailure']],
-  \ ['words', ['shouldBeTrue', 'shouldBeFalse']],
-  \ ['words', ['ON_CREATE', 'ON_START', 'ON_RESUME', 'ON_PAUSE', 'ON_STOP', 'ON_DESTROY']],
-  \ ['words', ['INITIALIZED', 'CREATED', 'STARTED', 'RESUMED', 'PAUSED', 'STOPPED', 'DESTROYED']],
-  \ ['words', ['Log.v', 'Log.i', 'Log.d', 'Log.w', 'Log.e', 'Log.wtf']],
-  \ ['words', ['Timber.v', 'Timber.i', 'Timber.d', 'Timber.w', 'Timber.e', 'Timber.wtf']],
-  \ ['normalizedCaseWords', ['on', 'off']],
-  \ ['normalizedCaseWords', ['horizontal', 'vertical']],
-  \ ['normalizedCaseWords', ['top', 'bottom']],
-  \ ['normalizedCaseWords', ['start', 'end']],
-  \ ['normalizedCaseWords', ['left', 'right']],
-  \ ['normalizedCaseWords', ['width', 'height']],
-  \ ['normalizedCaseWords', ['first', 'last']],
-  \ ['normalizedCaseWords', ['min', 'max']],
-  \ ['normalizedCaseWords', ['success', 'failure']],
-  \ ]
-set dial
-nnoremap <C-a> :DialIncrement<cr>
-nnoremap <C-x> :DialDecrement<cr>
 
 "--------------------
 "----- MAPPINGS -----

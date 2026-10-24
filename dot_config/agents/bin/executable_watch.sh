@@ -3,6 +3,7 @@
 #        watch.sh unsubscribe [--repo PATH] [--review] [--mr IID]...
 #        watch.sh status
 #        watch.sh kind KIND [--workspace ID]
+#        watch.sh route --iid IID --action bump|review|none [--repo PATH]
 # The client of the watch daemon watchd.sh, for the background task of a session. It starts the
 # daemon if no daemon runs, writes its subscription, waits for the events of the subscription,
 # and prints one JSON line for each event. The flags, the modes, and the events are as in the
@@ -15,10 +16,12 @@
 # status: the daemon PID, the last poll of each repo, and one TSV line for each subscription: key,
 # mode, MRs, live or dead session, inbox line count.
 # kind: set the kind of work of the herdr workspace (mine, review, bump, debug, or hub) for the
-# sidebar. The workspace is ID, else $HERDR_WORKSPACE_ID. Outside herdr it does nothing. With no
-# live subscription in the workspace, it also clears the stage. A subscription in a workspace with
-# no kind sets the kind of its mode: mine for a stack, review, or hub.
-# In herdr, the subscription also writes its stage and its needs-you values to the workspace.
+# sidebar, in $WATCHD_DIR/workspaces/<ID>.json. The workspace is ID, else $HERDR_WORKSPACE_ID.
+# With no workspace it does nothing. With no live subscription in the workspace, it also clears
+# the stage. A subscription in a workspace with no kind sets the kind of its mode: mine for a
+# stack, review, or hub. The herdr plugin `watch` writes the sidebar values from these files.
+# route: add the router result of an opened event of the hub to the event log, with the hub key
+# of the repo. The herdr plugin `watch` uses it for the notification of the new MR.
 # With new scripts, a waiting client starts itself again with the same PID and flags.
 # Exit codes: 0 events, 1 error, 3 a new client or session replaced this one
 set -euo pipefail
@@ -49,11 +52,39 @@ if [[ ${1:-} == kind ]]; then
   for session in $(jq -r --arg w "$workspace" 'select(.herdr_workspace == $w) | .session_pid' \
       "$WATCHD_DIR"/subs/*.json 2>/dev/null); do
     if watch_alive "$session"; then
-      watch_herdr_tokens "$workspace" "watch_kind=$kind"
+      watch_workspace_update "$workspace" --arg kind "$kind" '.kind = $kind'
       exit 0
     fi
   done
-  watch_herdr_tokens "$workspace" "watch_kind=$kind" watch_stage= watch_needs=
+  watch_workspace_update "$workspace" --arg kind "$kind" '.kind = $kind | .stage = null'
+  exit 0
+fi
+
+if [[ ${1:-} == route ]]; then
+  shift
+  repo=$PWD
+  iid=''
+  action=''
+  while (($#)); do
+    case "$1" in
+      --repo) [[ $# -ge 2 ]] || die "--repo needs a path"; repo=$2; shift 2 ;;
+      --iid) [[ $# -ge 2 && ${2#!} =~ ^[0-9]+$ ]] || die "--iid needs an MR number"
+        iid=${2#!}; shift 2 ;;
+      --action) [[ $# -ge 2 ]] || die "--action needs an action"; action=$2; shift 2 ;;
+      *) die "unexpected argument: $1" ;;
+    esac
+  done
+  [[ -n $iid ]] || die "route needs --iid"
+  case $action in
+    bump | review | none) ;;
+    *) die "unknown action: $action" ;;
+  esac
+  cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $repo"
+  key=$(watch_key "$(git rev-parse --show-toplevel)" 0)
+  mkdir -p "$WATCHD_DIR"
+  watch_event_log "$(jq -nc --argjson now "$(date +%s)" --arg key "$key" --argjson iid "$iid" \
+    --arg action "$action" \
+    '{time: $now, type: "route", slug: $key, key: $key, iid: $iid, action: $action}')"
   exit 0
 fi
 
@@ -136,7 +167,7 @@ if [[ $command == unsubscribe ]]; then
   workspace=$(jq -r '.herdr_workspace // empty' "$sub" 2>/dev/null || true)
   rm -f "$sub" "$inbox" "$error" "$owner" "$WATCHD_DIR/poke/$key" "$WATCHD_DIR/rounds/$key" \
     "$WATCHD_DIR/rounds/$key.poked"
-  if [[ -n $workspace ]]; then watch_herdr_tokens "$workspace" watch_stage=stopped watch_needs=; fi
+  if [[ -n $workspace ]]; then watch_workspace_update "$workspace" '.stage = "stopped"'; fi
   watch_unlock "$sub.lock"
   watch_log "$slug" "$key" "unsubscribed"
   exit 0
@@ -198,12 +229,7 @@ replaced() { echo "watch: a new client or session replaced this one" >&2; exit 3
 # Usage: default_kind KIND. The role skills set their kind before they watch. A watch that started
 # before its skill set a kind gets the kind of its mode.
 default_kind() {
-  local answer
-  command -v herdr >/dev/null || return 0
-  answer=$(herdr workspace get "$HERDR_WORKSPACE_ID" 2>/dev/null) || return 0
-  if ! jq -e '.result.workspace.tokens.watch_kind' <<<"$answer" >/dev/null 2>&1; then
-    watch_herdr_tokens "$HERDR_WORKSPACE_ID" "watch_kind=$1"
-  fi
+  watch_workspace_update "$HERDR_WORKSPACE_ID" --arg kind "$1" '.kind //= $kind' || true
 }
 # Writes the record. The newest session owns the key: it adds the old live session to
 # replaced_sessions.

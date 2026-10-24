@@ -442,118 +442,112 @@ check "network down: repo loop exits when its subscriptions end" yes \
   "$(gone "$WATCHD_DIR/repos/app.pid")"
 printf '#!/bin/sh\nexit 0\n' >"$d/bin/nc"
 
-herdr_line() { # workspace, tokens
-  printf 'workspace report-metadata %s --source watch %s' "$1" "$2"
-}
-last_stage() { grep watch_stage "$d/herdr.log" | tail -n1; }
-reset
+log_last() { tail -n1 "$WATCHD_DIR/events.jsonl"; }
+workspace_of() { jq -c . "$WATCHD_DIR/workspaces/$1.json" 2>/dev/null; }
 rm -f "$d/herdr.log"
+reset
+events app "$(ev todo 5)"
+watch
+check "routed event: log line" '["event","app","todo","request"]' \
+  "$(log_last | jq -c '[.type, .key, .event.kind, .sound]')"
+events app "$(ev reaction 5)"
+watch
+check "reaction: sound none" none "$(log_last | jq -r .sound)"
+"$client" unsubscribe --repo "$d/app"
+
+reset
 stack="$WATCHD_DIR/subs/app-$wt.json"
-echo '{"mrs": {}, "needs": ["failed", "reply"]}' >"$d/events/app-$wt.state"
 events "app-$wt" "$(ev pipeline 5)"
 HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
 check "record has the herdr workspace" wT "$(jq -r .herdr_workspace "$stack")"
-wait_for 5 "grep -q watch_stage=watching '$d/herdr.log'"
-check "first round writes watching and the needs" \
-  "$(herdr_line wT '--token watch_stage=watching --token watch_needs=failed,reply')" "$(last_stage)"
-echo '{"mrs": {}, "needs": []}' >"$d/events/app-$wt.state"
-HERDR_WORKSPACE_ID=wT watch --interval 600 --once --mr 5
-check "each round writes the tokens again" 2 "$(grep -c watch_stage=watching "$d/herdr.log")"
-check "no needs: the needs token is cleared" \
-  "$(herdr_line wT '--token watch_stage=watching --clear-token watch_needs')" "$(last_stage)"
 events "app-$wt" "$(ev merged 5)"
 HERDR_WORKSPACE_ID=wT watch --interval 600 --once --mr 5
 wait_for 5 "[ ! -e '$stack' ]"
-check "all MRs merged gives done" \
-  "$(herdr_line wT '--token watch_stage=done --clear-token watch_needs')" "$(last_stage)"
+check "all MRs merged: workspace stage done" done "$(workspace_of wT | jq -r .stage)"
 
 reset
+events "app-$wt" "$(ev pipeline 5)"
+HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
+"$client" unsubscribe --repo "$d/app" --mr 5
+check "unsubscribe: workspace stage stopped" stopped "$(workspace_of wT | jq -r .stage)"
+
+reset
+printf '5\n' >"$d/events/app.exit"
+echo 'watch-gitlab: HTTP 403 on todos' >"$d/events/app.err"
+watch
+check "permanent error: stopped line" '["stopped","watch-gitlab: HTTP 403 on todos",null]' \
+  "$(log_last | jq -c '[.type, .error, .title]')"
+reset
+echo '{"mrs": {"5": {"title": "Add foo"}}, "needs": []}' >"$d/events/app-$wt.state"
 printf '5\n' >"$d/events/app-$wt.exit"
 echo 'watch-gitlab: HTTP 403 on graphql' >"$d/events/app-$wt.err"
-HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
-check "an error end gives stopped" \
-  "1 $(herdr_line wT '--token watch_stage=stopped --clear-token watch_needs')" \
-  "$code $(last_stage)"
-
-reset
-events "app-$wt" "$(ev pipeline 5)"
-HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
-wait_for 5 "[ -s '$WATCHD_DIR/rounds/app-$wt' ]"
-"$client" unsubscribe --repo "$d/app" --mr 5
-check "unsubscribe gives stopped" \
-  "$(herdr_line wT '--token watch_stage=stopped --clear-token watch_needs')" "$(last_stage)"
-
-reset
-touch "$d/herdr.fail"
-events "app-$wt" "$(ev pipeline 5)"
-HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
-wait_for 5 "grep -q 'herdr workspace wT' '$WATCHD_DIR/watchd.log'"
-check "a herdr error does not end the subscription" "0 live" \
-  "$code $("$client" status | awk -F '\t' -v k="app-$wt" '$1 == k { print $4 }')"
-rm -f "$d/herdr.fail"
-"$client" unsubscribe --repo "$d/app" --mr 5
-
-reset
-rm -f "$d/herdr.log"
-events "app-$wt" "$(ev pipeline 5)"
-watch --interval 600 --mr 5
-wait_for 5 "[ -s '$WATCHD_DIR/rounds/app-$wt' ]"
-"$client" unsubscribe --repo "$d/app" --mr 5
-check "no herdr workspace: no herdr call" 0 "$(cat "$d/herdr.log" 2>/dev/null | wc -l | tr -d ' ')"
+watch --mr 5
+check "permanent error of a stack: stopped line has the MR title" '["stopped","Add foo"]' \
+  "$(log_last | jq -c '[.type, .title]')"
 
 # kind needs no git repo: $d is not a repo.
 kind() { out=$(cd "$d" && "$client" kind "$@" 2>&1); code=$?; }
-HERDR_WORKSPACE_ID=wT kind review
-check "kind with no live watch clears the old stage" \
-  "0 $(herdr_line wT '--token watch_kind=review --clear-token watch_stage --clear-token watch_needs')" \
-  "$code $(tail -n1 "$d/herdr.log")"
-kind mine --workspace wX
-check "kind with --workspace" \
-  "0 $(herdr_line wX '--token watch_kind=mine --clear-token watch_stage --clear-token watch_needs')" \
-  "$code $(tail -n1 "$d/herdr.log")"
-kind foo
+reset
+kind review --workspace wT
+check "kind: writes the workspace file" '0 {"kind":"review","stage":null}' "$code $(workspace_of wT)"
+kind foo --workspace wT
 check "unknown kind" "1 watch: unknown kind: foo" "$code $out"
-rm -f "$d/herdr.log"
 kind mine
-check "kind outside herdr does nothing" "0 " "$code $(cat "$d/herdr.log" 2>/dev/null)"
+check "kind with no workspace does nothing" "0 " "$code $(ls "$WATCHD_DIR/workspaces" 2>/dev/null)"
 
 reset
-echo '{"result": {"workspace": {"tokens": {"idx": "2"}}}}' >"$d/herdr.get"
 events "app-$wt" "$(ev pipeline 5)"
 HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
-check "stack subscribe with no kind sets mine" "$(herdr_line wT '--token watch_kind=mine')" \
-  "$(grep watch_kind "$d/herdr.log")"
+echo '{"kind": "mine", "stage": "done"}' >"$WATCHD_DIR/workspaces/wT.json"
 HERDR_WORKSPACE_ID=wT kind review
-check "kind during a live watch keeps the stage" "0 $(herdr_line wT '--token watch_kind=review')" \
-  "$code $(tail -n1 "$d/herdr.log")"
+check "kind during a live watch keeps the stage" '0 {"kind":"review","stage":"done"}' \
+  "$code $(workspace_of wT)"
 "$client" unsubscribe --repo "$d/app" --mr 5
 
+for mode in "stack mine app-$wt --mr 5" "review review app-$wt-review-5 --review --mr 5" \
+  "hub hub app"; do
+  set -- $mode
+  name=$1 expected=$2 key=$3
+  shift 3
+  reset
+  events "$key" "$(ev comment 5)"
+  HERDR_WORKSPACE_ID=wT watch --interval 600 "$@"
+  check "subscribe with no kind sets the kind of the mode: $name" "$expected" \
+    "$(workspace_of wT | jq -r .kind)"
+  "$client" unsubscribe --repo "$d/app" "$@"
+done
+
 reset
-rm -f "$d/herdr.log"
-echo '{"result": {"workspace": {"tokens": {"idx": "2", "watch_kind": "bump"}}}}' >"$d/herdr.get"
+mkdir -p "$WATCHD_DIR/workspaces"
+echo '{"kind": "bump"}' >"$WATCHD_DIR/workspaces/wT.json"
 events "app-$wt" "$(ev pipeline 5)"
 HERDR_WORKSPACE_ID=wT watch --interval 600 --mr 5
-check "stack subscribe keeps an existing kind" "workspace get wT" \
-  "$(grep -E 'watch_kind|workspace get' "$d/herdr.log")"
+check "subscribe keeps an existing kind" bump "$(workspace_of wT | jq -r .kind)"
 "$client" unsubscribe --repo "$d/app" --mr 5
 
 reset
-rm -f "$d/herdr.log"
-echo '{"result": {"workspace": {"tokens": {"idx": "2"}}}}' >"$d/herdr.get"
-events "app-$wt-review-5" "$(ev comment 5)"
-HERDR_WORKSPACE_ID=wT watch --interval 600 --review --mr 5
-check "review subscribe with no kind sets review" "$(herdr_line wT '--token watch_kind=review')" \
-  "$(grep watch_kind "$d/herdr.log")"
-"$client" unsubscribe --repo "$d/app" --review --mr 5
+out=$(cd "$d/app" && "$client" route --iid 61 --action bump 2>&1); code=$?
+check "route: log line" '0 ["route","app",61,"bump"]' \
+  "$code $(log_last | jq -c '[.type, .key, .iid, .action]')"
+out=$(cd "$d/app" && "$client" route --iid 61 --action merge 2>&1); code=$?
+check "route: unknown action" "1 watch: unknown action: merge" "$code $out"
+
+check "no herdr call" yes "$(gone "$d/herdr.log")"
 
 reset
-rm -f "$d/herdr.log"
+mkdir -p "$WATCHD_DIR" "$d/state/watch-gitlab"
+now=$(date +%s)
+printf '{"time": %s, "type": "route", "iid": 1}\n{"time": %s, "type": "route", "iid": 2}\n' \
+  $((now - 8 * 86400)) "$now" >"$WATCHD_DIR/events.jsonl"
+echo '{}' >"$d/state/watch-gitlab/old.json"
+echo '{}' >"$d/state/watch-gitlab/new.json"
+touch -t "$(date -v-8d +%Y%m%d%H%M)" "$d/state/watch-gitlab/old.json"
 events app "$(ev todo 5)"
-HERDR_WORKSPACE_ID=wT watch --interval 600
-check "hub subscribe with no kind sets hub" "$(herdr_line wT '--token watch_kind=hub')" \
-  "$(grep watch_kind "$d/herdr.log")"
-"$client" unsubscribe --repo "$d/app"
-rm -f "$d/herdr.get"
+watch
+check "old log lines go away" '[2]' \
+  "$(jq -sc 'map(select(.type == "route") | .iid)' "$WATCHD_DIR/events.jsonl")"
+check "old engine state goes away" "yes no" \
+  "$(gone "$d/state/watch-gitlab/old.json") $(gone "$d/state/watch-gitlab/new.json")"
 
 reset
 unset WATCHD_ENGINE

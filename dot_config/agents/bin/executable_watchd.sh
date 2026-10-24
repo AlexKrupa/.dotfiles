@@ -17,6 +17,15 @@
 # starts itself again with the same PID, after the current round of each repo.
 # State and log: $WATCHD_DIR, see watch-state.sh. The log has one line for each event of the
 # daemon: time, repo slug, subscription key, message.
+# The event log events.jsonl has one JSON line for each routed event, before it goes to the inbox:
+#   {"time", "round": "<key>-<time>", "type": "event", "slug", "key", "mode", "event", "sound"}
+# sound is request for todo, note, default-failed, comment, conflict, and a failed pipeline, else
+# none. A subscription that ends with an error adds {"time", "type": "stopped", "slug", "key",
+# "mode", "title", "error"}: title is the title of its first MR, null in hub mode, and error is
+# the first line of the error text. watch.sh route adds the router result of the hub model.
+# workspaces/<id>.json has the kind and the end stage (done or stopped) of a herdr workspace.
+# The daemon makes no herdr call. At its start and once an hour, it removes the event log lines
+# and the engine states with no record that are older than 7 days.
 # Test seams: WATCHD_TICK (main loop seconds), WATCHD_IDLE_SECONDS, WATCHD_CLIENT_SECONDS,
 # WATCHD_ENGINE.
 # No `set -e`: an error in one round must not stop the watches of all sessions.
@@ -63,7 +72,14 @@ live_keys() {
 # next client of that session gets them.
 remove_record() {
   local sub=$WATCHD_DIR/subs/$2.json session workspace stage=stopped
-  if [[ -n ${4:-} ]]; then cp "$4" "$WATCHD_DIR/inbox/$2.error"; fi
+  if [[ -n ${4:-} ]]; then
+    cp "$4" "$WATCHD_DIR/inbox/$2.error"
+    watch_event_log "$(jq -c --arg error "$(head -n1 "$4")" --argjson now "$(date +%s)" \
+      --slurpfile engine <(cat "$WATCH_ENGINE_DIR/$2.json" 2>/dev/null) '
+      {time: $now, type: "stopped", slug, key, mode,
+       title: (if .mode == "hub" then null else $engine[0].mrs[.mrs[0] | tostring].title end),
+       error: $error}' "$sub")"
+  fi
   session=$(jq -r .session_pid "$sub" 2>/dev/null)
   if [[ -n $session ]]; then echo "$session" >"$WATCHD_DIR/inbox/$2.owner"; fi
   workspace=$(jq -r '.herdr_workspace // empty' "$sub" 2>/dev/null)
@@ -71,22 +87,8 @@ remove_record() {
   watch_log "$1" "$2" "subscription removed: $3"
   if [[ -n $workspace ]]; then
     if [[ $3 == "all MRs merged or closed" ]]; then stage=done; fi
-    watch_herdr_tokens "$workspace" "watch_stage=$stage" watch_needs=
+    watch_workspace_update "$workspace" --arg stage "$stage" '.stage = $stage'
   fi
-}
-
-# Usage: write_tokens KEY. Writes the stage and the needs-you values of a live subscription to
-# its herdr workspace. Under the lock of the record, so that it cannot come after the stage of
-# the end. Also with no change: herdr loses the tokens at a restart of its server.
-write_tokens() {
-  local sub=$WATCHD_DIR/subs/$1.json workspace needs
-  watch_lock "$sub.lock" || return 0
-  workspace=$(jq -r '.herdr_workspace // empty' "$sub" 2>/dev/null)
-  if [[ -n $workspace ]]; then
-    needs=$(jq -r '.needs // [] | join(",")' "$WATCH_ENGINE_DIR/$1.json" 2>/dev/null)
-    watch_herdr_tokens "$workspace" watch_stage=watching "watch_needs=$needs"
-  fi
-  watch_unlock "$sub.lock"
 }
 
 # Usage: end_sub SLUG KEY REASON [ERROR FILE]
@@ -136,13 +138,20 @@ sweep() {
   done
 }
 
-# Usage: route SLUG KEY EVENTS FILE
+# Usage: route SLUG KEY MODE EVENTS_FILE. The events go to the event log, then to the inbox.
 route() {
-  local inbox=$WATCHD_DIR/inbox/$2.jsonl
+  local inbox=$WATCHD_DIR/inbox/$2.jsonl now
+  now=$(date +%s)
+  watch_event_log "$(jq -c --arg slug "$1" --arg key "$2" --arg mode "$3" --argjson now "$now" '
+    {time: $now, round: "\($key)-\($now)", type: "event", slug: $slug, key: $key, mode: $mode,
+     event: .,
+     sound: (if (.kind | IN("todo", "note", "default-failed", "comment", "conflict"))
+         or (.kind == "pipeline" and has("jobs"))
+       then "request" else "none" end)}' "$4")"
   watch_lock "$inbox.lock" || return
-  cat "$3" >>"$inbox"
+  cat "$4" >>"$inbox"
   watch_unlock "$inbox.lock"
-  watch_log "$1" "$2" "routed $(wc -l <"$3" | tr -d ' ') event(s)"
+  watch_log "$1" "$2" "routed $(wc -l <"$4" | tr -d ' ') event(s)"
 }
 
 # Usage: end_mrs SLUG KEY EVENTS_FILE. Adds the MRs of the merged and closed events to ended_mrs.
@@ -178,10 +187,9 @@ check() {
     0)
       rm -f "$fails_dir/$key"
       if [[ -s $round/out ]]; then
-        route "$slug" "$key" "$round/out"
+        route "$slug" "$key" "$mode" "$round/out"
         end_mrs "$slug" "$key" "$round/out"
       fi
-      write_tokens "$key"
       ;;
     4) watch_log "$slug" "$key" "network error: $(head -n1 "$round/err")" ;;
     5)
@@ -214,7 +222,26 @@ repo_loop() {
   stopping=0
   trap 'if [[ -n $sleeper ]]; then kill "$sleeper" 2>/dev/null; fi; rm -rf "$fails_dir"' EXIT
   trap 'stopping=1' TERM
-  loop_stop() {
+  loop_# Removes the event log lines and the engine states with no record that are older than 7 days.
+prune() {
+  local cut file
+  cut=$(($(date +%s) - 7 * 86400))
+  if watch_lock "$WATCHD_DIR/events.lock"; then
+    if [[ -f $WATCHD_DIR/events.jsonl ]]; then
+      jq -c --argjson cut "$cut" 'select(.time >= $cut)' "$WATCHD_DIR/events.jsonl" \
+        >"$WATCHD_DIR/events.tmp" && mv "$WATCHD_DIR/events.tmp" "$WATCHD_DIR/events.jsonl"
+    fi
+    watch_unlock "$WATCHD_DIR/events.lock"
+  fi
+  for file in "$WATCH_ENGINE_DIR"/*.json; do
+    if [[ ! -f $WATCHD_DIR/subs/$(basename "$file") ]] && (($(stat -f %m "$file") < cut)); then
+      rm -f "$file"
+      watch_log "" "$(basename "$file" .json)" "old engine state removed"
+    fi
+  done
+}
+
+stop() {
     rm -f "$WATCHD_DIR/repos/$slug.pid"
     watch_log "$slug" "" "repo loop stop"
     exit 0
@@ -289,6 +316,7 @@ watch_log "" "" "daemon start $$"
 trap stop EXIT
 trap 'exit 0' TERM INT
 idle_since=$(date +%s)
+pruned_at=0
 while :; do
   # chezmoi writes the files one by one: a hash that stays for one tick is the full update.
   new_hash=$(watch_scripts_hash)
@@ -301,6 +329,10 @@ while :; do
     exec "$WATCH_BIN/watchd.sh"
   fi
   now=$(date +%s)
+  if ((now - pruned_at >= 3600)); then
+    prune
+    pruned_at=$now
+  fi
   for file in "$WATCHD_DIR"/subs/*.json; do
     end_if_due "$file" "$now"
   done

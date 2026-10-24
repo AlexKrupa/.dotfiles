@@ -1,5 +1,7 @@
 # State paths, keys, and locks of the watch client, the watch daemon, and the check engine.
 # Source this file. WATCH_BIN is the folder of the watch scripts.
+# The event log and the workspace files are the data of the herdr plugin `watch`, which sends the
+# notifications and writes the sidebar values. The watch scripts make no herdr call.
 
 WATCH_BIN=${WATCH_BIN:-$HOME/.config/agents/bin}
 WATCHD_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/watchd
@@ -82,21 +84,24 @@ watch_log() {
     >>"$WATCHD_DIR/watchd.log"
 }
 
-# Usage: watch_herdr_tokens WORKSPACE NAME=VALUE... Writes the tokens of the herdr workspace, with
-# the source `watch`. An empty VALUE clears the token. A herdr error goes to the log only: the
-# sidebar is display, and the watch must go on without it.
-watch_herdr_tokens() {
-  local workspace=$1 pair args=() err
+# Usage: watch_event_log LINES. Appends JSON lines to the event log $WATCHD_DIR/events.jsonl.
+watch_event_log() {
+  watch_lock "$WATCHD_DIR/events.lock" || return
+  printf '%s\n' "$1" >>"$WATCHD_DIR/events.jsonl"
+  watch_unlock "$WATCHD_DIR/events.lock"
+}
+
+# Usage: watch_workspace_update WORKSPACE [JQ OPTION]... FILTER
+# Changes $WATCHD_DIR/workspaces/<WORKSPACE>.json with a jq filter, under its lock. The file has
+# the kind and the end stage of the herdr workspace: {"kind", "stage"}. A missing file is {}.
+watch_workspace_update() {
+  local file=$WATCHD_DIR/workspaces/$1.json rc=0
   shift
-  command -v herdr >/dev/null || return 0
-  for pair; do
-    if [[ -n ${pair#*=} ]]; then args+=(--token "$pair"); else args+=(--clear-token "${pair%%=*}"); fi
-  done
-  if ! err=$(herdr workspace report-metadata "$workspace" --source watch "${args[@]}" 2>&1 >/dev/null)
-  then
-    watch_log "" "" "herdr workspace $workspace: ${err//$'\n'/ }"
-  fi
-  return 0
+  mkdir -p "$WATCHD_DIR/workspaces"
+  watch_lock "$file.lock" || return
+  { cat "$file" 2>/dev/null || echo '{}'; } | jq "$@" >"$file.tmp" && mv "$file.tmp" "$file" || rc=1
+  watch_unlock "$file.lock"
+  return "$rc"
 }
 
 # Usage: watch_sub_update KEY [JQ OPTION]... FILTER
