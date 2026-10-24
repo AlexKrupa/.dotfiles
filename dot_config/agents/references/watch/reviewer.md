@@ -24,7 +24,7 @@ Handle a `pushed` event first. Then the other events read the new code.
 
 | `kind`        | Action                                                                           | Report section        |
 | ------------- | -------------------------------------------------------------------------------- | --------------------- |
-| `pushed`      | See "Pushes"                                                                     | Needs you, Done, Info |
+| `pushed`      | See "Pushes"                                                                     | Needs you, Agent, Info |
 | `comment`     | See "Comments"                                                                   | Needs you or Info     |
 | `resolved`    | See "Resolved threads"                                                           | Info or Needs you     |
 | `description` | Read the new description. If the purpose of the MR changed, propose a new review | Needs you or Info     |
@@ -42,10 +42,10 @@ Handle a `pushed` event first. Then the other events read the new code.
    rules and the finding format of `review-diff`. Do not use `review-diff` for the full MR again.
 4. Add a section to the end of the report: `## Update <date> <first 8 characters of new_head>`.
    It has the findings that the push fixed, the new findings, and the findings that stay open.
-5. Under Needs you: one item for each new finding. Under Done: "Reviewed push <short new_head>,
-   report updated." Under Info: the findings that the push fixed.
+5. Under Needs you: one item for each new finding. Under Agent: "Reviewed the push, report
+   updated." Under Info: the findings that the push fixed.
 6. If the local branch is not at `new_head`, add under Info: "The local branch is behind the MR.
-   The review read the files at <short new_head>."
+   The review read the files at the MR head."
 
 ## Comments
 

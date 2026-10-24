@@ -27,9 +27,9 @@ sync can delete a merged branch, and the user can add a branch.
 
 | `kind`             | Action                  | Report section       |
 | ------------------ | ----------------------- | -------------------- |
-| `pipeline`, failed | See "Pipeline failures" | Done or Needs you    |
-| `conflict`         | See "Conflicts"         | Done or Needs you    |
-| `merged`           | See "Merged MRs"        | Info, Done/Needs you |
+| `pipeline`, failed | See "Pipeline failures" | Agent or Needs you    |
+| `conflict`         | See "Conflicts"         | Agent or Needs you    |
+| `merged`           | See "Merged MRs"        | Info, Agent/Needs you |
 | `comment`          | See "Comments"          | Needs you            |
 
 Needs you also shows the failures that wait for the user, and the fixes that wait.
@@ -56,7 +56,7 @@ Run the host command for the logs of the failed jobs. Find the cause of each fai
   with the proposed fix. If the session is idle at the next report, or if the user asks, do the fix.
 - All other causes: if the session is idle and the cause is clear, do the fix with steps 1 to 7
   above. In step 4, commit each `needs-message` file with a one-line message. Report the fix under
-  Done. Else put the failure under Needs you, with the cause and a proposed fix.
+  Agent. Else put the failure under Needs you, with the cause and a proposed fix.
 
 ## Push
 

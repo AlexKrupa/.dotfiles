@@ -170,8 +170,8 @@ owner=$WATCHD_DIR/inbox/$key.owner
 
 session=$(watch_session_pid)
 if ((review)); then mode=review; elif ((${#mrs[@]})); then mode=stack; else mode=hub; fi
-# in: $input (the JSON of the model), $items (the items file), $delivery (the last delivery).
-# out: {items, rows, links} for watch-report.jq.
+# in: $input (the JSON of the model), $items (the items file), $delivery (the last delivery),
+# $engine (the engine state). out: {items, known, rows, links} for watch-report.jq.
 REPORT_PROGRAM='
   ($input.cells // {}) as $cells
   | ($input.agent // [] | map(tostring)) as $agent
@@ -182,7 +182,10 @@ REPORT_PROGRAM='
     as $events
   | [$delivery[].row | tostring] as $delivered
   | (reduce ([$delivery[], $start.items[]][] | select(.iid != null)) as $x ({};
-      .[$x.iid | tostring] //= {title: $x.title, url: ($x.url // "" | sub("#.*$"; ""))})) as $mrs
+      .[$x.iid | tostring] //= {title: $x.title, url: ($x.url // "" | sub("#.*$"; ""))})
+    # The engine state has the titles of the MRs with no event.
+    | reduce ($engine[0].mrs // {} | to_entries[]) as $e (.;
+      .[$e.key] //= {title: $e.value.title, url: null})) as $mrs
   | ($start | .items |= map(.result = ($cells[.n | tostring] // .result))) as $updated
   | [$updated.items[] | select(.n | tostring | IN($agent[]))] as $agent_items
   | (reduce ($input.add // [])[] as $add
@@ -216,6 +219,7 @@ REPORT_PROGRAM='
       | event_row("Info")]
     + [$added.rows[] | select(.section == "Info")]) as $rows
   | {items: ($added.state | del(.items[].new)),
+     known: $mrs,
      rows: $rows,
      links: ([$rows[] | select((.url // "") != "")
        | {key: (if .iid then "!\(.iid)" else .title end), title, iid,
@@ -231,6 +235,7 @@ if [[ $command == report ]]; then
   watch_lock "$items.lock" || exit 1
   if ! result=$(jq -n --argjson input "$input" --slurpfile items <(cat "$items" 2>/dev/null) \
     --slurpfile delivery <(cat "$WATCHD_DIR/inbox/$key.last.jsonl" 2>/dev/null) \
+    --slurpfile engine <(cat "$WATCH_ENGINE_DIR/$key.json" 2>/dev/null) \
     --argjson now "$(date +%s)" "$REPORT_PROGRAM"); then
     watch_unlock "$items.lock"
     die "report: jq could not read the input or the state"
@@ -239,7 +244,7 @@ if [[ $command == report ]]; then
   watch_unlock "$items.lock"
   jq --arg mode "$mode" --arg time "$(date +%H:%M)" \
     --argjson mrs "$(printf '%s\n' ${mrs[@]+"${mrs[@]}"} | jq -sc .)" \
-    '{mode: $mode, time: $time, mrs: $mrs, rows: .rows, links: .links}' <<<"$result" \
+    '{mode: $mode, time: $time, mrs: $mrs, known, rows, links}' <<<"$result" \
     | jq -r -f "$WATCH_BIN/watch-report.jq"
   exit 0
 fi

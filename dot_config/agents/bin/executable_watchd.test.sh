@@ -697,6 +697,63 @@ check "report: no events, no items" "0 yes" \
     && echo yes || echo no)"
 
 reset
+stack=app-$wt
+work_event() { # kind iid actor detail [item] [path line]
+  jq -nc --arg k "$1" --argjson i "$2" --arg a "$3" --arg dt "$4" --arg it "${5:-}" \
+    --arg p "${6:-}" --arg l "${7:-}" --arg u "$mr_url/$2" '{kind: $k, iid: $i,
+      title: (if $i == 123 then "Fix crash on rotation" else "Fix rotation test" end), url: $u,
+      actor: $a, detail: $dt, branch: "b"}
+    + (if $p == "" then {} else {path: $p, line: ($l | tonumber)} end)
+    + (if $it == "" then {} else {item: $it} end)'
+}
+echo '{"present": ["thread:d1", "thread:d2", "pipeline:123"]}' >"$d/events/$stack.state"
+events "$stack" "$(work_event comment 124 bob 'Is this flow cold?' thread:d2)"
+watch --mr 123 --mr 124
+report '{"cells": {"1": "Yes. Answer: it starts on the first collect."}}' --mr 123 --mr 124
+events "$stack" \
+  "$(work_event comment 123 anna 'Why not rememberSaveable here?' thread:d1 NoteEditor.kt 42)" \
+  "$(work_event unaddressed 123 anna 'Why not rememberSaveable here?' thread:d1 NoteEditor.kt 42)" \
+  "$(work_event pipeline 123 '' 'pipeline 7 failed' pipeline:123 | jq -c '.jobs = ["ktlint"]')" \
+  "$(work_event approved 123 carol approved)"
+watch --mr 123 --mr 124
+report '{"cells": {"2": "Valid. Fix: replace the SavedStateHandle field",
+  "3": "Formatted and pushed"}, "agent": ["3"]}' --mr 123 --mr 124
+since=$(date -r "$(items_of "$stack" '.items[] | select(.n == 1) | .since')" +%H:%M)
+check "report: work table, 2 MRs" "0
+Fix crash on rotation (!123) $mr_url/123
+
+| #   | Section   | What happened                                               | Proposal or result                             |
+| --- | --------- | ----------------------------------------------------------- | ---------------------------------------------- |
+| 2   | Needs you | @anna on NoteEditor.kt:42: \"Why not rememberSaveable here?\" | Valid. Fix: replace the SavedStateHandle field |
+| 3   | Agent     | Pipeline failed: ktlint                                     | Formatted and pushed                           |
+| 4   | Info      | @carol approved                                             |                                                |
+
+Fix rotation test (!124) $mr_url/124
+
+| #   | Section   | What happened                           | Proposal or result                           |
+| --- | --------- | --------------------------------------- | -------------------------------------------- |
+| 1   | Needs you | Since $since: @bob: \"Is this flow cold?\" | Yes. Answer: it starts on the first collect. |" "$code
+$(body)"
+"$client" unsubscribe --repo "$d/app" --mr 123 --mr 124
+
+reset
+echo '{"mrs": {"5": {"title": "Add foo"}, "6": {"title": "Add bar"}}, "present": []}' \
+  >"$d/events/app-$wt.state"
+events "app-$wt" "$(ev approved 5)"
+watch --mr 5 --mr 6
+report '{}' --mr 5 --mr 6
+check "report: MR with no rows has no table" "0
+Add foo (!5) u
+
+| #   | Section | What happened  | Proposal or result |
+| --- | ------- | -------------- | ------------------ |
+| 1   | Info    | @anna approved |                    |
+
+Add bar (!6)" "$code
+$(body)"
+"$client" unsubscribe --repo "$d/app" --mr 5 --mr 6
+
+reset
 unset WATCHD_ENGINE
 mkdir -p "$d/state/watch-gitlab"
 echo '{"todos": []}' >"$d/state/watch-gitlab/app.json"

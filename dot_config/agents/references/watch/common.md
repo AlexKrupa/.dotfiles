@@ -57,7 +57,8 @@ This part is for the roles that watch MRs: `author.md`, `reviewer.md`, and `bump
   line also has `path` and `line`.
 - A `merged` or `closed` event that the user did has `own: true`.
 - The watch gives no events for the other actions of the user, except `own-comment`.
-- A `comment` and an `unaddressed` line with the same `url` are one item.
+- Each event has `row`: the number of its row in the report. A `comment` and an `unaddressed`
+  line of one thread have the same `row`: they are one item.
 - The review mode also gives `pushed` and `resolved` events. A `pushed` event is a change of the
   head, with `old_base`, `old_head`, `new_base`, and `new_head`. A `resolved` event is a thread
   that the user started and a different user resolved. Its `unaddressed` lines are only for the
@@ -89,38 +90,30 @@ An `own-comment` event is a comment or a reply of the user. Make sure that it is
 
 Result:
 
-- The comment is correct and clear: one line under Info: `Your comment on <path:line> is OK.`
-- A statement is wrong, or the comment refers to the wrong code: put it under Needs you, with the
-  error and a short proposed change.
-- Small points only, for example an unclear word: one item under Info, with the points.
+- The comment is correct and clear: the cell of its row is `OK`.
+- A statement is wrong, or the comment refers to the wrong code: put its row in `close`, and add
+  a `needs` row with the error and a short proposed change.
+- Small points only, for example an unclear word: the cell of its row has the points.
 
 Do not rewrite the full comment. The user edits it on the code host.
 
 ### Report
 
-One block for each report. One group for each MR, in stack order from the bottom. Omit an empty
-section.
+Run the host command "Report" with the JSON of your actions. Output its stdout word for word. It
+prints one table for each MR, in the order of the `--mr` flags. The JSON fields, all optional:
 
-```text
-14:32 !123 Fix crash on rotation
-https://gitlab.example.com/app/-/merge_requests/123
+- `cells`: your text for each row, for example `{"2": "Valid. Fix: replace the field"}`. An open
+  item keeps its text for the next reports.
+- `agent`: the rows of the events that you handled. An open item in it closes.
+- `close`: the rows that need nothing more. An open item in it closes.
+- `add`: a row with no event, as `{"section": "needs", "iid": <iid>, "what": "<text>",
+  "result": "<text>"}`. The section `needs` opens an item that stays until you close it.
+  Examples: a lost fix commit, "fix waits, session not idle", a new review finding.
 
-Needs you
-1. @anna on NoteEditor.kt:42: "Why not rememberSaveable here?"
-   Valid. rememberSaveable also keeps the text after process death.
-   Proposed fix: replace the SavedStateHandle field (3 lines).
+The sections:
 
-Done
-- Pipeline 4567: ktlint failed in 2 files. Formatted, folded into abc1234, pushed.
-
-Info
-- @bob approved.
-- @carol reacted :thumbsup: to your comment on NoteEditor.kt:42.
-```
-
-- Needs you shows all open items, also the items from earlier reports. If the result shows that
-  an item is addressed, the item leaves the list. Examples: the thread is not in `unaddressed`, or
-  a new pipeline passed. Number the items. The user can then say "fix 1".
-- Done shows the actions that you did for the events of this result.
+- Needs you shows all open items, also the items from earlier reports. The watch closes an item
+  when GitLab shows that its cause is gone. Examples: the thread is not in `unaddressed`, or a new
+  pipeline passed. An item keeps its number, so the user can say "fix 1".
+- Agent shows the actions that you did for the events of this result.
 - Info shows the other events of this result.
-

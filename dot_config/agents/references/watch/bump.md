@@ -13,8 +13,8 @@ Handle a `pushed` event first. Then the other events read the new code.
 
 | `kind`             | Action                                       | Report section    |
 | ------------------ | -------------------------------------------- | ----------------- |
-| `pushed`           | See "Pushes"                                 | Done or Needs you |
-| `pipeline`, failed | See "Pipeline failures"                      | Done or Needs you |
+| `pushed`           | See "Pushes"                                 | Agent or Needs you |
+| `pipeline`, failed | See "Pipeline failures"                      | Agent or Needs you |
 | `pipeline`, passed | Update the verdict                           | Info              |
 | `comment`          | See "Comments"                               | Needs you         |
 | `description`      | None. The bot rewrites the description often | No report         |
@@ -48,7 +48,7 @@ Do steps 6 and 7 again for the new pipeline:
 - A job failed for a cause that the bump did not make: retry it once with `bump-host.sh retry`.
   If the same job fails again after a retry, put it under Needs you.
 - A failure that the bump caused: commit the fix and push it, as step 7 tells. Report it under
-  Done.
+  Agent.
 
 ## Comments
 
