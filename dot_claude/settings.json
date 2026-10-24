@@ -324,7 +324,7 @@
       "effortLevel": "medium"
     },
     "claude-opus-5-5": {
-      "effortLevel": "high"
+      "effortLevel": "medium"
     },
     "claude-opus-5": {
       "effortLevel": "medium"
@@ -374,5 +374,21 @@
       "**Org-specific CLIs**: None configured — repo uses fish, brew, gradle wrapper (gw), adb, git-spice (gs) as personal tooling, not org-specific"
     ]
   },
-  "autoConnectIde": false
+  "autoConnectIde": false,
+  "skillOverrides": {
+    "android-intent-security": "off",
+    "compose-animations": "off",
+    "compose-component-design": "off",
+    "compose-focus-navigation": "off",
+    "compose-performance": "off",
+    "compose-state-and-effects": "off",
+    "compose-ui-testing-patterns": "off",
+    "kotlin-api-design": "off",
+    "kotlin-control-flow": "off",
+    "navigation-3": "off",
+    "r8-analyzer": "off",
+    "styles": "off",
+    "testing-setup": "off",
+    "simple-english": "off"
+  }
 }

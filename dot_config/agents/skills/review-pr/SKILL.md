@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description:
+description: >-
   Review of a merge request or pull request. Input: a URL, an id, a branch, or the current
   branch. Only GitLab merge requests work now. Adds MR context (description, discussions, labels,
   bot findings) to the branch audit. Read-only.
