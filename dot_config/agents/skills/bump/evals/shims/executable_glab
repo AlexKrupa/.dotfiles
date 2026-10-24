@@ -9,8 +9,8 @@ echo "glab $*" >>"$host/calls.log"
 
 replace_clients() {
   local file
-  # shellcheck source=../../../../bin/watch-state.sh
-  source "$HOME/.config/agents/bin/watch-state.sh"
+  # shellcheck source=../../../../bin/watch/watch-state.sh
+  source "$HOME/.config/agents/bin/watch/watch-state.sh"
   for file in "$WATCHD_DIR"/subs/*.json; do
     [[ -f $file && $(jq -r .repo "$file") == "$top" ]] || continue
     watch_sub_update "$(basename "$file" .json)" '.client_pid = 0'

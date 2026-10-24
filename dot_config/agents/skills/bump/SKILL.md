@@ -16,7 +16,7 @@ The helper `~/.claude/skills/bump/bump-host.sh` does all calls to the code host.
 arguments to see its subcommands. If it exits with code 4 (unsupported host), ask the user for the
 PR description and the CI state.
 
-At the start, run `~/.config/agents/bin/watch.sh kind bump`. It sets the kind of work of the
+At the start, run `~/.config/agents/bin/watch/watch.sh kind bump`. It sets the kind of work of the
 herdr workspace for the sidebar. Outside herdr, it does nothing.
 
 ## Steps

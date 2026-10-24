@@ -76,7 +76,7 @@ This is not an error.
 
 ## Workflow
 
-At the start, run `~/.config/agents/bin/watch.sh kind review`. It sets the kind of work of the
+At the start, run `~/.config/agents/bin/watch/watch.sh kind review`. It sets the kind of work of the
 herdr workspace for the sidebar. Outside herdr, it does nothing.
 
 1. Run `"$FMR" preflight`. If the exit code is not `0`, show the line and stop.

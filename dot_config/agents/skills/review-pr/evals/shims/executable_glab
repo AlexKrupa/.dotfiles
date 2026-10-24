@@ -6,8 +6,8 @@
 case "$1" in
   auth) exit 0 ;;
   api)
-    # shellcheck source=../../../../bin/watch-state.sh
-    source "$HOME/.config/agents/bin/watch-state.sh"
+    # shellcheck source=../../../../bin/watch/watch-state.sh
+    source "$HOME/.config/agents/bin/watch/watch-state.sh"
     top=$(git rev-parse --show-toplevel)
     for file in "$WATCHD_DIR"/subs/*.json; do
       [[ -f $file && $(jq -r .repo "$file") == "$top" ]] || continue

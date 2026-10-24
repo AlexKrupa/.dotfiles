@@ -11,8 +11,8 @@
 set -euo pipefail
 
 die() { echo "hub-pull: $1" >&2; exit 1; }
-# shellcheck source=../../bin/watch-lib.sh
-source "$HOME/.config/agents/bin/watch-lib.sh"
+# shellcheck source=../../bin/watch/watch-lib.sh
+source "$HOME/.config/agents/bin/watch/watch-lib.sh"
 
 repo=$PWD
 interval=120

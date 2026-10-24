@@ -1,7 +1,7 @@
 # Watch: GitLab
 
 The host file for GitLab. Run each command in the repo of the watched MRs. `$W` is
-`~/.config/agents/bin/watch.sh`, the client of the watch daemon.
+`~/.config/agents/bin/watch/watch.sh`, the client of the watch daemon.
 
 | Function                                  | Command                                                         |
 | ----------------------------------------- | --------------------------------------------------------------- |

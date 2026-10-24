@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The notifications and the sidebar values of the watch daemon ~/.config/agents/bin/watchd.sh.
+# The notifications and the sidebar values of the watch daemon ~/.config/agents/bin/watch/watchd.sh.
 # This file is transport only: it reads the data of the daemon and makes the herdr calls. The
 # decisions are in notify.jq and sidebar.jq, which are pure.
 #
