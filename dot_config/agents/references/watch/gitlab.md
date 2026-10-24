@@ -19,6 +19,7 @@ The host file for GitLab. Run each command in the repo of the watched MRs. `$W` 
 | Retry a job and wait for the new job      | `~/.claude/skills/hub/hub-retry.sh <job id>`                    |
 
 - `--fresh` deletes the state of an earlier review watch of the MR. Use it only at the first start.
+- Report: the JSON goes in single quotes. Replace each `'` in the JSON text with a space.
 - The id of an MR is `!<iid>`.
 - If the stderr text of exit `1` names a token permission, tell the user to add that permission to
   the fine-grained token of `glab`.

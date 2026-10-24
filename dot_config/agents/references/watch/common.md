@@ -107,7 +107,8 @@ prints one table for each MR, in the order of the `--mr` flags. The JSON fields,
 - `cells`: your text for each row, for example `{"2": "Valid. Fix: replace the field"}`. An open
   item keeps its text for the next reports.
 - `agent`: the rows of the events that you handled. An open item in it closes.
-- `close`: the rows that need nothing more. An open item in it closes.
+- `close`: the rows that need nothing more. An open item in it closes. A thread that is still
+  in `unaddressed` opens again at the next round with events.
 - `add`: a row with no event, as `{"section": "needs", "iid": <iid>, "what": "<text>",
   "result": "<text>"}`. The section `needs` opens an item that stays until you close it.
   Examples: a lost fix commit, "fix waits, session not idle", a new review finding.
