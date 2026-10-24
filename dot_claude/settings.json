@@ -10,7 +10,7 @@
     "CLAUDE_CODE_PROMPT_CACHE_TTL": "1h",
     "DISABLE_AUTOUPDATER": "1",
     "ENABLE_LSP_TOOL": "1",
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/unwrap-paste"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/unwrap-paste:~/.claude/mods/md-prompt"
   },
   "attribution": {
     "commit": "",
@@ -201,7 +201,7 @@
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
-    "md-prompt@nogu66": true,
+    "md-prompt@nogu66": false,
     "nono@nolabs-ai": false
   },
   "extraKnownMarketplaces": {
