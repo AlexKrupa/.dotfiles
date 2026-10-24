@@ -1,1 +1,4 @@
 .config/agents/AGENTS.md
+.config/agents/bin/watch.sh
+.config/agents/bin/watch-*
+.config/agents/bin/watchd*
