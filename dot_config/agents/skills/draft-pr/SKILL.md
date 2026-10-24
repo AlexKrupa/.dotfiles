@@ -318,6 +318,8 @@ Sections, in this order:
      steps, and the screenshots or video to capture during those steps.
    - 📸 Capture suggestion: a UI change with no media and no changed reference images of screenshot
      tests, and no 🧪 line already tells what to capture. Do not capture until the user asks.
+     When the user asks, use the media capture skill for the platform of the app, if one is
+     available.
 
 3. The last line: `` 📄 PR draft: `<path>` ``.
 

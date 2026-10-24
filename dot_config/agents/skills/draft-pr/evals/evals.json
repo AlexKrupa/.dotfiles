@@ -1,5 +1,6 @@
 {
   "skill_name": "draft-pr",
+  "skills": ["draft-pr", "android-capture"],
   "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then copies the PR files from ~/.ai/<repo-slug>/prs/ to outputs/prs/, writes outputs/git-state.txt, and deletes ~/.ai/<repo-slug>/. `pr_*` checks read all PR files joined. `pr_body_*` checks read them without the frontmatter. `state_*` checks read git-state.txt: `main-head <subject>`, then for each branch except main, `branch <name>`, then `subject <s>` for each commit in main..<name>, then `ancestors <refs>`. Regexes are case-insensitive unless a check sets `case`, except `reply_*` checks. `@name` in `patterns` or `input_regex` names a list in `pattern_sets`. `log_*` checks read branch-log.txt: `git log -p` of main..tags-in-list.",
   "pattern_sets": {
     "slop": ["(?i)\\brobust", "(?i)\\bleverag", "(?i)\\bgenuine", "(?i)\\bstreamlin", "(?i)\\bseamless", "(?i)worth noting", "(?i)\\bimportantly\\b", "(?i)serves as", "—", "–"],
@@ -179,6 +180,28 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
         {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "@anna"], "text": "Reply has Needs you for @anna"},
         {"type": "reply_regex", "patterns": ["(?m)^```(diff|kotlin|kt)?$", "value class"], "text": "Shows the probable change as code with a value class"}
+      ]
+    },
+    {
+      "id": 12,
+      "name": "ui-capture-suggestion",
+      "fixture": "fixtures/settings-ui-change.sh",
+      "prompt": "/draft-pr",
+      "expected_output": "A feature PR with no media. The reply has a capture suggestion. The agent starts no capture.",
+      "checks": [
+        {"type": "reply_regex", "patterns": ["(?s)📸|🧪.*(screenshot|capture)"], "text": "Reply has a capture suggestion, or a manual check that tells what to capture"},
+        {"type": "tool_count", "tool": "Skill", "input_regex": "android-capture", "max": 0, "text": "Does not use the android-capture skill"}
+      ]
+    },
+    {
+      "id": 13,
+      "name": "ui-capture-request",
+      "fixture": "fixtures/settings-ui-change.sh",
+      "common": false,
+      "prompt": "/draft-pr Also capture before and after screenshots of the Settings screen for the description.",
+      "expected_output": "The agent uses the android-capture skill for the screenshots.",
+      "checks": [
+        {"type": "tool_count", "tool": "Skill|Bash|Read", "input_regex": "android-capture", "min": 1, "text": "Loads or reads the android-capture skill"}
       ]
     }
   ]
