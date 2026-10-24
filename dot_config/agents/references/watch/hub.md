@@ -47,7 +47,7 @@ row of the section `agent`. Run the report command with it, and output its stdou
 The router selects one action for each new MR or review request. Do these steps one time for each
 MR, also when the MR has an `opened` event and a `todo` event in the same round.
 
-1. Run the host command for the MR details. The JSON has `author`,
+1. Run the host command for the MR details. The JSON has `title`, `author`,
    `labels`, `source_branch`, and `description`. If the script fails, keep the events, select no
    action, and put the stderr text in the cell of the MR row.
 2. Decide if the MR is a dependency bump: an MR that only changes the versions of dependencies.
@@ -84,10 +84,12 @@ stays an open item.
 3. Ticket id: the issue key at the start of the branch name. Else, the placeholder id of the
    repo's `CLAUDE.md`. Else, start no agent. The cell is
    `No placeholder id in CLAUDE.md, no review agent`.
-4. Run this command. The branch name goes in single quotes. Do not add `--effort`.
+4. Run this command. The MR title is `title` in the JSON of "Router" step 1. The MR title and the
+   branch name go in single quotes. Replace each `'` in the MR title with a space. Do not add
+   `--effort`.
 
    ```sh
-   ~/.claude/skills/work/work-start.sh <ticket-id> --branch '<source_branch>' <<'PROMPT'
+   ~/.claude/skills/work/work-start.sh <ticket-id> '<MR title>' --branch '<source_branch>' <<'PROMPT'
    /review-pr <mr-url>
    PROMPT
    ```
@@ -108,10 +110,12 @@ which the router selected "Auto-bump". The row is the row of the `opened` event.
 2. Ticket id: the issue key at the start of the branch name. Else, the placeholder id of the
    repo's `CLAUDE.md`. Else, start no agent. The cell is
    `No placeholder id in CLAUDE.md, no bump agent`.
-3. Run this command. The branch name goes in single quotes. Do not add `--effort`.
+3. Run this command. The MR title is `title` in the JSON of "Router" step 1. The MR title and the
+   branch name go in single quotes. Replace each `'` in the MR title with a space. Do not add
+   `--effort`.
 
    ```sh
-   ~/.claude/skills/work/work-start.sh <ticket-id> --branch '<source_branch>' <<'PROMPT'
+   ~/.claude/skills/work/work-start.sh <ticket-id> '<MR title>' --branch '<source_branch>' <<'PROMPT'
    /bump <mr-url>
    PROMPT
    ```

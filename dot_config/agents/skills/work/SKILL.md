@@ -46,7 +46,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    context for the new work. Else, find the branch in the message:
    - A GitLab MR URL, pipeline URL, or job URL, or an MR reference `!<iid>`: run
      `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <URL or iid>`. The branch is `source_branch` in
-     the JSON. If the script fails, report its stderr and stop.
+     the JSON, and the MR title is `title`. If the script fails, report its stderr and stop.
    - A branch name, for example `feature/foo`: the branch exists if
      `git show-ref --verify refs/heads/<name>` or `git ls-remote --exit-code --heads origin <name>`
      finds it.
@@ -69,11 +69,12 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    on a top branch? If there is more than one top branch, ask which. Then end the turn and
    continue after the answer.
 4. Slug text, in English words. The script also makes the session name from it.
+   - An MR from step 1: the slug text is the MR title.
    - Real ticket id: read only the ticket title, with the tracker tool from the project
      instructions. The slug text is the title. If the context has no tool that reads the tracker,
      use the placeholder rule below.
    - Placeholder id: 3 to 6 words that tell what the message asks for. Do not read the tracker.
-     Existing mode has no slug text.
+     Existing mode with no MR has no slug text.
    - If the tracker read fails or the ticket does not exist, stop and report it. Do not run the
      script.
 5. New, split, and existing mode:
@@ -170,7 +171,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    is empty, read it again. JSON is exit `0`. A line that starts with `work-start:` is an error.
    If the line ends with `(branch <branch> stays)`, it is exit `2`. Else, it is exit `1`.
 
-   Existing mode: if the slug text is a ticket title, add it. Then add `--branch <name>`. Do not
+   Existing mode: if the slug text is an MR title or a ticket title, add it. Then add `--branch <name>`. Do not
    add `--base`:
 
    ```sh

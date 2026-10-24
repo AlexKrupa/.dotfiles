@@ -150,6 +150,7 @@ cmd_fetch() {
 project_mr_view() {
   jq '{
     iid,
+    title,
     project_path: (.web_url | capture("https?://[^/]+/(?<p>.+)/-/merge_requests/").p),
     source_branch,
     target_branch,

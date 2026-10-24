@@ -6,6 +6,8 @@ session for other work.
 
 The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply to PRs and checks.
 
+Name an MR by its title. Put `!<iid>` only after the title, never alone.
+
 ## Files
 
 Read this file, the host file, and the role file that the skill names. All files are in
