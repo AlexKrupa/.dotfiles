@@ -50,8 +50,6 @@
       "Bash(git status *)",
       "Bash(git tag *)",
       "Bash(git-spice log:*)",
-      "Bash(gs branch:*)",
-      "Bash(gs log:*)",
       "Bash(glab mr checkout:*)",
       "Bash(glab mr diff:*)",
       "Bash(glab mr view:*)",
@@ -67,8 +65,8 @@
       "Bash(unzip * ~/.gradle/caches/*)",
       "Bash(wc *)",
       "Bash(which *)",
-      "Read(~/.ai/*)",
-      "Edit(~/.ai/*)",
+      "Read(~/.ai/**)",
+      "Edit(~/.ai/**)",
       "LSP",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
@@ -124,6 +122,22 @@
     "claude-opus-4-7",
     "claude-opus-4-6[1m]"
   ],
+  "skillOverrides": {
+    "android-intent-security": "off",
+    "compose-animations": "off",
+    "compose-component-design": "off",
+    "compose-focus-navigation": "off",
+    "compose-performance": "off",
+    "compose-state-and-effects": "off",
+    "compose-ui-testing-patterns": "off",
+    "kotlin-api-design": "off",
+    "kotlin-control-flow": "off",
+    "navigation-3": "off",
+    "r8-analyzer": "off",
+    "styles": "off",
+    "testing-setup": "off",
+    "simple-english": "off"
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -337,6 +351,7 @@
     }
   },
   "showClearContextOnPlanAccept": true,
+  "tui": "fullscreen",
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "theme": "dark",
@@ -374,21 +389,5 @@
       "**Org-specific CLIs**: None configured — repo uses fish, brew, gradle wrapper (gw), adb, git-spice (gs) as personal tooling, not org-specific"
     ]
   },
-  "autoConnectIde": false,
-  "skillOverrides": {
-    "android-intent-security": "off",
-    "compose-animations": "off",
-    "compose-component-design": "off",
-    "compose-focus-navigation": "off",
-    "compose-performance": "off",
-    "compose-state-and-effects": "off",
-    "compose-ui-testing-patterns": "off",
-    "kotlin-api-design": "off",
-    "kotlin-control-flow": "off",
-    "navigation-3": "off",
-    "r8-analyzer": "off",
-    "styles": "off",
-    "testing-setup": "off",
-    "simple-english": "off"
-  }
+  "autoConnectIde": false
 }

@@ -70,54 +70,73 @@ if grep -E "(^|$b)security$b" <<<"$segments" | grep -E "${b}dump-keychain($b|$)"
   deny "Blocked: printing all Keychain secrets. Omit \`-d\`."
 fi
 
-# rm: allow only targets inside the directory where the session started.
-# A target that the hook cannot resolve is blocked.
-# Return codes: 1 - outside, 2 - `~` or expansion, 3 - `cd` in command, 4 - no parent dir.
+# rm: allow only targets inside the session start directory, the temp directories, and `~/.ai`.
+# Return codes: 1 - outside, 2 - expansion, 3 - `cd` not resolved, 4 - no parent dir,
+# 5 - session start directory not known.
+inside() {
+  local dir=$1 equal_ok=$2 root
+  [[ -n $project && -n $equal_ok && $dir == "$project" ]] && return 0
+  for root in ${project:+"$project"} "${roots[@]}"; do
+    [[ $dir == "$root"/* ]] && return 0
+  done
+  [[ -n $project ]] && return 1
+  return 5
+}
+
+resolve_dir() {
+  cd "${1:-/}" 2>/dev/null && pwd -P
+}
+
 rm_target_ok() {
-  local t=$1 parent dir
+  local t=$1 equal_ok=$2 parent dir
+  [[ $t == '~' || $t == '~/'* ]] && t=$HOME${t#\~}
   [[ $t == *['$`']* || $t == '~'* ]] && return 2
   if [[ $t != /* ]]; then
-    # A `cd` in the same command changes the base of relative paths.
-    [[ -n $has_cd ]] && return 3
-    t=$cwd/$t
+    [[ -n $base ]] || return 3
+    t=$base/$t
   fi
   if [[ $t == *['*?[']* ]]; then
     dir=${t%%['*?[']*}
-    dir=${dir%/*}
-    dir=$(cd "${dir:-/}" 2>/dev/null && pwd -P) || return 4
-    [[ $dir == "$project" || $dir == "$project"/* ]]
+    dir=$(resolve_dir "${dir%/*}") || return 4
+    inside "$dir" 1
     return
   fi
   if [[ $t == */ && -d $t ]]; then
     # A trailing slash makes rm follow a symlink.
-    dir=$(cd "$t" 2>/dev/null && pwd -P) || return 4
-    [[ $dir == "$project"/* ]]
+    dir=$(resolve_dir "$t") || return 4
+    inside "$dir" "$equal_ok"
     return
   fi
   while [[ $t == */ && $t != / ]]; do t=${t%/}; done
   case ${t##*/} in
-    . | .. | '') dir=$(cd "${t:-/}" 2>/dev/null && pwd -P) || return 4 ;;
+    . | .. | '') dir=$(resolve_dir "$t") || return 4 ;;
     *)
       # Resolve only the parent: `rm` removes a symlink, not its target.
       parent=${t%/*}
-      dir=$(cd "${parent:-/}" 2>/dev/null && pwd -P)/${t##*/} || return 4
+      dir=$(resolve_dir "$parent")/${t##*/} || return 4
       ;;
   esac
-  [[ $dir == "$project"/* ]]
+  inside "$dir" "$equal_ok"
 }
 
+# A target that rm cannot resolve gets no decision: the permission mode decides.
+# find gets a block, because the `Bash(find *)` allow rule skips the permission mode.
 check_target() {
-  local label=$2 w=${3:-$1} rc=0
-  rm_target_ok "$1" || rc=$?
+  local target=$1 label=$2 strict=${3:-} equal_ok=${4:-} rc=0
+  rm_target_ok "$target" "$equal_ok" || rc=$?
+  [[ $rc == 1 ]] && deny "Blocked: $label on \`$target\`. The path is not inside $project, a temp directory, or ~/.ai."
+  [[ -n $strict ]] || return 0
   case $rc in
-    1) deny "Blocked: $label on \`$w\`. The path is not inside $project." ;;
-    2) deny "Blocked: $label on \`$w\`. Use a path without \`~\`, variables, or command substitution." ;;
-    3) deny "Blocked: $label on \`$w\`. The command also uses \`cd\`. Use an absolute path." ;;
-    4) deny "Blocked: $label on \`$w\`. The parent directory does not exist." ;;
+    2) deny "Blocked: $label on \`$target\`. Use a path without variables or command substitution." ;;
+    3) deny "Blocked: $label on \`$target\`. The command also uses \`cd\`. Use an absolute path." ;;
+    4) deny "Blocked: $label on \`$target\`. The parent directory does not exist." ;;
+    5) deny "Blocked: $label on \`$target\`. The session start directory is not known." ;;
   esac
 }
 
-rm_lines=$(grep -E '^[[:space:]]*(sudo[[:space:]]+)?(command[[:space:]]+)?\\?(/usr)?(/bin/)?rm([[:space:]]|$)' \
+# `(` and `{` start a subshell or a group.
+start='^[[:space:]({]*'
+rm_lines=$(grep -E "$start"'(sudo[[:space:]]+)?(command[[:space:]]+)?\\?(/usr)?(/bin/)?rm([[:space:]]|$)' \
   <<<"$segments" || true)
 find_lines=$(grep -E "(^|$b)find[[:space:]]" <<<"$segments" \
   | grep -E "[[:space:]](-delete|-exec(dir)?[[:space:]]+(/bin/)?rm)([[:space:]]|$)" || true)
@@ -126,11 +145,28 @@ if grep -E "(^|$b)fd$b" <<<"$segments" \
   deny "Blocked: rm through fd. The hook cannot see the targets. Use \`find -delete\` or rm with the paths."
 fi
 if [[ -n $rm_lines || -n $find_lines ]]; then
-  project=$(cd "${CLAUDE_PROJECT_DIR:-/nonexistent}" 2>/dev/null && pwd -P) \
-    || deny "Blocked: rm. The session start directory is not known."
+  project=$(resolve_dir "${CLAUDE_PROJECT_DIR:-/nonexistent}") || project=''
+  roots=()
+  for root in /tmp "${TMPDIR:-}" "$HOME/.ai"; do
+    [[ -n $root ]] && root=$(resolve_dir "$root") && roots+=("$root")
+  done
   cwd=$(jq -r '.cwd // empty' <<<"$input")
-  cwd=${cwd:-$PWD}
-  has_cd=$(grep -Eq '^[[:space:]]*(cd|pushd)([[:space:]]|$)' <<<"$segments" && echo 1 || true)
+  base=${cwd:-$PWD}
+  # Relative paths after one leading `cd` with a literal path use that path as the base.
+  cd_lines=$(grep -E "$start(cd|pushd)([[:space:]]|$)" <<<"$segments" || true)
+  if [[ -n $cd_lines ]]; then
+    read -ra words <<<"${cd_lines//[\'\"(\{]/}"
+    first=$(head -n 1 <<<"$segments")
+    target=${words[1]:-}
+    [[ $target == '~' || $target == '~/'* ]] && target=$HOME${target#\~}
+    [[ $target == /* ]] || target=$base/$target
+    if [[ $(wc -l <<<"$cd_lines") -eq 1 && $first =~ $start(cd|pushd)[[:space:]] \
+      && -n ${words[1]:-} && ${words[1]} != -* && $target != *['$`~']* ]]; then
+      base=$(resolve_dir "$target") || base=''
+    else
+      base=''
+    fi
+  fi
 fi
 
 if [[ -n $rm_lines ]]; then
@@ -138,9 +174,9 @@ if [[ -n $rm_lines ]]; then
     read -ra words <<<"$line"
     started='' opts=1
     for w in "${words[@]}"; do
-      w=${w//[\'\"]/}
+      w=${w//[\'\"\)\}]/}
       if [[ -z $started ]]; then
-        [[ ${w##*[/\\]} == rm ]] && started=1
+        [[ ${w##*[/\\(\{]} == rm ]] && started=1
         continue
       fi
       if [[ -n $opts && $w == -- ]]; then opts=''; continue; fi
@@ -156,9 +192,9 @@ if [[ -n $find_lines ]]; then
     read -ra words <<<"$line"
     started='' next_path='' paths=()
     for w in "${words[@]}"; do
-      w=${w//[\'\"]/}
+      w=${w//[\'\"\)\}]/}
       if [[ -z $started ]]; then
-        [[ ${w##*/} == find ]] && started=1
+        [[ ${w##*[/(\{]} == find ]] && started=1
         continue
       fi
       if [[ -n $next_path ]]; then paths+=("$w"); next_path=''; continue; fi
@@ -168,9 +204,9 @@ if [[ -n $find_lines ]]; then
       paths+=("$w")
     done
     [[ ${#paths[@]} -eq 0 ]] && paths=(.)
-    # A start path can be the project itself: find deletes only the entries below it.
+    # find deletes only the entries below a start path, so the project itself is fine.
     for w in "${paths[@]}"; do
-      check_target "${w%/}/x" "find -delete" "$w"
+      check_target "$w" "find -delete" 1 1
     done
   done <<<"$find_lines"
 fi
