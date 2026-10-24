@@ -41,7 +41,11 @@ mkdir -p "$state_dir"
 # read, or at the start if that line is gone.
 read_log() {
   local inode size old_inode offset number chunk complete
-  [ -f "$log" ] || return 0
+  # With no log, a log that comes later is read from its start.
+  if [ ! -f "$log" ]; then
+    [ -s "$state_dir/reader" ] || echo "none 0" >"$state_dir/reader"
+    return 0
+  fi
   inode=$(stat -f %i "$log")
   size=$(stat -f %z "$log")
   if [ ! -s "$state_dir/reader" ]; then

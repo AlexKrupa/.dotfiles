@@ -194,4 +194,12 @@ mv "$tmp/snapshot.json" "$tmp/snapshot.off"
 sweep
 check "no herdr: no file removed" yes "$([ -e "$watchd/workspaces/wU.json" ] && echo yes || echo no)"
 
+mv "$tmp/snapshot.off" "$tmp/snapshot.json"
+mkdir -p "$tmp/state2/watchd"
+XDG_STATE_HOME=$tmp/state2 ../watch.sh sweep
+line r9 comment bob Hi >"$tmp/state2/watchd/events.jsonl"
+: >"$tmp/herdr.log"
+XDG_STATE_HOME=$tmp/state2 ../watch.sh sweep
+check "no log at the first sweep: the first lines of a new log are read" 1 "$(notes | wc -l | tr -d ' ')"
+
 exit "$fail"
