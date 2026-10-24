@@ -80,6 +80,16 @@ list of these skills. Rerun it on a new machine.
   MCP servers, or plugins, and only the skills in the `skills` list of `evals.json` (default:
   `skill_name`).
 
+## Tests
+
+The scripts in `bin/` and `skills/` need bash 5 or later, for example Homebrew bash. They do not
+support the macOS `/bin/bash` 3.2.
+
+- A test file is `<script>.test.sh` next to its script. Run it with `bash <file>`.
+- After a change, run only the tests of the changed scripts, with the default bash.
+- Each test file uses its own temp folder. Run independent test files at the same time.
+- `bin/watchd.test.sh` takes about 3.5 minutes. Run it in the background.
+
 ## Editing conventions
 
 - Skill content follows `skills/documenting/SKILL.md` (avoids AI writing tropes) and the reply
