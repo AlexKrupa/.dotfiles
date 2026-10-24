@@ -172,7 +172,7 @@ check "state with no default pipeline: no events" "" "$out"
 fixture pipelines '[{"id": 71, "status": "failed", "web_url": "'"$pipelines"'/71"}]'
 run
 check "default branch pipeline failed" \
-  '{"kind":"default-failed","iid":null,"title":null,"url":"'"$pipelines"'/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x","previous":"failed"}' \
+  '{"kind":"default-failed","iid":null,"title":null,"url":"'"$pipelines"'/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x","previous":"failed","jobs":[]}' \
   "$out"
 run
 check "same default branch pipeline: no events" "" "$out"
@@ -198,6 +198,10 @@ check "failure after a pass: previous success" "success" "$(jq -r .previous <<<"
 echo '{"todos": [], "mrs": {}, "default_pipeline": null}' >"$state"
 run
 check "saved null pipeline: event with previous null" "null" "$(jq -r .previous <<<"$out")"
+fixture pipelines '[{"id": 88123, "status": "failed", "web_url": "'"$pipelines"'/88123"}]'
+fixture jobs_88123 '[{"name": "unit-tests"}]'
+run
+check "default-failed: jobs" '["unit-tests"]' "$(jq -c .jobs <<<"$out")"
 
 reset_mock
 echo '{"todos": []}' >"$state"
@@ -291,7 +295,8 @@ check "MR cache: file written" yes "$([ -f "$d/cache/5.json" ] && echo yes || ec
 
 gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/50", status: "FAILED"}'
 srun --mr 5
-check "stack: pipeline failed" "$(sev pipeline 5 '' 'pipeline 50 failed')" "$out"
+check "stack: pipeline failed" \
+  "$(sev pipeline 5 '' 'pipeline 50 failed' | jq -c '. + {jobs: []}')" "$out"
 srun --mr 5
 check "stack: same pipeline: no events" "" "$out"
 gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/51", status: "RUNNING"}'
@@ -300,6 +305,14 @@ check "stack: running pipeline: no events" "" "$out"
 gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/51", status: "SUCCESS"}'
 srun --mr '!5'
 check "stack: pipeline passed, iid with !" "$(sev pipeline 5 '' 'pipeline 51 passed')" "$out"
+gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/4567", status: "FAILED"}'
+fixture jobs_4567 '[{"name": "unit-tests"}, {"name": "ktlint"}, {"name": "ktlint"}]'
+srun --mr 5
+line=$out
+check "pipeline failed: jobs" '["ktlint","unit-tests"]' "$(jq -c .jobs <<<"$line")"
+gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/4568", status: "SUCCESS"}'
+srun --mr 5
+check "pipeline passed: no jobs" null "$(jq -c .jobs <<<"$out")"
 
 gql 5 '.approvedBy.nodes = [{username: "anna"}]'
 srun --mr 5

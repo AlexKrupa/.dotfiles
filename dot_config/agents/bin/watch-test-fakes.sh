@@ -49,6 +49,7 @@ case "$2" in
   projects/group%2Fsub%2Fapp/merge_requests/*) f=mr_$iid ;;
   projects/7/merge_requests/*/approvals) f=approvals_$iid ;;
   projects/7/merge_requests/*/notes\?*) f=notes_$iid ;;
+  projects/*/pipelines/*/jobs\?*) f=jobs_$(echo "$2" | cut -d/ -f4) ;;
   projects/7/pipelines\?*) f=pipelines ;;
   projects/7/merge_requests/*) f=mr_$iid ;;
   *) echo "unexpected glab api path: $2" >&2; exit 2 ;;

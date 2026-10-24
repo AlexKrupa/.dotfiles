@@ -18,13 +18,14 @@
 #                                                                 for example during a job retry
 # An MR of --skip-mr gives only the review_requested to-do item and the opened event. The agent of
 # the review watch reports the other events.
-# opened: actor is the MR author. default-failed: iid and title are null, and previous is the
-# status of the saved default-branch pipeline, or null.
+# opened: actor is the MR author. default-failed: iid and title are null, previous is the status
+# of the saved default-branch pipeline, or null, and jobs are the names of the failed jobs.
 #
 # Stack mode (--mr, one for each MR, `!` prefix allowed) watches the MRs of the stack of the user.
 # Review mode (--review and one --mr) watches one MR for its reviewer. Events of both modes:
 #   kind                     when                                       except
-#   pipeline                 the head pipeline failed or passed
+#   pipeline                 the head pipeline failed or passed. A failed
+#                            pipeline has jobs: the names of the failed jobs
 #   comment                  a new comment                              a comment of the user
 #   own-comment              a new comment of the user
 #   reaction                 a new reaction, on the MR or a comment     a reaction of the user
@@ -395,6 +396,22 @@ def norm($me):
 JQ
 )
 
+# Usage: add_jobs PROJECT. Prints the events of $tmp/result.json. A failed pipeline gets the
+# sorted names of its failed jobs.
+add_jobs() {
+  local line id
+  while IFS= read -r line; do
+    id=$(jq -r 'select(.kind == "pipeline" or .kind == "default-failed") | .detail
+      | capture("^pipeline (?<id>[0-9]+) failed$").id' <<<"$line")
+    if [[ -n $id ]]; then
+      api "projects/$1/pipelines/$id/jobs?scope[]=failed&per_page=100" >"$tmp/jobs.json" || return
+      line=$(jq -c --slurpfile jobs "$tmp/jobs.json" '.jobs = ($jobs[0] | map(.name) | unique)' \
+        <<<"$line")
+    fi
+    printf '%s\n' "$line"
+  done < <(jq -c '.events[]' "$tmp/result.json")
+}
+
 check_stack() {
   local old=$state iid
   [[ -f $old ]] || old=/dev/null
@@ -405,8 +422,10 @@ check_stack() {
   jq -n --argjson review "$review" --slurpfile old "$old" --slurpfile data "$tmp/mrs.jsonl" \
     "$STACK_PROGRAM" >"$tmp/result.json" \
     || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
+  # Before the save of the state: a failed call must not lose the events.
+  add_jobs "$project_ref" >"$tmp/out" || return
   jq '.state' "$tmp/result.json" >"$state.tmp" && mv "$state.tmp" "$state"
-  jq -c '.events[]' "$tmp/result.json"
+  cat "$tmp/out"
 }
 
 check_mode() { if ((${#mrs[@]})); then check_stack; else check; fi; }
@@ -471,8 +490,9 @@ check() {
       --slurpfile default "$tmp/default.json" --slurpfile reactions "$tmp/reactions.jsonl" \
       --arg me "$me" --arg default_branch "$default_branch" "$PROGRAM" >"$tmp/result.json" \
     || { echo "jq could not compare the state" >"$tmp/error"; return 1; }
+  add_jobs "$pid" >"$tmp/out" || return
   jq '.state' "$tmp/result.json" >"$state.tmp" && mv "$state.tmp" "$state"
-  jq -c '.events[]' "$tmp/result.json"
+  cat "$tmp/out"
 }
 
 rc=0
