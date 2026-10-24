@@ -5,6 +5,8 @@ description: >-
   fresh session, or parks the work for later.
 argument-hint: "[park] [focus of the next session]"
 disable-model-invocation: true
+allowed-tools:
+  - Bash(~/.claude/skills/handoff/handoff.sh *)
 ---
 
 # handoff

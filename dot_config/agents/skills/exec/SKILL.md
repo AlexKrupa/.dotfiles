@@ -6,6 +6,8 @@ description: >-
   cleared session in the same herdr pane or, with "keep", in this Claude session.
 argument-hint: "[keep] [subagent|native] [low|medium|high|xhigh|max]"
 disable-model-invocation: true
+allowed-tools:
+  - Bash(~/.claude/skills/exec/exec.sh *)
 ---
 
 # exec

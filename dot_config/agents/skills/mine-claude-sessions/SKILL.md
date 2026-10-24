@@ -3,6 +3,8 @@ name: mine-claude-sessions
 description: Use when the user asks to mine past Claude Code sessions of this repo for repeated corrections.
 disable-model-invocation: true
 argument-hint: "[session count or start date, for example \"last 20\"]"
+allowed-tools:
+  - Bash(${CLAUDE_SKILL_DIR}/sessions.sh *)
 ---
 
 # mine-claude-sessions

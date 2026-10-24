@@ -8,6 +8,11 @@ description:
   long comments. Also use when the user asks to fix the wording of the assistant's last reply.
   Triggers on "deslop", "deslop that", "deslop your reply", "deslop my uncommitted changes",
   "deslop the README intro", "clean up the writing", "fix the wording on this branch".
+allowed-tools:
+  - Bash(~/.config/agents/bin/git-diff-context.sh *)
+  - Bash(~/.claude/skills/deslop/git-reword-fixup.sh *)
+  - Bash(~/.config/agents/bin/git-absorb-fixes.sh *)
+  - Bash(~/.config/agents/bin/git-squash-fixups.sh *)
 ---
 
 # deslop

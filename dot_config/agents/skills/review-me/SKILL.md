@@ -6,6 +6,9 @@ description:
   large drift from the spec.
 argument-hint: "[plan or spec path]"
 disable-model-invocation: true
+allowed-tools:
+  - Bash(~/.config/agents/bin/git-squash-fixups.sh *)
+  - Bash(~/.config/agents/bin/git-absorb-fixes.sh *)
 ---
 
 # review-me

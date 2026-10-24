@@ -7,6 +7,9 @@ description: >-
   Also splits a different issue off the default branch into a new workspace with a handoff.
 argument-hint: "[ticket | branch | MR] [split] [fresh | continue] [from <ref>] [<model> <effort>]"
 disable-model-invocation: true
+allowed-tools:
+  - Bash(~/.claude/skills/work/work-start.sh *)
+  - Bash(~/.config/agents/bin/fetch-gitlab-mr.sh *)
 ---
 
 # work

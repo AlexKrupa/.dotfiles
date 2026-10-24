@@ -7,6 +7,11 @@ description:
   another skill tell you to run draft-pr, run it. Do not run it for other requests about pull
   requests or merge requests.
 argument-hint: "[draft] [notes]"
+allowed-tools:
+  - Bash(~/.config/agents/bin/git-diff-context.sh *)
+  - Bash(~/.config/agents/bin/git-squash-fixups.sh *)
+  - Bash(~/.config/agents/bin/pr-path.sh *)
+  - Bash(~/.config/agents/bin/pr-draft-reuse.sh *)
 ---
 
 # draft-pr

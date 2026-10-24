@@ -6,6 +6,9 @@ description: >-
   visual diff of two states. Also use when a PR draft for an Android UI change needs media and the
   user asks for it.
 argument-hint: "[what to capture]"
+allowed-tools:
+  - Bash(bash ~/.claude/skills/android-capture/capture.sh *)
+  - Bash(~/.config/agents/bin/git-diff-context.sh *)
 ---
 
 # android-capture

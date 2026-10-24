@@ -6,6 +6,9 @@ description:
   another skill tell you to run draft-ticket. Do not run it for other requests about tickets,
   issues, or bug reports.
 argument-hint: "<what the ticket is about>"
+allowed-tools:
+  - Bash(~/.config/agents/bin/ticket-path.sh *)
+  - Bash(~/.config/agents/bin/ticket-id-rename.sh *)
 ---
 
 # draft-ticket

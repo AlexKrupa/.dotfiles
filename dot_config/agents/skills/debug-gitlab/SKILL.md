@@ -5,6 +5,9 @@ description:
   by pipeline, job, or MR URL, by branch, or on the current branch. Also use for a failed pipeline
   event during a watch.
 argument-hint: "[pipeline-url | job-url | mr-url | branch | <empty>]"
+allowed-tools:
+  - Bash(~/.config/agents/bin/gitlab-pipeline.sh *)
+  - Bash(~/.config/agents/bin/watch/watch.sh *)
 ---
 
 # debug-gitlab

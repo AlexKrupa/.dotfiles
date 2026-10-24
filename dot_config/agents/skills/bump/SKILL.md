@@ -3,6 +3,9 @@ name: bump
 description: Use when the user asks to check, fix, or make one dependency bump.
 argument-hint: "<PR/MR URL | branch | commit | text>"
 disable-model-invocation: true
+allowed-tools:
+  - Bash(~/.claude/skills/bump/bump-host.sh *)
+  - Bash(~/.config/agents/bin/watch/watch.sh *)
 ---
 
 # bump

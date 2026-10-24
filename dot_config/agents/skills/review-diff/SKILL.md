@@ -7,6 +7,10 @@ description:
   review-pr (MR context). Run directly only when the user names it. Do not pick it for a plain
   "review my branch" or "review my changes" request - use review-me or review-pr, which call
   it themselves. Platform-agnostic (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
+allowed-tools:
+  - Bash(~/.config/agents/bin/git-diff-context.sh *)
+  - Bash(~/.claude/skills/review-diff/docs-index.sh *)
+  - Bash(~/.config/agents/bin/review-report-path.sh *)
 ---
 
 # review-diff

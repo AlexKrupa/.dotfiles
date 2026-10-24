@@ -3,6 +3,8 @@ name: mine-prs
 description: Use when the user asks to mine reviewer comments on merged PRs or MRs of this repo for repeated topics.
 disable-model-invocation: true
 argument-hint: "[MR count or start date, for example \"last 20\"]"
+allowed-tools:
+  - Bash(${CLAUDE_SKILL_DIR}/prs.sh *)
 ---
 
 # mine-prs

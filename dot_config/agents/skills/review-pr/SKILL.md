@@ -6,6 +6,10 @@ description: >-
   bot findings) to the branch audit. Read-only.
 argument-hint: "[mr-url | mr-id | branch | <empty>]"
 disable-model-invocation: true
+allowed-tools:
+  - Bash(~/.config/agents/bin/fetch-gitlab-mr.sh *)
+  - Bash(~/.config/agents/bin/review-report-path.sh *)
+  - Bash(~/.config/agents/bin/watch/watch.sh *)
 ---
 
 # review-pr

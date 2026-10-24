@@ -6,6 +6,10 @@ description: >-
   pipelines, start review agents, bump agents, and debug agents, and keep the main checkout on the
   newest commit, or asks the hub for the status of its agents.
 disable-model-invocation: true
+allowed-tools:
+  - Bash(~/.claude/skills/hub/hub-status.sh *)
+  - Bash(~/.claude/skills/hub/hub-pull.sh *)
+  - Bash(~/.config/agents/bin/watch/watch.sh *)
 ---
 
 # hub
