@@ -109,7 +109,8 @@ check "a worktree with no open checkout keeps its place" "4" "$(slot wD)"
 # watch <tokens-json> -> a slot filter that gives wC, slot 2, these tokens
 watch() { printf '.result.snapshot.workspaces[2].tokens = %s' "$1"; }
 check "no watch tokens: idx unchanged" "2" "$(slot wC)"
-check "kind only: started" "2 M s" "$(slot wC "$(watch '{"watch_kind": "mine"}')")"
+check "kind only: started" "2 R s" "$(slot wC "$(watch '{"watch_kind": "review"}')")"
+check "own work with no watch: no stage" "2 M" "$(slot wC "$(watch '{"watch_kind": "mine"}')")"
 check "hub with no watch: no stage" "2 H" "$(slot wC "$(watch '{"watch_kind": "hub"}')")"
 check "watching with needs: first needs glyph" "2 M w F" "$(slot wC "$(watch \
   '{"watch_kind": "mine", "watch_stage": "watching", "watch_needs": "failed,reply"}')")"
@@ -123,9 +124,9 @@ check "slot 10 and up: glyphs only" "M w" "$(slot w11 '.result.snapshot.workspac
 check "a value with no glyph shows nothing" "2 M" "$(slot wC "$(watch \
   '{"watch_kind": "mine", "watch_stage": "unknown"}')")"
 check "a written idx is not written again" "" "$(slot wC "$(watch \
-  '{"idx": "2 M s", "watch_kind": "mine"}')")"
+  '{"idx": "2 M", "watch_kind": "mine"}')")"
 agent='.result.snapshot.agents = [{pane_id: "wC:p1", workspace_id: "wC"}]'
-check "an agent with no kind is own work" "2 M s" "$(slot wC "$agent")"
+check "an agent with no kind is own work" "2 M" "$(slot wC "$agent")"
 check "an agent keeps the kind of its space" "2 R s" "$(slot wC "$agent | $(watch \
   '{"watch_kind": "review"}')")"
 
@@ -184,7 +185,7 @@ out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_i
   then .tokens = {watch_kind: "mine", watch_stage: "watching", watch_needs: "failed,reply"}
   else . end)')")
 check "agent row lists all needs" "M w F pipeline failed, reply" "$(tok "$out" wH:p1 work)"
-check "agent row with no kind is own work" "M s" "$(tok "$out" wA:p1 work)"
+check "agent row with no kind is own work" "M" "$(tok "$out" wA:p1 work)"
 out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_id == "wH"
   then .tokens = {watch_kind: "mine", watch_stage: "done"} else . end)
   | .result.snapshot.agents[0].tokens.work = "MwF pipeline failed"')")

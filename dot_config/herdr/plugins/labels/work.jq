@@ -11,10 +11,10 @@
 def work_agent_kind: if .watch_kind then . else .watch_kind = "mine" end;
 
 # A kind with no watch yet is `started`. The hub watches no MR of its own, so it has no
-# `started` stage.
+# `started` stage. Own work with no watch is the usual state, so it has no stage either.
 def work_stage:
   if .watch_stage then .watch_stage
-  elif .watch_kind and .watch_kind != "hub" then "started"
+  elif .watch_kind and .watch_kind != "hub" and .watch_kind != "mine" then "started"
   else "" end;
 
 # The needs-you values, in priority order. Only a live watch knows them.
