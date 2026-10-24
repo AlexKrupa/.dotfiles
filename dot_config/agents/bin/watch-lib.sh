@@ -45,6 +45,7 @@ nap() {
   local left=$1 max_step=${WATCH_NAP_STEP:-10} step start
   while ((left > 0)); do
     step=$((left < max_step ? left : max_step))
+    # date, not $EPOCHSECONDS: the tests fake the clock with a date command on PATH.
     start=$(date +%s)
     bg_sleep "$step"
     if (($(date +%s) - start > step + 30)) || ! full_wake; then

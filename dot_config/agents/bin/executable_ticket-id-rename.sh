@@ -162,7 +162,7 @@ for i in "${!chain[@]}"; do
 done
 echo "commits: $rewritten rewritten"
 
-for b in ${pushed[@]+"${pushed[@]}"}; do
+for b in "${pushed[@]}"; do
   new=$(new_name "$b")
   remote=$(git config "branch.$new.remote")
   git push -q -u "$remote" "refs/heads/$new:refs/heads/$new"

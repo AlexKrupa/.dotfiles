@@ -43,7 +43,7 @@ watch_session_pid() {
 
 # Usage: lock_stale DIR. True if DIR is older than 30 seconds.
 lock_stale() {
-  (($(date +%s) - $(stat -f %m "$1" 2>/dev/null || date +%s) > 30))
+  ((EPOCHSECONDS - $(stat -f %m "$1" 2>/dev/null || echo "$EPOCHSECONDS") > 30))
 }
 
 # A mkdir lock: macOS has no flock. Waits up to 10 seconds. A lock older than 30 seconds is of a

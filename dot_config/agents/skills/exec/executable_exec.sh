@@ -39,10 +39,10 @@ if [[ -n ${NONO_CAP_FILE:-} ]]; then
   # nono denies herdr calls from a detached process: its ancestry does not reach the sandbox
   # session. A background task of claude keeps that ancestry.
   echo "$skill - $effort - $plan"
-  exec "$AFTER_TURN" "$pane" ${clear[@]+"${clear[@]}"} "/effort $effort" \
+  exec "$AFTER_TURN" "$pane" "${clear[@]}" "/effort $effort" \
     <<<"/superpowers:$skill $plan" >>"${TMPDIR:-/tmp}/exec.log" 2>&1
 fi
 # Detached, so it lives after this turn. It waits until the turn ends.
-nohup "$AFTER_TURN" "$pane" ${clear[@]+"${clear[@]}"} "/effort $effort" \
+nohup "$AFTER_TURN" "$pane" "${clear[@]}" "/effort $effort" \
   <<<"/superpowers:$skill $plan" >>"${TMPDIR:-/tmp}/exec.log" 2>&1 &
 echo "$skill - $effort - $plan"

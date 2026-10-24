@@ -79,7 +79,7 @@ remove_record() {
   local sub=$WATCHD_DIR/subs/$2.json session workspace stage=stopped
   if [[ -n ${4:-} ]]; then
     cp "$4" "$WATCHD_DIR/inbox/$2.error"
-    watch_event_log "$(jq -c --arg error "$(head -n1 "$4")" --argjson now "$(date +%s)" \
+    watch_event_log "$(jq -c --arg error "$(head -n1 "$4")" --argjson now "$EPOCHSECONDS" \
       --slurpfile engine <(cat "$WATCH_ENGINE_DIR/$2.json" 2>/dev/null) '
       {time: $now, type: "stopped", slug, key, mode,
        title: (if .mode == "hub" then null else $engine[0].mrs[.mrs[0] | tostring].title end),
@@ -157,7 +157,7 @@ assign_rows() {
   local items=$WATCHD_DIR/items/$1.json rc=0
   watch_lock "$items.lock" || return
   jq -n --slurpfile items <(cat "$items" 2>/dev/null) --slurpfile events "$2" \
-    --argjson now "$(date +%s)" '
+    --argjson now "$EPOCHSECONDS" '
     reduce $events[] as $e ({items: ($items[0] // {next: 1, items: []}), out: []};
       if $e.item then
         ([.items.items[].item] | index($e.item)) as $i
@@ -211,7 +211,7 @@ route() {
     watch_log "$1" "$2" "no rows: the items file is not readable"
     cp "$4" "$4.rows"
   fi
-  now=$(date +%s)
+  now=$EPOCHSECONDS
   watch_event_log "$(jq -c --arg slug "$1" --arg key "$2" --arg mode "$3" --argjson now "$now" '
     {time: $now, round: "\($key)-\($now)", type: "event", slug: $slug, key: $key, mode: $mode,
      event: .,
@@ -248,7 +248,7 @@ check() {
   rm -f "$WATCHD_DIR/poke/$key"
   args=(--repo "$repo")
   case $mode in
-    hub) args+=(${skip[@]+"${skip[@]}"}) ;;
+    hub) args+=("${skip[@]}") ;;
     stack) for iid in $(field "$key" '.mrs[]'); do args+=(--mr "$iid"); done ;;
     review) args+=(--review --mr "$(field "$key" '.mrs[0]')") ;;
   esac
@@ -344,7 +344,7 @@ repo_loop() {
 # Removes the event log lines and the engine states with no record that are older than 7 days.
 prune() {
   local cut file
-  cut=$(($(date +%s) - 7 * 86400))
+  cut=$((EPOCHSECONDS - 7 * 86400))
   if watch_lock "$WATCHD_DIR/events.lock"; then
     if [[ -f $WATCHD_DIR/events.jsonl ]]; then
       jq -c --argjson cut "$cut" 'select(.time >= $cut)' "$WATCHD_DIR/events.jsonl" \
@@ -388,7 +388,7 @@ echo $$ >"$WATCHD_DIR/daemon.pid"
 watch_log "" "" "daemon start $$"
 trap stop EXIT
 trap 'exit 0' TERM INT
-idle_since=$(date +%s)
+idle_since=$EPOCHSECONDS
 pruned_at=0
 while :; do
   # chezmoi writes the files one by one: a hash that stays for one tick is the full update.
@@ -401,7 +401,7 @@ while :; do
     rm -f "$WATCHD_DIR/restart"
     exec "$WATCH_BIN/watchd.sh"
   fi
-  now=$(date +%s)
+  now=$EPOCHSECONDS
   if ((now - pruned_at >= 3600)); then
     prune
     pruned_at=$now

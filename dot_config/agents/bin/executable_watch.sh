@@ -96,7 +96,7 @@ if [[ ${1:-} == route ]]; then
   cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $repo"
   key=$(watch_key "$(git rev-parse --show-toplevel)" 0)
   mkdir -p "$WATCHD_DIR"
-  watch_event_log "$(jq -nc --argjson now "$(date +%s)" --arg key "$key" --argjson iid "$iid" \
+  watch_event_log "$(jq -nc --argjson now "$EPOCHSECONDS" --arg key "$key" --argjson iid "$iid" \
     --arg action "$action" \
     '{time: $now, type: "route", slug: $key, key: $key, iid: $iid, action: $action}')"
   exit 0
@@ -162,7 +162,7 @@ fi
 cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $repo"
 top=$(git rev-parse --show-toplevel)
 slug=$("$WATCH_BIN/repo-slug.sh")
-key=$(watch_key "$top" "$review" ${mrs[@]+"${mrs[@]}"})
+key=$(watch_key "$top" "$review" "${mrs[@]}")
 sub=$WATCHD_DIR/subs/$key.json
 inbox=$WATCHD_DIR/inbox/$key.jsonl
 error=$WATCHD_DIR/inbox/$key.error
@@ -237,14 +237,14 @@ if [[ $command == report ]]; then
   if ! result=$(jq -n --argjson input "$input" --slurpfile items <(cat "$items" 2>/dev/null) \
     --slurpfile delivery <(cat "$WATCHD_DIR/inbox/$key.last.jsonl" 2>/dev/null) \
     --slurpfile engine <(cat "$WATCH_ENGINE_DIR/$key.json" 2>/dev/null) \
-    --argjson now "$(date +%s)" "$REPORT_PROGRAM"); then
+    --argjson now "$EPOCHSECONDS" "$REPORT_PROGRAM"); then
     watch_unlock "$items.lock"
     die "report: jq could not read the input or the state"
   fi
   jq '.items' <<<"$result" >"$items.tmp" && mv "$items.tmp" "$items"
   watch_unlock "$items.lock"
   jq --arg mode "$mode" --arg time "$(date +%H:%M)" \
-    --argjson mrs "$(printf '%s\n' ${mrs[@]+"${mrs[@]}"} | jq -sc .)" \
+    --argjson mrs "$(printf '%s\n' "${mrs[@]}" | jq -sc .)" \
     '{mode: $mode, time: $time, mrs: $mrs, known, rows, links}' <<<"$result" \
     | jq -r -f "$WATCH_BIN/watch-report.jq"
   exit 0
@@ -307,7 +307,7 @@ exit_if_orphaned() {
 
 # The daemon writes the text of the poke to this file after the check of the key.
 poked=$WATCHD_DIR/rounds/$key.poked
-poke_token=$$-$(date +%s)
+poke_token=$$-$EPOCHSECONDS
 ((fresh)) && rm -f "$WATCH_ENGINE_DIR/$key.json"
 # New scripts, for example after a chezmoi update: the daemon starts again after its current
 # round. An older daemon exits, and this client starts the new one. The state is on disk, so no
@@ -340,7 +340,7 @@ subscribe() {
   fi
   jq -n --arg key "$key" --arg slug "$slug" --arg repo "$top" --arg mode "$mode" \
     --argjson interval "$interval" --argjson session "$session" --argjson client $$ \
-    --argjson now "$(date +%s)" --argjson old "$old" --argjson replaced "$replaced_session" \
+    --argjson now "$EPOCHSECONDS" --argjson old "$old" --argjson replaced "$replaced_session" \
     --arg workspace "${HERDR_WORKSPACE_ID:-}" '
     ($ARGS.positional | map(tonumber)) as $mrs | ($old.ended_mrs // []) as $ended
     | {key: $key, slug: $slug, repo: $repo, mode: $mode, mrs: $mrs, interval: $interval,
@@ -348,7 +348,7 @@ subscribe() {
        replaced_sessions: ($old.replaced_sessions // [] | . + [$replaced // empty] | unique),
        ended_mrs: ($ended - ($ended - $mrs))}
       + if $workspace == "" then {} else {herdr_workspace: $workspace} end' \
-    --args ${mrs[@]+"${mrs[@]}"} >"$sub.tmp"
+    --args "${mrs[@]}" >"$sub.tmp"
   mv "$sub.tmp" "$sub"
   rm -f "$owner"
   if [[ -n ${HERDR_WORKSPACE_ID:-} ]]; then
@@ -418,14 +418,14 @@ while :; do
   fi
   ((ended)) && die "the subscription ended"
   daemon_alive || start_daemon
-  watch_sub_update "$key" --argjson now "$(date +%s)" '.client_at = $now' || true
+  watch_sub_update "$key" --argjson now "$EPOCHSECONDS" '.client_at = $now' || true
   exit_if_orphaned
   # The same PID keeps the subscription. A hash that stays for one tick is the full update.
   new_hash=$(watch_scripts_hash)
   if [[ $new_hash != "$hash" && $new_hash == "$seen_hash" ]]; then
     watch_log "$slug" "$key" "new scripts: client restart"
     rm -f "$tmp"
-    exec "$WATCH_BIN/watch.sh" ${restart_args[@]+"${restart_args[@]}"}
+    exec "$WATCH_BIN/watch.sh" "${restart_args[@]}"
   fi
   seen_hash=$new_hash
   sleep "${WATCH_CLIENT_TICK:-3}"

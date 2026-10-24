@@ -97,7 +97,7 @@ command -v jq >/dev/null || die "jq is not installed"
 cd "$repo" 2>/dev/null && git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $repo"
 
 state_dir=$WATCH_ENGINE_DIR
-key=$(watch_key "$PWD" "$review" ${mrs[@]+"${mrs[@]}"})
+key=$(watch_key "$PWD" "$review" "${mrs[@]}")
 state=$state_dir/$key.json
 mkdir -p "$state_dir"
 if ! glab auth status >/dev/null 2>&1; then
@@ -526,7 +526,7 @@ check() {
     || return
   jq -n --slurpfile old "$old" --slurpfile todos "$tmp/todos.json" \
       --slurpfile opened "$tmp/opened.json" \
-      --argjson reviewed "$(printf '%s\n' ${skip_mrs[@]+"${skip_mrs[@]}"} | jq -sc .)" \
+      --argjson reviewed "$(printf '%s\n' "${skip_mrs[@]}" | jq -sc .)" \
       --slurpfile watched "$tmp/watched.json" --slurpfile notes "$tmp/notes.jsonl" \
       --slurpfile default "$tmp/default.json" --slurpfile reactions "$tmp/reactions.jsonl" \
       --arg me "$me" --arg default_branch "$default_branch" "$PROGRAM" >"$tmp/result.json" \
