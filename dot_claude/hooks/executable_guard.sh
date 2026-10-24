@@ -10,7 +10,7 @@ deny() {
   exit 0
 }
 
-if printf '%s' "$cmd" | grep -Eq '(curl|wget)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?(ba)?sh'; then
+if printf '%s' "$cmd" | grep -Eq '(curl|wget)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?(ba|z)?sh([[:space:]]|$)'; then
   deny "Blocked: piping a remote download into a shell. Download, inspect, then run."
 fi
 
@@ -42,6 +42,22 @@ fi
 
 if grep -Eq '\.gnupg/private-keys-v1\.d' <<<"$segments"; then
   deny "Blocked: reading GPG private key files."
+fi
+
+# The `Read(**/.env)` deny rule does not apply to Bash.
+readers='cat|head|tail|less|more|bat|grep|rg|awk|sed|cut|sort|strings|xxd|od|base64|cp|source'
+if grep -E "(^|$b)($readers)$b" <<<"$segments" \
+  | grep -Eq "(^|[[:space:]/'\"])\.env(\.[^[:space:]/'\"]+)?([[:space:]'\"]|$)"; then
+  deny "Blocked: reading a \`.env\` file."
+fi
+
+if grep -E "(^|$b)git$b" <<<"$segments" | grep -E "${b}clean($b|$)" \
+  | grep -Eq "[[:space:]](-[[:alpha:]]*f|--force)"; then
+  deny "Blocked: \`git clean\` with \`-f\`. Remove the files with \`rm\`."
+fi
+
+if grep -E "(^|$b)xargs$b" <<<"$segments" | grep -Eq "$b(/bin/)?rm([[:space:]]|$)"; then
+  deny "Blocked: rm through xargs. The hook cannot see the targets. Use rm with the paths."
 fi
 
 if grep -E "(^|$b)security$b" <<<"$segments" | grep -E "${b}find-(generic|internet)-password($b|$)" \
@@ -90,14 +106,34 @@ rm_target_ok() {
   [[ $dir == "$project"/* ]]
 }
 
+check_target() {
+  local label=$2 w=${3:-$1} rc=0
+  rm_target_ok "$1" || rc=$?
+  case $rc in
+    1) deny "Blocked: $label on \`$w\`. The path is not inside $project." ;;
+    2) deny "Blocked: $label on \`$w\`. Use a path without \`~\`, variables, or command substitution." ;;
+    3) deny "Blocked: $label on \`$w\`. The command also uses \`cd\`. Use an absolute path." ;;
+    4) deny "Blocked: $label on \`$w\`. The parent directory does not exist." ;;
+  esac
+}
+
 rm_lines=$(grep -E '^[[:space:]]*(sudo[[:space:]]+)?(command[[:space:]]+)?\\?(/usr)?(/bin/)?rm([[:space:]]|$)' \
   <<<"$segments" || true)
-if [[ -n $rm_lines ]]; then
+find_lines=$(grep -E "(^|$b)find[[:space:]]" <<<"$segments" \
+  | grep -E "[[:space:]](-delete|-exec(dir)?[[:space:]]+(/bin/)?rm)([[:space:]]|$)" || true)
+if grep -E "(^|$b)fd$b" <<<"$segments" \
+  | grep -Eq "[[:space:]](-[xX]|--exec(-batch)?)[[:space:]]+(/bin/)?rm([[:space:]]|$)"; then
+  deny "Blocked: rm through fd. The hook cannot see the targets. Use \`find -delete\` or rm with the paths."
+fi
+if [[ -n $rm_lines || -n $find_lines ]]; then
   project=$(cd "${CLAUDE_PROJECT_DIR:-/nonexistent}" 2>/dev/null && pwd -P) \
     || deny "Blocked: rm. The session start directory is not known."
   cwd=$(jq -r '.cwd // empty' <<<"$input")
   cwd=${cwd:-$PWD}
   has_cd=$(grep -Eq '^[[:space:]]*(cd|pushd)([[:space:]]|$)' <<<"$segments" && echo 1 || true)
+fi
+
+if [[ -n $rm_lines ]]; then
   while read -r line; do
     read -ra words <<<"$line"
     started='' opts=1
@@ -109,16 +145,34 @@ if [[ -n $rm_lines ]]; then
       fi
       if [[ -n $opts && $w == -- ]]; then opts=''; continue; fi
       [[ -n $opts && $w == -* ]] && continue
-      rc=0
-      rm_target_ok "$w" || rc=$?
-      case $rc in
-        1) deny "Blocked: rm on \`$w\`. The path is not inside $project." ;;
-        2) deny "Blocked: rm on \`$w\`. Use a path without \`~\`, variables, or command substitution." ;;
-        3) deny "Blocked: rm on \`$w\`. The command also uses \`cd\`. Use an absolute path." ;;
-        4) deny "Blocked: rm on \`$w\`. The parent directory does not exist." ;;
-      esac
+      check_target "$w" rm
     done
   done <<<"$rm_lines"
+fi
+
+# find: the start paths come before the first expression. macOS `-f` takes a path.
+if [[ -n $find_lines ]]; then
+  while read -r line; do
+    read -ra words <<<"$line"
+    started='' next_path='' paths=()
+    for w in "${words[@]}"; do
+      w=${w//[\'\"]/}
+      if [[ -z $started ]]; then
+        [[ ${w##*/} == find ]] && started=1
+        continue
+      fi
+      if [[ -n $next_path ]]; then paths+=("$w"); next_path=''; continue; fi
+      if [[ ${#paths[@]} -eq 0 && $w =~ ^-[HLPEXdsx]+$ ]]; then continue; fi
+      if [[ $w == -f ]]; then next_path=1; continue; fi
+      [[ $w == -* || $w == '(' || $w == '\(' || $w == '!' ]] && break
+      paths+=("$w")
+    done
+    [[ ${#paths[@]} -eq 0 ]] && paths=(.)
+    # A start path can be the project itself: find deletes only the entries below it.
+    for w in "${paths[@]}"; do
+      check_target "${w%/}/x" "find -delete" "$w"
+    done
+  done <<<"$find_lines"
 fi
 
 exit 0
