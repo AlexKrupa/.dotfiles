@@ -222,26 +222,7 @@ repo_loop() {
   stopping=0
   trap 'if [[ -n $sleeper ]]; then kill "$sleeper" 2>/dev/null; fi; rm -rf "$fails_dir"' EXIT
   trap 'stopping=1' TERM
-  loop_# Removes the event log lines and the engine states with no record that are older than 7 days.
-prune() {
-  local cut file
-  cut=$(($(date +%s) - 7 * 86400))
-  if watch_lock "$WATCHD_DIR/events.lock"; then
-    if [[ -f $WATCHD_DIR/events.jsonl ]]; then
-      jq -c --argjson cut "$cut" 'select(.time >= $cut)' "$WATCHD_DIR/events.jsonl" \
-        >"$WATCHD_DIR/events.tmp" && mv "$WATCHD_DIR/events.tmp" "$WATCHD_DIR/events.jsonl"
-    fi
-    watch_unlock "$WATCHD_DIR/events.lock"
-  fi
-  for file in "$WATCH_ENGINE_DIR"/*.json; do
-    if [[ ! -f $WATCHD_DIR/subs/$(basename "$file") ]] && (($(stat -f %m "$file") < cut)); then
-      rm -f "$file"
-      watch_log "" "$(basename "$file" .json)" "old engine state removed"
-    fi
-  done
-}
-
-stop() {
+  loop_stop() {
     rm -f "$WATCHD_DIR/repos/$slug.pid"
     watch_log "$slug" "" "repo loop stop"
     exit 0
@@ -284,6 +265,25 @@ stop() {
     if ((network)) && ! online "$WATCH_HOST"; then wait_online "$WATCH_HOST"; continue; fi
     interval=$(for key in $keys; do field "$key" .interval; done | sort -n | head -n1)
     nap "${interval:-120}"
+  done
+}
+
+# Removes the event log lines and the engine states with no record that are older than 7 days.
+prune() {
+  local cut file
+  cut=$(($(date +%s) - 7 * 86400))
+  if watch_lock "$WATCHD_DIR/events.lock"; then
+    if [[ -f $WATCHD_DIR/events.jsonl ]]; then
+      jq -c --argjson cut "$cut" 'select(.time >= $cut)' "$WATCHD_DIR/events.jsonl" \
+        >"$WATCHD_DIR/events.tmp" && mv "$WATCHD_DIR/events.tmp" "$WATCHD_DIR/events.jsonl"
+    fi
+    watch_unlock "$WATCHD_DIR/events.lock"
+  fi
+  for file in "$WATCH_ENGINE_DIR"/*.json; do
+    if [[ ! -f $WATCHD_DIR/subs/$(basename "$file") ]] && (($(stat -f %m "$file") < cut)); then
+      rm -f "$file"
+      watch_log "" "$(basename "$file" .json)" "old engine state removed"
+    fi
   done
 }
 

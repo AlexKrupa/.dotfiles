@@ -488,12 +488,12 @@ check "permanent error of a stack: stopped line has the MR title" '["stopped","A
 # kind needs no git repo: $d is not a repo.
 kind() { out=$(cd "$d" && "$client" kind "$@" 2>&1); code=$?; }
 reset
+kind mine
+check "kind with no workspace does nothing" "0 " "$code $(ls "$WATCHD_DIR/workspaces" 2>/dev/null)"
 kind review --workspace wT
 check "kind: writes the workspace file" '0 {"kind":"review","stage":null}' "$code $(workspace_of wT)"
 kind foo --workspace wT
 check "unknown kind" "1 watch: unknown kind: foo" "$code $out"
-kind mine
-check "kind with no workspace does nothing" "0 " "$code $(ls "$WATCHD_DIR/workspaces" 2>/dev/null)"
 
 reset
 events "app-$wt" "$(ev pipeline 5)"
