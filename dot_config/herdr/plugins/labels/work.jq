@@ -1,5 +1,5 @@
-# The watch state of a workspace, from the tokens that the watch scripts in
-# ~/.config/agents/bin report: watch_kind, watch_stage, and watch_needs.
+# The watch state of a workspace, from the tokens that the herdr plugin `watch` reports:
+# watch_kind, watch_stage, and watch_needs.
 #
 #   in:  the tokens object of a workspace
 #   $glyphs: {value: glyph}, the glyph table of the plugin configuration
