@@ -5,7 +5,7 @@
 # new_job_id, name, status, failure_reason (null for a job that passed), web_url.
 # Defaults: --interval 30, --timeout 3600. Sleep time and network outages do not count toward
 # --timeout.
-# Exit codes: 0 the new job finished with any status, 1 error, 4 the new job did not finish before
+# Exit codes: 0 the new job finished with any status, 1 error, 6 the new job did not finish before
 # the timeout.
 set -euo pipefail
 
@@ -61,7 +61,7 @@ while :; do
   left=$((left - interval))
   if ((left <= 0)); then
     echo "hub-retry: job $new did not finish in $timeout seconds, status $status" >&2
-    exit 4
+    exit 6
   fi
   nap "$interval"
 done

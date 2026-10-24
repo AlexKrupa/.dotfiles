@@ -167,7 +167,7 @@ with `iid` null if it comes after the report.
    - Exit `0`, `failed`, and a different reason: the job is an `other` job. Its triage line has
      `new_job_id`, `name`, `other`, no error lines, and `failure_reason`. Do step 3 for it.
    - Exit `0` and `canceled` or `skipped`: `<branch>: job <name> <status> after retry`.
-   - Exit `1` or `4`: the stderr text.
+   - Exit `1` or `6`: the stderr text.
 3. Other jobs. One debug workspace covers all `other` jobs of one incident. Find the open debug
    workspace: a line of `~/.claude/skills/hub/hub-status.sh` with a branch that matches
    `*/debug-<branch>-pipeline-*`.

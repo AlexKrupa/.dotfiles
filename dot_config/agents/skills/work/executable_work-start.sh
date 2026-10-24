@@ -34,7 +34,8 @@
 # only claude flag is --effort.
 # Prints JSON: mode, branch, base, tracked, worktree, pane_id, and in new and existing mode
 # workspace_id, agent.
-# Exit codes: 0 ok, 1 failed before the branch exists, 2 failed after it, 3 agent not ready
+# Exit codes: 0 ok, 1 error, 4 agent not ready. The stderr text of an error after the branch exists
+# ends with "(branch <branch> stays)".
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd -P)
@@ -44,7 +45,7 @@ watch_client=${WATCH_BIN:-$bin}/watch.sh
 spice_ref=refs/spice/data
 
 die() { echo "work-start: $1" >&2; exit 1; }
-fail() { echo "work-start: $1 (branch $branch stays)" >&2; exit 2; }
+fail() { echo "work-start: $1 (branch $branch stays)" >&2; exit 1; }
 
 # "new" in the main worktree, "next" in a linked worktree.
 mode_of() {
@@ -313,7 +314,7 @@ fi
 if ! out=$("${start[@]}" 2>&1); then
   if grep -q agent_not_ready <<<"$out"; then
     echo "work-start: agent not ready in pane $pane (branch $branch stays)" >&2
-    exit 3
+    exit 4
   fi
   fail "herdr agent start failed: $out"
 fi

@@ -169,7 +169,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    from a detached helper, so there the script runs its helper in the foreground of the
    background task. Then read the output file of the task once, with the Read tool. If the file
    is empty, read it again. JSON is exit `0`. A line that starts with `work-start:` is an error.
-   If the line ends with `(branch <branch> stays)`, it is exit `2`. Else, it is exit `1`.
+   If the line has `agent not ready`, it is exit `4`. Else, it is exit `1`.
 
    Existing mode: if the slug text is an MR title or a ticket title, add it. Then add `--branch <name>`. Do not
    add `--base`:
@@ -192,16 +192,17 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    - Exit `0`, next mode: "`<branch>` on `<base>`, `<fresh or continue>` handoff. This session
      clears after this turn and starts the new prompt. Do not type in this pane until the prompt
      shows."
-   - Exit `1` or `2`: the stderr text, word for word. The error is a report for the user, not a
+   - Exit `1`: the stderr text, word for word. The error is a report for the user, not a
      task. The repo and the worktree stay as they are: the user fixes the cause, then runs
      `/work` again.
-   - Exit `2` only, new, split, or next mode: also tell the user that `/work` again needs a new
-     branch name. The branch in the message stays. If the message names `herdr agent start` or
-     `herdr agent prompt`, its herdr worktree workspace stays too. The user can continue there
-     or remove them.
-   - Exit `2` only, existing mode: also tell the user that the herdr worktree workspace stays.
-     The user can continue there, or close it and run `/work` again.
-   - Exit `3`: the stderr text names the pane id. Run
+   - Exit `1` and the stderr text ends with `(branch <branch> stays)`, new, split, or next mode:
+     also tell the user that `/work` again needs a new branch name. The branch in the message
+     stays. If the message names `herdr agent start` or `herdr agent prompt`, its herdr worktree
+     workspace stays too. The user can continue there or remove them.
+   - Exit `1` and the stderr text ends with `(branch <branch> stays)`, existing mode: also tell
+     the user that the herdr worktree workspace stays. The user can continue there, or close it
+     and run `/work` again.
+   - Exit `4`: the stderr text names the pane id. Run
      `herdr agent read <pane-id> --source visible` and report what blocks the agent.
      The prompt was not sent. Tell the user to send the message in that pane after the block is
      gone.

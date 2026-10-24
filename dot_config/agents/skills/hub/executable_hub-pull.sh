@@ -5,9 +5,9 @@
 # than $HERDR_PANE_ID runs in the checkout. It gives no output. --once: do one round, then stop.
 # It pauses during system sleep. A fetch with a network error does not count: it waits for the
 # network, with no limit.
-# Exit codes: 0 --once done, 1 error: the checkout is on a different branch, has changes in
-# tracked files, or cannot fast-forward, or 5 fetches in sequence failed with other errors, 3 a new
-# instance replaced this one. A new instance stops an older instance of the same repo.
+# Exit codes: 0 --once done, or a new instance replaced this one, 1 error: the checkout is on a
+# different branch, has changes in tracked files, or cannot fast-forward, or 5 fetches in sequence
+# failed with other errors. A new instance stops an older instance of the same repo.
 set -euo pipefail
 
 die() { echo "hub-pull: $1" >&2; exit 1; }
@@ -58,7 +58,7 @@ cleanup() {
   if [[ $(cat "$lock" 2>/dev/null) == "$$" ]]; then rm -f "$lock"; fi
 }
 trap cleanup EXIT
-trap 'echo "hub-pull: replaced by a new hub pull" >&2; exit 3' TERM
+trap 'echo "hub-pull: replaced by a new hub pull" >&2; exit 0' TERM
 
 # The parent of this script can be a wrapper shell that stays alive after the agent is killed,
 # so the check covers all ancestors. `ps`, not `kill -0`: `kill -0` fails on processes of root.

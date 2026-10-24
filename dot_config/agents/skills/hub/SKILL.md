@@ -64,6 +64,6 @@ while a different herdr agent runs in the main checkout. It gives no output.
 2. When the task stops with exit `1`, report its stderr text and run
    `herdr notification show 'Hub pull stopped' --body '<stderr text>' --sound request`. Do not
    start the pull again. The user fixes the cause, for example changes in the main checkout.
-3. When the task stops with exit `3`, a new hub session started its own pull. Do not start the
+3. When the task stops with exit `0`, a new hub session started its own pull. Do not start the
    pull again. Do not send a notification.
 4. If the user asks to stop the pull, stop the task. If the user asks to start it, start it.

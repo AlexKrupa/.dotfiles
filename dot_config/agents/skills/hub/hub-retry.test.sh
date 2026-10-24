@@ -110,7 +110,7 @@ check "sleep does not count toward the timeout: exit 0" 0 "$code"
 
 setup "$(job pending null)"
 run 11 --interval 0 --timeout 0
-check "timeout: exit 4" 4 "$code"
+check "timeout: exit 6" 6 "$code"
 check "timeout: names the new job" yes "$(grep -q 'job 12' <<<"$err" && echo yes)"
 
 run

@@ -307,7 +307,7 @@ check "no base: no branch" no "$(has_branch ABC-0/typo)"
 # git-spice track fails.
 fresh
 MOCK_SPICE_FAIL=1 run p ABC-0 'typo'
-check "track fails: exit 2" 2 "$code"
+check "track fails: exit 1" 1 "$code"
 check "track fails: branch stays" yes "$(has_branch ABC-0/typo)"
 check "track fails: message names the step" \
   "work-start: git-spice branch track failed (branch ABC-0/typo stays)" "$err"
@@ -315,7 +315,7 @@ check "track fails: message names the step" \
 # Agent not ready.
 fresh
 MOCK_START_FAIL='{"error":{"code":"agent_not_ready"}}' run p ABC-0 'typo'
-check "not ready: exit 3" 3 "$code"
+check "not ready: exit 4" 4 "$code"
 check "not ready: message has the pane id" \
   "work-start: agent not ready in pane wT:p1 (branch ABC-0/typo stays)" "$err"
 check "not ready: no prompt" "" "$(grep '^herdr agent prompt' "$MOCK_LOG")"
@@ -323,7 +323,7 @@ check "not ready: no prompt" "" "$(grep '^herdr agent prompt' "$MOCK_LOG")"
 # Other start failure.
 fresh
 MOCK_START_FAIL='boom' run p ABC-0 'typo'
-check "start fails: exit 2" 2 "$code"
+check "start fails: exit 1" 1 "$code"
 
 # Next mode: a stacked branch in the same worktree, then herdr-after-turn.sh.
 fresh

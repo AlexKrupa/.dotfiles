@@ -134,7 +134,7 @@ net=$!
 for _ in $(seq 40); do [ "$(app_head)" = "$(new)" ] && break; sleep 0.25; done
 kill "$net" 2>/dev/null
 wait "$net"
-check "6 network errors, then a new commit: exit 3" 3 "$?"
+check "6 network errors, then a new commit: exit 0" 0 "$?"
 check "6 network errors, then a new commit: pull" "$(new)" "$(app_head)"
 
 # An older instance runs in its loop. A new instance stops it and takes the lock.
@@ -149,7 +149,7 @@ start new
 new=$!
 (sleep 15; kill -9 "$old") 2>/dev/null &
 wait "$old"
-check "older instance: exit 3" 3 "$?"
+check "older instance: exit 0" 0 "$?"
 check "older instance: message" "hub-pull: replaced by a new hub pull" "$(cat "$d/old.err")"
 lock_is "$new"
 check "new instance: lock" "$new" "$(cat "$lock" 2>/dev/null)"
