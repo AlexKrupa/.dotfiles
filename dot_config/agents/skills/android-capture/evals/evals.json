@@ -1,0 +1,34 @@
+{
+  "skill_name": "android-capture",
+  "skills": ["android-capture", "android-cli"],
+  "notes": "run.py builds the notes-app repo per run, runs `prompt` with `claude -p`, then moves the new ~/Downloads/android-* files to outputs/media/. `media_count` counts them, `media_name_regex` matches each name. Needs a running emulator. Run with -j 1: the runs share the device and ~/Downloads.",
+  "common_checks": [],
+  "evals": [
+    {
+      "id": 1,
+      "name": "direct-dark-screenshot",
+      "fixture": "../../draft-ticket/evals/fixtures/notes-app.sh",
+      "prompt": "Take a dark mode screenshot of the home screen of the emulator.",
+      "expected_output": "The agent uses the skill, captures one dark screenshot to ~/Downloads with a clean status bar, and resets dark mode and the status bar.",
+      "checks": [
+        {"type": "tool_count", "tool": "Skill", "input_regex": "android-capture", "min": 1, "text": "Uses the android-capture skill"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "\\bstatusbar clean\\b", "min": 1, "text": "Cleans the status bar"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "\\bnight off\\b", "min": 1, "text": "Turns dark mode off at the end"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "\\bstatusbar reset\\b", "min": 1, "text": "Resets the status bar"},
+        {"type": "media_count", "equals": 1, "text": "Writes 1 file to ~/Downloads"},
+        {"type": "media_name_regex", "pattern": "^android-\\d{8}-\\d{6}-.*dark.*\\.png$", "text": "File name has the timestamp and the dark state"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "screenshot-test-request",
+      "fixture": "../../draft-ticket/evals/fixtures/notes-app.sh",
+      "prompt": "Add a Paparazzi screenshot test for SettingsScreen in light and dark mode.",
+      "expected_output": "A code task: the agent writes a test and does not capture from a device.",
+      "checks": [
+        {"type": "tool_count", "tool": "Skill", "input_regex": "android-capture", "max": 0, "text": "Does not use the android-capture skill"},
+        {"type": "media_count", "equals": 0, "text": "Writes no file to ~/Downloads"}
+      ]
+    }
+  ]
+}
