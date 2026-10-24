@@ -19,6 +19,7 @@ local_plugins=(
   "$PWD/plugins/worktree-links"
   "$PWD/plugins/labels"
   "$PWD/plugins/caffeinate"
+  "$PWD/plugins/watch"
 )
 
 # A local clone of the herdr-pluck fork is for plugin development and for

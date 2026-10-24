@@ -10,6 +10,7 @@
 | `plugins/worktree-links/` | Symlink gitignored files into new worktrees                     |
 | `plugins/labels/`         | Name tabs, number rows, group agents by repo, show watch glyphs |
 | `plugins/caffeinate/`     | Keep the Mac awake while an agent works                         |
+| `plugins/watch/`          | Watch notifications and sidebar watch values                    |
 | `plugins/config/`         | Configuration for installed plugins                             |
 | `projects.local`          | Machine-local project paths, not in the dotfiles                |
 | `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`       |
