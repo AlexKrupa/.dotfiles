@@ -19,51 +19,28 @@ A `default-failed` event is a failed pipeline of the default branch. Its `iid` a
 null. Its `previous` is the status of the earlier default-branch pipeline. All other events are MR
 events. The `actor` of an `opened` event is the MR author.
 
+Each event has `row`: the number of its row in the report. An event that waits for the user
+is an open item, for example a to-do item or a failed pipeline. The watch keeps the open items
+and closes them when GitLab shows that their cause is gone.
+
 For each result with exit `0`, do these steps:
 
 1. Do "Router" for each MR with an `opened` event or a `todo` event with the `detail`
-   `review_requested`. Remove the `opened` events that the router does not keep. If no events
-   remain, start the watch again and give no output.
-2. Run `~/.claude/skills/hub/hub-status.sh` and `date +%H:%M`. Output the events in one
-   block. Put the events of one MR in one group. Put the `default-failed` event of a branch
-   in one group.
-
-   ```text
-   <HH:MM> - <n> events
-   !<iid> <title> (agent <pane id>)
-     - <event sentence>
-     - <event sentence>
-     <url>
-   <branch>
-     - Pipeline <id> failed
-     <url>
-   ```
-
-   - Header of a group: `!<iid> <title>`. For a `default-failed` event: `<branch>`.
-   - If `hub-status.sh` shows an agent on `branch`, add ` (agent <pane id>)` to the header.
-   - URL of a group: if the group has one event, use its `url`. Else use the `url` without
-     `#note_<id>`.
-   - Event sentences. Write the first letter of each sentence as a capital letter.
-
-     | Event                        | Sentence                                           |
-     | ---------------------------- | -------------------------------------------------- |
-     | `todo`, `review_requested`   | `@<actor> requested your review`                   |
-     | `todo`, `mentioned`          | `@<actor> mentioned you`                           |
-     | `todo`, `directly_addressed` | `@<actor> mentioned you`                           |
-     | `todo`, `approval_required`  | `@<actor> requested your approval`                 |
-     | `todo`, other `detail`       | `@<actor>: <detail>`, with `_` as a space          |
-     | `note`                       | `@<actor> commented: "<detail>"`                   |
-     | `reaction`                   | `@<actor> reacted <detail>`                        |
-     | `opened`                     | `@<actor> opened a dependency bump`                |
-     | all other kinds              | `<detail>`                                         |
-
-   - Sort the groups by their most urgent event. Urgency, from high to low:
-     1. `default-failed`
-     2. `note`, `todo`
-     3. All other events
-3. For each MR, do the action that the router selected in step 1. For each `default-failed`
-   event, do "Auto-debug".
+   `review_requested`. Put the row of each `opened` event that the router does not keep in
+   `close`. If no other events remain, start the watch again and give no output.
+2. For each MR, do the action that the router selected in step 1. For each `default-failed`
+   event, do "Auto-debug". Each action gives a cell: the Proposal or result text of a row.
+3. Run the host command "Report" with the JSON of your actions, and output its stdout word for
+   word. The JSON fields:
+   - `cells`: the text for each row, for example `{"2": "Review agent started"}`.
+   - `agent`: the rows of the events that an agent handles now. An open item in it closes.
+   - `close`: the rows that need nothing more.
+   - `add`: a row with no event, as `{"section": "agent", "iid": <iid or null>, "what": "<text>",
+     "result": "<text>"}`. The section `needs` opens an item that waits for the user.
 4. Start the watch again.
+
+A result of an action that comes after the report, for example of a background task, is an `add`
+row of the section `agent`. Run the report command with it, and output its stdout word for word.
 
 ## Router
 
@@ -72,7 +49,7 @@ MR, also when the MR has an `opened` event and a `todo` event in the same round.
 
 1. Run the host command for the MR details. The JSON has `author`,
    `labels`, `source_branch`, and `description`. If the script fails, keep the events, select no
-   action, and output the stderr text below the event block.
+   action, and put the stderr text in the cell of the MR row.
 2. Decide if the MR is a dependency bump: an MR that only changes the versions of dependencies.
    Use the title, the author, the branch, the labels, and the description. There is no fixed rule.
    - Signs of a bump: the author or the branch has `renovate` or `dependabot`. The title is
@@ -96,16 +73,17 @@ MR, also when the MR has an `opened` event and a `todo` event in the same round.
 
 The hub starts a review agent for each review request from a different person. The agent works in
 its own herdr worktree workspace. Do these steps for each MR for which the router selected
-"Auto-review". Write each output line below the event block.
+"Auto-review". The row is the row of the `review_requested` event. If no agent starts, the row
+stays an open item.
 
 1. Look for an earlier review report:
    `ls ~/.ai/$(~/.config/agents/bin/repo-slug.sh)/reviews/*-mr-<iid>-*.md`. If a report exists,
-   start no agent and output `!<iid>: Already reviewed: <report path>`. This rule applies also
-   when the MR has new commits, or when the person adds the user as reviewer again.
+   start no agent. The cell is `Already reviewed: <report path>`. This rule applies also when the
+   MR has new commits, or when the person adds the user as reviewer again.
 2. The branch is `source_branch` in the JSON of "Router" step 1.
 3. Ticket id: the issue key at the start of the branch name. Else, the placeholder id of the
-   repo's `CLAUDE.md`. Else, start no agent and output
-   `!<iid>: No placeholder id in CLAUDE.md, no review agent`.
+   repo's `CLAUDE.md`. Else, start no agent. The cell is
+   `No placeholder id in CLAUDE.md, no review agent`.
 4. Run this command. The branch name goes in single quotes. Do not add `--effort`.
 
    ```sh
@@ -115,22 +93,21 @@ its own herdr worktree workspace. Do these steps for each MR for which the route
    ```
 
 5. Result:
-   - Exit `0`: output `!<iid>: Review agent <pane id> started`. The pane id is `pane_id` in the
-     JSON.
+   - Exit `0`: put the row in `agent`. The cell is `Review agent started`.
    - The stderr text has "is open in herdr workspace": an agent works on the branch already. Start
-     no agent. The group header has `(agent <pane id>)` from "Events" step 2.
-   - Other errors: output the stderr text, word for word. The user fixes the cause.
+     no agent. Put the row in `agent`. The cell is `An agent works on the branch`.
+   - Other errors: the cell is the stderr text, word for word. The user fixes the cause.
 
 ## Auto-bump
 
 The hub starts a bump agent for each new dependency bump MR, also when the user is not a reviewer
 of the MR. The agent works in its own herdr worktree workspace. Do these steps for each MR for
-which the router selected "Auto-bump". Write each output line below the event block.
+which the router selected "Auto-bump". The row is the row of the `opened` event.
 
 1. The branch is `source_branch` in the JSON of "Router" step 1.
 2. Ticket id: the issue key at the start of the branch name. Else, the placeholder id of the
-   repo's `CLAUDE.md`. Else, start no agent and output
-   `!<iid>: No placeholder id in CLAUDE.md, no bump agent`.
+   repo's `CLAUDE.md`. Else, start no agent. The cell is
+   `No placeholder id in CLAUDE.md, no bump agent`.
 3. Run this command. The branch name goes in single quotes. Do not add `--effort`.
 
    ```sh
@@ -140,22 +117,23 @@ which the router selected "Auto-bump". Write each output line below the event bl
    ```
 
 4. Result:
-   - Exit `0`: output `!<iid>: Bump agent <pane id> started`. The pane id is `pane_id` in the
-     JSON.
+   - Exit `0`: put the row in `agent`. The cell is `Bump agent started`.
    - The stderr text has "is open in herdr workspace": an agent works on the branch already. Start
-     no agent. The group header has `(agent <pane id>)` from "Events" step 2.
-   - Other errors: output the stderr text, word for word. The user fixes the cause.
-5. After exit `0`, find an older bump agent of the same dependency: a `hub-status.sh` line with a
-   different branch that names the same dependency, for example `renovate/foo-1.x` for a bump of
-   `foo`. For each such agent, output `!<iid>: Bump agent <old pane id> is stale`. Do not close its
-   workspace, because it can contain changes.
+     no agent. Put the row in `agent`. The cell is `An agent works on the branch`.
+   - Other errors: the cell is the stderr text, word for word. The user fixes the cause.
+5. After exit `0`, find an older bump agent of the same dependency: run
+   `~/.claude/skills/hub/hub-status.sh` and find a line with a different branch that names the
+   same dependency, for example `renovate/foo-1.x` for a bump of `foo`. For each such agent, add
+   an `agent` row with `iid` null and the text `The bump agent of <old branch> is stale`. Do not
+   close its workspace, because it can contain changes.
 
 ## Auto-debug
 
 The hub sorts the failed jobs of each failed default-branch pipeline. It retries each job with a
 runner failure. For all other causes, it starts a debug agent in its own herdr worktree workspace.
-Do these steps for each `default-failed` event. The pipeline id is the last part of `url`. Write
-each output line below the event block.
+Do these steps for each `default-failed` event. The pipeline id is the last part of `url`. The
+row is the row of the event. Put it in `agent`. Each result below is its cell, or an `agent` row
+with `iid` null if it comes after the report.
 
 1. Triage. Start one Agent call in the background with this prompt. `<logs command>` is the host
    command for the logs of the failed jobs.
@@ -175,33 +153,32 @@ each output line below the event block.
    `other` jobs, at the same time.
 2. Runner jobs. A job gets 2 retries at most. The runner reasons are the four reasons of step 1.
    For each `runner` job, run the host command that retries a job and waits for the new job, in
-   the main checkout, as a background Bash task. Output
-   `<branch>: job <name> retried (runner failure), 1/2`. When a task stops:
-   - Exit `0` and `status` `success`: output `<branch>: job <name> passed after retry`.
+   the main checkout, as a background Bash task. The result is
+   `<branch>: job <name> retried (runner failure), 1 of 2`. When a task stops:
+   - Exit `0` and `status` `success`: `<branch>: job <name> passed after retry`.
    - Exit `0`, `failed`, a runner reason, and 1 retry: retry `<new_job_id>` in the same way.
-     Output `<branch>: job <name> retried (runner failure), 2/2`.
-   - Exit `0`, `failed`, a runner reason, and 2 retries: output
+     The result is `<branch>: job <name> retried (runner failure), 2 of 2`.
+   - Exit `0`, `failed`, a runner reason, and 2 retries:
      `<branch>: job <name> failed 3 times (runner failure), stopped`. Start no debug workspace.
    - Exit `0`, `failed`, and a different reason: the job is an `other` job. Its triage line has
      `new_job_id`, `name`, `other`, no error lines, and `failure_reason`. Do step 3 for it.
-   - Exit `0` and `canceled` or `skipped`: output `<branch>: job <name> <status> after retry`.
-   - Exit `1` or `4`: output the stderr text.
+   - Exit `0` and `canceled` or `skipped`: `<branch>: job <name> <status> after retry`.
+   - Exit `1` or `4`: the stderr text.
 3. Other jobs. One debug workspace covers all `other` jobs of one incident. Find the open debug
-   workspace: a `hub-status.sh` line with a branch that matches
+   workspace: a line of `~/.claude/skills/hub/hub-status.sh` with a branch that matches
    `*/debug-<branch>-pipeline-*`.
    - No debug workspace is open: start one (see "Debug workspace").
    - A debug workspace is open, and its branch ends with `-pipeline-<pipeline id>`, or `previous`
-     of the event is not `success`: this is the same incident. Start no workspace. Output
-     `<branch>: Debug agent <pane id> has this incident`. The user tells that agent about the new
-     jobs.
+     of the event is not `success`: this is the same incident. Start no workspace. The result is
+     `A debug agent has this incident`. The user tells that agent about the new jobs.
    - A debug workspace is open, and `previous` is `success`: this is a new incident. Start a new
-     workspace. Output `<branch>: Debug agent <old pane id> is stale`. Do not close the old
-     workspace, because it can contain changes.
+     workspace. The result is also `The debug agent of <old branch> is stale`. Do not close the
+     old workspace, because it can contain changes.
 
 ### Debug workspace
 
-1. Find the placeholder id in the repo's `CLAUDE.md`. If there is none, start no agent and output
-   `<branch>: No placeholder id in CLAUDE.md, no debug agent`.
+1. Find the placeholder id in the repo's `CLAUDE.md`. If there is none, start no agent. The
+   result is `No placeholder id in CLAUDE.md, no debug agent`.
 2. Run this command, with the triage lines of all `other` jobs:
 
    ```sh
@@ -217,5 +194,5 @@ each output line below the event block.
    PROMPT
    ```
 
-3. Exit `0`: output `<branch>: Debug agent <pane id> started`. Other errors: output the stderr
-   text, word for word.
+3. Exit `0`: the result is `Debug agent started`. Other errors: the result is the stderr text,
+   word for word.

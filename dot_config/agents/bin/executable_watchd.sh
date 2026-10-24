@@ -131,6 +131,7 @@ sweep() {
   local stack_key='-[0-9a-f]{12}(-review-[0-9]+)?$'
   for file in "$WATCHD_DIR"/inbox/*.jsonl "$WATCHD_DIR"/inbox/*.error \
     "$WATCHD_DIR"/items/*.json; do
+    [[ $file == *.last.jsonl ]] && continue
     key=$(basename "${file%.*}")
     sub=$WATCHD_DIR/subs/$key.json
     [[ -f $sub ]] && continue
@@ -141,7 +142,7 @@ sweep() {
       continue
     fi
     rm -f "$WATCHD_DIR/inbox/$key.jsonl" "$WATCHD_DIR/inbox/$key.error" \
-      "$WATCHD_DIR/inbox/$key.owner"
+      "$WATCHD_DIR/inbox/$key.owner" "$WATCHD_DIR/inbox/$key.last.jsonl"
     if [[ $key =~ $stack_key ]]; then rm -f "$WATCHD_DIR/items/$key.json"; fi
     watch_unlock "$sub.lock"
     watch_log "" "$key" "results of an ended subscription removed"

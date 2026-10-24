@@ -332,7 +332,8 @@ check "script hash changed: new hash" "$(watch_scripts_hash)" "$(cat "$WATCHD_DI
 # A copy of the scripts, so that a check can change them under a live daemon and client.
 reset
 mkdir -p "$d/wbin"
-for file in watch.sh watchd.sh watch-gitlab.sh watch-lib.sh watch-state.sh repo-slug.sh; do
+for file in watch.sh watchd.sh watch-gitlab.sh watch-lib.sh watch-state.sh watch-report.jq \
+  repo-slug.sh; do
   cp "$here/$file" "$d/wbin/"
 done
 export WATCH_BIN="$d/wbin"
@@ -628,6 +629,72 @@ WATCH_SESSION_PID=$other watch --mr 5
 { kill "$other"; wait "$other"; } 2>/dev/null
 wait_for 10 "[ ! -e '$WATCHD_DIR/items/app-$wt.json' ]"
 check "ended stack: items go away with the results" yes "$(gone "$WATCHD_DIR/items/app-$wt.json")"
+
+mr_url=https://gitlab.example.com/app/-/merge_requests
+pl_url=https://gitlab.example.com/app/-/pipelines
+report() { # report <json> [flags]: sets out and code
+  local json=$1
+  shift
+  out=$(cd "$d/app" && printf '%s' "$json" | "$client" report "$@" 2>&1); code=$?
+}
+# The report without its time line and the blank line after it, if the time line is correct.
+body() {
+  if grep -qE '^[0-2][0-9]:[0-5][0-9]$' <<<"$(head -n1 <<<"$out")" && [ -z "$(sed -n 2p <<<"$out")" ]
+  then tail -n +3 <<<"$out"; else printf '%s\n' "$out"; fi
+}
+reset
+echo '{"present": ["todo:11", "main-failed:develop"]}' >"$d/events/app.state"
+events app \
+  "$(jq -nc --arg u "$mr_url/5" '{kind: "todo", iid: 5, title: "Add foo", url: $u,
+    actor: "anna", detail: "review_requested", branch: "b", item: "todo:11"}')" \
+  "$(jq -nc --arg u "$pl_url/88123" '{kind: "default-failed", iid: null, title: null, url: $u,
+    actor: "", detail: "pipeline 88123 failed", branch: "develop", previous: "success",
+    item: "main-failed:develop", jobs: ["unit-tests"]}')" \
+  "$(jq -nc --arg u "$mr_url/5#note_7" '{kind: "reaction", iid: 5, title: "Add foo", url: $u,
+    actor: "bob", detail: ":tada: on your comment", branch: "b"}')"
+watch
+report '{"cells": {"2": "Retried, 1 of 2"}, "agent": ["2"]}'
+check "report: hub table" "0
+| #   | Section   | MR      | What happened                       | Proposal or result |
+| --- | --------- | ------- | ----------------------------------- | ------------------ |
+| 1   | Needs you | Add foo | @anna requested your review         |                    |
+| 2   | Agent     | develop | Pipeline failed: unit-tests         | Retried, 1 of 2    |
+| 3   | Info      | Add foo | @bob reacted :tada: on your comment |                    |
+
+Add foo (!5) $mr_url/5
+develop $pl_url/88123" "$code
+$(body)"
+check "report: agent closes the item" '["todo:11"]' "$(items_of app '[.items[].item]')"
+report '{"cells": {"1": "Review agent started"}}'
+report '{}'
+check "report: cell of an open item stays" \
+  "| 1   | Needs you | Add foo | @anna requested your review         | Review agent started |" \
+  "$(grep '^| 1 ' <<<"$out")"
+report '{"cells": {"1": "a|b"}}'
+check "report: a pipe in a cell is escaped" 'a\|b' "$(grep -o 'a\\|b' <<<"$out")"
+report "{\"cells\": {\"1\": \"$(printf 'x%.0s' $(seq 300))\"}}"
+check "report: a long cell is cut at 200 characters" \
+  "$(printf 'x%.0s' $(seq 197))..." "$(grep '^| 1 ' <<<"$out" | awk -F ' [|] ' '{print $5}' | tr -d ' |')"
+report '{"close": ["1"]}'
+check "report: close" "0 []" "$(grep -c 'Needs you' <<<"$out") $(items_of app '.items')"
+report '{"close": ["3"]}'
+check "report: close of a row with no open item hides it" "0 1" \
+  "$(grep -c '^| 3 ' <<<"$out") $(grep -c '^| 1 ' <<<"$out")"
+report '{"add": [{"section": "needs", "iid": 5, "what": "Fix waits, session not idle",
+  "result": "Ask the agent"}]}'
+check "report: add needs opens a model item" \
+  '[{"item":"model:4","owner":"model","what":"Fix waits, session not idle","result":"Ask the agent"}]' \
+  "$(items_of app '[.items[] | {item, owner, what, result}]')"
+check "report: the model item is a Needs you row" \
+  "Needs you | Add foo | Fix waits, session not idle | Ask the agent" \
+  "$(grep 'Needs you' <<<"$out" | sed -E 's/ +/ /g; s/^[|] [0-9]+ [|] //; s/ [|]$//')"
+"$client" unsubscribe --repo "$d/app"
+
+reset
+report '{}'
+check "report: no events, no items" "0 yes" \
+  "$code $(grep -qE '^[0-2][0-9]:[0-5][0-9]$' <<<"$out" && [ "$(wc -l <<<"$out" | tr -d ' ')" = 1 ] \
+    && echo yes || echo no)"
 
 reset
 unset WATCHD_ENGINE

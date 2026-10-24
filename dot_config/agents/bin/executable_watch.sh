@@ -4,6 +4,7 @@
 #        watch.sh status
 #        watch.sh kind KIND [--workspace ID]
 #        watch.sh route --iid IID --action bump|review|none [--repo PATH]
+#        watch.sh report [--repo PATH] [--review] [--mr IID]... <JSON
 # The client of the watch daemon watchd.sh, for the background task of a session. It starts the
 # daemon if no daemon runs, writes its subscription, waits for the events of the subscription,
 # and prints one JSON line for each event. The flags, the modes, and the events are as in the
@@ -22,6 +23,19 @@
 # stack, review, or hub. The herdr plugin `watch` writes the sidebar values from these files.
 # route: add the router result of an opened event of the hub to the event log, with the hub key
 # of the repo. The herdr plugin `watch` uses it for the notification of the new MR.
+# report: print the Markdown report of the last delivery of the subscription (the lines that the
+# client printed last) and of its open items. The flags of the watch command select the
+# subscription. stdin is a JSON object, all fields optional, empty is {}:
+#   {"cells": {"<row>": "<text>"}, "agent": ["<row>"], "close": ["<row>"],
+#    "add": [{"section": "needs"|"agent"|"info", "iid": <n>|null, "what", "result"}]}
+#   cells: the Proposal or result text of a row. An open item keeps it for the next reports.
+#   agent: rows that go to the Agent section. An open item in it closes.
+#   close: open items that close, also items of the model. A row with no open item is not in
+#   this report.
+#   add: a needs row opens an item of the model, with a new number. An agent or info row is
+#   only in this report.
+# Sections: Needs you (all open items), Agent, Info (the other events of the delivery). The
+# layout is in watch-report.jq: one table in hub mode, else one table for each MR.
 # With new scripts, a waiting client starts itself again with the same PID and flags.
 # Exit codes: 0 events, 1 error, 3 a new client or session replaced this one
 set -euo pipefail
@@ -90,7 +104,7 @@ fi
 
 command=wait
 case ${1:-} in
-  unsubscribe | status) command=$1; shift ;;
+  unsubscribe | status | report) command=$1; shift ;;
 esac
 # --fresh applies once: the client starts again with new scripts and keeps the saved state.
 restart_args=()
@@ -156,6 +170,80 @@ owner=$WATCHD_DIR/inbox/$key.owner
 
 session=$(watch_session_pid)
 if ((review)); then mode=review; elif ((${#mrs[@]})); then mode=stack; else mode=hub; fi
+# in: $input (the JSON of the model), $items (the items file), $delivery (the last delivery).
+# out: {items, rows, links} for watch-report.jq.
+REPORT_PROGRAM='
+  ($input.cells // {}) as $cells
+  | ($input.agent // [] | map(tostring)) as $agent
+  | ($input.close // [] | map(tostring)) as $close
+  | ($items[0] // {next: 1, items: []}) as $start
+  # One event for each row: a comment before its unaddressed line.
+  | ($delivery | group_by(.row) | map(sort_by(.kind == "unaddressed") | .[0]) | sort_by(.row))
+    as $events
+  | [$delivery[].row | tostring] as $delivered
+  | (reduce ([$delivery[], $start.items[]][] | select(.iid != null)) as $x ({};
+      .[$x.iid | tostring] //= {title: $x.title, url: ($x.url // "" | sub("#.*$"; ""))})) as $mrs
+  | ($start | .items |= map(.result = ($cells[.n | tostring] // .result))) as $updated
+  | [$updated.items[] | select(.n | tostring | IN($agent[]))] as $agent_items
+  | (reduce ($input.add // [])[] as $add
+      ({state: ($updated | .items |= map(select(.n | tostring | IN($agent[], $close[]) | not))),
+        rows: []};
+      .state.next as $n | .state.next += 1
+      | ($mrs[$add.iid | tostring] // {}) as $mr
+      | if $add.section == "needs" then
+          .state.items += [{n: $n, item: "model:\($n)", owner: "model", iid: $add.iid,
+            title: $mr.title, url: $mr.url, what: $add.what, result: ($add.result // ""),
+            since: $now, event: null, new: true}]
+        else
+          .rows += [{n: $n, section: (if $add.section == "agent" then "Agent" else "Info" end),
+            iid: $add.iid, title: $mr.title, url: $mr.url, event: null, what: $add.what,
+            result: ($add.result // ""), since: null}]
+        end)) as $added
+  | [$added.state.items[].n | tostring] as $open
+  | def item_row($section):
+      {n, section: $section, iid, title: (.title // .event.branch), url, event, what,
+       result: (.result // ""),
+       since: (if .new or (.n | tostring | IN($delivered[])) then null else .since end)};
+    def event_row($section):
+      {n: .row, section: $section, iid, title: (.title // .branch), url, event: ., what: null,
+       result: ($cells[.row | tostring] // ""), since: null};
+  ([$added.state.items | sort_by(.n)[] | item_row("Needs you")]
+    + [$agent[] as $id
+      | ([$agent_items[] | select(.n | tostring == $id) | item_row("Agent")]
+        + [$events[] | select(.row | tostring == $id) | event_row("Agent")])[0] // empty]
+    + [$added.rows[] | select(.section == "Agent")]
+    + [$events[] | select(.row | tostring | IN($open[], $agent[], $close[]) | not)
+      | event_row("Info")]
+    + [$added.rows[] | select(.section == "Info")]) as $rows
+  | {items: ($added.state | del(.items[].new)),
+     rows: $rows,
+     links: ([$rows[] | select((.url // "") != "")
+       | {key: (if .iid then "!\(.iid)" else .title end), title, iid,
+          url: (.url | sub("#.*$"; ""))}]
+       | reduce .[] as $link ([]; if any(.[]; .key == $link.key) then . else . + [$link] end)
+       | map(del(.key)))}'
+
+if [[ $command == report ]]; then
+  input=$(cat)
+  [[ -n ${input//[[:space:]]/} ]] || input='{}'
+  jq -e 'type == "object"' <<<"$input" >/dev/null 2>&1 || die "report needs a JSON object on stdin"
+  items=$WATCHD_DIR/items/$key.json
+  watch_lock "$items.lock" || exit 1
+  if ! result=$(jq -n --argjson input "$input" --slurpfile items <(cat "$items" 2>/dev/null) \
+    --slurpfile delivery <(cat "$WATCHD_DIR/inbox/$key.last.jsonl" 2>/dev/null) \
+    --argjson now "$(date +%s)" "$REPORT_PROGRAM"); then
+    watch_unlock "$items.lock"
+    die "report: jq could not read the input or the state"
+  fi
+  jq '.items' <<<"$result" >"$items.tmp" && mv "$items.tmp" "$items"
+  watch_unlock "$items.lock"
+  jq --arg mode "$mode" --arg time "$(date +%H:%M)" \
+    --argjson mrs "$(printf '%s\n' ${mrs[@]+"${mrs[@]}"} | jq -sc .)" \
+    '{mode: $mode, time: $time, mrs: $mrs, rows: .rows, links: .links}' <<<"$result" \
+    | jq -r -f "$WATCH_BIN/watch-report.jq"
+  exit 0
+fi
+
 if [[ $command == unsubscribe ]]; then
   watch_lock "$sub.lock" || exit 1
   # For example, an unsubscribe with no flags in a stack session has the key of the hub.
@@ -172,7 +260,7 @@ if [[ $command == unsubscribe ]]; then
     stack) rm -f "$WATCHD_DIR/items/$key.json" ;;
   esac
   rm -f "$sub" "$inbox" "$error" "$owner" "$WATCHD_DIR/poke/$key" "$WATCHD_DIR/rounds/$key" \
-    "$WATCHD_DIR/rounds/$key.poked"
+    "$WATCHD_DIR/rounds/$key.poked" "$WATCHD_DIR/inbox/$key.last.jsonl"
   if [[ -n $workspace ]]; then watch_workspace_update "$workspace" '.stage = "stopped"'; fi
   watch_unlock "$sub.lock"
   watch_log "$slug" "$key" "unsubscribed"
@@ -316,6 +404,8 @@ while :; do
     watch_unlock "$inbox.lock"
     if [[ -s $tmp ]] || ((once && own_round)); then
       if ((ended)); then rm -f "$owner"; fi
+      # The delivery of the next report command.
+      cp "$tmp" "$WATCHD_DIR/inbox/$key.last.jsonl"
       cat "$tmp"
       exit 0
     fi
