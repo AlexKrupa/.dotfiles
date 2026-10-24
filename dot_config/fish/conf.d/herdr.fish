@@ -49,6 +49,9 @@ function herdr-forks-sync --description "Rebase forked herdr plugins onto upstre
             echo "==> $fork build failed: "(echo $cmd | jq -r 'join(" ")')" - rebuild $clone by hand"
           end
         end
+        # herdr keeps the manifest from link time: version, actions, and build commands.
+        herdr plugin link $clone >/dev/null
+        or echo "==> $fork relink failed - run herdr plugin link $clone by hand"
       end
     else
       git -C $clone rebase --abort
