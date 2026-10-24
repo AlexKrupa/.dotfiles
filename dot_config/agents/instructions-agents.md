@@ -48,6 +48,22 @@
   3. If `draft-pr` stops at its preflight (no git repo, mainline branch), end with the `review-me`
      reply
 
+### Shorthand
+
+When my message starts with one of these phrases, do the action. Then read the rest of the message.
+
+- `tldr` - your last reply is too long. Write it again: the answer first, only the facts that I
+  need, no new content.
+- `go`, `go ahead`, `continue` - do the next action that you proposed. Do not ask again.
+- `done` - I did the step that you gave me. Make sure that the result is correct, then continue.
+- `commit this` - commit the changes of this conversation as atomic commits. Do not push.
+- `push` - I permit a push of this branch or stack. Follow the push rules in `### Git`.
+- `fix nits`, `fix minors`, `fix majors`, `fix criticals` - fix the findings of the last review at
+  one level: nit is `low`, minor is `medium`, major is `high`, critical is `critical`.
+- `squash fixups`, `squash branch` - find the repair commits of the branch in the same way that
+  `review-me` does. Then run `~/.config/agents/bin/git-squash-fixups.sh <parent>
+  <repair>:<target>...`. It also squashes the `fixup!` and `amend!` commits.
+
 ### Git
 
 - Act when the conversation shows my intent. Do not assume an intent that I did not state.
