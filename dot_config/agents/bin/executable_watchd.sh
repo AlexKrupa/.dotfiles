@@ -133,6 +133,7 @@ sweep() {
     "$WATCHD_DIR"/items/*.json; do
     [[ $file == *.last.jsonl ]] && continue
     key=$(basename "${file%.*}")
+    [[ $file == */items/* && ! $key =~ $stack_key ]] && continue
     sub=$WATCHD_DIR/subs/$key.json
     [[ -f $sub ]] && continue
     watch_lock "$sub.lock" || continue
@@ -205,7 +206,11 @@ prune_items() {
 # log, then to the inbox.
 route() {
   local inbox=$WATCHD_DIR/inbox/$2.jsonl now
-  assign_rows "$2" "$4" || return
+  # The engine saved its state: events that do not go out now are lost.
+  if ! assign_rows "$2" "$4"; then
+    watch_log "$1" "$2" "no rows: the items file is not readable"
+    cp "$4" "$4.rows"
+  fi
   now=$(date +%s)
   watch_event_log "$(jq -c --arg slug "$1" --arg key "$2" --arg mode "$3" --argjson now "$now" '
     {time: $now, round: "\($key)-\($now)", type: "event", slug: $slug, key: $key, mode: $mode,

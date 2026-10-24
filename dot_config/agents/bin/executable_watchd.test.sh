@@ -754,6 +754,38 @@ $(body)"
 "$client" unsubscribe --repo "$d/app" --mr 5 --mr 6
 
 reset
+mkdir -p "$WATCHD_DIR/items"
+echo '{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}' \
+  >"$WATCHD_DIR/items/app.json"
+events "app-$wt" "$(ev approved 5)"
+watch --mr 5
+sleep 3
+check "hub items with no hub record: no sweep log line, items stay" "0 yes" \
+  "$(grep -c ' app results of an ended subscription removed' "$WATCHD_DIR/watchd.log") \
+$([ -f "$WATCHD_DIR/items/app.json" ] && echo yes || echo no)"
+"$client" unsubscribe --repo "$d/app" --mr 5
+
+reset
+echo '{"present": ["thread:d1"]}' >"$d/events/app-$wt.state"
+events "app-$wt" "$(iev comment 5 thread:d1)" "$(iev unaddressed 5 thread:d1)"
+watch --mr 5
+events "app-$wt" "$(ev approved 5)" "$(iev unaddressed 5 thread:d1)"
+watch --mr 5
+report '{}' --mr 5
+check "report: an old thread in a new delivery has Since" yes \
+  "$(grep -qE '[|] Since [0-2][0-9]:[0-5][0-9]: @anna' <<<"$out" && echo yes || echo no)"
+"$client" unsubscribe --repo "$d/app" --mr 5
+
+reset
+mkdir -p "$WATCHD_DIR/items"
+echo 'not json' >"$WATCHD_DIR/items/app.json"
+events app "$(ev todo 5)"
+watch
+check "items file not JSON: the events come, with a log line" "0 $(ev todo 5) 1" \
+  "$code $out $(grep -c 'no rows' "$WATCHD_DIR/watchd.log")"
+"$client" unsubscribe --repo "$d/app"
+
+reset
 unset WATCHD_ENGINE
 mkdir -p "$d/state/watch-gitlab"
 echo '{"todos": []}' >"$d/state/watch-gitlab/app.json"

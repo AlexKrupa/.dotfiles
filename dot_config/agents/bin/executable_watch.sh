@@ -180,7 +180,8 @@ REPORT_PROGRAM='
   # One event for each row: a comment before its unaddressed line.
   | ($delivery | group_by(.row) | map(sort_by(.kind == "unaddressed") | .[0]) | sort_by(.row))
     as $events
-  | [$delivery[].row | tostring] as $delivered
+  # Each round with events repeats the unaddressed line of each open thread.
+  | [$delivery[] | select(.kind != "unaddressed") | .row | tostring] as $delivered
   | (reduce ([$delivery[], $start.items[]][] | select(.iid != null)) as $x ({};
       .[$x.iid | tostring] //= {title: $x.title, url: ($x.url // "" | sub("#.*$"; ""))})
     # The engine state has the titles of the MRs with no event.
