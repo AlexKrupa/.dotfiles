@@ -2,3 +2,4 @@
 .config/agents/bin/watch.sh
 .config/agents/bin/watch-*
 .config/agents/bin/watchd*
+.config/agents/bin/watch/watchd.test.sh
