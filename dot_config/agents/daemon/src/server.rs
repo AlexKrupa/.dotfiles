@@ -37,7 +37,7 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
         Ok(Some(request)) => request,
         Ok(None) => return,
         Err(error) => {
-            let text = format!("watch: bad request: {error}\n");
+            let text = format!("watchd: bad request: {error}\n");
             let _ = send(&mut write, &Response::Error { text }).await;
             return;
         }

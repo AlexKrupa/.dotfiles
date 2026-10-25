@@ -196,7 +196,7 @@ fn hub_basics() -> &'static Checks {
         let run = env.run(&[]);
         c.check("HTTP 403: exit 5", 5, run.code);
         c.check("HTTP 403: message",
-            "watch-gitlab: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the Read permission for Todo (user boundary).",
+            "watchd: HTTP 403 on todos?project_id=7&type=MergeRequest&state=pending&per_page=100. The token needs the Read permission for Todo (user boundary).",
             run.err);
         env.set_env("MOCK_FAIL_MSG", "dial tcp: i/o timeout");
         c.check("network error: exit 4", 4, env.run(&[]).code);
@@ -204,7 +204,7 @@ fn hub_basics() -> &'static Checks {
         c.check("other error: exit 1", 1, env.run(&[]).code);
         env.set_env("MOCK_FAIL_MSG", "HTTP 404 Not Found");
         c.check("other error: message",
-            "watch-gitlab: todos?project_id=7&type=MergeRequest&state=pending&per_page=100: HTTP 404 Not Found",
+            "watchd: todos?project_id=7&type=MergeRequest&state=pending&per_page=100: HTTP 404 Not Found",
             env.run(&[]).err);
         env.remove_env("MOCK_FAIL");
         env.remove_env("MOCK_FAIL_MSG");
@@ -212,7 +212,7 @@ fn hub_basics() -> &'static Checks {
         env.set_env("MOCK_NOAUTH", "1");
         let run = env.run(&[]);
         c.check("glab not authenticated: exit 5", 5, run.code);
-        c.check("glab not authenticated: message", "watch-gitlab: glab is not authenticated, run: glab auth login", run.err);
+        c.check("glab not authenticated: message", "watchd: glab is not authenticated, run: glab auth login", run.err);
         env.remove_env("MOCK_NOAUTH");
 
         let app2 = env.dir.join("app2");
@@ -857,27 +857,27 @@ fn stack_errors() -> &'static Checks {
         let run = env.run(&["--mr", "5"]);
         c.check("stack: comments that the token cannot read: exit 5", 5, run.code);
         c.check("stack: comments that the token cannot read: message",
-            "watch-gitlab: MR !5 has 2 comment(s), but projects/group%2Fsub%2Fapp/merge_requests/5/discussions?per_page=100 gave none. The token needs the Read permission for Work Item (group or project boundary).",
+            "watchd: MR !5 has 2 comment(s), but projects/group%2Fsub%2Fapp/merge_requests/5/discussions?per_page=100 gave none. The token needs the Read permission for Work Item (group or project boundary).",
             run.err);
         env.fixture("mr_5", "{}");
         env.set_env("MOCK_FAIL", "*/discussions*");
         env.set_env("MOCK_FAIL_MSG", "glab: 403 Forbidden (HTTP 403)");
         c.check("stack: HTTP 403 on discussions: message",
-            "watch-gitlab: HTTP 403 on projects/group%2Fsub%2Fapp/merge_requests/5/discussions?per_page=100. The token needs the Read permission for Work Item (group or project boundary).",
+            "watchd: HTTP 403 on projects/group%2Fsub%2Fapp/merge_requests/5/discussions?per_page=100. The token needs the Read permission for Work Item (group or project boundary).",
             env.run(&["--mr", "5"]).err);
         env.remove_env("MOCK_FAIL");
         env.remove_env("MOCK_FAIL_MSG");
 
         let run = env.run(&["--mr", "7"]);
         c.check("stack: unknown MR: exit 5", 5, run.code);
-        c.check("stack: unknown MR: message", "watch-gitlab: MR !7 not found in group/sub/app", run.err);
+        c.check("stack: unknown MR: message", "watchd: MR !7 not found in group/sub/app", run.err);
         env.fixture("gql_5", r#"{"errors": [{"message": "Field 'awardEmoji' does not exist"}]}"#);
         let run = env.run(&["--mr", "5"]);
         c.check("stack: GraphQL error: exit 5", 5, run.code);
-        c.check("stack: GraphQL error: message", "watch-gitlab: graphql: Field 'awardEmoji' does not exist", run.err);
-        c.check("stack: bad MR: message", "watch-gitlab: --mr needs an MR number", env.run(&["--mr", "x"]).err);
-        c.check("review: no --mr: message", "watch-gitlab: --review needs exactly one --mr", env.run(&["--review"]).err);
-        c.check("review: two --mr: message", "watch-gitlab: --review needs exactly one --mr",
+        c.check("stack: GraphQL error: message", "watchd: graphql: Field 'awardEmoji' does not exist", run.err);
+        c.check("stack: bad MR: message", "watchd: --mr needs an MR number", env.run(&["--mr", "x"]).err);
+        c.check("review: no --mr: message", "watchd: --review needs exactly one --mr", env.run(&["--review"]).err);
+        c.check("review: two --mr: message", "watchd: --review needs exactly one --mr",
             env.run(&["--review", "--mr", "5", "--mr", "6"]).err);
         c
     })
@@ -1274,7 +1274,7 @@ fn arguments() -> &'static Checks {
         let run = env.run(&["--mr", "5", "--deadline", "1"]);
         c.check(
             "stack: --deadline is unknown",
-            "1 watch-gitlab: unexpected argument: --deadline",
+            "1 watchd: unexpected argument: --deadline",
             format!("{} {}{}", run.code, run.out, run.err),
         );
 
@@ -1282,7 +1282,7 @@ fn arguments() -> &'static Checks {
         c.check("unexpected argument: exit 1", 1, run.code);
         c.check(
             "unexpected argument: message",
-            "watch-gitlab: unexpected argument: --bogus",
+            "watchd: unexpected argument: --bogus",
             format!("{}{}", run.out, run.err),
         );
         c

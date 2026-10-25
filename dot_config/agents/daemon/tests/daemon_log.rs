@@ -102,11 +102,11 @@ fn log_and_workspaces() -> &'static Checks {
 
         let w = Watchd::new();
         w.fake("app", "exit", "5\n");
-        w.fake("app", "err", "watch-gitlab: HTTP 403 on todos\n");
+        w.fake("app", "err", "watchd: HTTP 403 on todos\n");
         w.watch(&[]);
         c.check(
             "permanent error: stopped line",
-            r#"["stopped","watch-gitlab: HTTP 403 on todos",null]"#,
+            r#"["stopped","watchd: HTTP 403 on todos",null]"#,
             fields(&w.log_last(), &["/type", "/error", "/title"]),
         );
         herdr |= w.herdr_called();
@@ -116,7 +116,7 @@ fn log_and_workspaces() -> &'static Checks {
         let stack = w.stack_key();
         w.fake(&stack, "state", r#"{"mrs": {"5": {"title": "Add foo"}}, "needs": []}"#);
         w.fake(&stack, "exit", "5\n");
-        w.fake(&stack, "err", "watch-gitlab: HTTP 403 on graphql\n");
+        w.fake(&stack, "err", "watchd: HTTP 403 on graphql\n");
         w.watch(&["--mr", "5"]);
         c.check(
             "permanent error of a stack: stopped line has the MR title",
@@ -145,7 +145,7 @@ fn log_and_workspaces() -> &'static Checks {
         let run = kind(&w, &["foo", "--workspace", "wT"], None);
         c.check(
             "unknown kind",
-            "1 watch: unknown kind: foo",
+            "1 watchd: unknown kind: foo",
             format!("{} {}", run.code, run.out),
         );
         herdr |= w.herdr_called();
@@ -222,7 +222,7 @@ fn log_and_workspaces() -> &'static Checks {
         let run = w.client(&["route", "--iid", "61", "--action", "merge"]);
         c.check(
             "route: unknown action",
-            "1 watch: unknown action: merge",
+            "1 watchd: unknown action: merge",
             format!("{} {}{}", run.code, run.out, run.err),
         );
         herdr |= w.herdr_called();

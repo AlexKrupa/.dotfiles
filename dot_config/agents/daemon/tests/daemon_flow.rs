@@ -135,11 +135,11 @@ fn errors() -> &'static Checks {
         );
 
         w.fake("app", "exit", "5\n");
-        w.fake("app", "err", "watch-gitlab: HTTP 403 on todos\n");
+        w.fake("app", "err", "watchd: HTTP 403 on todos\n");
         let run = w.watch(&[]);
         c.check(
             "HTTP 403: client exit 1 with the text",
-            "1 watch-gitlab: HTTP 403 on todos",
+            "1 watchd: HTTP 403 on todos",
             format!("{} {}", run.code, run.err),
         );
         c.check("HTTP 403: no subscription", "yes", w.sub_gone("app"));
@@ -151,17 +151,17 @@ fn errors() -> &'static Checks {
         let run = w.watch(&[]);
         c.check(
             "HTTP 403 with no client: next client exit 1, no subscription",
-            "1 watch-gitlab: HTTP 403 on todos yes",
+            "1 watchd: HTTP 403 on todos yes",
             format!("{} {} {}", run.code, run.err, w.sub_gone("app")),
         );
 
         w.fake("app", "exit", "1\n1\n1\n1\n1\n");
-        w.fake("app", "err", "watch-gitlab: boom\n");
+        w.fake("app", "err", "watchd: boom\n");
         w.clear_args();
         let run = w.watch(&[]);
         c.check(
             "5 other errors: exit 1",
-            "1 watch-gitlab: boom",
+            "1 watchd: boom",
             format!("{} {}", run.code, run.err),
         );
         let repo_args = format!("--repo {}", w.env.repo.display());
@@ -250,7 +250,7 @@ fn client_ends() -> &'static Checks {
         let run = client.wait(20).unwrap();
         c.check(
             "client: worktree gone: exit 1",
-            format!("1 watch: the worktree is gone: {}", gone.display()),
+            format!("1 watchd: the worktree is gone: {}", gone.display()),
             format!("{} {}", run.code, run.err.lines().last().unwrap_or_default()),
         );
 
@@ -276,7 +276,7 @@ fn client_ends() -> &'static Checks {
         wait_for(10, || !alive(orphan));
         c.check(
             "client: parent gone: client stops",
-            "no watch: the parent process is gone",
+            "no watchd: the parent process is gone",
             format!(
                 "{} {}",
                 yes_no(alive(orphan)),

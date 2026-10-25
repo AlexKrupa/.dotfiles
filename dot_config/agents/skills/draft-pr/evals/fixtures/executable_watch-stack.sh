@@ -46,7 +46,7 @@ put "$host/watch" <<'EOF'
 #!/bin/sh
 # Fake watch command. It stops at once as "replaced", so the session does not wait for it.
 sleep 2
-echo "watch: replaced by a new watch" >&2
+echo "watchd: replaced by a new watch" >&2
 exit 3
 EOF
 put "$host/job-log" <<'EOF'

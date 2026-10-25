@@ -101,7 +101,7 @@ pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<T>, EngineError> 
         Some(Load::Current(state) | Load::Converted(state)) => Ok(Some(state)),
         Some(Load::Dropped(reason)) => {
             let _ = std::fs::remove_file(path);
-            eprintln!("watch-gitlab: {}: {reason}, record removed", path.display());
+            eprintln!("watchd: {}: {reason}, record removed", path.display());
             Ok(None)
         }
     }

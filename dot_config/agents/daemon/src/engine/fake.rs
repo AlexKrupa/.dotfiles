@@ -168,13 +168,13 @@ mod tests {
             engine_dir: dir.join("engine"),
         };
         std::fs::write(dir.join("events/app.exit"), "5\n4\n").unwrap();
-        std::fs::write(dir.join("events/app.err"), "watch-gitlab: HTTP 403\n").unwrap();
+        std::fs::write(dir.join("events/app.err"), "watchd: HTTP 403\n").unwrap();
 
         let first = engine.check(hub(&repo), cache(&dir)).await;
         let second = engine.check(hub(&repo), cache(&dir)).await;
         let third = engine.check(hub(&repo), cache(&dir)).await;
 
-        assert!(matches!(first, Err(EngineError::Permanent(text)) if text == "watch-gitlab: HTTP 403\n"));
+        assert!(matches!(first, Err(EngineError::Permanent(text)) if text == "watchd: HTTP 403\n"));
         assert!(matches!(second, Err(EngineError::Network(_))));
         assert!(matches!(third, Ok(events) if events.is_empty()));
     }

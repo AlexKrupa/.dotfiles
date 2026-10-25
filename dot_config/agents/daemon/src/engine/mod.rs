@@ -199,7 +199,7 @@ impl Engine for GitlabEngine {
                 Err(error) => Err(error),
             };
             result.map_err(|error| {
-                let text = format!("watch-gitlab: {}\n", error.message());
+                let text = format!("watchd: {}\n", error.message());
                 match error {
                     EngineError::Permanent(_) => EngineError::Permanent(text),
                     EngineError::Network(_) => EngineError::Network(text),
@@ -459,7 +459,7 @@ pub async fn main(args: Vec<String>) -> i32 {
             0
         }
         Err(error) => {
-            eprintln!("watch-gitlab: {}", error.message());
+            eprintln!("watchd: {}", error.message());
             error.exit_code()
         }
     }

@@ -18,7 +18,7 @@ use crate::platform::{ancestors, local_time, now_seconds, process_alive, session
 use crate::protocol::{Request, Response, StatusReport, SubscribeArgs, receive, send};
 
 fn die(message: &str) -> i32 {
-    eprintln!("watch: {message}");
+    eprintln!("watchd: {message}");
     1
 }
 
@@ -241,7 +241,7 @@ fn deliver(response: Response) -> i32 {
             1
         }
         Response::Replaced => {
-            eprintln!("watch: a new client or session replaced this one");
+            eprintln!("watchd: a new client or session replaced this one");
             3
         }
         Response::Ended => die("the subscription ended"),

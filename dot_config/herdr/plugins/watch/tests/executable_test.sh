@@ -78,9 +78,9 @@ check "own-comment only: no notification" '' \
 check "own merge: no notification" '' \
   "$(notify "$(line r1 merged me merged '.event.own = true')")"
 check "stopped" \
-  '{"title":"Hub","body":"Watch stopped: watch-gitlab: HTTP 403 on todos","sound":"request"}' \
+  '{"title":"Hub","body":"Watch stopped: watchd: HTTP 403 on todos","sound":"request"}' \
   "$(notify '{"time": 1000, "type": "stopped", "slug": "app", "key": "app", "mode": "hub",
-    "title": null, "error": "watch-gitlab: HTTP 403 on todos"}')"
+    "title": null, "error": "watchd: HTTP 403 on todos"}')"
 
 # sidebar <input>: the output of sidebar.jq.
 sidebar() { jq -c -f ../sidebar.jq <<<"$1"; }

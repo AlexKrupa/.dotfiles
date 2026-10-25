@@ -118,7 +118,7 @@ fn leftover_error() -> &'static Checks {
         w.events("app", &[ev("todo", 5)]);
         w.watch(&[]);
         w.fake("app", "exit", "5\n");
-        w.fake("app", "err", "watch-gitlab: HTTP 403 on todos\n");
+        w.fake("app", "err", "watchd: HTTP 403 on todos\n");
         wait_for(5, || w.has_error("app"));
         let other = session();
         w.events("app", &[ev("todo", 6)]);
@@ -269,7 +269,7 @@ fn foreign_unsubscribe() -> &'static Checks {
         let run = w.run(as_session(command, other.id()));
         c.check(
             "unsubscribe of a different session: exit 1, no change",
-            format!("1 no watch: the subscription app is of session {}", w.session_pid()),
+            format!("1 no watchd: the subscription app is of session {}", w.session_pid()),
             format!("{} {} {}", run.code, w.sub_gone("app"), run.err),
         );
         end(other);
