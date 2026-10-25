@@ -56,8 +56,9 @@ Pass 1 does not delete old comments:
 - If the diff changed an old comment, pass 2 examines only the changed lines, with the same
   questions. Delete each changed line that fails question 1. Keep the unchanged lines.
 - In target mode, pass 2 also examines each old comment in the target that the diff did not
-  change. Ask the same questions about the full comment where it is, with no deletion first. If it
-  fails question 1, delete it. If it passes question 1 and obeys the rule files, do not change it.
+  change. In file mode, pass 2 examines all comments in the target. Ask the same questions about
+  the full comment where it is, with no deletion first. If it fails question 1, delete it. If it
+  passes question 1 and obeys the rule files, do not change it.
 
 **Pass 2 - one comment at a time.** Show each deleted comment with the adjacent code. In branch and
 path mode, run `git diff -U8 -- <file>...`. In the working-tree modes, run
@@ -164,8 +165,7 @@ tree can be dirty. The user's changes stay where they are, in the working tree o
 
    Use its `parent:` value as the base and its `diff-command` for the diff. In the uncommitted
    modes, each `??` line in `## Uncommitted` is an untracked file. All of its comments are added.
-   In target mode, if the helper stops because the branch has no diff, use `HEAD` as the base. If
-   the directory is not a git repo, all comments in the target are old.
+   In target mode, if the helper stops because the branch has no diff, use `HEAD` as the base.
 
 3. Collect the targets. In the diff modes, use the `diff-command` with `--name-only`, plus the
    untracked files, filtered to the files that hold prose. In target mode, find the text that the
@@ -178,6 +178,19 @@ tree can be dirty. The user's changes stay where they are, in the working tree o
 6. If the repo lints prose, run the linter on the touched files, as in step 8 of the branch and
    path loop.
 
+## File loop
+
+Use this loop in file mode. Use no git command and no helper script.
+
+1. Read the rule files and this file (see `SKILL.md`).
+2. Collect the targets: the files at the path args, or the text that the user's words name. A
+   directory arg includes the files in it that hold prose. If the words match no text, or more
+   text than the user can mean, ask before you edit.
+3. Edit the prose in place. Edit prose only. If you change one code line, you went too far.
+4. Run the comment pass on the code files in scope. All comments are old.
+5. If the files are in a project that lints prose, run the linter on the touched files, as in step
+   8 of the branch and path loop.
+
 ## Summary (git modes)
 
 Print only these lines, in this sequence. Skip the lines that do not apply to the mode. Then print
@@ -186,11 +199,12 @@ other lists. The fixups or `git diff` show each edit.
 
 - Files changed: count and one line for each
 - Comments: N deleted, N kept as one sentence, N kept longer. Write all three counts, also a 0.
-- Old comments (target mode): N deleted, N rewritten, N unchanged
+- Old comments (target and file mode): N deleted, N rewritten, N unchanged
 - Commit messages reworded (branch mode): count and `<sha-short> <old subject>` -> `<new subject>`
 - Deferred (the fix would remove data): count and one line for each
 - Squashed (branch and path mode): N fixups, N `amend!` commits, N new commits, and the backup ref
-- Linter: the command and its result, or `none in repo`
+- Linter: the command and its result, or `none in repo`. Skip this line in file mode if no project
+  has the files.
 - Out of scope: only if slop remains outside the targets - the paths, on one line
 
 ## Mistakes - stop

@@ -5,7 +5,8 @@ description:
   Use when an agent wrote prose that ignores the writing rules - docs, code comments, docstrings,
   and commit messages on the current branch, in uncommitted or staged changes, or in a part of the
   code that the user names, that contain AI slop, filler, banned words, marketing diction, or very
-  long comments. Also use when the user asks to fix the wording of the assistant's last reply.
+  long comments. Also use for any file or pasted text, also outside a git repo. Also use to fix
+  the wording of the assistant's last reply.
   Triggers on "deslop", "deslop that", "deslop your reply", "deslop my uncommitted changes",
   "deslop the README intro", "clean up the writing", "fix the wording on this branch".
 allowed-tools:
@@ -20,7 +21,8 @@ allowed-tools:
 This skill applies the writing rules from the instructions to prose that an agent wrote. In branch
 and path mode, `git absorb` folds the file edits into their originating commits, and commit
 messages get `amend!` commits. Then `git-squash-fixups.sh` squashes them, with no prompt. In the
-working-tree modes, the skill writes the edits to the working tree.
+working-tree modes, the skill writes the edits to the working tree. In file mode, the skill edits
+the files in place and uses no git.
 
 ## Rules source - read, do not recall
 
@@ -59,6 +61,17 @@ one mode, ask before you edit.
 | branch-uncommitted | uncommitted, plus "with the branch"             | `<parent>` | Working tree |
 | branch-staged      | staged, plus "with the branch"                  | `<parent>` | Working tree |
 | target             | other words that name text in the repo          | `<parent>` | Working tree |
+| file               | paths or words, with no git (see below)         | -          | Files        |
+
+File mode replaces path mode and target mode in these cases:
+
+- Path args: one path is not in a git work tree, or it is untracked, or its changes are not
+  committed. Also when `git status --porcelain` in that repo gives output.
+- Target words: the text is not in a git work tree.
+
+Find this with `git -C <dir> rev-parse --is-inside-work-tree` and `git -C <dir> status --porcelain`.
+Do not run `git-diff-context.sh` to find it. Do not stop. Do not tell the user about git. Git is
+optional.
 
 Targets:
 
@@ -71,6 +84,8 @@ Targets:
 - branch-uncommitted and branch-staged: the branch commits plus the uncommitted or staged changes.
 - target: the text that the words name, for example a doc section, the comments in a file, or the
   docstrings of a class.
+- file: the full files at those paths, or the text in files that the words name. There is no
+  commit-message pass.
 
 If there are no args and the directory is not a git repo, use reply mode. If the words name text in
 the conversation and not in a file, use reply mode.
@@ -90,3 +105,4 @@ Skip all the git steps. There is no working tree, no `<parent>`, and no absorb.
 
 - You write from memory of the rules instead of from the files. This is the defect to correct.
 - You use git in reply mode. There is nothing to commit.
+- You stop, or you tell the user, because a path is not in a git repo. Use file mode.
