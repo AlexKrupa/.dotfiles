@@ -68,7 +68,7 @@ This part is for the roles that watch MRs: `author.md`, `reviewer.md`, and `bump
 
 These event kinds have the same action in each role, unless the role file has a row for the
 kind. The watch gives no event for a change of the user. The full event list with the exceptions
-is in the header of the watch script of the host.
+is in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`.
 
 | `kind`             | Action                        | Report section    |
 | ------------------ | ----------------------------- | ----------------- |
