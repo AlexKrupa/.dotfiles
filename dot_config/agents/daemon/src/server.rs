@@ -14,9 +14,7 @@ use crate::core::eventlog::{LogLine, id_of, route_line};
 use crate::core::workspaces::set_kind;
 use crate::daemon::{Daemon, Memory};
 use crate::platform::{now_seconds, process_alive};
-use crate::protocol::{
-    DebugState, RepoPoll, RepoTimes, Request, Response, StatusReport, SubscribeArgs, receive, send,
-};
+use crate::protocol::{DebugState, RepoPoll, RepoTimes, Request, Response, StatusReport, SubscribeArgs, receive, send};
 
 pub async fn serve(daemon: Arc<Daemon>, listener: UnixListener) {
     loop {
@@ -54,7 +52,13 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
                 .iter()
                 .map(|(slug, time)| {
                     let next_round = memory.next_round.get(slug).copied();
-                    (slug.clone(), RepoTimes { last_poll: *time, next_round })
+                    (
+                        slug.clone(),
+                        RepoTimes {
+                            last_poll: *time,
+                            next_round,
+                        },
+                    )
                 })
                 .collect();
             Response::State(Box::new(DebugState {
@@ -76,11 +80,18 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
             let memory = daemon.lock().await;
             let count = daemon.store.replace_clients(&repo);
             drop(memory);
-            daemon.store.log("", "", &format!("clients of {} replaced: {count}", repo.display()));
+            daemon
+                .store
+                .log("", "", &format!("clients of {} replaced: {count}", repo.display()));
             daemon.changed.notify_waiters();
             Response::Ok
         }
-        Request::Unsubscribe { key, slug, mode, session_pid } => {
+        Request::Unsubscribe {
+            key,
+            slug,
+            mode,
+            session_pid,
+        } => {
             let mut memory = daemon.lock().await;
             let result = daemon.store.unsubscribe(&key, &slug, mode, session_pid);
             if result.is_ok() {
@@ -98,13 +109,17 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
             let live = daemon.store.subs().iter().any(|sub| {
                 sub.herdr_workspace.as_deref() == Some(workspace.as_str()) && process_alive(sub.session_pid)
             });
-            daemon.store.workspace_update(&workspace, |state| set_kind(state, kind, live));
+            daemon
+                .store
+                .workspace_update(&workspace, |state| set_kind(state, kind, live));
             daemon.changed.notify_waiters();
             Response::Ok
         }
         Request::Route { key, iid, action } => {
             let _memory = daemon.lock().await;
-            daemon.store.event_log(vec![LogLine::Route(route_line(now_seconds(), &key, iid, action))]);
+            daemon
+                .store
+                .event_log(vec![LogLine::Route(route_line(now_seconds(), &key, iid, action))]);
             daemon.changed.notify_waiters();
             Response::Ok
         }
@@ -122,7 +137,10 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
                 repos: memory
                     .last_poll
                     .iter()
-                    .map(|(slug, time)| RepoPoll { slug: slug.clone(), last_poll: *time })
+                    .map(|(slug, time)| RepoPoll {
+                        slug: slug.clone(),
+                        last_poll: *time,
+                    })
                     .collect(),
                 subs: daemon.store.sub_status(),
             })
@@ -168,7 +186,10 @@ async fn subscribe(
             let _ = std::fs::remove_file(daemon.store.dirs.engine_state(&args.key));
         }
         let old = daemon.store.sub(&args.key);
-        if old.as_ref().is_some_and(|old| old.replaced_sessions.contains(&args.session_pid)) {
+        if old
+            .as_ref()
+            .is_some_and(|old| old.replaced_sessions.contains(&args.session_pid))
+        {
             drop(memory);
             let _ = send(&mut write, &Response::Replaced).await;
             return;
@@ -238,7 +259,10 @@ async fn write_line(write: &mut tokio::net::unix::OwnedWriteHalf, line: &str) ->
 
 fn lines_after(daemon: &Daemon, after: u64) -> Vec<String> {
     let text = std::fs::read_to_string(daemon.store.dirs.events()).unwrap_or_default();
-    text.lines().filter(|line| id_of(line) > after).map(str::to_string).collect()
+    text.lines()
+        .filter(|line| id_of(line) > after)
+        .map(str::to_string)
+        .collect()
 }
 
 /// A `follow` client gets the sidebar state with the newest log id, the log lines after `after`,

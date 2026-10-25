@@ -43,7 +43,9 @@ pub async fn run(dir: &Path, args: &[&str]) -> std::io::Result<Output> {
 pub async fn api(dir: &Path, args: &[String]) -> Result<Vec<u8>, ApiError> {
     let path = args.first().map(String::as_str).unwrap_or_default();
     let argv: Vec<&str> = std::iter::once("api").chain(args.iter().map(String::as_str)).collect();
-    let output = run(dir, &argv).await.map_err(|error| ApiError::Other(format!("{path}: {error}")))?;
+    let output = run(dir, &argv)
+        .await
+        .map_err(|error| ApiError::Other(format!("{path}: {error}")))?;
     match output.status.success() {
         true => Ok(output.stdout),
         false => Err(classify(path, &output.stderr)),
@@ -53,9 +55,7 @@ pub async fn api(dir: &Path, args: &[String]) -> Result<Vec<u8>, ApiError> {
 pub type Task<T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send>>;
 
 /// A drop of the returned future aborts the tasks.
-pub async fn parallel<T: Send + 'static>(
-    tasks: Vec<Task<T>>,
-) -> Vec<T> {
+pub async fn parallel<T: Send + 'static>(tasks: Vec<Task<T>>) -> Vec<T> {
     let mut set = tokio::task::JoinSet::new();
     let count = tasks.len();
     for (index, task) in tasks.into_iter().enumerate() {
@@ -66,14 +66,20 @@ pub async fn parallel<T: Send + 'static>(
         let (index, result) = joined.expect("a check task does not panic");
         results[index] = Some(result);
     }
-    results.into_iter().map(|result| result.expect("each task gives a result")).collect()
+    results
+        .into_iter()
+        .map(|result| result.expect("each task gives a result"))
+        .collect()
 }
 
 pub fn classify(path: &str, stderr: &[u8]) -> ApiError {
     let text = String::from_utf8_lossy(stderr);
     let joined = text.strip_suffix('\n').unwrap_or(&text).replace('\n', " ");
     if let Some(status) = auth_status(&joined) {
-        return ApiError::Auth { status, path: path.to_string() };
+        return ApiError::Auth {
+            status,
+            path: path.to_string(),
+        };
     }
     match is_network_error(&joined) {
         true => ApiError::Network(format!("{path}: {joined}")),
@@ -94,9 +100,18 @@ pub fn permission_for(path: &str) -> &'static str {
         ("user", "User (user boundary)"),
         ("users/*/events*", "Event (user boundary)"),
         ("todos*", "Todo (user boundary)"),
-        ("projects/*/merge_requests/*/notes*", "Work Item (group or project boundary)"),
-        ("projects/*/merge_requests/*/discussions*", "Work Item (group or project boundary)"),
-        ("projects/*/merge_requests*", "Merge Request (group or project boundary)"),
+        (
+            "projects/*/merge_requests/*/notes*",
+            "Work Item (group or project boundary)",
+        ),
+        (
+            "projects/*/merge_requests/*/discussions*",
+            "Work Item (group or project boundary)",
+        ),
+        (
+            "projects/*/merge_requests*",
+            "Merge Request (group or project boundary)",
+        ),
         ("projects/*/pipelines*", "Pipeline (group or project boundary)"),
         ("graphql", "Merge Request (group or project boundary)"),
     ];

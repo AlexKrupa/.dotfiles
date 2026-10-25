@@ -83,7 +83,10 @@ mod tests {
     }
 
     fn merged(iid: u64) -> RoutedEvent {
-        RoutedEvent { event: Event::new(EventKind::Merged, Some(iid), Some("T"), "u", "a", "merged", "b"), row: 1 }
+        RoutedEvent {
+            event: Event::new(EventKind::Merged, Some(iid), Some("T"), "u", "a", "merged", "b"),
+            row: 1,
+        }
     }
 
     #[test]

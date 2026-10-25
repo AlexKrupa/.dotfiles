@@ -10,8 +10,8 @@ use tokio::net::UnixStream;
 use crate::core::eventlog::RouteAction;
 use crate::core::subs::Mode;
 use crate::core::workspaces::Kind;
-use crate::engine::mr_number;
 use crate::daemon::store::Store;
+use crate::engine::mr_number;
 use crate::key::{KeyMode, repo_slug, watch_key, worktree_top};
 use crate::paths::StateDirs;
 use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
@@ -34,19 +34,26 @@ struct WatchArgs {
 
 impl WatchArgs {
     fn parse(args: Vec<String>) -> Result<WatchArgs, String> {
-        let mut parsed = WatchArgs { interval: 120, ..WatchArgs::default() };
+        let mut parsed = WatchArgs {
+            interval: 120,
+            ..WatchArgs::default()
+        };
         let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--repo" => parsed.repo = Some(args.next().ok_or("--repo needs a path")?.into()),
                 "--interval" => {
                     let seconds = args.next().filter(|value| digits(value));
-                    parsed.interval = seconds.and_then(|value| value.parse().ok()).ok_or("--interval needs seconds")?;
+                    parsed.interval = seconds
+                        .and_then(|value| value.parse().ok())
+                        .ok_or("--interval needs seconds")?;
                 }
                 "--once" => parsed.once = true,
                 "--fresh" => parsed.fresh = true,
                 "--review" => parsed.review = true,
-                "--mr" => parsed.mrs.push(mr_number(args.next()).ok_or("--mr needs an MR number")?),
+                "--mr" => parsed
+                    .mrs
+                    .push(mr_number(args.next()).ok_or("--mr needs an MR number")?),
                 _ => return Err(format!("unexpected argument: {arg}")),
             }
         }
@@ -171,7 +178,10 @@ pub async fn watch(args: Vec<String>) -> i32 {
         again: false,
         poke_token: format!("{client_pid}-{}", now_seconds()),
     };
-    let tick = std::env::var("WATCH_CLIENT_TICK").ok().and_then(|value| value.parse().ok()).unwrap_or(3);
+    let tick = std::env::var("WATCH_CLIENT_TICK")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(3);
     loop {
         let stream = match connect(&dirs, true).await {
             Ok(stream) => stream,
@@ -251,7 +261,13 @@ pub async fn unsubscribe(args: Vec<String>) -> i32 {
         Err(message) => return die(&message),
     };
     let session_pid = session(&Store::new(StateDirs::from_env()));
-    ask_ok(&Request::Unsubscribe { key: target.key, slug: target.slug, mode: args.mode(), session_pid }).await
+    ask_ok(&Request::Unsubscribe {
+        key: target.key,
+        slug: target.slug,
+        mode: args.mode(),
+        session_pid,
+    })
+    .await
 }
 
 async fn ask_ok(request: &Request) -> i32 {
@@ -265,7 +281,9 @@ async fn ask_ok(request: &Request) -> i32 {
 
 pub async fn kind(args: Vec<String>) -> i32 {
     let mut args = args.into_iter();
-    let Some(kind) = args.next() else { return die("kind needs a kind") };
+    let Some(kind) = args.next() else {
+        return die("kind needs a kind");
+    };
     let mut workspace = std::env::var("HERDR_WORKSPACE_ID").ok().filter(|id| !id.is_empty());
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -276,8 +294,12 @@ pub async fn kind(args: Vec<String>) -> i32 {
             _ => return die(&format!("unexpected argument: {arg}")),
         }
     }
-    let Some(kind) = Kind::parse(&kind) else { return die(&format!("unknown kind: {kind}")) };
-    let Some(workspace) = workspace.filter(|id| !id.is_empty()) else { return 0 };
+    let Some(kind) = Kind::parse(&kind) else {
+        return die(&format!("unknown kind: {kind}"));
+    };
+    let Some(workspace) = workspace.filter(|id| !id.is_empty()) else {
+        return 0;
+    };
     ask_ok(&Request::Kind { workspace, kind }).await
 }
 
@@ -303,16 +325,26 @@ pub async fn route(args: Vec<String>) -> i32 {
             _ => return die(&format!("unexpected argument: {arg}")),
         }
     }
-    let Some(iid) = iid else { return die("route needs --iid") };
+    let Some(iid) = iid else {
+        return die("route needs --iid");
+    };
     let action_text = action.unwrap_or_default();
     let Some(action) = RouteAction::parse(&action_text) else {
         return die(&format!("unknown action: {action_text}"));
     };
-    let target = match target(&WatchArgs { repo, ..WatchArgs::default() }) {
+    let target = match target(&WatchArgs {
+        repo,
+        ..WatchArgs::default()
+    }) {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
-    ask_ok(&Request::Route { key: target.key, iid, action }).await
+    ask_ok(&Request::Route {
+        key: target.key,
+        iid,
+        action,
+    })
+    .await
 }
 
 pub async fn report(args: Vec<String>) -> i32 {
@@ -336,7 +368,12 @@ pub async fn report(args: Vec<String>) -> i32 {
     let Ok(input) = serde_json::from_value(value) else {
         return die("report: jq could not read the input or the state");
     };
-    let request = Request::Report { key: target.key, mode: args.mode(), mrs: args.mrs.clone(), input };
+    let request = Request::Report {
+        key: target.key,
+        mode: args.mode(),
+        mrs: args.mrs.clone(),
+        input,
+    };
     match ask(&StateDirs::from_env(), &request, true).await {
         Ok(Response::Report { text }) => {
             println!("{text}");
@@ -352,7 +389,11 @@ pub async fn status() -> i32 {
     let dirs = StateDirs::from_env();
     let report = match ask(&dirs, &Request::Status, false).await {
         Ok(Response::Status(report)) => report,
-        _ => StatusReport { pid: None, repos: Vec::new(), subs: Store::new(dirs).sub_status() },
+        _ => StatusReport {
+            pid: None,
+            repos: Vec::new(),
+            subs: Store::new(dirs).sub_status(),
+        },
     };
     match report.pid {
         Some(pid) => println!("daemon {pid}"),
@@ -367,7 +408,12 @@ pub async fn status() -> i32 {
         let mrs: Vec<String> = sub.mrs.iter().map(u64::to_string).collect();
         let mrs = if mrs.is_empty() { "-".to_string() } else { mrs.join(",") };
         let live = if status.live { "live" } else { "dead" };
-        println!("{}\t{}\t{mrs}\t{live}\t{}", sub.key, sub.mode.as_str(), status.inbox_lines);
+        println!(
+            "{}\t{}\t{mrs}\t{live}\t{}",
+            sub.key,
+            sub.mode.as_str(),
+            status.inbox_lines
+        );
     }
     0
 }
@@ -378,7 +424,10 @@ pub async fn debug_state() -> i32 {
         Ok(Response::State(state)) => *state,
         _ => Store::new(dirs).debug_disk(),
     };
-    println!("{}", serde_json::to_string_pretty(&state).expect("the state serializes"));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&state).expect("the state serializes")
+    );
     0
 }
 

@@ -8,7 +8,12 @@ use support::Checks;
 use support::daemon::{Watchd, alive, end, ev, norm, sleep, wait_for};
 
 fn fields(value: &Value, keys: &[&str]) -> String {
-    Value::from(keys.iter().map(|key| value.pointer(key).cloned().unwrap_or(Value::Null)).collect::<Vec<_>>()).to_string()
+    Value::from(
+        keys.iter()
+            .map(|key| value.pointer(key).cloned().unwrap_or(Value::Null))
+            .collect::<Vec<_>>(),
+    )
+    .to_string()
 }
 
 fn workspace_of(w: &Watchd, id: &str) -> Value {
@@ -29,7 +34,11 @@ fn kind(w: &Watchd, args: &[&str], workspace: Option<&str>) -> support::Run {
         command.env("HERDR_WORKSPACE_ID", id);
     }
     let run = w.run(command);
-    support::Run { out: [run.out, run.err].concat(), err: String::new(), code: run.code }
+    support::Run {
+        out: [run.out, run.err].concat(),
+        err: String::new(),
+        code: run.code,
+    }
 }
 
 fn write_workspace(w: &Watchd, json: &str) {
@@ -47,8 +56,11 @@ fn log_and_workspaces() -> &'static Checks {
         let w = Watchd::new();
         w.events("app", &[ev("todo", 5)]);
         w.watch(&[]);
-        c.check("routed event: log line", r#"["event","app","todo","request"]"#,
-            fields(&w.log_last(), &["/type", "/key", "/event/kind", "/sound"]));
+        c.check(
+            "routed event: log line",
+            r#"["event","app","todo","request"]"#,
+            fields(&w.log_last(), &["/type", "/key", "/event/kind", "/sound"]),
+        );
         w.events("app", &[ev("reaction", 5)]);
         w.watch(&[]);
         c.check("reaction: sound none", "none", support::raw(&w.log_last()["sound"]));
@@ -60,11 +72,19 @@ fn log_and_workspaces() -> &'static Checks {
         let stack = w.stack_key();
         w.events(&stack, &[ev("pipeline", 5)]);
         w.run(with_workspace(&w, &["--interval", "600", "--mr", "5"]));
-        c.check("record has the herdr workspace", "wT", support::raw(&w.sub_of(&stack)["herdr_workspace"]));
+        c.check(
+            "record has the herdr workspace",
+            "wT",
+            support::raw(&w.sub_of(&stack)["herdr_workspace"]),
+        );
         w.events(&stack, &[ev("merged", 5)]);
         w.run(with_workspace(&w, &["--interval", "600", "--once", "--mr", "5"]));
         wait_for(5, || !w.has_sub(&stack));
-        c.check("all MRs merged: workspace stage done", "done", support::raw(&workspace_of(&w, "wT")["stage"]));
+        c.check(
+            "all MRs merged: workspace stage done",
+            "done",
+            support::raw(&workspace_of(&w, "wT")["stage"]),
+        );
         herdr |= w.herdr_called();
         drop(w);
 
@@ -72,7 +92,11 @@ fn log_and_workspaces() -> &'static Checks {
         w.events(&w.stack_key(), &[ev("pipeline", 5)]);
         w.run(with_workspace(&w, &["--interval", "600", "--mr", "5"]));
         w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
-        c.check("unsubscribe: workspace stage stopped", "stopped", support::raw(&workspace_of(&w, "wT")["stage"]));
+        c.check(
+            "unsubscribe: workspace stage stopped",
+            "stopped",
+            support::raw(&workspace_of(&w, "wT")["stage"]),
+        );
         herdr |= w.herdr_called();
         drop(w);
 
@@ -80,8 +104,11 @@ fn log_and_workspaces() -> &'static Checks {
         w.fake("app", "exit", "5\n");
         w.fake("app", "err", "watch-gitlab: HTTP 403 on todos\n");
         w.watch(&[]);
-        c.check("permanent error: stopped line", r#"["stopped","watch-gitlab: HTTP 403 on todos",null]"#,
-            fields(&w.log_last(), &["/type", "/error", "/title"]));
+        c.check(
+            "permanent error: stopped line",
+            r#"["stopped","watch-gitlab: HTTP 403 on todos",null]"#,
+            fields(&w.log_last(), &["/type", "/error", "/title"]),
+        );
         herdr |= w.herdr_called();
         drop(w);
 
@@ -91,20 +118,36 @@ fn log_and_workspaces() -> &'static Checks {
         w.fake(&stack, "exit", "5\n");
         w.fake(&stack, "err", "watch-gitlab: HTTP 403 on graphql\n");
         w.watch(&["--mr", "5"]);
-        c.check("permanent error of a stack: stopped line has the MR title", r#"["stopped","Add foo"]"#,
-            fields(&w.log_last(), &["/type", "/title"]));
+        c.check(
+            "permanent error of a stack: stopped line has the MR title",
+            r#"["stopped","Add foo"]"#,
+            fields(&w.log_last(), &["/type", "/title"]),
+        );
         herdr |= w.herdr_called();
         drop(w);
 
         let w = Watchd::new();
         let run = kind(&w, &["mine"], None);
-        let workspaces = w.state()["workspaces"].as_object().map_or(String::new(), |map| map.keys().cloned().collect::<Vec<_>>().join(" "));
-        c.check("kind with no workspace does nothing", "0 ", format!("{} {workspaces}", run.code));
+        let workspaces = w.state()["workspaces"]
+            .as_object()
+            .map_or(String::new(), |map| map.keys().cloned().collect::<Vec<_>>().join(" "));
+        c.check(
+            "kind with no workspace does nothing",
+            "0 ",
+            format!("{} {workspaces}", run.code),
+        );
         let run = kind(&w, &["review", "--workspace", "wT"], None);
-        c.check("kind: writes the workspace file", format!("0 {}", norm(r#"{"kind":"review","stage":null}"#)),
-            format!("{} {}", run.code, workspace_of(&w, "wT")));
+        c.check(
+            "kind: writes the workspace file",
+            format!("0 {}", norm(r#"{"kind":"review","stage":null}"#)),
+            format!("{} {}", run.code, workspace_of(&w, "wT")),
+        );
         let run = kind(&w, &["foo", "--workspace", "wT"], None);
-        c.check("unknown kind", "1 watch: unknown kind: foo", format!("{} {}", run.code, run.out));
+        c.check(
+            "unknown kind",
+            "1 watch: unknown kind: foo",
+            format!("{} {}", run.code, run.out),
+        );
         herdr |= w.herdr_called();
         drop(w);
 
@@ -115,8 +158,11 @@ fn log_and_workspaces() -> &'static Checks {
         let mut command = w.command();
         command.arg("kind").arg("review").env("HERDR_WORKSPACE_ID", "wT");
         let run = w.run(command);
-        c.check("kind during a live watch keeps the stage", format!("0 {}", norm(r#"{"kind":"review","stage":"done"}"#)),
-            format!("{} {}", run.code, workspace_of(&w, "wT")));
+        c.check(
+            "kind during a live watch keeps the stage",
+            format!("0 {}", norm(r#"{"kind":"review","stage":"done"}"#)),
+            format!("{} {}", run.code, workspace_of(&w, "wT")),
+        );
         w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
         herdr |= w.herdr_called();
         drop(w);
@@ -136,8 +182,11 @@ fn log_and_workspaces() -> &'static Checks {
             let mut watch_args = vec!["--interval", "600"];
             watch_args.extend(args);
             w.run(with_workspace(&w, &watch_args));
-            c.check(&format!("subscribe with no kind sets the kind of the mode: {name}"), expected,
-                support::raw(&workspace_of(&w, "wT")["kind"]));
+            c.check(
+                &format!("subscribe with no kind sets the kind of the mode: {name}"),
+                expected,
+                support::raw(&workspace_of(&w, "wT")["kind"]),
+            );
             let mut unsubscribe = vec!["unsubscribe", "--repo"];
             let repo = repo_of(&w);
             unsubscribe.push(&repo);
@@ -150,17 +199,32 @@ fn log_and_workspaces() -> &'static Checks {
         write_workspace(&w, r#"{"kind": "bump"}"#);
         w.events(&w.stack_key(), &[ev("pipeline", 5)]);
         w.run(with_workspace(&w, &["--interval", "600", "--mr", "5"]));
-        c.check("subscribe keeps an existing kind", "bump", support::raw(&workspace_of(&w, "wT")["kind"]));
+        c.check(
+            "subscribe keeps an existing kind",
+            "bump",
+            support::raw(&workspace_of(&w, "wT")["kind"]),
+        );
         w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
         herdr |= w.herdr_called();
         drop(w);
 
         let w = Watchd::new();
         let run = w.client(&["route", "--iid", "61", "--action", "bump"]);
-        c.check("route: log line", r#"0 ["route","app",61,"bump"]"#,
-            format!("{} {}", run.code, fields(&w.log_last(), &["/type", "/key", "/iid", "/action"])));
+        c.check(
+            "route: log line",
+            r#"0 ["route","app",61,"bump"]"#,
+            format!(
+                "{} {}",
+                run.code,
+                fields(&w.log_last(), &["/type", "/key", "/iid", "/action"])
+            ),
+        );
         let run = w.client(&["route", "--iid", "61", "--action", "merge"]);
-        c.check("route: unknown action", "1 watch: unknown action: merge", format!("{} {}{}", run.code, run.out, run.err));
+        c.check(
+            "route: unknown action",
+            "1 watch: unknown action: merge",
+            format!("{} {}{}", run.code, run.out, run.err),
+        );
         herdr |= w.herdr_called();
 
         c.check("no herdr call", "yes", if herdr { "no" } else { "yes" });
@@ -174,14 +238,24 @@ fn prune() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         std::fs::create_dir_all(&w.watchd).unwrap();
-        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
-        let lines = format!("{}\n{}\n", json!({"time": now - 8 * 86400, "type": "route", "iid": 1}),
-            json!({"time": now, "type": "route", "iid": 2}));
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let lines = format!(
+            "{}\n{}\n",
+            json!({"time": now - 8 * 86400, "type": "route", "iid": 1}),
+            json!({"time": now, "type": "route", "iid": 2})
+        );
         std::fs::write(w.watchd.join("events.jsonl"), lines).unwrap();
         w.env.write_engine_state("old", "{}");
         w.env.write_engine_state("new", "{}");
-        let old = std::fs::File::options().write(true).open(w.env.engine_state("old")).unwrap();
-        old.set_modified(SystemTime::now() - Duration::from_secs(8 * 86400)).unwrap();
+        let old = std::fs::File::options()
+            .write(true)
+            .open(w.env.engine_state("old"))
+            .unwrap();
+        old.set_modified(SystemTime::now() - Duration::from_secs(8 * 86400))
+            .unwrap();
         w.events("app", &[ev("todo", 5)]);
         w.watch(&[]);
         let log = std::fs::read_to_string(w.watchd.join("events.jsonl")).unwrap();
@@ -193,7 +267,11 @@ fn prune() -> &'static Checks {
             .collect();
         c.check("old log lines go away", "[2]", Value::from(routes).to_string());
         let gone = |key: &str| if w.env.engine_state(key).exists() { "no" } else { "yes" };
-        c.check("old engine state goes away", "yes no", format!("{} {}", gone("old"), gone("new")));
+        c.check(
+            "old engine state goes away",
+            "yes no",
+            format!("{} {}", gone("old"), gone("new")),
+        );
         c
     })
 }
@@ -223,28 +301,57 @@ fn follow() -> &'static Checks {
         wait_for(5, || std::fs::metadata(&out).is_ok_and(|meta| meta.len() > 0));
         w.events("app", &[ev("note", 6)]);
         w.watch(&[]);
-        wait_for(5, || std::fs::read_to_string(&out).unwrap_or_default().contains(r#""note""#));
+        wait_for(5, || {
+            std::fs::read_to_string(&out).unwrap_or_default().contains(r#""note""#)
+        });
         let lines = event_lines(&out);
-        let event = lines.iter().find(|line| line["type"] == "event").cloned().unwrap_or(Value::Null);
-        c.check("follow gets the sidebar state, then a new event with a greater id", r#"["sidebar","note",true]"#,
-            json!([lines.first().map_or(Value::Null, |line| line["type"].clone()), event["event"]["kind"],
-                event["id"].as_u64().is_some_and(|id| id > first)]).to_string());
-        let last = lines.iter().filter(|line| line["type"] == "event").last().and_then(|line| line["id"].as_u64()).unwrap_or(0);
+        let event = lines
+            .iter()
+            .find(|line| line["type"] == "event")
+            .cloned()
+            .unwrap_or(Value::Null);
+        c.check(
+            "follow gets the sidebar state, then a new event with a greater id",
+            r#"["sidebar","note",true]"#,
+            json!([
+                lines.first().map_or(Value::Null, |line| line["type"].clone()),
+                event["event"]["kind"],
+                event["id"].as_u64().is_some_and(|id| id > first)
+            ])
+            .to_string(),
+        );
+        let last = lines
+            .iter()
+            .filter(|line| line["type"] == "event")
+            .last()
+            .and_then(|line| line["id"].as_u64())
+            .unwrap_or(0);
         end(follower);
         w.stop_daemon();
         w.events("app", &[ev("todo", 7)]);
         w.watch(&[]);
         let (follower, out) = follow(last, "follow2.out");
-        wait_for(5, || std::fs::read_to_string(&out).unwrap_or_default().contains(r#""todo""#));
+        wait_for(5, || {
+            std::fs::read_to_string(&out).unwrap_or_default().contains(r#""todo""#)
+        });
         sleep(1);
         end(follower);
         let events: Vec<Value> = event_lines(&out)
             .iter()
             .filter(|line| line["type"] == "event")
-            .map(|line| json!([line["event"]["kind"], line["event"]["iid"], line["id"].as_u64().is_some_and(|id| id > last)]))
+            .map(|line| {
+                json!([
+                    line["event"]["kind"],
+                    line["event"]["iid"],
+                    line["id"].as_u64().is_some_and(|id| id > last)
+                ])
+            })
             .collect();
-        c.check("follow --after the last id after a daemon restart: no line comes two times", r#"[["todo",7,true]]"#,
-            Value::from(events).to_string());
+        c.check(
+            "follow --after the last id after a daemon restart: no line comes two times",
+            r#"[["todo",7,true]]"#,
+            Value::from(events).to_string(),
+        );
         c
     })
 }
@@ -260,10 +367,18 @@ fn follow_idle() -> &'static Checks {
         wait_for(5, || std::fs::metadata(&out).is_ok_and(|meta| meta.len() > 0));
         let pid = w.daemon_pid().unwrap_or(0);
         sleep(5);
-        c.check("a follow client keeps the daemon alive past the idle limit", "yes", if alive(pid) { "yes" } else { "no" });
+        c.check(
+            "a follow client keeps the daemon alive past the idle limit",
+            "yes",
+            if alive(pid) { "yes" } else { "no" },
+        );
         end(follower);
         wait_for(8, || !alive(pid));
-        c.check("with no follow client, the daemon stops at the idle limit", "no", if alive(pid) { "yes" } else { "no" });
+        c.check(
+            "with no follow client, the daemon stops at the idle limit",
+            "no",
+            if alive(pid) { "yes" } else { "no" },
+        );
         c
     })
 }

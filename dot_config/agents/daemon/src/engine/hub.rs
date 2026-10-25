@@ -160,7 +160,11 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     );
     let (todos, opened, events) = (todos?, opened?, events?);
 
-    let mut iids: Vec<u64> = events.iter().filter_map(|event| event.mr_note(pid)).map(|(iid, _)| iid).collect();
+    let mut iids: Vec<u64> = events
+        .iter()
+        .filter_map(|event| event.mr_note(pid))
+        .map(|(iid, _)| iid)
+        .collect();
     iids.sort_unstable();
     iids.dedup();
     // 100 MRs is the size of one page.
@@ -182,8 +186,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         .iter()
         .filter(|mr| {
             let saved = old.as_ref().and_then(|old| old.mrs.get(&mr.iid.to_string()));
-            saved.and_then(|saved| saved.updated_at.as_ref()) != mr.updated_at.as_ref()
-                || saved.is_none()
+            saved.and_then(|saved| saved.updated_at.as_ref()) != mr.updated_at.as_ref() || saved.is_none()
         })
         .map(|mr| mr.iid)
         .collect();
@@ -198,7 +201,11 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         .collect();
     // GraphQL gives no reactions to a fine-grained token, thus each comment of the user gets one
     // REST call.
-    let others: Vec<u64> = watched.iter().filter(|mr| mr.author.username != me).map(|mr| mr.iid).collect();
+    let others: Vec<u64> = watched
+        .iter()
+        .filter(|mr| mr.author.username != me)
+        .map(|mr| mr.iid)
+        .collect();
     let own_notes: Vec<(u64, u64)> = events
         .iter()
         .filter_map(|event| event.mr_note(pid))
@@ -237,11 +244,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     Ok(events)
 }
 
-pub fn hub_compare(
-    input: &HubInput,
-    old: Option<&HubState>,
-    reviewed: &[u64],
-) -> (HubState, Vec<Event>) {
+pub fn hub_compare(input: &HubInput, old: Option<&HubState>, reviewed: &[u64]) -> (HubState, Vec<Event>) {
     let me = input.me.as_str();
     let mut by: Vec<&RestMr> = Vec::new();
     for mr in input.watched.iter().filter(|mr| mr.author.username != me) {
@@ -250,8 +253,11 @@ pub fn hub_compare(
             None => by.push(mr),
         }
     }
-    let notes_by: BTreeMap<u64, &[RestNote]> =
-        input.notes.iter().map(|(iid, notes)| (*iid, notes.as_slice())).collect();
+    let notes_by: BTreeMap<u64, &[RestNote]> = input
+        .notes
+        .iter()
+        .map(|(iid, notes)| (*iid, notes.as_slice()))
+        .collect();
     let mut reactions_by: BTreeMap<u64, Vec<Reaction>> = BTreeMap::new();
     for note in &input.reactions {
         let url = by.iter().find(|mr| mr.iid == note.iid).map_or("null", |mr| &mr.web_url);
@@ -265,16 +271,18 @@ pub fn hub_compare(
         }
     }
     let opened: Vec<&RestMr> = input.opened.iter().filter(|mr| mr.author.username != me).collect();
-    let new_pipeline = input
-        .default
-        .as_ref()
-        .map(|pipeline| PipelineState { id: pipeline.id, status: pipeline.status.clone() });
+    let new_pipeline = input.default.as_ref().map(|pipeline| PipelineState {
+        id: pipeline.id,
+        status: pipeline.status.clone(),
+    });
     let saved_pipeline = old.and_then(|old| old.default_pipeline.clone()).flatten();
     let default_pipeline = match saved_pipeline {
         Some(saved) if saved.id > new_pipeline.as_ref().map_or(0, |new| new.id) => Some(saved),
         _ => new_pipeline,
     };
-    let default_failed = default_pipeline.as_ref().is_some_and(|pipeline| pipeline.status == "failed");
+    let default_failed = default_pipeline
+        .as_ref()
+        .is_some_and(|pipeline| pipeline.status == "failed");
 
     let mut mrs = BTreeMap::new();
     for mr in &by {
@@ -290,18 +298,17 @@ pub fn hub_compare(
             .max()
             .unwrap_or_default();
         let new_notes = fetched.iter().filter(|note| {
-            old_mr.is_some()
-                && note.id > saved.last_note_id
-                && !note.is_system()
-                && note.author.username != me
+            old_mr.is_some() && note.id > saved.last_note_id && !note.is_system() && note.author.username != me
         });
-        let mut open_notes: Vec<u64> =
-            saved.open_notes.iter().copied().chain(new_notes.map(|note| note.id)).collect();
+        let mut open_notes: Vec<u64> = saved
+            .open_notes
+            .iter()
+            .copied()
+            .chain(new_notes.map(|note| note.id))
+            .collect();
         open_notes.sort_unstable();
         open_notes.dedup();
-        open_notes.retain(|id| {
-            *id > own && !fetched.iter().any(|note| note.id == *id && note.resolved == Some(true))
-        });
+        open_notes.retain(|id| *id > own && !fetched.iter().any(|note| note.id == *id && note.resolved == Some(true)));
         let state = HubMrState {
             updated_at: mr.updated_at.clone(),
             last_note_id: fetched
@@ -313,7 +320,12 @@ pub fn hub_compare(
             last_own_note_id: own,
             open_notes,
             reactions: Some(
-                reactions_by.get(&mr.iid).into_iter().flatten().map(|r| r.key.clone()).collect(),
+                reactions_by
+                    .get(&mr.iid)
+                    .into_iter()
+                    .flatten()
+                    .map(|r| r.key.clone())
+                    .collect(),
             ),
         };
         mrs.insert(mr.iid.to_string(), state);
@@ -416,7 +428,9 @@ fn hub_events(
         }
     }
     for mr in by {
-        let Some(old_mr) = old.mrs.get(&mr.iid.to_string()) else { continue };
+        let Some(old_mr) = old.mrs.get(&mr.iid.to_string()) else {
+            continue;
+        };
         let fetched = notes_by.get(&mr.iid).copied().unwrap_or_default();
         for note in fetched {
             if note.id > old_mr.last_note_id && !note.is_system() && note.author.username != me {
@@ -436,8 +450,7 @@ fn hub_events(
         }
     }
     for mr in by {
-        let Some(old_reactions) = old.mrs.get(&mr.iid.to_string()).and_then(|o| o.reactions.as_ref())
-        else {
+        let Some(old_reactions) = old.mrs.get(&mr.iid.to_string()).and_then(|o| o.reactions.as_ref()) else {
             continue;
         };
         for reaction in reactions_by.get(&mr.iid).into_iter().flatten() {
@@ -482,7 +495,10 @@ mod tests {
     }
 
     fn lines(events: &[Event]) -> Vec<String> {
-        events.iter().map(|event| serde_json::to_string(event).unwrap()).collect()
+        events
+            .iter()
+            .map(|event| serde_json::to_string(event).unwrap())
+            .collect()
     }
 
     #[test]
@@ -496,8 +512,7 @@ mod tests {
     #[test]
     fn hub_new_todo_gives_todo_event_with_item() {
         let old = HubState::default();
-        let (_, events) =
-            hub_compare(&input(json!([todo(11, "review_requested", 5)])), Some(&old), &[]);
+        let (_, events) = hub_compare(&input(json!([todo(11, "review_requested", 5)])), Some(&old), &[]);
         assert_eq!(
             lines(&events),
             vec![format!(
@@ -522,27 +537,30 @@ mod tests {
              "source_branch": "renovate/x", "web_url": format!("{URL}/30"),
              "author": {"username": "renovate-bot"}}]))
         .unwrap();
-        input.notes = vec![(9, serde_json::from_value(json!([
-            {"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}])).unwrap())];
+        input.notes = vec![(
+            9,
+            serde_json::from_value(json!([
+            {"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}]))
+            .unwrap(),
+        )];
         let (_, events) = hub_compare(&input, Some(&old), &[9]);
         let kinds: Vec<_> = events.iter().map(|event| (event.kind, event.item.clone())).collect();
         assert_eq!(
             kinds,
-            vec![(EventKind::Todo, Some("todo:22".to_string())), (EventKind::Opened, None)]
+            vec![
+                (EventKind::Todo, Some("todo:22".to_string())),
+                (EventKind::Opened, None)
+            ]
         );
     }
 
     #[test]
     fn hub_default_pipeline_below_saved_id_gives_no_event() {
-        let old: HubState = serde_json::from_value(
-            json!({"todos": [], "default_pipeline": {"id": 72, "status": "success"}}),
-        )
-        .unwrap();
+        let old: HubState =
+            serde_json::from_value(json!({"todos": [], "default_pipeline": {"id": 72, "status": "success"}})).unwrap();
         let mut input = input(json!([]));
-        input.default = serde_json::from_value(
-            json!({"id": 69, "status": "failed", "web_url": "https://p/69"}),
-        )
-        .unwrap();
+        input.default =
+            serde_json::from_value(json!({"id": 69, "status": "failed", "web_url": "https://p/69"})).unwrap();
         let (state, events) = hub_compare(&input, Some(&old), &[]);
         assert!(events.is_empty());
         assert_eq!(

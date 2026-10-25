@@ -94,7 +94,11 @@ pub struct Run {
 impl Run {
     pub fn of(output: Output) -> Run {
         let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).trim_end_matches('\n').to_string();
-        Run { out: text(&output.stdout), err: text(&output.stderr), code: output.status.code().unwrap_or(-1) }
+        Run {
+            out: text(&output.stdout),
+            err: text(&output.stderr),
+            code: output.status.code().unwrap_or(-1),
+        }
     }
 }
 
@@ -132,7 +136,10 @@ impl TestEnv {
     }
 
     pub fn git_repo(&self, folder: &Path, origin: &str) {
-        for args in [vec!["init", "-q", folder.to_str().unwrap()], vec!["-C", folder.to_str().unwrap(), "remote", "add", "origin", origin]] {
+        for args in [
+            vec!["init", "-q", folder.to_str().unwrap()],
+            vec!["-C", folder.to_str().unwrap(), "remote", "add", "origin", origin],
+        ] {
             let status = Command::new("git")
                 .args(args)
                 .env("GIT_CONFIG_NOSYSTEM", "1")
@@ -162,7 +169,11 @@ impl TestEnv {
 
     pub fn command_of(&self, program: &Path) -> Command {
         let mut command = Command::new(program);
-        let path = format!("{}:{}", self.dir.join("bin").display(), std::env::var("PATH").unwrap_or_default());
+        let path = format!(
+            "{}:{}",
+            self.dir.join("bin").display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
         command
             .current_dir(&self.repo)
             .stdin(Stdio::null())
@@ -174,9 +185,17 @@ impl TestEnv {
             .env("GIT_CONFIG_GLOBAL", self.dir.join("gitconfig"));
         // The tests must never reach the real herdr, and the variables of the test process do
         // not go to the child.
-        for name in ["HERDR_ENV", "HERDR_WORKSPACE_ID", "HERDR_PANE_ID", "HERDR_SOCKET_PATH", "WATCH_MR_CACHE",
-            "MOCK_FAIL", "MOCK_FAIL_MSG", "MOCK_FAIL_TIMES", "MOCK_NOAUTH"]
-        {
+        for name in [
+            "HERDR_ENV",
+            "HERDR_WORKSPACE_ID",
+            "HERDR_PANE_ID",
+            "HERDR_SOCKET_PATH",
+            "WATCH_MR_CACHE",
+            "MOCK_FAIL",
+            "MOCK_FAIL_MSG",
+            "MOCK_FAIL_TIMES",
+            "MOCK_NOAUTH",
+        ] {
             command.env_remove(name);
         }
         for (name, value) in &self.env {
@@ -194,7 +213,14 @@ impl TestEnv {
     }
 
     pub fn run_in(&self, folder: &Path, args: &[&str]) -> Run {
-        Run::of(self.command().current_dir(folder).arg("engine").args(args).output().unwrap())
+        Run::of(
+            self.command()
+                .current_dir(folder)
+                .arg("engine")
+                .args(args)
+                .output()
+                .unwrap(),
+        )
     }
 
     pub fn calls(&self) -> String {
@@ -206,11 +232,19 @@ impl TestEnv {
     }
 
     pub fn calls_with(&self, prefix: &str) -> String {
-        self.calls().lines().filter(|line| line.starts_with(prefix)).collect::<Vec<_>>().join("\n")
+        self.calls()
+            .lines()
+            .filter(|line| line.starts_with(prefix))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     pub fn worktree_hash(&self) -> String {
-        let mut child = Command::new("shasum").stdin(Stdio::piped()).stdout(Stdio::piped()).spawn().unwrap();
+        let mut child = Command::new("shasum")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
         std::io::Write::write_all(child.stdin.as_mut().unwrap(), self.repo.to_str().unwrap().as_bytes()).unwrap();
         let output = child.wait_with_output().unwrap();
         String::from_utf8_lossy(&output.stdout)[..12].to_string()
@@ -239,12 +273,16 @@ pub struct Checks(Vec<(String, String, String)>);
 
 impl Checks {
     pub fn check(&mut self, name: &str, expected: impl ToString, actual: impl ToString) {
-        self.0.push((name.to_string(), expected.to_string(), actual.to_string()));
+        self.0
+            .push((name.to_string(), expected.to_string(), actual.to_string()));
     }
 
     pub fn assert(&self, name: &str) {
-        let (_, expected, actual) =
-            self.0.iter().find(|(check, ..)| check == name).unwrap_or_else(|| panic!("no check named {name:?}"));
+        let (_, expected, actual) = self
+            .0
+            .iter()
+            .find(|(check, ..)| check == name)
+            .unwrap_or_else(|| panic!("no check named {name:?}"));
         assert_eq!(actual, expected, "{name}");
     }
 }

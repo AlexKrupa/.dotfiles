@@ -55,7 +55,10 @@ pub fn alive(pid: u32) -> bool {
 
 pub fn is_daemon(pid: Option<u32>) -> bool {
     let Some(pid) = pid else { return false };
-    let output = Command::new("ps").args(["-o", "command=", "-p", &pid.to_string()]).output().unwrap();
+    let output = Command::new("ps")
+        .args(["-o", "command=", "-p", &pid.to_string()])
+        .output()
+        .unwrap();
     String::from_utf8_lossy(&output.stdout).contains("watchd daemon")
 }
 
@@ -86,7 +89,10 @@ pub fn end(mut child: Child) {
 /// A command that does not stop in time is killed and gets exit code 124, as with `timeout`.
 pub fn run_limited(mut command: Command, folder: &Path, seconds: u64) -> Run {
     let number = NEXT_OUTPUT.fetch_add(1, Ordering::SeqCst);
-    let (out_path, err_path) = (folder.join(format!("run-{number}.out")), folder.join(format!("run-{number}.err")));
+    let (out_path, err_path) = (
+        folder.join(format!("run-{number}.out")),
+        folder.join(format!("run-{number}.err")),
+    );
     let mut child = command
         .stdout(std::fs::File::create(&out_path).unwrap())
         .stderr(std::fs::File::create(&err_path).unwrap())
@@ -104,15 +110,28 @@ pub fn run_limited(mut command: Command, folder: &Path, seconds: u64) -> Run {
         }
         std::thread::sleep(Duration::from_millis(50));
     };
-    let text = |path: &Path| std::fs::read_to_string(path).unwrap_or_default().trim_end_matches('\n').to_string();
-    Run { out: text(&out_path), err: text(&err_path), code }
+    let text = |path: &Path| {
+        std::fs::read_to_string(path)
+            .unwrap_or_default()
+            .trim_end_matches('\n')
+            .to_string()
+    };
+    Run {
+        out: text(&out_path),
+        err: text(&err_path),
+        code,
+    }
 }
 
 pub struct Background(JoinHandle<Run>);
 
 impl Background {
     pub fn wait(self, seconds: u64) -> Option<Run> {
-        if wait_for(seconds, || self.0.is_finished()) { self.0.join().ok() } else { None }
+        if wait_for(seconds, || self.0.is_finished()) {
+            self.0.join().ok()
+        } else {
+            None
+        }
     }
 
     pub fn running(&self) -> bool {
@@ -131,10 +150,20 @@ impl Watchd {
         let env = TestEnv::new();
         let events = env.dir.join("events");
         std::fs::create_dir_all(&events).unwrap();
-        let herdr = format!("#!/bin/sh\nprintf '%s\\n' \"$*\" >>\"{}\"\nexit 0\n", env.dir.join("herdr.log").display());
+        let herdr = format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >>\"{}\"\nexit 0\n",
+            env.dir.join("herdr.log").display()
+        );
         super::executable(&env.dir.join("bin/herdr"), &herdr);
         let watchd = env.state.join("watchd");
-        Watchd { session: session(), events, watchd, env, fake_engine: true, _serial: serial }
+        Watchd {
+            session: session(),
+            events,
+            watchd,
+            env,
+            fake_engine: true,
+            _serial: serial,
+        }
     }
 
     pub fn with_gitlab_engine() -> Watchd {
@@ -190,21 +219,38 @@ impl Watchd {
         let input = self.env.dir.join("report.json");
         std::fs::write(&input, json).unwrap();
         let mut command = self.command();
-        command.arg("report").args(flags).stdin(std::fs::File::open(&input).unwrap());
+        command
+            .arg("report")
+            .args(flags)
+            .stdin(std::fs::File::open(&input).unwrap());
         let run = self.run(command);
-        let out = [run.out.as_str(), run.err.as_str()].into_iter().filter(|text| !text.is_empty()).collect::<Vec<_>>().join("\n");
-        Run { out, err: String::new(), code: run.code }
+        let out = [run.out.as_str(), run.err.as_str()]
+            .into_iter()
+            .filter(|text| !text.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        Run {
+            out,
+            err: String::new(),
+            code: run.code,
+        }
     }
 
     pub fn start(&self, command: Command) -> Background {
         let folder = self.env.dir.clone();
-        Background(std::thread::spawn(move || run_limited(command, &folder, CLIENT_SECONDS)))
+        Background(std::thread::spawn(move || {
+            run_limited(command, &folder, CLIENT_SECONDS)
+        }))
     }
 
     pub fn events(&self, key: &str, lines: &[String]) {
         let text: String = lines.iter().map(|line| format!("{line}\n")).collect();
         let path = self.events.join(format!("{key}.jsonl"));
-        let mut file = std::fs::OpenOptions::new().create(true).append(true).open(path).unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .unwrap();
         std::io::Write::write_all(&mut file, text.as_bytes()).unwrap();
     }
 
@@ -230,7 +276,11 @@ impl Watchd {
     }
 
     pub fn daemon_pid(&self) -> Option<u32> {
-        std::fs::read_to_string(self.watchd.join("daemon.pid")).ok()?.trim().parse().ok()
+        std::fs::read_to_string(self.watchd.join("daemon.pid"))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
     }
 
     /// The state of the daemon, or the state on disk when no daemon runs.
@@ -265,7 +315,9 @@ impl Watchd {
     }
 
     pub fn has_error(&self, key: &str) -> bool {
-        self.state()["errors"][key].as_str().is_some_and(|text| !text.is_empty())
+        self.state()["errors"][key]
+            .as_str()
+            .is_some_and(|text| !text.is_empty())
     }
 
     pub fn items_of(&self, key: &str) -> Value {
@@ -290,7 +342,9 @@ impl Watchd {
 
     pub fn log_last(&self) -> Value {
         let text = std::fs::read_to_string(self.watchd.join("events.jsonl")).unwrap_or_default();
-        text.lines().last().map_or(Value::Null, |line| serde_json::from_str(line).unwrap())
+        text.lines()
+            .last()
+            .map_or(Value::Null, |line| serde_json::from_str(line).unwrap())
     }
 
     pub fn spawn_logged(&self, mut command: Command, name: &str) -> (Child, PathBuf) {

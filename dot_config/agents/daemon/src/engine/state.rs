@@ -5,8 +5,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use super::EngineError;
-use crate::persist::{self, Load};
 use super::event::present;
+use crate::persist::{self, Load};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

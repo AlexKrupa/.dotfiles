@@ -24,7 +24,10 @@ fn iev(kind: &str, iid: u64, item: &str) -> String {
 
 fn item_fields(items: &Value, fields: &[&str]) -> String {
     let items = items["items"].as_array().cloned().unwrap_or_default();
-    let rows: Vec<Value> = items.iter().map(|item| fields.iter().map(|field| item[*field].clone()).collect()).collect();
+    let rows: Vec<Value> = items
+        .iter()
+        .map(|item| fields.iter().map(|field| item[*field].clone()).collect())
+        .collect();
     Value::from(rows).to_string()
 }
 
@@ -65,7 +68,10 @@ fn with_body(run: &Run) -> String {
 }
 
 fn rows_of(out: &str, prefix: &str) -> Vec<String> {
-    out.lines().filter(|line| line.starts_with(prefix)).map(str::to_string).collect()
+    out.lines()
+        .filter(|line| line.starts_with(prefix))
+        .map(str::to_string)
+        .collect()
 }
 
 fn hub_items() -> &'static Checks {
@@ -76,20 +82,39 @@ fn hub_items() -> &'static Checks {
         w.fake("app", "state", r#"{"present": ["todo:11"]}"#);
         w.events("app", &[iev("todo", 5, "todo:11")]);
         let out = w.watch(&[]).out;
-        c.check("item event: row 1, items file has item 1", r#"1 [[1,"todo:11","daemon",5]]"#,
-            format!("{} {}", rows(&out), item_fields(&w.items_of("app"), &["n", "item", "owner", "iid"])));
+        c.check(
+            "item event: row 1, items file has item 1",
+            r#"1 [[1,"todo:11","daemon",5]]"#,
+            format!(
+                "{} {}",
+                rows(&out),
+                item_fields(&w.items_of("app"), &["n", "item", "owner", "iid"])
+            ),
+        );
         w.events("app", &[iev("todo", 5, "todo:11")]);
         c.check("second event of the same item: same row", 1, rows(&w.watch(&[]).out));
         w.events("app", &[ev("reaction", 5)]);
         let out = w.watch(&[]).out;
-        c.check("info event: new row, no item", "2 1", format!("{} {}", rows(&out), w.items_of("app")["items"].as_array().map_or(0, Vec::len)));
+        c.check(
+            "info event: new row, no item",
+            "2 1",
+            format!(
+                "{} {}",
+                rows(&out),
+                w.items_of("app")["items"].as_array().map_or(0, Vec::len)
+            ),
+        );
         w.report(r#"{"add": [{"section": "needs", "iid": 5, "what": "w"}]}"#, &[]);
         w.fake("app", "state", r#"{"present": []}"#);
         w.events("app", &[ev("reaction", 5)]);
         w.watch(&[]);
         let items = || item_keys(&w.items_of("app"));
         wait_for(5, || items() == r#"["model:3"]"#);
-        c.check("not present: item removed", "no", if items().contains("todo") { "yes" } else { "no" });
+        c.check(
+            "not present: item removed",
+            "no",
+            if items().contains("todo") { "yes" } else { "no" },
+        );
         c.check("model item: stays with no cause in GitLab", r#"["model:3"]"#, items());
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
         c.check("unsubscribe of the hub: items stay", r#"["model:3"]"#, items());
@@ -103,19 +128,38 @@ fn review_moves() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         let review = format!("{}-review-5", w.stack_key());
-        write_items(&w, "app", r#"{"next": 4, "items": [{"n": 3, "item": "todo:11", "owner": "daemon", "iid": 5},
-            {"n": 2, "item": "todo:12", "owner": "daemon", "iid": 6}]}"#);
-        w.env.write_engine_state("app", r#"{"present": ["todo:11", "todo:12"]}"#);
+        write_items(
+            &w,
+            "app",
+            r#"{"next": 4, "items": [{"n": 3, "item": "todo:11", "owner": "daemon", "iid": 5},
+            {"n": 2, "item": "todo:12", "owner": "daemon", "iid": 6}]}"#,
+        );
+        w.env
+            .write_engine_state("app", r#"{"present": ["todo:11", "todo:12"]}"#);
         w.fake(&review, "state", r#"{"present": []}"#);
         w.events(&review, &[ev("comment", 5)]);
         w.watch(&["--review", "--mr", "5"]);
-        c.check("live review: hub item moves", r#"[[1,"todo:11"]] [[2,"todo:12"]]"#,
-            format!("{} {}", item_fields(&w.items_of(&review), &["n", "item"]), item_fields(&w.items_of("app"), &["n", "item"])));
+        c.check(
+            "live review: hub item moves",
+            r#"[[1,"todo:11"]] [[2,"todo:12"]]"#,
+            format!(
+                "{} {}",
+                item_fields(&w.items_of(&review), &["n", "item"]),
+                item_fields(&w.items_of("app"), &["n", "item"])
+            ),
+        );
         w.events(&review, &[ev("merged", 5)]);
         w.watch(&["--review", "--mr", "5"]);
         wait_for(5, || !w.has_sub(&review));
-        c.check("ended review: items go back to the hub", r#"[[2,"todo:12"],[4,"todo:11"]] yes"#,
-            format!("{} {}", item_fields(&w.items_of("app"), &["n", "item"]), gone(&w.items_of(&review))));
+        c.check(
+            "ended review: items go back to the hub",
+            r#"[[2,"todo:12"],[4,"todo:11"]] yes"#,
+            format!(
+                "{} {}",
+                item_fields(&w.items_of("app"), &["n", "item"]),
+                gone(&w.items_of(&review))
+            ),
+        );
         c
     })
 }
@@ -126,12 +170,30 @@ fn review_unsubscribe() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         let review = format!("{}-review-5", w.stack_key());
-        write_items(&w, "app", r#"{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#);
+        write_items(
+            &w,
+            "app",
+            r#"{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#,
+        );
         w.events(&review, &[ev("comment", 5)]);
         w.watch(&["--review", "--mr", "5"]);
-        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--review", "--mr", "5"]);
-        c.check("unsubscribe of a review: items go back to the hub", r#"[[2,"todo:11"]] yes"#,
-            format!("{} {}", item_fields(&w.items_of("app"), &["n", "item"]), gone(&w.items_of(&review))));
+        w.client(&[
+            "unsubscribe",
+            "--repo",
+            w.env.repo.to_str().unwrap(),
+            "--review",
+            "--mr",
+            "5",
+        ]);
+        c.check(
+            "unsubscribe of a review: items go back to the hub",
+            r#"[[2,"todo:11"]] yes"#,
+            format!(
+                "{} {}",
+                item_fields(&w.items_of("app"), &["n", "item"]),
+                gone(&w.items_of(&review))
+            ),
+        );
         c
     })
 }
@@ -143,15 +205,26 @@ fn stack_rows() -> &'static Checks {
         let mut c = Checks::default();
         let stack = w.stack_key();
         w.fake(&stack, "state", r#"{"present": ["thread:d1"]}"#);
-        w.events(&stack, &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")]);
+        w.events(
+            &stack,
+            &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")],
+        );
         let first = rows(&w.watch(&["--mr", "5"]).out);
         w.events(&stack, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
         let mut command = w.watch_command(&["--once", "--mr", "5"]);
         command.stderr(std::process::Stdio::null());
         let second = support::daemon::run_limited(command, &w.env.dir, 5);
-        c.check("open item keeps its row in a second delivery", "1 1 | 2 1", format!("{first} | {}", rows(&second.out)));
+        c.check(
+            "open item keeps its row in a second delivery",
+            "1 1 | 2 1",
+            format!("{first} | {}", rows(&second.out)),
+        );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
-        c.check("unsubscribe of a stack: items removed", "yes", gone(&w.items_of(&stack)));
+        c.check(
+            "unsubscribe of a stack: items removed",
+            "yes",
+            gone(&w.items_of(&stack)),
+        );
         c
     })
 }
@@ -170,7 +243,11 @@ fn stack_end() -> &'static Checks {
         w.run(command);
         end(other);
         wait_for(10, || w.items_of(&stack).is_null());
-        c.check("ended stack: items go away with the results", "yes", gone(&w.items_of(&stack)));
+        c.check(
+            "ended stack: items go away with the results",
+            "yes",
+            gone(&w.items_of(&stack)),
+        );
         c
     })
 }
@@ -259,13 +336,21 @@ fn empty_report() -> &'static Checks {
         let mut c = Checks::default();
         let run = w.report("{}", &[]);
         let only_time = run.out.lines().count() == 1 && is_time(&run.out);
-        c.check("report: no events, no items", "0 yes", format!("{} {}", run.code, if only_time { "yes" } else { "no" }));
+        c.check(
+            "report: no events, no items",
+            "0 yes",
+            format!("{} {}", run.code, if only_time { "yes" } else { "no" }),
+        );
         c
     })
 }
 
 fn work_event(kind: &str, iid: u64, actor: &str, detail: &str, item: Option<&str>, at: Option<(&str, u64)>) -> Value {
-    let title = if iid == 123 { "Fix crash on rotation" } else { "Fix rotation test" };
+    let title = if iid == 123 {
+        "Fix crash on rotation"
+    } else {
+        "Fix rotation test"
+    };
     let mut event = json!({"kind": kind, "iid": iid, "title": title, "url": format!("{MR_URL}/{iid}"), "actor": actor,
         "detail": detail, "branch": "b"});
     if let Some((path, line)) = at {
@@ -279,7 +364,10 @@ fn work_event(kind: &str, iid: u64, actor: &str, detail: &str, item: Option<&str
 }
 
 fn local_time(seconds: i64) -> String {
-    let output = std::process::Command::new("date").args(["-r", &seconds.to_string(), "+%H:%M"]).output().unwrap();
+    let output = std::process::Command::new("date")
+        .args(["-r", &seconds.to_string(), "+%H:%M"])
+        .output()
+        .unwrap();
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
@@ -333,19 +421,35 @@ fn mr_with_no_rows() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         let stack = w.stack_key();
-        w.fake(&stack, "state", r#"{"mrs": {"5": {"title": "Add foo"}, "6": {"title": "Add bar"}}, "present": []}"#);
+        w.fake(
+            &stack,
+            "state",
+            r#"{"mrs": {"5": {"title": "Add foo"}, "6": {"title": "Add bar"}}, "present": []}"#,
+        );
         w.events(&stack, &[ev("approved", 5)]);
         w.watch(&["--mr", "5", "--mr", "6"]);
         let run = w.report("{}", &["--mr", "5", "--mr", "6"]);
-        c.check("report: MR with no rows has no table", "0
+        c.check(
+            "report: MR with no rows has no table",
+            "0
 Add foo (!5) u
 
 | #   | Section | What happened  | Proposal or result |
 | --- | ------- | -------------- | ------------------ |
 | 1   | Info    | @anna approved |                    |
 
-Add bar (!6)", with_body(&run));
-        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5", "--mr", "6"]);
+Add bar (!6)",
+            with_body(&run),
+        );
+        w.client(&[
+            "unsubscribe",
+            "--repo",
+            w.env.repo.to_str().unwrap(),
+            "--mr",
+            "5",
+            "--mr",
+            "6",
+        ]);
         c
     })
 }
@@ -355,13 +459,23 @@ fn hub_items_stay() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        write_items(&w, "app", r#"{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#);
+        write_items(
+            &w,
+            "app",
+            r#"{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#,
+        );
         w.events(&w.stack_key(), &[ev("approved", 5)]);
         w.watch(&["--mr", "5"]);
         sleep(3);
-        c.check("hub items with no hub record: no sweep log line, items stay", "0 yes",
-            format!("{} {}", w.log_count(" app results of an ended subscription removed"),
-                if gone(&w.items_of("app")) == "no" { "yes" } else { "no" }));
+        c.check(
+            "hub items with no hub record: no sweep log line, items stay",
+            "0 yes",
+            format!(
+                "{} {}",
+                w.log_count(" app results of an ended subscription removed"),
+                if gone(&w.items_of("app")) == "no" { "yes" } else { "no" }
+            ),
+        );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
         c
     })
@@ -374,13 +488,23 @@ fn old_thread_since() -> &'static Checks {
         let mut c = Checks::default();
         let stack = w.stack_key();
         w.fake(&stack, "state", r#"{"present": ["thread:d1"]}"#);
-        w.events(&stack, &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")]);
+        w.events(
+            &stack,
+            &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")],
+        );
         w.watch(&["--mr", "5"]);
         w.events(&stack, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
         w.watch(&["--mr", "5"]);
         let out = w.report("{}", &["--mr", "5"]).out;
-        let since = out.split("| Since ").skip(1).any(|rest| rest.len() > 13 && is_time(&rest[..5]) && rest[5..].starts_with(": @anna"));
-        c.check("report: an old thread in a new delivery has Since", "yes", if since { "yes" } else { "no" });
+        let since = out
+            .split("| Since ")
+            .skip(1)
+            .any(|rest| rest.len() > 13 && is_time(&rest[..5]) && rest[5..].starts_with(": @anna"));
+        c.check(
+            "report: an old thread in a new delivery has Since",
+            "yes",
+            if since { "yes" } else { "no" },
+        );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
         c
     })
@@ -394,8 +518,16 @@ fn items_not_json() -> &'static Checks {
         write_items(&w, "app", "not json");
         w.events("app", &[ev("todo", 5)]);
         let run = w.watch(&[]);
-        c.check("items file not JSON: the events come, with a log line", format!("0 {} 1", ev("todo", 5)),
-            format!("{} {} {}", run.code, support::daemon::norow(&run.out), w.log_count("no rows")));
+        c.check(
+            "items file not JSON: the events come, with a log line",
+            format!("0 {} 1", ev("todo", 5)),
+            format!(
+                "{} {} {}",
+                run.code,
+                support::daemon::norow(&run.out),
+                w.log_count("no rows")
+            ),
+        );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
         c
     })

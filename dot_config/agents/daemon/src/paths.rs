@@ -12,7 +12,10 @@ impl StateDirs {
             Some(dir) if !dir.is_empty() => PathBuf::from(dir),
             _ => home().join(".local/state"),
         };
-        StateDirs { watchd: base.join("watchd"), engine: base.join("watch-gitlab") }
+        StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        }
     }
 
     pub fn engine_state(&self, key: &str) -> PathBuf {

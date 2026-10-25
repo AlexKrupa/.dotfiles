@@ -57,8 +57,17 @@ fn new_binary() -> &'static Checks {
         wait_for(10, || starts_of(&w, old) == 2);
         w.events("app", &[ev("todo", 6)]);
         let run = w.run(watch_copy(&w, &copy, &[]));
-        c.check("a new binary is installed: the daemon restarts with the same PID", format!("0 {} 2 yes", ev("todo", 6)),
-            format!("{} {} {} {}", run.code, norow(&run.out), starts_of(&w, old), yes_no(w.daemon_pid() == old && is_daemon(old))));
+        c.check(
+            "a new binary is installed: the daemon restarts with the same PID",
+            format!("0 {} 2 yes", ev("todo", 6)),
+            format!(
+                "{} {} {} {}",
+                run.code,
+                norow(&run.out),
+                starts_of(&w, old),
+                yes_no(w.daemon_pid() == old && is_daemon(old))
+            ),
+        );
         c
     })
 }
@@ -79,12 +88,18 @@ fn new_binary_client() -> &'static Checks {
         w.events("app", &[ev("todo", 5)]);
         install_copy(&copy);
         let run = client.wait(10).unwrap();
-        c.check("a new binary: the client connects again and gets the events once", format!("0 {} 2", ev("todo", 5)),
-            format!("{} {} {}", run.code, norow(&run.out), starts_of(&w, old)));
+        c.check(
+            "a new binary: the client connects again and gets the events once",
+            format!("0 {} 2", ev("todo", 5)),
+            format!("{} {} {}", run.code, norow(&run.out), starts_of(&w, old)),
+        );
         let sub = w.sub_of("app");
         let fresh = w.state()["engine"]["app"]["todo"].is_null();
-        c.check("a new binary: the client keeps its process and its flags, not --fresh", format!("{client_pid} 600 no"),
-            format!("{} {} {}", sub["client_pid"], sub["interval"], yes_no(fresh)));
+        c.check(
+            "a new binary: the client keeps its process and its flags, not --fresh",
+            format!("{client_pid} 600 no"),
+            format!("{} {} {}", sub["client_pid"], sub["interval"], yes_no(fresh)),
+        );
         c
     })
 }
@@ -100,9 +115,16 @@ fn daemon_killed() -> &'static Checks {
         kill(old, libc::SIGKILL);
         w.events("app", &[ev("todo", 7)]);
         let run = client.wait(10).unwrap();
-        c.check("daemon killed: client starts it, event not lost", format!("0 {}", ev("todo", 7)),
-            format!("{} {}", run.code, norow(&run.out)));
-        c.check("daemon killed: new daemon", "yes", yes_no(w.daemon_pid() != old && is_daemon(w.daemon_pid())));
+        c.check(
+            "daemon killed: client starts it, event not lost",
+            format!("0 {}", ev("todo", 7)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
+        c.check(
+            "daemon killed: new daemon",
+            "yes",
+            yes_no(w.daemon_pid() != old && is_daemon(w.daemon_pid())),
+        );
         c
     })
 }
@@ -127,8 +149,11 @@ fn killed_during_check() -> &'static Checks {
         kill(w.daemon_pid(), libc::SIGKILL);
         w.events("app", &[ev("todo", 8)]);
         let run = client.wait(10).unwrap();
-        c.check("daemon killed during a check: client starts it, the next check gives the event", format!("0 {}", ev("todo", 8)),
-            format!("{} {}", run.code, norow(&run.out)));
+        c.check(
+            "daemon killed during a check: client starts it, the next check gives the event",
+            format!("0 {}", ev("todo", 8)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
         c
     })
 }
@@ -142,8 +167,11 @@ fn leftover_socket() -> &'static Checks {
         std::fs::write(w.watchd.join("daemon.sock"), "").unwrap();
         w.events("app", &[ev("todo", 5)]);
         let run = w.watch(&[]);
-        c.check("leftover socket file with no daemon: client gets events", format!("0 {}", ev("todo", 5)),
-            format!("{} {}", run.code, norow(&run.out)));
+        c.check(
+            "leftover socket file with no daemon: client gets events",
+            format!("0 {}", ev("todo", 5)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
         c
     })
 }
@@ -158,7 +186,11 @@ fn log_size() -> &'static Checks {
         std::fs::write(w.watchd.join("watchd.log"), lines).unwrap();
         w.events("app", &[ev("todo", 5)]);
         w.watch(&[]);
-        c.check("log over 10000 lines: the daemon keeps the last 5000", "7001", w.log().lines().next().unwrap_or_default().to_string());
+        c.check(
+            "log over 10000 lines: the daemon keeps the last 5000",
+            "7001",
+            w.log().lines().next().unwrap_or_default().to_string(),
+        );
         c
     })
 }
@@ -172,9 +204,16 @@ fn sigterm_during_check() -> &'static Checks {
         let pid = w.daemon_pid();
         kill(pid, libc::SIGTERM);
         let run = client.wait(10).unwrap();
-        c.check("the daemon gets SIGTERM during a check: event not lost", format!("0 {}", ev("todo", 6)),
-            format!("{} {}", run.code, norow(&run.out)));
-        c.check("the daemon gets SIGTERM during a check: daemon gone", "no", yes_no(alive(pid.unwrap_or(0))));
+        c.check(
+            "the daemon gets SIGTERM during a check: event not lost",
+            format!("0 {}", ev("todo", 6)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
+        c.check(
+            "the daemon gets SIGTERM during a check: daemon gone",
+            "no",
+            yes_no(alive(pid.unwrap_or(0))),
+        );
         c
     })
 }
@@ -187,8 +226,11 @@ fn once_after_poke() -> &'static Checks {
         let client = slow_check(&w);
         w.events("app", &[ev("todo", 7)]);
         let run = w.watch(&["--interval", "600", "--once"]);
-        c.check("--once: waits for a round that starts after the poke", format!("0 {}\n{}", ev("todo", 6), ev("todo", 7)),
-            format!("{} {}", run.code, norow(&run.out)));
+        c.check(
+            "--once: waits for a round that starts after the poke",
+            format!("0 {}\n{}", ev("todo", 6), ev("todo", 7)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
         client.wait(10);
         c
     })
@@ -207,13 +249,24 @@ fn network_down() -> &'static Checks {
         let client = w.start(w.watch_command(&[]));
         wait_for(5, || w.log_count("network error") > 0);
         sleep(2);
-        c.check("network down: no client error, subscription stays", "running no",
-            format!("{} {}", if client.running() { "running" } else { "stopped" }, w.sub_gone("app")));
+        c.check(
+            "network down: no client error, subscription stays",
+            "running no",
+            format!(
+                "{} {}",
+                if client.running() { "running" } else { "stopped" },
+                w.sub_gone("app")
+            ),
+        );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
         client.code();
         let polled = || !w.state()["repos"]["app"]["last_poll"].is_null();
         wait_for(15, || !polled());
-        c.check("network down: repo loop exits when its subscriptions end", "yes", yes_no(!polled()));
+        c.check(
+            "network down: repo loop exits when its subscriptions end",
+            "yes",
+            yes_no(!polled()),
+        );
         std::fs::write(&nc, "#!/bin/sh\nexit 0\n").unwrap();
         c
     })

@@ -97,10 +97,16 @@ async fn main() {
         Commands::Kind { args } => client::kind(args).await,
         Commands::Route { args } => client::route(args).await,
         Commands::Report { args } => client::report(args).await,
-        Commands::Debug { command: DebugCommand::State } => client::debug_state().await,
-        Commands::Debug { command: DebugCommand::ReplaceClients { repo } } => client::replace_clients(&repo).await,
+        Commands::Debug {
+            command: DebugCommand::State,
+        } => client::debug_state().await,
+        Commands::Debug {
+            command: DebugCommand::ReplaceClients { repo },
+        } => client::replace_clients(&repo).await,
         Commands::Follow { after } => client::follow(after).await,
-        Commands::Workspace { command: WorkspaceCommand::Forget { id } } => client::forget_workspace(id).await,
+        Commands::Workspace {
+            command: WorkspaceCommand::Forget { id },
+        } => client::forget_workspace(id).await,
     };
     std::process::exit(code);
 }

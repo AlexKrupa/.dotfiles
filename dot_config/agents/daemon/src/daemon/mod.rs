@@ -26,13 +26,19 @@ const SOCKET_FD: &str = "WATCHD_SOCKET_FD";
 const NAP_STEP: u64 = 2;
 
 fn env_seconds(name: &str, default: u64) -> u64 {
-    std::env::var(name).ok().and_then(|value| value.parse().ok()).unwrap_or(default)
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(default)
 }
 
 fn engine_of(dirs: &StateDirs) -> Box<dyn Engine> {
     #[cfg(feature = "test-support")]
     if let Some(dir) = std::env::var_os("WATCHD_FAKE_ENGINE").filter(|value| !value.is_empty()) {
-        return Box::new(crate::engine::fake::FakeEngine { dir: dir.into(), engine_dir: dirs.engine.clone() });
+        return Box::new(crate::engine::fake::FakeEngine {
+            dir: dir.into(),
+            engine_dir: dirs.engine.clone(),
+        });
     }
     Box::new(GitlabEngine { dirs: dirs.clone() })
 }
@@ -84,7 +90,9 @@ impl Daemon {
     }
 
     pub fn poke(&self, memory: &mut Memory, key: &str, slug: &str, token: &str) {
-        memory.pokes.insert(key.to_string(), (slug.to_string(), token.to_string()));
+        memory
+            .pokes
+            .insert(key.to_string(), (slug.to_string(), token.to_string()));
         if let Some(task) = memory.repos.get(slug) {
             task.wake.notify_waiters();
         }
@@ -158,7 +166,8 @@ impl Daemon {
                 }
             }
             Err(EngineError::Network(text)) => {
-                self.store.log(slug, key, &format!("network error: {}", first_line(&text)));
+                self.store
+                    .log(slug, key, &format!("network error: {}", first_line(&text)));
                 network = true;
             }
             Err(EngineError::Permanent(text)) => {
@@ -171,7 +180,8 @@ impl Daemon {
             Err(EngineError::Other(text)) => {
                 let fails = memory.fails.get(key).copied().unwrap_or(0) + 1;
                 memory.fails.insert(key.to_string(), fails);
-                self.store.log(slug, key, &format!("error {fails} of 5: {}", first_line(&text)));
+                self.store
+                    .log(slug, key, &format!("error {fails} of 5: {}", first_line(&text)));
                 if fails >= 5 {
                     if let Some(current) = self.store.sub(key) {
                         self.store.remove_record(&current, "5 errors in a row", Some(&text));
@@ -233,11 +243,7 @@ async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
                 }
             }
         }
-        let round = std::env::temp_dir().join(format!(
-            "watchd-round-{}-{slug}-{}",
-            std::process::id(),
-            now_seconds()
-        ));
+        let round = std::env::temp_dir().join(format!("watchd-round-{}-{slug}-{}", std::process::id(), now_seconds()));
         let _ = std::fs::create_dir_all(&round);
         let cache = Arc::new(MrCache::new(round.clone()));
         let mut checks = tokio::task::JoinSet::new();
@@ -253,13 +259,18 @@ async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
         {
             let mut memory = daemon.lock().await;
             memory.last_poll.insert(slug.clone(), now_seconds());
-            daemon.store.log(&slug, "", &format!("round done: {} subscription(s)", subs.len()));
+            daemon
+                .store
+                .log(&slug, "", &format!("round done: {} subscription(s)", subs.len()));
         }
         if daemon.stopping() {
             break;
         }
         let remote = remote_url(&subs[0].repo);
-        let host = remote.as_deref().and_then(split_remote).map(|(host, _)| host.to_string());
+        let host = remote
+            .as_deref()
+            .and_then(split_remote)
+            .map(|(host, _)| host.to_string());
         // A network error with the network up, as for HTTP 502, gets the normal wait.
         if network && !online(host.as_deref()).await {
             match daemon.wait_online(&slug, host.as_deref()).await {
@@ -268,7 +279,11 @@ async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
             }
         }
         let interval = subs.iter().map(|sub| sub.interval).min().unwrap_or(120);
-        daemon.lock().await.next_round.insert(slug.clone(), now_seconds() + interval as i64);
+        daemon
+            .lock()
+            .await
+            .next_round
+            .insert(slug.clone(), now_seconds() + interval as i64);
         let sleep = |step: u64| {
             let (daemon, wake, slug) = (daemon.clone(), wake.clone(), slug.clone());
             async move {
@@ -321,7 +336,12 @@ fn take_lock(dirs: &StateDirs) -> Option<std::fs::File> {
         // SAFETY: the image before the exec left this descriptor open for this image.
         return Some(unsafe { std::fs::File::from_raw_fd(fd) });
     }
-    let file = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(dirs.lock()).ok()?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dirs.lock())
+        .ok()?;
     // SAFETY: flock on an open descriptor.
     match unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } {
         0 => Some(file),
@@ -404,7 +424,9 @@ pub async fn main() -> i32 {
                     .env(LOCK_FD, lock.as_raw_fd().to_string())
                     .env(SOCKET_FD, socket_fd.to_string()),
             );
-            daemon.store.log("", "", &format!("restart failed: {}: {error}", exe.display()));
+            daemon
+                .store
+                .log("", "", &format!("restart failed: {}: {error}", exe.display()));
             1
         }
         End::Stop => {
@@ -421,8 +443,7 @@ pub async fn main() -> i32 {
 
 async fn run(daemon: &Arc<Daemon>) -> End {
     use tokio::signal::unix::{SignalKind, signal};
-    let (Ok(mut terminate), Ok(mut interrupt)) =
-        (signal(SignalKind::terminate()), signal(SignalKind::interrupt()))
+    let (Ok(mut terminate), Ok(mut interrupt)) = (signal(SignalKind::terminate()), signal(SignalKind::interrupt()))
     else {
         daemon.store.log("", "", "no signal handlers");
         return End::Stop;

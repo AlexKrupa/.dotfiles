@@ -37,7 +37,9 @@ pub fn is_worktree_key(key: &str) -> bool {
     };
     key.len() > 13
         && key.as_bytes()[key.len() - 13] == b'-'
-        && key[key.len() - 12..].bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        && key[key.len() - 12..]
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 pub fn first_line(text: &str) -> &str {
@@ -54,7 +56,10 @@ fn kind_of(mode: Mode) -> Kind {
 
 impl Store {
     pub fn new(dirs: StateDirs) -> Store {
-        Store { dirs, last_id: std::sync::Mutex::new(None) }
+        Store {
+            dirs,
+            last_id: std::sync::Mutex::new(None),
+        }
     }
 
     fn read_json<T: DeserializeOwned>(&self, path: &Path) -> Result<Option<T>, String> {
@@ -77,9 +82,23 @@ impl Store {
     }
 
     pub fn log(&self, slug: &str, key: &str, message: &str) {
-        let dash = |text: &str| if text.is_empty() { "-".to_string() } else { text.to_string() };
-        let line = format!("{} {} {} {message}\n", utc_timestamp(now_seconds()), dash(slug), dash(key));
-        let file = std::fs::OpenOptions::new().create(true).append(true).open(self.dirs.log());
+        let dash = |text: &str| {
+            if text.is_empty() {
+                "-".to_string()
+            } else {
+                text.to_string()
+            }
+        };
+        let line = format!(
+            "{} {} {} {message}\n",
+            utc_timestamp(now_seconds()),
+            dash(slug),
+            dash(key)
+        );
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.dirs.log());
         if let Ok(mut file) = file {
             let _ = file.write_all(line.as_bytes());
         }
@@ -87,13 +106,22 @@ impl Store {
 
     /// Shrinks the log in place, because the log file is the stdout of the daemon.
     pub fn trim_log(&self) {
-        let Ok(text) = std::fs::read_to_string(self.dirs.log()) else { return };
+        let Ok(text) = std::fs::read_to_string(self.dirs.log()) else {
+            return;
+        };
         let lines: Vec<&str> = text.lines().collect();
         if lines.len() <= 10_000 {
             return;
         }
-        let kept: String = lines[lines.len() - 5000..].iter().map(|line| format!("{line}\n")).collect();
-        if let Ok(mut file) = std::fs::OpenOptions::new().write(true).truncate(true).open(self.dirs.log()) {
+        let kept: String = lines[lines.len() - 5000..]
+            .iter()
+            .map(|line| format!("{line}\n"))
+            .collect();
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(self.dirs.log())
+        {
             let _ = file.write_all(kept.as_bytes());
         }
     }
@@ -103,7 +131,9 @@ impl Store {
     }
 
     pub fn subs(&self) -> Vec<Subscription> {
-        let Ok(entries) = std::fs::read_dir(self.dirs.watchd.join("subs")) else { return Vec::new() };
+        let Ok(entries) = std::fs::read_dir(self.dirs.watchd.join("subs")) else {
+            return Vec::new();
+        };
         let mut keys: Vec<String> = entries
             .filter_map(|entry| entry.ok()?.file_name().into_string().ok())
             .filter_map(|name| name.strip_suffix(".json").map(str::to_string))
@@ -199,7 +229,10 @@ impl Store {
         }
         *last_id = Some(last);
         let text: String = texts.iter().map(|line| format!("{line}\n")).collect();
-        let file = std::fs::OpenOptions::new().create(true).append(true).open(self.dirs.events());
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.dirs.events());
         if let Ok(mut file) = file {
             let _ = file.write_all(text.as_bytes());
         }
@@ -207,7 +240,9 @@ impl Store {
 
     pub fn workspace_update(&self, id: &str, change: impl FnOnce(&mut Workspace)) {
         let path = self.dirs.workspace(id);
-        let Ok(workspace) = self.read_json::<Workspace>(&path) else { return };
+        let Ok(workspace) = self.read_json::<Workspace>(&path) else {
+            return;
+        };
         let mut workspace = workspace.unwrap_or_default();
         change(&mut workspace);
         let _ = std::fs::create_dir_all(self.dirs.watchd.join("workspaces"));
@@ -241,7 +276,11 @@ impl Store {
         remove(&self.dirs.sub(&sub.key));
         self.log(&sub.slug, &sub.key, &format!("subscription removed: {reason}"));
         if let Some(workspace) = &sub.herdr_workspace {
-            let stage = if reason == ALL_ENDED { Stage::Done } else { Stage::Stopped };
+            let stage = if reason == ALL_ENDED {
+                Stage::Done
+            } else {
+                Stage::Stopped
+            };
             self.workspace_update(workspace, |workspace| workspace.stage = Some(stage));
         }
     }
@@ -262,7 +301,9 @@ impl Store {
     pub fn sweep(&self) {
         let mut keys = Vec::new();
         for (dir, suffixes) in [("inbox", &[".jsonl", ".error"][..]), ("items", &[".json"][..])] {
-            let Ok(entries) = std::fs::read_dir(self.dirs.watchd.join(dir)) else { continue };
+            let Ok(entries) = std::fs::read_dir(self.dirs.watchd.join(dir)) else {
+                continue;
+            };
             for name in entries.filter_map(|entry| entry.ok()?.file_name().into_string().ok()) {
                 if name.ends_with(".last.jsonl") {
                     continue;
@@ -283,11 +324,18 @@ impl Store {
                 continue;
             }
             let owner = std::fs::read_to_string(self.dirs.owner(&key)).ok();
-            let owner_alive = owner.and_then(|owner| owner.trim().parse().ok()).is_some_and(process_alive);
+            let owner_alive = owner
+                .and_then(|owner| owner.trim().parse().ok())
+                .is_some_and(process_alive);
             if owner_alive {
                 continue;
             }
-            for path in [self.dirs.inbox(&key), self.dirs.error(&key), self.dirs.owner(&key), self.dirs.last(&key)] {
+            for path in [
+                self.dirs.inbox(&key),
+                self.dirs.error(&key),
+                self.dirs.owner(&key),
+                self.dirs.last(&key),
+            ] {
                 remove(&path);
             }
             if is_worktree_key(&key) {
@@ -325,24 +373,37 @@ impl Store {
 
     pub fn prune_items(&self, sub: &Subscription) {
         let path = self.dirs.items(&sub.key);
-        let Ok(Some(mut items)) = self.read_json::<Items>(&path) else { return };
-        let strings = |value: &serde_json::Value| -> Option<Vec<String>> {
-            value.as_array().map(|list| list.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+        let Ok(Some(mut items)) = self.read_json::<Items>(&path) else {
+            return;
         };
-        let Some(present) = self.engine_value(&sub.key).and_then(|engine| strings(&engine["present"])) else {
+        let strings = |value: &serde_json::Value| -> Option<Vec<String>> {
+            value
+                .as_array()
+                .map(|list| list.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+        };
+        let Some(present) = self
+            .engine_value(&sub.key)
+            .and_then(|engine| strings(&engine["present"]))
+        else {
             return;
         };
         let hub = match sub.mode {
             Mode::Hub => None,
-            Mode::Stack | Mode::Review => self.engine_value(&sub.slug).and_then(|engine| strings(&engine["present"])),
+            Mode::Stack | Mode::Review => self
+                .engine_value(&sub.slug)
+                .and_then(|engine| strings(&engine["present"])),
         };
         prune_items(&mut items, &present, hub.as_deref(), sub.mode);
         let _ = save(&path, &items);
     }
 
     pub fn end_mrs(&self, key: &str, routed: &[RoutedEvent]) -> bool {
-        let ended = routed.iter().any(|event| matches!(event.event.kind, EventKind::Merged | EventKind::Closed));
-        let Some(mut sub) = self.sub(key).filter(|_| ended) else { return false };
+        let ended = routed
+            .iter()
+            .any(|event| matches!(event.event.kind, EventKind::Merged | EventKind::Closed));
+        let Some(mut sub) = self.sub(key).filter(|_| ended) else {
+            return false;
+        };
         let all = add_ended(&mut sub, routed);
         self.write_sub(&sub);
         if all {
@@ -353,9 +414,13 @@ impl Store {
 
     pub fn move_items(&self, source: &str, target: &str, iid: Option<u64>) {
         let source_path = self.dirs.items(source);
-        let Ok(Some(mut from)) = self.read_json::<Items>(&source_path) else { return };
+        let Ok(Some(mut from)) = self.read_json::<Items>(&source_path) else {
+            return;
+        };
         let target_path = self.dirs.items(target);
-        let Ok(to) = self.read_json::<Items>(&target_path) else { return };
+        let Ok(to) = self.read_json::<Items>(&target_path) else {
+            return;
+        };
         let mut to = to.unwrap_or_default();
         if move_items(&mut from, &mut to, iid) > 0 {
             let _ = save(&target_path, &to);
@@ -375,10 +440,14 @@ impl Store {
                 let _ = std::fs::rename(&temp, self.dirs.events());
             }
         }
-        let Ok(entries) = std::fs::read_dir(&self.dirs.engine) else { return };
+        let Ok(entries) = std::fs::read_dir(&self.dirs.engine) else {
+            return;
+        };
         for entry in entries.filter_map(Result::ok) {
             let name = entry.file_name().to_string_lossy().to_string();
-            let Some(key) = name.strip_suffix(".json") else { continue };
+            let Some(key) = name.strip_suffix(".json") else {
+                continue;
+            };
             let modified = entry.metadata().ok().and_then(|meta| meta.modified().ok());
             let seconds = modified
                 .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
@@ -402,7 +471,13 @@ impl Store {
         replaced.sort_unstable();
         replaced.dedup();
         let ended: Vec<u64> = old
-            .map(|old| old.ended_mrs.iter().copied().filter(|iid| args.mrs.contains(iid)).collect())
+            .map(|old| {
+                old.ended_mrs
+                    .iter()
+                    .copied()
+                    .filter(|iid| args.mrs.contains(iid))
+                    .collect()
+            })
             .unwrap_or_default();
         let sub = Subscription {
             key: args.key.clone(),
@@ -427,7 +502,11 @@ impl Store {
             });
         }
         let mrs: Vec<String> = sub.mrs.iter().map(u64::to_string).collect();
-        self.log(&sub.slug, &sub.key, &format!("subscribed: {} {}", sub.mode.as_str(), mrs.join(" ")));
+        self.log(
+            &sub.slug,
+            &sub.key,
+            &format!("subscribed: {} {}", sub.mode.as_str(), mrs.join(" ")),
+        );
         old.is_none() || args.once || args.again
     }
 
@@ -486,7 +565,10 @@ impl Store {
     pub fn report(&self, key: &str, mode: Mode, mrs: &[u64], input: &ReportInput) -> Result<String, String> {
         let unreadable = || "report: jq could not read the input or the state".to_string();
         let path = self.dirs.items(key);
-        let items = self.read_json::<Items>(&path).map_err(|_| unreadable())?.unwrap_or_default();
+        let items = self
+            .read_json::<Items>(&path)
+            .map_err(|_| unreadable())?
+            .unwrap_or_default();
         let text = std::fs::read_to_string(self.dirs.last(key)).unwrap_or_default();
         let delivery: Vec<RoutedEvent> = text
             .lines()
@@ -511,7 +593,9 @@ impl Store {
     }
 
     fn json_files<T: DeserializeOwned>(&self, dir: &Path, suffix: &str) -> BTreeMap<String, T> {
-        let Ok(entries) = std::fs::read_dir(dir) else { return BTreeMap::new() };
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return BTreeMap::new();
+        };
         entries
             .filter_map(|entry| {
                 let entry = entry.ok()?;
@@ -540,7 +624,9 @@ impl Store {
             .iter()
             .filter_map(|sub| {
                 let key = sub["key"].as_str()?.to_string();
-                let needs = self.engine_value(&key).map_or(serde_json::json!([]), |engine| engine["needs"].clone());
+                let needs = self
+                    .engine_value(&key)
+                    .map_or(serde_json::json!([]), |engine| engine["needs"].clone());
                 Some((key, if needs.is_null() { serde_json::json!([]) } else { needs }))
             })
             .collect();
@@ -554,12 +640,17 @@ impl Store {
             for name in entries.filter_map(|entry| entry.ok()?.file_name().into_string().ok()) {
                 if let Some(key) = name.strip_suffix(".jsonl").filter(|key| !key.ends_with(".last")) {
                     let text = std::fs::read_to_string(self.dirs.inbox(key)).unwrap_or_default();
-                    let events: Vec<RoutedEvent> =
-                        text.lines().filter_map(|line| serde_json::from_str(line).ok()).collect();
+                    let events: Vec<RoutedEvent> = text
+                        .lines()
+                        .filter_map(|line| serde_json::from_str(line).ok())
+                        .collect();
                     inbox.insert(key.to_string(), events);
                 }
                 if let Some(key) = name.strip_suffix(".error") {
-                    errors.insert(key.to_string(), std::fs::read_to_string(self.dirs.error(key)).unwrap_or_default());
+                    errors.insert(
+                        key.to_string(),
+                        std::fs::read_to_string(self.dirs.error(key)).unwrap_or_default(),
+                    );
                 }
             }
         }
@@ -618,7 +709,10 @@ mod tests {
     fn record_of_an_unknown_format_is_removed_with_a_log_line() {
         let base = std::env::temp_dir().join(format!("watchd-store-{}-format", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
-        let store = Store::new(StateDirs { watchd: base.join("watchd"), engine: base.join("watch-gitlab") });
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
         store.ensure_dirs().unwrap();
         std::fs::write(store.dirs.sub("app"), r#"{"version": 9, "key": "app"}"#).unwrap();
 
@@ -626,7 +720,10 @@ mod tests {
 
         assert!(!store.dirs.sub("app").exists());
         let log = std::fs::read_to_string(store.dirs.log()).unwrap();
-        let expected = format!("{}: format 9 not supported, record removed\n", store.dirs.sub("app").display());
+        let expected = format!(
+            "{}: format 9 not supported, record removed\n",
+            store.dirs.sub("app").display()
+        );
         assert!(log.ends_with(&expected), "{log}");
     }
 
@@ -634,9 +731,16 @@ mod tests {
     fn put_back_inbox_puts_the_events_before_the_newer_lines() {
         let base = std::env::temp_dir().join(format!("watchd-store-{}-put-back", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
-        let store = Store::new(StateDirs { watchd: base.join("watchd"), engine: base.join("watch-gitlab") });
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
         store.ensure_dirs().unwrap();
-        let line = |row| format!(r#"{{"kind":"unaddressed","iid":5,"title":"T","url":"u","actor":"anna","detail":"d","branch":"b","row":{row}}}"#);
+        let line = |row| {
+            format!(
+                r#"{{"kind":"unaddressed","iid":5,"title":"T","url":"u","actor":"anna","detail":"d","branch":"b","row":{row}}}"#
+            )
+        };
         std::fs::write(store.dirs.inbox("app"), format!("{}\n{}\n", line(1), line(2))).unwrap();
         let taken = store.take_inbox("app");
         std::fs::write(store.dirs.inbox("app"), format!("{}\n", line(3))).unwrap();

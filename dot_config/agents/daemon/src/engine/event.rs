@@ -136,7 +136,15 @@ mod tests {
         let event = Event {
             previous: Some(Some("success".to_string())),
             item: Some("main-failed:main".to_string()),
-            ..Event::new(EventKind::DefaultFailed, None, None, "u", "", "pipeline 9 failed", "main")
+            ..Event::new(
+                EventKind::DefaultFailed,
+                None,
+                None,
+                "u",
+                "",
+                "pipeline 9 failed",
+                "main",
+            )
         };
         assert_eq!(
             serde_json::to_string(&event).unwrap(),

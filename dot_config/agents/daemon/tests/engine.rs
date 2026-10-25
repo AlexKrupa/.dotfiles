@@ -32,7 +32,10 @@ fn pipeline(id: u64, status: &str) -> impl FnOnce(&mut Value) {
 }
 
 fn discussions(env: &TestEnv, iid: u64, threads: &[Value]) {
-    env.fixture(&format!("discussions_{iid}"), &Value::from(threads.to_vec()).to_string());
+    env.fixture(
+        &format!("discussions_{iid}"),
+        &Value::from(threads.to_vec()).to_string(),
+    );
 }
 
 fn pos() -> Value {
@@ -50,7 +53,11 @@ fn thread(resolver: &str, notes: Vec<Value>) -> Value {
         .into_iter()
         .map(|mut note| {
             note["resolved"] = json!(!resolver.is_empty());
-            note["resolved_by"] = if resolver.is_empty() { Value::Null } else { json!({"username": resolver}) };
+            note["resolved_by"] = if resolver.is_empty() {
+                Value::Null
+            } else {
+                json!({"username": resolver})
+            };
             note
         })
         .collect();
@@ -63,7 +70,10 @@ fn system_note(id: u64, author: &str, body: &str) -> Value {
 }
 
 fn refs(env: &TestEnv, base: &str, head: &str) {
-    env.fixture("mr_5", &json!({"diff_refs": {"base_sha": base, "head_sha": head}}).to_string());
+    env.fixture(
+        "mr_5",
+        &json!({"diff_refs": {"base_sha": base, "head_sha": head}}).to_string(),
+    );
 }
 
 fn todo_9(id: u64, action: &str) -> Value {
@@ -115,14 +125,22 @@ impl Line {
     }
 
     fn set(mut self, key: &'static str, value: Value) -> Line {
-        self.0.iter_mut().find(|(field, _)| *field == key).expect("a field of the line").1 = value;
+        self.0
+            .iter_mut()
+            .find(|(field, _)| *field == key)
+            .expect("a field of the line")
+            .1 = value;
         self
     }
 }
 
 impl fmt::Display for Line {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        let fields: Vec<String> = self.0.iter().map(|(key, value)| format!("{}:{value}", json!(key))).collect();
+        let fields: Vec<String> = self
+            .0
+            .iter()
+            .map(|(key, value)| format!("{}:{value}", json!(key)))
+            .collect();
         write!(formatter, "{{{}}}", fields.join(","))
     }
 }
@@ -277,16 +295,27 @@ fn hub_event_pages() -> &'static Checks {
             .map(|iid| json!({"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": iid}}))
             .collect();
         env.fixture("events", &Value::from(events).to_string());
-        env.fixture("events_p1", r#"[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 101}}]"#);
+        env.fixture(
+            "events_p1",
+            r#"[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 101}}]"#,
+        );
         env.clear_calls();
         env.run(&[]);
-        let mut calls: Vec<String> =
-            env.calls_with("api projects/7/merge_requests?state=all").lines().map(str::to_string).collect();
+        let mut calls: Vec<String> = env
+            .calls_with("api projects/7/merge_requests?state=all")
+            .lines()
+            .map(str::to_string)
+            .collect();
         calls.sort();
         let last = calls.last().cloned().unwrap_or_default();
-        let last = last.rsplit_once("state=all&").map_or(last.clone(), |(_, rest)| rest.to_string());
-        c.check("commented MRs: all event pages, one call for each 100 MRs", "2 iids[]=101&per_page=100",
-            format!("{} {last}", calls.len()));
+        let last = last
+            .rsplit_once("state=all&")
+            .map_or(last.clone(), |(_, rest)| rest.to_string());
+        c.check(
+            "commented MRs: all event pages, one call for each 100 MRs",
+            "2 iids[]=101&per_page=100",
+            format!("{} {last}", calls.len()),
+        );
         c
     })
 }
@@ -419,59 +448,113 @@ fn stack_basics() -> &'static Checks {
         env.run(&["--mr", "5"]);
         env.run(&["--fresh", "--mr", "5"]);
         c.check("MR cache: second fetch reads the cache", 1, iid_calls(&env));
-        c.check("MR cache: file written", "yes", yes_no(&cache.join("group%2Fsub%2Fapp-5.json")));
+        c.check(
+            "MR cache: file written",
+            "yes",
+            yes_no(&cache.join("group%2Fsub%2Fapp-5.json")),
+        );
         let other = env.dir.join("cache-other");
         std::fs::create_dir_all(&other).unwrap();
-        std::fs::write(other.join("5.json"), r#"{"note": "MR 5 of a different project with the same repo directory name"}"#).unwrap();
+        std::fs::write(
+            other.join("5.json"),
+            r#"{"note": "MR 5 of a different project with the same repo directory name"}"#,
+        )
+        .unwrap();
         env.clear_calls();
         env.set_env("WATCH_MR_CACHE", other.to_str().unwrap());
         env.run(&["--fresh", "--mr", "5"]);
-        c.check("MR cache: the MR of a different project is not read", 1, iid_calls(&env));
+        c.check(
+            "MR cache: the MR of a different project is not read",
+            1,
+            iid_calls(&env),
+        );
         env.remove_env("WATCH_MR_CACHE");
 
         gql(&env, 5, pipeline(50, "FAILED"));
-        c.check("stack: pipeline failed",
-            Line::sev("pipeline", 5, "", "pipeline 50 failed").item("pipeline:5").add("jobs", json!([])),
-            env.run(&["--mr", "5"]).out);
+        c.check(
+            "stack: pipeline failed",
+            Line::sev("pipeline", 5, "", "pipeline 50 failed")
+                .item("pipeline:5")
+                .add("jobs", json!([])),
+            env.run(&["--mr", "5"]).out,
+        );
         c.check("stack: same pipeline: no events", "", env.run(&["--mr", "5"]).out);
         gql(&env, 5, pipeline(51, "RUNNING"));
         c.check("stack: running pipeline: no events", "", env.run(&["--mr", "5"]).out);
         gql(&env, 5, pipeline(51, "SUCCESS"));
-        c.check("stack: pipeline passed, iid with !", Line::sev("pipeline", 5, "", "pipeline 51 passed"),
-            env.run(&["--mr", "!5"]).out);
+        c.check(
+            "stack: pipeline passed, iid with !",
+            Line::sev("pipeline", 5, "", "pipeline 51 passed"),
+            env.run(&["--mr", "!5"]).out,
+        );
         gql(&env, 5, pipeline(4567, "FAILED"));
-        env.fixture("jobs_4567", r#"[{"name": "unit-tests"}, {"name": "ktlint"}, {"name": "ktlint"}]"#);
-        c.check("pipeline failed: jobs", r#"["ktlint","unit-tests"]"#, each(&env.run(&["--mr", "5"]).out, "jobs"));
+        env.fixture(
+            "jobs_4567",
+            r#"[{"name": "unit-tests"}, {"name": "ktlint"}, {"name": "ktlint"}]"#,
+        );
+        c.check(
+            "pipeline failed: jobs",
+            r#"["ktlint","unit-tests"]"#,
+            each(&env.run(&["--mr", "5"]).out, "jobs"),
+        );
         gql(&env, 5, pipeline(4568, "SUCCESS"));
-        c.check("pipeline passed: no jobs", "null", each(&env.run(&["--mr", "5"]).out, "jobs"));
+        c.check(
+            "pipeline passed: no jobs",
+            "null",
+            each(&env.run(&["--mr", "5"]).out, "jobs"),
+        );
 
         gql(&env, 5, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "anna"}]));
-        c.check("stack: approved", Line::sev("approved", 5, "anna", "approved"), env.run(&["--mr", "5"]).out);
+        c.check(
+            "stack: approved",
+            Line::sev("approved", 5, "anna", "approved"),
+            env.run(&["--mr", "5"]).out,
+        );
         gql(&env, 5, plain);
-        c.check("stack: unapproved", Line::sev("unapproved", 5, "anna", "approval removed"), env.run(&["--mr", "5"]).out);
+        c.check(
+            "stack: unapproved",
+            Line::sev("unapproved", 5, "anna", "approval removed"),
+            env.run(&["--mr", "5"]).out,
+        );
         gql(&env, 5, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "me"}]));
         c.check("stack: own approval: no events", "", env.run(&["--mr", "5"]).out);
         gql(&env, 5, plain);
-        c.check("stack: own approval removed: no events", "", env.run(&["--mr", "5"]).out);
+        c.check(
+            "stack: own approval removed: no events",
+            "",
+            env.run(&["--mr", "5"]).out,
+        );
 
         gql(&env, 5, |mr| {
             mr["conflicts"] = json!(true);
             mr["detailedMergeStatus"] = json!("CONFLICT");
         });
-        c.check("stack: conflict", Line::sev("conflict", 5, "", "merge conflict").item("conflict:5"),
-            env.run(&["--mr", "5"]).out);
+        c.check(
+            "stack: conflict",
+            Line::sev("conflict", 5, "", "merge conflict").item("conflict:5"),
+            env.run(&["--mr", "5"]).out,
+        );
         gql(&env, 5, |mr| mr["detailedMergeStatus"] = json!("CHECKING"));
         c.check("stack: transient status: no events", "", env.run(&["--mr", "5"]).out);
-        c.check("stack: transient status: old conflict value stays", "true",
-            raw(&read_json(&sstate)["mrs"]["5"]["conflicts"]));
+        c.check(
+            "stack: transient status: old conflict value stays",
+            "true",
+            raw(&read_json(&sstate)["mrs"]["5"]["conflicts"]),
+        );
         gql(&env, 5, |mr| {
             mr["detailedMergeStatus"] = json!("MERGEABLE");
             mr["mergeable"] = json!(true);
         });
         discussions(&env, 5, &[thread("", vec![note(99, "anna", "Nit", None)])]);
         let out = env.run(&["--mr", "5"]).out;
-        c.check("stack: mergeable with open threads", Line::sev("mergeable", 5, "", "now mergeable, 1 open thread(s)"),
-            out.lines().filter(|line| line.contains(r#""mergeable""#)).collect::<Vec<_>>().join("\n"));
+        c.check(
+            "stack: mergeable with open threads",
+            Line::sev("mergeable", 5, "", "now mergeable, 1 open thread(s)"),
+            out.lines()
+                .filter(|line| line.contains(r#""mergeable""#))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
         c
     })
 }
@@ -484,29 +567,67 @@ fn stack_comments() -> &'static Checks {
         let why = || note(101, "anna", "Why\nnot X?", Some(pos()));
         gql(&env, 5, plain);
         discussions(&env, 5, &[thread("", vec![note(100, "anna", "old", None)])]);
-        c.check("stack: old comments of a new MR: no events", "", env.run(&["--mr", "5"]).out);
+        c.check(
+            "stack: old comments of a new MR: no events",
+            "",
+            env.run(&["--mr", "5"]).out,
+        );
         discussions(&env, 5, &[thread("", vec![note(100, "anna", "old", None), why()])]);
-        c.check("stack: new comment and its thread",
+        c.check(
+            "stack: new comment and its thread",
             lines(&[
-                Line::sev("comment", 5, "anna", "Why not X?").note(101).at("app/Foo.kt", 42).item("thread:d100"),
-                Line::sev("unaddressed", 5, "anna", "Why not X?").note(101).item("thread:d100"),
+                Line::sev("comment", 5, "anna", "Why not X?")
+                    .note(101)
+                    .at("app/Foo.kt", 42)
+                    .item("thread:d100"),
+                Line::sev("unaddressed", 5, "anna", "Why not X?")
+                    .note(101)
+                    .item("thread:d100"),
             ]),
-            env.run(&["--mr", "5"]).out);
-        discussions(&env, 5, &[thread("", vec![note(100, "anna", "old", None), why(), note(102, "me", "Because Y.", None)])]);
-        c.check("stack: own reply", Line::sev("own-comment", 5, "me", "Because Y.").note(102), env.run(&["--mr", "5"]).out);
-        discussions(&env, 5, &[
-            thread("bob", vec![note(103, "bob", "Done?", Some(pos()))]),
-            thread("", vec![note(104, "bob", "Typo", Some(pos()))]),
-            system_note(105, "anna", "added 1 commit"),
-        ]);
+            env.run(&["--mr", "5"]).out,
+        );
+        discussions(
+            &env,
+            5,
+            &[thread(
+                "",
+                vec![
+                    note(100, "anna", "old", None),
+                    why(),
+                    note(102, "me", "Because Y.", None),
+                ],
+            )],
+        );
+        c.check(
+            "stack: own reply",
+            Line::sev("own-comment", 5, "me", "Because Y.").note(102),
+            env.run(&["--mr", "5"]).out,
+        );
+        discussions(
+            &env,
+            5,
+            &[
+                thread("bob", vec![note(103, "bob", "Done?", Some(pos()))]),
+                thread("", vec![note(104, "bob", "Typo", Some(pos()))]),
+                system_note(105, "anna", "added 1 commit"),
+            ],
+        );
         env.clear_calls();
-        c.check("stack: resolved thread and system note: no unaddressed line for them",
+        c.check(
+            "stack: resolved thread and system note: no unaddressed line for them",
             lines(&[
                 Line::sev("comment", 5, "bob", "Done?").note(103).at("app/Foo.kt", 42),
-                Line::sev("comment", 5, "bob", "Typo").note(104).at("app/Foo.kt", 42).item("thread:d104"),
-                Line::sev("unaddressed", 5, "bob", "Typo").note(104).at("app/Foo.kt", 42).item("thread:d104"),
+                Line::sev("comment", 5, "bob", "Typo")
+                    .note(104)
+                    .at("app/Foo.kt", 42)
+                    .item("thread:d104"),
+                Line::sev("unaddressed", 5, "bob", "Typo")
+                    .note(104)
+                    .at("app/Foo.kt", 42)
+                    .item("thread:d104"),
             ]),
-            env.run(&["--mr", "5"]).out);
+            env.run(&["--mr", "5"]).out,
+        );
         let reacted: std::collections::BTreeSet<String> = env
             .calls()
             .split("notes/")
@@ -514,8 +635,11 @@ fn stack_comments() -> &'static Checks {
             .filter_map(|rest| rest.split_once("/award_emoji").map(|(id, _)| id.to_string()))
             .filter(|id| !id.is_empty() && id.bytes().all(|byte| byte.is_ascii_digit()))
             .collect();
-        c.check("stack: one reaction call for each comment, none for a system note", "103 104",
-            reacted.into_iter().collect::<Vec<_>>().join(" "));
+        c.check(
+            "stack: one reaction call for each comment, none for a system note",
+            "103 104",
+            reacted.into_iter().collect::<Vec<_>>().join(" "),
+        );
         c
     })
 }
@@ -528,21 +652,32 @@ fn stack_reactions() -> &'static Checks {
         gql(&env, 5, plain);
         discussions(&env, 5, &[thread("", vec![note(110, "me", "See this", Some(pos()))])]);
         env.run(&["--mr", "5"]);
-        env.fixture("award_mr_5", r#"[{"name": "thumbsup", "user": {"username": "bob"}},
-            {"name": "eyes", "user": {"username": "me"}}]"#);
+        env.fixture(
+            "award_mr_5",
+            r#"[{"name": "thumbsup", "user": {"username": "bob"}},
+            {"name": "eyes", "user": {"username": "me"}}]"#,
+        );
         env.fixture("award_note_110", r#"[{"name": "tada", "user": {"username": "anna"}}]"#);
-        c.check("stack: reactions on the MR and on an own comment, not own reactions",
+        c.check(
+            "stack: reactions on the MR and on an own comment, not own reactions",
             lines(&[
                 Line::sev("reaction", 5, "bob", ":thumbsup: on the MR"),
-                Line::sev("reaction", 5, "anna", ":tada: on your comment").note(110).at("app/Foo.kt", 42),
+                Line::sev("reaction", 5, "anna", ":tada: on your comment")
+                    .note(110)
+                    .at("app/Foo.kt", 42),
             ]),
-            env.run(&["--mr", "5"]).out);
+            env.run(&["--mr", "5"]).out,
+        );
         c.check("stack: same reactions: no events", "", env.run(&["--mr", "5"]).out);
         gql(&env, 5, |mr| {
             mr["state"] = json!("merged");
             mr["mergeUser"] = json!({"username": "anna"});
         });
-        c.check("stack: merged", Line::sev("merged", 5, "anna", "merged"), env.run(&["--mr", "5"]).out);
+        c.check(
+            "stack: merged",
+            Line::sev("merged", 5, "anna", "merged"),
+            env.run(&["--mr", "5"]).out,
+        );
         c
     })
 }
@@ -562,16 +697,27 @@ fn stack_ends() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let mut c = Checks::default();
         let closed = |mr: &mut Value| mr["state"] = json!("closed");
-        let merged_by = |user: &'static str| move |mr: &mut Value| {
-            mr["state"] = json!("merged");
-            mr["mergeUser"] = json!({"username": user});
+        let merged_by = |user: &'static str| {
+            move |mr: &mut Value| {
+                mr["state"] = json!("merged");
+                mr["mergeUser"] = json!({"username": user});
+            }
         };
-        c.check("stack: closed", Line::sev("closed", 5, "anna", "closed"),
-            after_change(&TestEnv::new(), closed, Some(&[system_note(120, "anna", "closed")])));
-        c.check("stack: own close", Line::sev("closed", 5, "me", "closed").add("own", json!(true)),
-            after_change(&TestEnv::new(), closed, Some(&[system_note(121, "me", "closed")])));
-        c.check("stack: own merge", Line::sev("merged", 5, "me", "merged").add("own", json!(true)),
-            after_change(&TestEnv::new(), merged_by("me"), None));
+        c.check(
+            "stack: closed",
+            Line::sev("closed", 5, "anna", "closed"),
+            after_change(&TestEnv::new(), closed, Some(&[system_note(120, "anna", "closed")])),
+        );
+        c.check(
+            "stack: own close",
+            Line::sev("closed", 5, "me", "closed").add("own", json!(true)),
+            after_change(&TestEnv::new(), closed, Some(&[system_note(121, "me", "closed")])),
+        );
+        c.check(
+            "stack: own merge",
+            Line::sev("merged", 5, "me", "merged").add("own", json!(true)),
+            after_change(&TestEnv::new(), merged_by("me"), None),
+        );
         c
     })
 }
@@ -582,15 +728,26 @@ fn stack_draft() -> &'static Checks {
         let env = TestEnv::new();
         let mut c = Checks::default();
         let draft = system_note(122, "anna", "marked this merge request as **draft**");
-        c.check("stack: marked as draft", Line::sev("draft", 5, "anna", "marked as draft"),
-            after_change(&env, |mr| mr["draft"] = json!(true), Some(&[draft.clone()])));
+        c.check(
+            "stack: marked as draft",
+            Line::sev("draft", 5, "anna", "marked as draft"),
+            after_change(&env, |mr| mr["draft"] = json!(true), Some(&[draft.clone()])),
+        );
         gql(&env, 5, plain);
-        discussions(&env, 5, &[draft, system_note(123, "me", "marked this merge request as **ready**")]);
+        discussions(
+            &env,
+            5,
+            &[draft, system_note(123, "me", "marked this merge request as **ready**")],
+        );
         c.check("stack: own ready: no events", "", env.run(&["--mr", "5"]).out);
         env.run(&["--mr", "5"]);
         gql(&env, 5, |mr| mr["draft"] = json!(true));
         discussions(&env, 5, &[]);
-        c.check("stack: draft with no system note", Line::sev("draft", 5, "", "marked as draft"), env.run(&["--mr", "5"]).out);
+        c.check(
+            "stack: draft with no system note",
+            Line::sev("draft", 5, "", "marked as draft"),
+            env.run(&["--mr", "5"]).out,
+        );
         c
     })
 }
@@ -605,27 +762,41 @@ fn stack_title() -> &'static Checks {
         env.run(&["--mr", "5"]);
         gql(&env, 5, |mr| mr["title"] = json!("Add foo and bar"));
         env.fixture("mr_5", r#"{"description": "New text", "labels": ["app", "bug"]}"#);
-        discussions(&env, 5, &[
-            system_note(130, "anna", "changed title from **Add foo** to **Add foo and bar**"),
-            system_note(131, "anna", "changed the description"),
-            system_note(132, "bob", "added ~7 label and removed ~8 label"),
-        ]);
+        discussions(
+            &env,
+            5,
+            &[
+                system_note(130, "anna", "changed title from **Add foo** to **Add foo and bar**"),
+                system_note(131, "anna", "changed the description"),
+                system_note(132, "bob", "added ~7 label and removed ~8 label"),
+            ],
+        );
         let title = json!("Add foo and bar");
-        c.check("stack: title, description, and labels changed",
+        c.check(
+            "stack: title, description, and labels changed",
             lines(&[
                 Line::sev("title", 5, "anna", "Add foo and bar").set("title", title.clone()),
                 Line::sev("description", 5, "anna", "description changed").set("title", title.clone()),
                 Line::sev("labels", 5, "bob", "+bug, -wip").set("title", title),
             ]),
-            env.run(&["--mr", "5"]).out);
+            env.run(&["--mr", "5"]).out,
+        );
         gql(&env, 5, plain);
         env.fixture("mr_5", r#"{"description": "Own text", "labels": []}"#);
-        discussions(&env, 5, &[
-            system_note(133, "me", "changed title from **Add foo and bar** to **Add foo**"),
-            system_note(134, "me", "changed the description"),
-            system_note(135, "me", "removed ~7 ~9 labels"),
-        ]);
-        c.check("stack: own title, description, and label changes: no events", "", env.run(&["--mr", "5"]).out);
+        discussions(
+            &env,
+            5,
+            &[
+                system_note(133, "me", "changed title from **Add foo and bar** to **Add foo**"),
+                system_note(134, "me", "changed the description"),
+                system_note(135, "me", "removed ~7 ~9 labels"),
+            ],
+        );
+        c.check(
+            "stack: own title, description, and label changes: no events",
+            "",
+            env.run(&["--mr", "5"]).out,
+        );
         c
     })
 }
@@ -641,22 +812,36 @@ fn stack_pages() -> &'static Checks {
         env.run(&["--mr", "5", "--mr", "6"]);
         gql(&env, 5, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "anna"}]));
         gql(&env, 6, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "bob"}]));
-        c.check("stack: two MRs in the order of the options",
-            lines(&[Line::sev("approved", 6, "bob", "approved"), Line::sev("approved", 5, "anna", "approved")]),
-            env.run(&["--mr", "6", "--mr", "5"]).out);
+        c.check(
+            "stack: two MRs in the order of the options",
+            lines(&[
+                Line::sev("approved", 6, "bob", "approved"),
+                Line::sev("approved", 5, "anna", "approved"),
+            ]),
+            env.run(&["--mr", "6", "--mr", "5"]).out,
+        );
 
         let env = TestEnv::new();
         gql(&env, 5, plain);
         discussions(&env, 5, &[thread("", vec![note(120, "anna", "old", None)])]);
         env.run(&["--mr", "5"]);
-        env.fixture("discussions_5_p2", &json!([thread("", vec![note(121, "bob", "On page 2", None)])]).to_string());
-        c.check("stack: comment on the second page of discussions",
+        env.fixture(
+            "discussions_5_p2",
+            &json!([thread("", vec![note(121, "bob", "On page 2", None)])]).to_string(),
+        );
+        c.check(
+            "stack: comment on the second page of discussions",
             lines(&[
-                Line::sev("comment", 5, "bob", "On page 2").note(121).item("thread:d121"),
+                Line::sev("comment", 5, "bob", "On page 2")
+                    .note(121)
+                    .item("thread:d121"),
                 Line::sev("unaddressed", 5, "anna", "old").note(120).item("thread:d120"),
-                Line::sev("unaddressed", 5, "bob", "On page 2").note(121).item("thread:d121"),
+                Line::sev("unaddressed", 5, "bob", "On page 2")
+                    .note(121)
+                    .item("thread:d121"),
             ]),
-            env.run(&["--mr", "5"]).out);
+            env.run(&["--mr", "5"]).out,
+        );
         c
     })
 }
@@ -706,19 +891,43 @@ fn review_pushes() -> &'static Checks {
         let review = ["--review", "--mr", "5"];
         gql(&env, 5, plain);
         c.check("review: first check: no events", "", env.run(&review).out);
-        c.check("review: own state file", "yes", yes_no(&env.engine_state(&review_key(&env))));
-        c.check("review: no stack state file", "no", yes_no(&env.engine_state(&stack_key(&env))));
+        c.check(
+            "review: own state file",
+            "yes",
+            yes_no(&env.engine_state(&review_key(&env))),
+        );
+        c.check(
+            "review: no stack state file",
+            "no",
+            yes_no(&env.engine_state(&stack_key(&env))),
+        );
         refs(&env, "b1", "h1");
-        c.check("review: diffRefs after no diffRefs: no events", "", env.run(&review).out);
+        c.check(
+            "review: diffRefs after no diffRefs: no events",
+            "",
+            env.run(&review).out,
+        );
         refs(&env, "b1", "h2");
         c.check("review: pushed", pushed("h2", "b1", "h1", "b1"), env.run(&review).out);
         refs(&env, "b2", "h3");
-        c.check("review: pushed after a rebase", pushed("h3", "b1", "h2", "b2"), env.run(&review).out);
+        c.check(
+            "review: pushed after a rebase",
+            pushed("h3", "b1", "h2", "b2"),
+            env.run(&review).out,
+        );
         refs(&env, "b2", "h4");
         let run = env.run(&["--review", "--fresh", "--mr", "5"]);
-        c.check("review: --fresh: old state not used, exit 0 and no events", "0 ", format!("{} {}", run.code, run.out));
+        c.check(
+            "review: --fresh: old state not used, exit 0 and no events",
+            "0 ",
+            format!("{} {}", run.code, run.out),
+        );
         refs(&env, "b2", "h5");
-        c.check("review: --fresh: new state saved", pushed("h5", "b2", "h4", "b2"), env.run(&review).out);
+        c.check(
+            "review: --fresh: new state saved",
+            pushed("h5", "b2", "h4", "b2"),
+            env.run(&review).out,
+        );
         c
     })
 }
@@ -750,16 +959,33 @@ fn review_threads() -> &'static Checks {
         discussions(&env, 5, &[thread("", vec![rename()]), thread("", vec![typo()])]);
         env.run(&review);
         discussions(&env, 5, &[thread("bob", vec![rename()]), thread("bob", vec![typo()])]);
-        c.check("review: resolved, only threads that the user started",
-            Line::sev("resolved", 5, "bob", "Rename this").note(130).at("app/Foo.kt", 42), env.run(&review).out);
+        c.check(
+            "review: resolved, only threads that the user started",
+            Line::sev("resolved", 5, "bob", "Rename this")
+                .note(130)
+                .at("app/Foo.kt", 42),
+            env.run(&review).out,
+        );
         c.check("review: same resolved thread: no events", "", env.run(&review).out);
 
         let env = TestEnv::new();
         gql(&env, 5, plain);
-        discussions(&env, 5, &[thread("", vec![note(135, "me", "Rename this", Some(pos()))])]);
+        discussions(
+            &env,
+            5,
+            &[thread("", vec![note(135, "me", "Rename this", Some(pos()))])],
+        );
         env.run(&review);
-        discussions(&env, 5, &[thread("me", vec![note(135, "me", "Rename this", Some(pos()))])]);
-        c.check("review: thread resolved by the user: no events", "", env.run(&review).out);
+        discussions(
+            &env,
+            5,
+            &[thread("me", vec![note(135, "me", "Rename this", Some(pos()))])],
+        );
+        c.check(
+            "review: thread resolved by the user: no events",
+            "",
+            env.run(&review).out,
+        );
 
         let env = TestEnv::new();
         gql(&env, 5, plain);
@@ -767,13 +993,22 @@ fn review_threads() -> &'static Checks {
         let nit = || thread("", vec![note(141, "anna", "Nit", Some(pos()))]);
         discussions(&env, 5, &[thread("", vec![why()]), nit()]);
         env.run(&review);
-        discussions(&env, 5, &[thread("", vec![why(), note(142, "bob", "Because.", None)]), nit()]);
-        c.check("review: unaddressed only for threads with a note from the user",
+        discussions(
+            &env,
+            5,
+            &[thread("", vec![why(), note(142, "bob", "Because.", None)]), nit()],
+        );
+        c.check(
+            "review: unaddressed only for threads with a note from the user",
             lines(&[
                 Line::sev("comment", 5, "bob", "Because.").note(142).item("thread:d140"),
-                Line::sev("unaddressed", 5, "bob", "Because.").note(142).at("app/Foo.kt", 42).item("thread:d140"),
+                Line::sev("unaddressed", 5, "bob", "Because.")
+                    .note(142)
+                    .at("app/Foo.kt", 42)
+                    .item("thread:d140"),
             ]),
-            env.run(&review).out);
+            env.run(&review).out,
+        );
         c
     })
 }
@@ -793,11 +1028,17 @@ fn needs() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let mut c = Checks::default();
-        c.check("stack needs: failed pipeline and an open thread", r#"["failed","reply"]"#,
-            stack_needs(|env| {
-                gql(env, 5, pipeline(60, "FAILED"));
-                discussions(env, 5, &[thread("", vec![note(150, "anna", "Nit", None)])]);
-            }, &["5"]));
+        c.check(
+            "stack needs: failed pipeline and an open thread",
+            r#"["failed","reply"]"#,
+            stack_needs(
+                |env| {
+                    gql(env, 5, pipeline(60, "FAILED"));
+                    discussions(env, 5, &[thread("", vec![note(150, "anna", "Nit", None)])]);
+                },
+                &["5"],
+            ),
+        );
 
         let env = TestEnv::new();
         let sstate = env.engine_state(&stack_key(&env));
@@ -806,23 +1047,51 @@ fn needs() -> &'static Checks {
             mr["mergeable"] = json!(true);
         });
         env.run(&["--mr", "5"]);
-        c.check("stack needs: mergeable MR is ready", r#"["ready"]"#, field(&sstate, "needs"));
+        c.check(
+            "stack needs: mergeable MR is ready",
+            r#"["ready"]"#,
+            field(&sstate, "needs"),
+        );
         gql(&env, 5, |mr| mr["detailedMergeStatus"] = json!("CHECKING"));
         env.run(&["--mr", "5"]);
-        c.check("stack needs: a transient merge status keeps ready", r#"["ready"]"#, field(&sstate, "needs"));
+        c.check(
+            "stack needs: a transient merge status keeps ready",
+            r#"["ready"]"#,
+            field(&sstate, "needs"),
+        );
 
-        c.check("stack needs: need_rebase is a conflict", r#"["conflict"]"#,
-            stack_needs(|env| gql(env, 5, |mr| mr["detailedMergeStatus"] = json!("NEED_REBASE")), &["5"]));
-        c.check("stack needs: worst over two MRs", r#"["failed","draft"]"#,
-            stack_needs(|env| {
-                gql(env, 5, pipeline(61, "FAILED"));
-                gql(env, 6, |mr| mr["draft"] = json!(true));
-            }, &["5", "6"]));
-        c.check("stack needs: a merged MR needs nothing", "[]",
-            stack_needs(|env| gql(env, 5, |mr| {
-                mr["state"] = json!("merged");
-                mr["draft"] = json!(true);
-            }), &["5"]));
+        c.check(
+            "stack needs: need_rebase is a conflict",
+            r#"["conflict"]"#,
+            stack_needs(
+                |env| gql(env, 5, |mr| mr["detailedMergeStatus"] = json!("NEED_REBASE")),
+                &["5"],
+            ),
+        );
+        c.check(
+            "stack needs: worst over two MRs",
+            r#"["failed","draft"]"#,
+            stack_needs(
+                |env| {
+                    gql(env, 5, pipeline(61, "FAILED"));
+                    gql(env, 6, |mr| mr["draft"] = json!(true));
+                },
+                &["5", "6"],
+            ),
+        );
+        c.check(
+            "stack needs: a merged MR needs nothing",
+            "[]",
+            stack_needs(
+                |env| {
+                    gql(env, 5, |mr| {
+                        mr["state"] = json!("merged");
+                        mr["draft"] = json!(true);
+                    })
+                },
+                &["5"],
+            ),
+        );
 
         let env = TestEnv::new();
         let rstate = env.engine_state(&review_key(&env));
@@ -832,24 +1101,43 @@ fn needs() -> &'static Checks {
         env.run(&review);
         refs(&env, "b1", "h2");
         env.run(&review);
-        c.check("review needs: a push after the first check gives commits", r#"["commits"]"#, field(&rstate, "needs"));
+        c.check(
+            "review needs: a push after the first check gives commits",
+            r#"["commits"]"#,
+            field(&rstate, "needs"),
+        );
         discussions(&env, 5, &[thread("", vec![note(160, "me", "Looks good now", None)])]);
         env.run(&review);
-        c.check("review needs: a comment of the user after the push clears commits", "[]", field(&rstate, "needs"));
+        c.check(
+            "review needs: a comment of the user after the push clears commits",
+            "[]",
+            field(&rstate, "needs"),
+        );
         refs(&env, "b1", "h3");
         env.run(&review);
         gql(&env, 5, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "me"}]));
         env.run(&review);
-        c.check("review needs: an approval of the user after the push clears commits", "[]", field(&rstate, "needs"));
+        c.check(
+            "review needs: an approval of the user after the push clears commits",
+            "[]",
+            field(&rstate, "needs"),
+        );
 
         let env = TestEnv::new();
         env.fixture("todos", &json!([todo_9(31, "review_requested")]).to_string());
         env.fixture("pipelines", &failed_pipeline(80, "failed"));
         env.run(&[]);
-        c.check("hub needs: pending to-do and failed default pipeline", r#"["todo","main-failed"]"#,
-            field(&env.engine_state("app"), "needs"));
+        c.check(
+            "hub needs: pending to-do and failed default pipeline",
+            r#"["todo","main-failed"]"#,
+            field(&env.engine_state("app"), "needs"),
+        );
 
-        c.check("stack needs: nothing", "[]", stack_needs(|env| gql(env, 5, plain), &["5"]));
+        c.check(
+            "stack needs: nothing",
+            "[]",
+            stack_needs(|env| gql(env, 5, plain), &["5"]),
+        );
         c
     })
 }
@@ -872,17 +1160,33 @@ fn present() -> &'static Checks {
         let env = TestEnv::new();
         let state = env.engine_state("app");
         env.write_engine_state("app", EMPTY_HUB);
-        env.fixture("events", r#"[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}}]"#);
+        env.fixture(
+            "events",
+            r#"[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 9}}]"#,
+        );
         let notes = |updated_at: &str, notes: Value| {
-            env.fixture("commented", &json!([mr(9, "Fix bar", "opened", updated_at, "bob", "ABC-2/bar")]).to_string());
+            env.fixture(
+                "commented",
+                &json!([mr(9, "Fix bar", "opened", updated_at, "bob", "ABC-2/bar")]).to_string(),
+            );
             env.fixture("notes_9", &notes.to_string());
             env.run(&[]).out
         };
         notes("t1", json!([hub_note(500, "anna", false)]));
-        let out = notes("t2", json!([hub_note(501, "anna", false), hub_note(500, "anna", false)]));
+        let out = notes(
+            "t2",
+            json!([hub_note(501, "anna", false), hub_note(500, "anna", false)]),
+        );
         c.check("note: item key", "note:501", each(&out, "item"));
         c.check("note: present", r#"["note:501"]"#, field(&state, "present"));
-        notes("t3", json!([hub_note(502, "me", false), hub_note(501, "anna", false), hub_note(500, "anna", false)]));
+        notes(
+            "t3",
+            json!([
+                hub_note(502, "me", false),
+                hub_note(501, "anna", false),
+                hub_note(500, "anna", false)
+            ]),
+        );
         c.check("own reply: note not present", "[]", field(&state, "present"));
         notes("t4", json!([hub_note(503, "anna", false), hub_note(502, "me", false)]));
         notes("t5", json!([hub_note(503, "anna", true), hub_note(502, "me", false)]));
@@ -894,8 +1198,16 @@ fn present() -> &'static Checks {
         env.fixture("pipelines", &failed_pipeline(90, "failed"));
         env.run(&[]);
         env.fixture("pipelines", &failed_pipeline(91, "failed"));
-        c.check("default-failed: item key", "main-failed:dev/x", each(&env.run(&[]).out, "item"));
-        c.check("default-failed: present", r#"["main-failed:dev/x"]"#, field(&state, "present"));
+        c.check(
+            "default-failed: item key",
+            "main-failed:dev/x",
+            each(&env.run(&[]).out, "item"),
+        );
+        c.check(
+            "default-failed: present",
+            r#"["main-failed:dev/x"]"#,
+            field(&state, "present"),
+        );
         env.fixture("pipelines", &failed_pipeline(92, "success"));
         env.run(&[]);
         c.check("default passed: not present", "[]", field(&state, "present"));
@@ -908,10 +1220,21 @@ fn present() -> &'static Checks {
         discussions(&env, 5, &[thread("", vec![old()])]);
         env.run(&["--mr", "5"]);
         discussions(&env, 5, &[thread("", vec![old(), why()])]);
-        c.check("comment and unaddressed: one item key", "thread:d600 thread:d600",
-            each(&env.run(&["--mr", "5"]).out, "item"));
-        c.check("unaddressed thread: present", r#"["thread:d600"]"#, field(&sstate, "present"));
-        discussions(&env, 5, &[thread("", vec![old(), why(), note(602, "me", "Because.", None)])]);
+        c.check(
+            "comment and unaddressed: one item key",
+            "thread:d600 thread:d600",
+            each(&env.run(&["--mr", "5"]).out, "item"),
+        );
+        c.check(
+            "unaddressed thread: present",
+            r#"["thread:d600"]"#,
+            field(&sstate, "present"),
+        );
+        discussions(
+            &env,
+            5,
+            &[thread("", vec![old(), why(), note(602, "me", "Because.", None)])],
+        );
         env.run(&["--mr", "5"]);
         c.check("answered thread: not present", "[]", field(&sstate, "present"));
 
@@ -919,7 +1242,11 @@ fn present() -> &'static Checks {
         let sstate = env.engine_state(&stack_key(&env));
         gql(&env, 5, pipeline(62, "FAILED"));
         env.run(&["--mr", "5"]);
-        c.check("pipeline failed: present", r#"["pipeline:5"]"#, field(&sstate, "present"));
+        c.check(
+            "pipeline failed: present",
+            r#"["pipeline:5"]"#,
+            field(&sstate, "present"),
+        );
         gql(&env, 5, |mr| {
             mr["conflicts"] = json!(true);
             mr["detailedMergeStatus"] = json!("CONFLICT");
@@ -936,17 +1263,28 @@ fn arguments() -> &'static Checks {
         let env = TestEnv::new();
         let mut c = Checks::default();
         let repo = env.repo.to_str().unwrap().to_string();
-        c.check("--repo from a different folder: exit 0", 0, env.run_in(&env.dir, &["--repo", &repo]).code);
+        c.check(
+            "--repo from a different folder: exit 0",
+            0,
+            env.run_in(&env.dir, &["--repo", &repo]).code,
+        );
 
         gql(&env, 5, plain);
         env.run(&["--mr", "5"]);
         let run = env.run(&["--mr", "5", "--deadline", "1"]);
-        c.check("stack: --deadline is unknown", "1 watch-gitlab: unexpected argument: --deadline",
-            format!("{} {}{}", run.code, run.out, run.err));
+        c.check(
+            "stack: --deadline is unknown",
+            "1 watch-gitlab: unexpected argument: --deadline",
+            format!("{} {}{}", run.code, run.out, run.err),
+        );
 
         let run = env.run_in(&env.dir, &["--bogus"]);
         c.check("unexpected argument: exit 1", 1, run.code);
-        c.check("unexpected argument: message", "watch-gitlab: unexpected argument: --bogus", format!("{}{}", run.out, run.err));
+        c.check(
+            "unexpected argument: message",
+            "watch-gitlab: unexpected argument: --bogus",
+            format!("{}{}", run.out, run.err),
+        );
         c
     })
 }

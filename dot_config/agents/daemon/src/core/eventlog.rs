@@ -111,7 +111,10 @@ struct WithId {
 }
 
 pub fn id_of(line: &str) -> u64 {
-    serde_json::from_str::<WithId>(line).ok().and_then(|line| line.id).unwrap_or(0)
+    serde_json::from_str::<WithId>(line)
+        .ok()
+        .and_then(|line| line.id)
+        .unwrap_or(0)
 }
 
 /// At least the time in milliseconds, so that the ids increase also after the prune of the log.
@@ -122,11 +125,9 @@ pub fn next_id(last: u64, now_millis: u64) -> u64 {
 pub fn sound(routed: &RoutedEvent) -> Sound {
     let event = &routed.event;
     match event.kind {
-        EventKind::Todo
-        | EventKind::Note
-        | EventKind::DefaultFailed
-        | EventKind::Comment
-        | EventKind::Conflict => Sound::Request,
+        EventKind::Todo | EventKind::Note | EventKind::DefaultFailed | EventKind::Comment | EventKind::Conflict => {
+            Sound::Request
+        }
         EventKind::Pipeline if event.jobs.is_some() => Sound::Request,
         EventKind::Pipeline
         | EventKind::Opened
@@ -162,14 +163,7 @@ pub fn event_line(slug: &str, key: &str, mode: Mode, now: i64, event: RoutedEven
     }
 }
 
-pub fn stopped_line(
-    slug: &str,
-    key: &str,
-    mode: Mode,
-    now: i64,
-    title: Option<String>,
-    error: &str,
-) -> StoppedLine {
+pub fn stopped_line(slug: &str, key: &str, mode: Mode, now: i64, title: Option<String>, error: &str) -> StoppedLine {
     StoppedLine {
         id: None,
         time: now,
@@ -213,7 +207,13 @@ mod tests {
     use crate::engine::event::Event;
 
     fn routed(kind: EventKind, jobs: Option<Vec<String>>) -> RoutedEvent {
-        RoutedEvent { event: Event { jobs, ..Event::new(kind, Some(5), Some("T"), "u", "", "d", "b") }, row: 1 }
+        RoutedEvent {
+            event: Event {
+                jobs,
+                ..Event::new(kind, Some(5), Some("T"), "u", "", "d", "b")
+            },
+            row: 1,
+        }
     }
 
     #[test]
@@ -240,7 +240,10 @@ mod tests {
         let mut line = LogLine::Route(route_line(5, "app", 61, RouteAction::Bump));
         line.set_id(7);
         let text = serde_json::to_string(&line).unwrap();
-        assert_eq!(text, r#"{"id":7,"time":5,"type":"route","slug":"app","key":"app","iid":61,"action":"bump"}"#);
+        assert_eq!(
+            text,
+            r#"{"id":7,"time":5,"type":"route","slug":"app","key":"app","iid":61,"action":"bump"}"#
+        );
         assert_eq!(id_of(&text), 7);
     }
 

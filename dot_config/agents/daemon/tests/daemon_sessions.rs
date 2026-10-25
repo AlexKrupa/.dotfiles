@@ -37,9 +37,14 @@ fn replaced_clients() -> &'static Checks {
         c.check("new client of the same session: old client exit 3", "3", a.code());
         wait_for(5, || w.client_is() != first);
         w.events("app", &[ev("todo", 5)]);
-        let run = b.wait(10).map_or((String::new(), String::new()), |run| (run.code.to_string(), norow(&run.out)));
-        c.check("new client of the same session: new client gets the events", format!("0 {}", ev("todo", 5)),
-            format!("{} {}", run.0, run.1));
+        let run = b.wait(10).map_or((String::new(), String::new()), |run| {
+            (run.code.to_string(), norow(&run.out))
+        });
+        c.check(
+            "new client of the same session: new client gets the events",
+            format!("0 {}", ev("todo", 5)),
+            format!("{} {}", run.0, run.1),
+        );
 
         let first = w.client_is();
         let a = w.start(w.watch_command(&[]));
@@ -50,10 +55,16 @@ fn replaced_clients() -> &'static Checks {
         let started = Instant::now();
         let a = w.start(w.watch_command(&[]));
         let code = a.code();
-        c.check("new session takes the key: old session client exit 3 at once", "3 yes",
-            format!("{code} {}", yes_no(started.elapsed().as_secs() <= 3)));
-        c.check("new session takes the key: replaced sessions", format!("[{}]", w.session_pid()),
-            w.sub_of("app")["replaced_sessions"].to_string());
+        c.check(
+            "new session takes the key: old session client exit 3 at once",
+            "3 yes",
+            format!("{code} {}", yes_no(started.elapsed().as_secs() <= 3)),
+        );
+        c.check(
+            "new session takes the key: replaced sessions",
+            format!("[{}]", w.session_pid()),
+            w.sub_of("app")["replaced_sessions"].to_string(),
+        );
         w.events("app", &[ev("todo", 6)]);
         b.code();
         end(other);
@@ -84,10 +95,17 @@ fn client_limit_inbox() -> &'static Checks {
         w.events("app", &[ev("note", 6)]);
         wait_for(5, || !w.inbox_of("app").is_empty());
         wait_for(8, || !w.has_sub("app"));
-        c.check("no client for the limit: the inbox stays", norm(&ev("note", 6)), w.inbox_of("app"));
+        c.check(
+            "no client for the limit: the inbox stays",
+            norm(&ev("note", 6)),
+            w.inbox_of("app"),
+        );
         let run = w.watch(&[]);
-        c.check("no client for the limit: the inbox comes at the next client of the same session", format!("0 {}", ev("note", 6)),
-            format!("{} {}", run.code, norow(&run.out)));
+        c.check(
+            "no client for the limit: the inbox comes at the next client of the same session",
+            format!("0 {}", ev("note", 6)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
         c
     })
 }
@@ -105,12 +123,20 @@ fn leftover_error() -> &'static Checks {
         let other = session();
         w.events("app", &[ev("todo", 6)]);
         let run = w.run(as_session(w.watch_command(&[]), other.id()));
-        c.check("leftover error does not go to a new session", format!("0 {}", ev("todo", 6)), format!("{} {}", run.code, norow(&run.out)));
+        c.check(
+            "leftover error does not go to a new session",
+            format!("0 {}", ev("todo", 6)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
         w.fake("app", "exit", "5\n");
         wait_for(5, || w.has_error("app"));
         end(other);
         wait_for(5, || !w.has_error("app"));
-        c.check("leftover of a dead session: removed", "yes", yes_no(!w.has_error("app")));
+        c.check(
+            "leftover of a dead session: removed",
+            "yes",
+            yes_no(!w.has_error("app")),
+        );
         c
     })
 }
@@ -127,13 +153,28 @@ fn review_skip() -> &'static Checks {
         let hub = w.start(w.watch_command(&[]));
         let skip = format!("{repo} --skip-mr 5");
         wait_for(10, || arg_line_ends(&w, &skip));
-        c.check("review: hub gets --skip-mr for the reviewed MR", "yes", yes_no(arg_line_ends(&w, &skip)));
+        c.check(
+            "review: hub gets --skip-mr for the reviewed MR",
+            "yes",
+            yes_no(arg_line_ends(&w, &skip)),
+        );
         wait_for(8, || !w.has_sub(&review));
-        c.check("no client for the limit: review subscription ends", "yes", w.sub_gone(&review));
+        c.check(
+            "no client for the limit: review subscription ends",
+            "yes",
+            w.sub_gone(&review),
+        );
         w.clear_args();
         wait_for(5, || arg_line_ends(&w, &repo));
-        c.check("no client for the limit: the hub gets the MR again", "yes no",
-            format!("{} {}", yes_no(arg_line_ends(&w, &repo)), yes_no(w.args().contains("--skip-mr"))));
+        c.check(
+            "no client for the limit: the hub gets the MR again",
+            "yes no",
+            format!(
+                "{} {}",
+                yes_no(arg_line_ends(&w, &repo)),
+                yes_no(w.args().contains("--skip-mr"))
+            ),
+        );
         w.events("app", &[ev("todo", 7)]);
         hub.code();
         c
@@ -151,10 +192,22 @@ fn all_merged() -> &'static Checks {
         w.events(&stack, &[ev("merged", 5)]);
         wait_for(5, || !w.has_sub(&stack));
         c.check("all MRs merged: subscription ends", "yes", w.sub_gone(&stack));
-        c.check("all MRs merged: inbox waits for the client", norm(&ev("merged", 5)), w.inbox_of(&stack));
+        c.check(
+            "all MRs merged: inbox waits for the client",
+            norm(&ev("merged", 5)),
+            w.inbox_of(&stack),
+        );
         let run = w.watch(&["--mr", "5"]);
-        c.check("all MRs merged: the client takes the inbox", format!("0 {}", ev("merged", 5)), format!("{} {}", run.code, norow(&run.out)));
-        c.check("all MRs merged: the client does not subscribe again", "yes", w.sub_gone(&stack));
+        c.check(
+            "all MRs merged: the client takes the inbox",
+            format!("0 {}", ev("merged", 5)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
+        c.check(
+            "all MRs merged: the client does not subscribe again",
+            "yes",
+            w.sub_gone(&stack),
+        );
         c
     })
 }
@@ -168,11 +221,18 @@ fn once() -> &'static Checks {
         w.watch(&["--interval", "600"]);
         let started = Instant::now();
         let run = run_limited(w.watch_command(&["--interval", "600", "--once"]), &w.env.dir, 5);
-        c.check("--once: one round now, exit 0", "0  yes",
-            format!("{} {} {}", run.code, run.out, yes_no(started.elapsed().as_secs() <= 5)));
+        c.check(
+            "--once: one round now, exit 0",
+            "0  yes",
+            format!("{} {} {}", run.code, run.out, yes_no(started.elapsed().as_secs() <= 5)),
+        );
         w.events("app", &[ev("todo", 6)]);
         let run = run_limited(w.watch_command(&["--interval", "600", "--once"]), &w.env.dir, 5);
-        c.check("--once: events of the round", format!("0 {}", ev("todo", 6)), format!("{} {}", run.code, norow(&run.out)));
+        c.check(
+            "--once: events of the round",
+            format!("0 {}", ev("todo", 6)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
         c
     })
 }
@@ -187,7 +247,11 @@ fn smallest_interval() -> &'static Checks {
         w.events(&w.stack_key(), &[ev("pipeline", 5)]);
         w.watch(&["--mr", "5"]);
         let before = w.rounds_of("app");
-        c.check("smallest interval used", "yes", yes_no(wait_for(10, || w.rounds_of("app") - before > 1)));
+        c.check(
+            "smallest interval used",
+            "yes",
+            yes_no(wait_for(10, || w.rounds_of("app") - before > 1)),
+        );
         c
     })
 }
@@ -203,9 +267,11 @@ fn foreign_unsubscribe() -> &'static Checks {
         let mut command = w.command();
         command.args(["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
         let run = w.run(as_session(command, other.id()));
-        c.check("unsubscribe of a different session: exit 1, no change",
+        c.check(
+            "unsubscribe of a different session: exit 1, no change",
             format!("1 no watch: the subscription app is of session {}", w.session_pid()),
-            format!("{} {} {}", run.code, w.sub_gone("app"), run.err));
+            format!("{} {} {}", run.code, w.sub_gone("app"), run.err),
+        );
         end(other);
         c
     })
@@ -221,12 +287,23 @@ fn stack_mrs() -> &'static Checks {
         w.watch(&["--mr", "5"]);
         w.events(&stack, &[ev("pipeline", 6)]);
         w.watch(&["--mr", "5", "--mr", "6"]);
-        c.check("stack: a new MR list refreshes the subscription", "[5,6]", w.sub_of(&stack)["mrs"].to_string());
+        c.check(
+            "stack: a new MR list refreshes the subscription",
+            "[5,6]",
+            w.sub_of(&stack)["mrs"].to_string(),
+        );
         let hub = w.start(w.watch_command(&[]));
         wait_for(10, || w.rounds_of("app") >= 2);
         let repo = format!("--repo {}", w.env.repo.display());
-        c.check("stack: hub does not skip a stack MR", "yes no",
-            format!("{} {}", yes_no(arg_line_ends(&w, &repo)), yes_no(w.args().contains("--skip-mr"))));
+        c.check(
+            "stack: hub does not skip a stack MR",
+            "yes no",
+            format!(
+                "{} {}",
+                yes_no(arg_line_ends(&w, &repo)),
+                yes_no(w.args().contains("--skip-mr"))
+            ),
+        );
         w.events("app", &[ev("todo", 5)]);
         hub.code();
         c

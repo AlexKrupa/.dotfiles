@@ -103,7 +103,9 @@ impl EngineArgs {
                 "--repo" => {
                     parsed.repo = Some(args.next().ok_or("--repo needs a path")?.into());
                 }
-                "--mr" => parsed.mrs.push(mr_number(args.next()).ok_or("--mr needs an MR number")?),
+                "--mr" => parsed
+                    .mrs
+                    .push(mr_number(args.next()).ok_or("--mr needs an MR number")?),
                 "--skip-mr" => parsed
                     .skip_mrs
                     .push(mr_number(args.next()).ok_or("--skip-mr needs an MR number")?),
@@ -154,9 +156,7 @@ impl EngineError {
 
     pub fn message(&self) -> &str {
         match self {
-            EngineError::Permanent(message)
-            | EngineError::Network(message)
-            | EngineError::Other(message) => message,
+            EngineError::Permanent(message) | EngineError::Network(message) | EngineError::Other(message) => message,
         }
     }
 }
@@ -218,7 +218,10 @@ pub struct MrCache {
 
 impl MrCache {
     pub fn new(dir: PathBuf) -> MrCache {
-        MrCache { dir, locks: std::sync::Mutex::default() }
+        MrCache {
+            dir,
+            locks: std::sync::Mutex::default(),
+        }
     }
 
     pub async fn lock(&self, name: &str) -> tokio::sync::OwnedMutexGuard<()> {
@@ -251,9 +254,10 @@ pub async fn preflight(
     }
     let key = watch_key(&repo, &args.key_mode()).map_err(other)?;
     let state = dirs.engine_state(&key);
-    std::fs::create_dir_all(&dirs.engine)
-        .map_err(|error| other(format!("{}: {error}", dirs.engine.display())))?;
-    let authenticated = glab::run(&repo, &["auth", "status"]).await.is_ok_and(|out| out.status.success());
+    std::fs::create_dir_all(&dirs.engine).map_err(|error| other(format!("{}: {error}", dirs.engine.display())))?;
+    let authenticated = glab::run(&repo, &["auth", "status"])
+        .await
+        .is_ok_and(|out| out.status.success());
     if !authenticated {
         return Err(EngineError::Permanent(
             "glab is not authenticated, run: glab auth login".to_string(),
@@ -265,14 +269,22 @@ pub async fn preflight(
     let remote = remote_url(&repo).ok_or_else(|| other(format!("no git remote in {}", shown.display())))?;
     let project = project_of_url(&remote);
     let project_ref = uri_encode(&project);
-    Ok(CheckContext { args, repo, state, project, project_ref, cache })
+    Ok(CheckContext {
+        args,
+        repo,
+        state,
+        project,
+        project_ref,
+        cache,
+    })
 }
 
 fn on_path(program: &str) -> bool {
     std::env::var_os("PATH").is_some_and(|path| {
         std::env::split_paths(&path).any(|dir| {
-            std::fs::metadata(dir.join(program))
-                .is_ok_and(|meta| meta.is_file() && std::os::unix::fs::PermissionsExt::mode(&meta.permissions()) & 0o111 != 0)
+            std::fs::metadata(dir.join(program)).is_ok_and(|meta| {
+                meta.is_file() && std::os::unix::fs::PermissionsExt::mode(&meta.permissions()) & 0o111 != 0
+            })
         })
     })
 }
@@ -329,9 +341,7 @@ pub fn project_of_url(url: &str) -> String {
 pub fn uri_encode(text: &str) -> String {
     text.bytes()
         .map(|byte| match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                (byte as char).to_string()
-            }
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (byte as char).to_string(),
             _ => format!("%{byte:02X}"),
         })
         .collect()
@@ -344,7 +354,10 @@ pub struct Call {
 
 impl CheckContext {
     pub fn call(&self, items: &[&str]) -> Call {
-        Call { dir: self.repo.clone(), args: args(items) }
+        Call {
+            dir: self.repo.clone(),
+            args: args(items),
+        }
     }
 }
 
@@ -382,11 +395,7 @@ struct Job {
 }
 
 /// Call this before the state is saved, so that a failed call gives the events again.
-pub async fn add_jobs(
-    ctx: &CheckContext,
-    project: &str,
-    mut events: Vec<Event>,
-) -> Result<Vec<Event>, EngineError> {
+pub async fn add_jobs(ctx: &CheckContext, project: &str, mut events: Vec<Event>) -> Result<Vec<Event>, EngineError> {
     let mut calls = Vec::new();
     for (index, event) in events.iter().enumerate() {
         let failed = match event.kind {
@@ -475,9 +484,18 @@ mod tests {
 
     #[test]
     fn split_remote_gives_the_host_and_the_path_of_https_ssh_and_scp_urls() {
-        assert_eq!(split_remote("https://gitlab.example.com/g/a.git"), Some(("gitlab.example.com", "g/a.git")));
-        assert_eq!(split_remote("ssh://git@gitlab.example.com:22/g/a.git"), Some(("gitlab.example.com", "g/a.git")));
-        assert_eq!(split_remote("git@gitlab.example.com:g/a.git"), Some(("gitlab.example.com", "g/a.git")));
+        assert_eq!(
+            split_remote("https://gitlab.example.com/g/a.git"),
+            Some(("gitlab.example.com", "g/a.git"))
+        );
+        assert_eq!(
+            split_remote("ssh://git@gitlab.example.com:22/g/a.git"),
+            Some(("gitlab.example.com", "g/a.git"))
+        );
+        assert_eq!(
+            split_remote("git@gitlab.example.com:g/a.git"),
+            Some(("gitlab.example.com", "g/a.git"))
+        );
         assert_eq!(split_remote("/tmp/repo"), None);
     }
 
@@ -494,9 +512,15 @@ mod tests {
 
     #[test]
     fn project_of_url_handles_https_ssh_and_scp_urls() {
-        assert_eq!(project_of_url("https://gitlab.example.com/group/sub/app.git"), "group/sub/app");
+        assert_eq!(
+            project_of_url("https://gitlab.example.com/group/sub/app.git"),
+            "group/sub/app"
+        );
         assert_eq!(project_of_url("ssh://git@gitlab.example.com:22/g/a.git"), "g/a");
-        assert_eq!(project_of_url("git@gitlab.example.com:group/sub/app.git"), "group/sub/app");
+        assert_eq!(
+            project_of_url("git@gitlab.example.com:group/sub/app.git"),
+            "group/sub/app"
+        );
         assert_eq!(uri_encode("group/sub app"), "group%2Fsub%20app");
     }
 

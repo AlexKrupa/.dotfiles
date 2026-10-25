@@ -63,7 +63,15 @@ mod tests {
         let repo = dir.join("app");
         std::fs::create_dir_all(&repo).unwrap();
         let git = |args: &[&str]| {
-            assert!(Command::new("git").arg("-C").arg(&repo).args(args).status().unwrap().success());
+            assert!(
+                Command::new("git")
+                    .arg("-C")
+                    .arg(&repo)
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
         };
         git(&["init", "-q"]);
         git(&["remote", "add", "origin", "https://gitlab.example.com/group/app.git"]);
@@ -86,7 +94,10 @@ mod tests {
         let stack = format!("app-{}", hash(&repo));
         assert_eq!(watch_key(&repo, &KeyMode::Hub).unwrap(), "app");
         assert_eq!(watch_key(&repo, &KeyMode::Stack).unwrap(), stack);
-        assert_eq!(watch_key(&repo, &KeyMode::Review { iid: 5 }).unwrap(), format!("{stack}-review-5"));
+        assert_eq!(
+            watch_key(&repo, &KeyMode::Review { iid: 5 }).unwrap(),
+            format!("{stack}-review-5")
+        );
         std::fs::remove_dir_all(repo.parent().unwrap()).unwrap();
     }
 }

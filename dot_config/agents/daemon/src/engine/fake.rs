@@ -50,7 +50,10 @@ fn arguments(args: &EngineArgs) -> Vec<String> {
 impl FakeEngine {
     async fn run(&self, args: EngineArgs) -> Result<Vec<Event>, EngineError> {
         let line = arguments(&args).join(" ") + "\n";
-        let log = std::fs::OpenOptions::new().create(true).append(true).open(self.dir.join("args"));
+        let log = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.dir.join("args"));
         if let Ok(mut log) = log {
             let _ = std::io::Write::write_all(&mut log, line.as_bytes());
         }
@@ -78,7 +81,8 @@ impl FakeEngine {
         text.lines()
             .filter(|line| !line.trim().is_empty())
             .map(|line| {
-                serde_json::from_str(line).map_err(|error| EngineError::Other(format!("bad engine line: {error}: {line}\n")))
+                serde_json::from_str(line)
+                    .map_err(|error| EngineError::Other(format!("bad engine line: {error}: {line}\n")))
             })
             .collect()
     }
@@ -101,7 +105,15 @@ mod tests {
         let repo = dir.join("app");
         std::fs::create_dir_all(&repo).unwrap();
         let git = |args: &[&str]| {
-            assert!(Command::new("git").arg("-C").arg(&repo).args(args).status().unwrap().success());
+            assert!(
+                Command::new("git")
+                    .arg("-C")
+                    .arg(&repo)
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
         };
         git(&["init", "-q"]);
         git(&["remote", "add", "origin", "https://gitlab.example.com/group/app.git"]);
@@ -110,7 +122,10 @@ mod tests {
     }
 
     fn hub(repo: &Path) -> EngineArgs {
-        EngineArgs { repo: Some(repo.to_path_buf()), ..EngineArgs::default() }
+        EngineArgs {
+            repo: Some(repo.to_path_buf()),
+            ..EngineArgs::default()
+        }
     }
 
     fn cache(dir: &Path) -> Arc<MrCache> {
@@ -120,7 +135,10 @@ mod tests {
     #[tokio::test]
     async fn fake_engine_gives_the_events_of_its_file_once() {
         let (dir, repo) = scratch("events");
-        let engine = FakeEngine { dir: dir.join("events"), engine_dir: dir.join("engine") };
+        let engine = FakeEngine {
+            dir: dir.join("events"),
+            engine_dir: dir.join("engine"),
+        };
         let line = r#"{"kind":"todo","iid":5,"title":"Add foo","url":"u","actor":"anna","detail":"d","branch":"b"}"#;
         std::fs::write(dir.join("events/app.jsonl"), format!("{line}\n")).unwrap();
         std::fs::write(dir.join("events/app.state"), "{\"todos\": []}\n").unwrap();
@@ -131,15 +149,24 @@ mod tests {
         assert_eq!(first.len(), 1);
         assert_eq!(serde_json::to_string(&first[0]).unwrap(), line);
         assert!(second.is_empty());
-        assert_eq!(std::fs::read_to_string(dir.join("engine/app.json")).unwrap(), "{\"todos\": []}\n");
+        assert_eq!(
+            std::fs::read_to_string(dir.join("engine/app.json")).unwrap(),
+            "{\"todos\": []}\n"
+        );
         let logged = format!("--repo {}\n", repo.display());
-        assert_eq!(std::fs::read_to_string(dir.join("events/args")).unwrap(), logged.repeat(2));
+        assert_eq!(
+            std::fs::read_to_string(dir.join("events/args")).unwrap(),
+            logged.repeat(2)
+        );
     }
 
     #[tokio::test]
     async fn fake_engine_fails_once_for_each_exit_line() {
         let (dir, repo) = scratch("exit");
-        let engine = FakeEngine { dir: dir.join("events"), engine_dir: dir.join("engine") };
+        let engine = FakeEngine {
+            dir: dir.join("events"),
+            engine_dir: dir.join("engine"),
+        };
         std::fs::write(dir.join("events/app.exit"), "5\n4\n").unwrap();
         std::fs::write(dir.join("events/app.err"), "watch-gitlab: HTTP 403\n").unwrap();
 

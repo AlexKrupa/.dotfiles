@@ -134,8 +134,19 @@ pub fn build_report(
     let mut known: BTreeMap<String, Known> = BTreeMap::new();
     let sources = delivery
         .iter()
-        .map(|event| (event.event.iid, event.event.title.clone(), Some(event.event.url.clone())))
-        .chain(items.items.iter().map(|item| (item.iid, item.title.clone(), item.url.clone())));
+        .map(|event| {
+            (
+                event.event.iid,
+                event.event.title.clone(),
+                Some(event.event.url.clone()),
+            )
+        })
+        .chain(
+            items
+                .items
+                .iter()
+                .map(|item| (item.iid, item.title.clone(), item.url.clone())),
+        );
     for (iid, title, url) in sources {
         let Some(iid) = iid else { continue };
         known.entry(iid.to_string()).or_insert(Known {
@@ -145,7 +156,10 @@ pub fn build_report(
     }
     // The engine state has the titles of the MRs with no event.
     for (iid, title) in engine_titles {
-        known.entry(iid.to_string()).or_insert(Known { title: Some(title.clone()), url: None });
+        known.entry(iid.to_string()).or_insert(Known {
+            title: Some(title.clone()),
+            url: None,
+        });
     }
 
     let mut updated = items.clone();
@@ -154,8 +168,12 @@ pub fn build_report(
             item.result = Some(text);
         }
     }
-    let agent_items: Vec<Item> =
-        updated.items.iter().filter(|item| agent.contains(&item.n.to_string())).cloned().collect();
+    let agent_items: Vec<Item> = updated
+        .items
+        .iter()
+        .filter(|item| agent.contains(&item.n.to_string()))
+        .cloned()
+        .collect();
     let mut state = updated.clone();
     state.items.retain(|item| {
         let n = item.n.to_string();
@@ -166,7 +184,11 @@ pub fn build_report(
     for add in &input.add {
         let n = state.next;
         state.next += 1;
-        let mr = add.iid.and_then(|iid| known.get(&iid.to_string())).cloned().unwrap_or_default();
+        let mr = add
+            .iid
+            .and_then(|iid| known.get(&iid.to_string()))
+            .cloned()
+            .unwrap_or_default();
         let result = add.result.clone().unwrap_or_default();
         let section = match add.section {
             AddSection::Needs => {
@@ -205,7 +227,10 @@ pub fn build_report(
         n: item.n,
         section,
         iid: item.iid,
-        title: item.title.clone().or_else(|| item.event.as_ref().map(|event| event.branch.clone())),
+        title: item
+            .title
+            .clone()
+            .or_else(|| item.event.as_ref().map(|event| event.branch.clone())),
         url: item.url.clone(),
         event: item.event.clone(),
         what: item.what.clone(),
@@ -240,7 +265,12 @@ pub fn build_report(
         };
         rows.extend(row);
     }
-    rows.extend(added_rows.iter().filter(|row| row.section == RowSection::Agent).cloned());
+    rows.extend(
+        added_rows
+            .iter()
+            .filter(|row| row.section == RowSection::Agent)
+            .cloned(),
+    );
     for event in &events {
         let row = event.row.to_string();
         if !open.contains(&row) && !agent.contains(&row) && !close.contains(&row) {
@@ -250,13 +280,22 @@ pub fn build_report(
     rows.extend(added_rows.iter().filter(|row| row.section == RowSection::Info).cloned());
     let mut links: Vec<(String, Link)> = Vec::new();
     for row in &rows {
-        let Some(url) = row.url.as_ref().filter(|url| !url.is_empty()) else { continue };
+        let Some(url) = row.url.as_ref().filter(|url| !url.is_empty()) else {
+            continue;
+        };
         let key = match row.iid {
             Some(iid) => format!("!{iid}"),
             None => row.title.clone().unwrap_or_else(|| "null".to_string()),
         };
         if links.iter().all(|(known_key, _)| *known_key != key) {
-            links.push((key, Link { title: row.title.clone(), iid: row.iid, url: without_anchor(url) }));
+            links.push((
+                key,
+                Link {
+                    title: row.title.clone(),
+                    iid: row.iid,
+                    url: without_anchor(url),
+                },
+            ));
         }
     }
     let links = links.into_iter().map(|(_, link)| link).collect();
@@ -371,10 +410,17 @@ fn pad(text: &str, width: usize) -> String {
 }
 
 fn table(header: &[&str], rows: &[Vec<String>]) -> Vec<String> {
-    let all: Vec<Vec<String>> =
-        std::iter::once(header.iter().map(|text| text.to_string()).collect()).chain(rows.iter().cloned()).collect();
+    let all: Vec<Vec<String>> = std::iter::once(header.iter().map(|text| text.to_string()).collect())
+        .chain(rows.iter().cloned())
+        .collect();
     let widths: Vec<usize> = (0..header.len())
-        .map(|column| all.iter().map(|row| row[column].chars().count()).max().unwrap_or(0).max(3))
+        .map(|column| {
+            all.iter()
+                .map(|row| row[column].chars().count())
+                .max()
+                .unwrap_or(0)
+                .max(3)
+        })
         .collect();
     let line = |row: &Vec<String>| {
         let cells: Vec<String> = row.iter().zip(&widths).map(|(text, width)| pad(text, *width)).collect();
@@ -393,7 +439,14 @@ fn title_text(title: &Option<String>) -> String {
 fn work_table(rows: &[&Row]) -> Vec<String> {
     let cells: Vec<Vec<String>> = rows
         .iter()
-        .map(|row| vec![row.n.to_string(), row.section.label().to_string(), cell(&what(row)), cell(&row.result)])
+        .map(|row| {
+            vec![
+                row.n.to_string(),
+                row.section.label().to_string(),
+                cell(&what(row)),
+                cell(&row.result),
+            ]
+        })
         .collect();
     table(&["#", "Section", "What happened", "Proposal or result"], &cells)
 }
@@ -419,7 +472,10 @@ pub fn render(mode: Mode, time: &str, mrs: &[u64], data: &ReportData) -> String 
                 })
                 .collect();
             lines.push(String::new());
-            lines.extend(table(&["#", "Section", "MR", "What happened", "Proposal or result"], &cells));
+            lines.extend(table(
+                &["#", "Section", "MR", "What happened", "Proposal or result"],
+                &cells,
+            ));
             lines.push(String::new());
             for link in &data.links {
                 lines.push(match link.iid {
@@ -436,15 +492,22 @@ pub fn render(mode: Mode, time: &str, mrs: &[u64], data: &ReportData) -> String 
                     continue;
                 }
                 lines.push(String::new());
-                let url = mr.url.filter(|url| !url.is_empty()).map(|url| format!(" {url}")).unwrap_or_default();
+                let url = mr
+                    .url
+                    .filter(|url| !url.is_empty())
+                    .map(|url| format!(" {url}"))
+                    .unwrap_or_default();
                 lines.push(format!("{} (!{iid}){url}", title_text(&mr.title)));
                 if !mr_rows.is_empty() {
                     lines.push(String::new());
                     lines.extend(work_table(&mr_rows));
                 }
             }
-            let other: Vec<&Row> =
-                data.rows.iter().filter(|row| !row.iid.is_some_and(|iid| mrs.contains(&iid))).collect();
+            let other: Vec<&Row> = data
+                .rows
+                .iter()
+                .filter(|row| !row.iid.is_some_and(|iid| mrs.contains(&iid)))
+                .collect();
             if !other.is_empty() {
                 lines.push(String::new());
                 lines.extend(work_table(&other));
@@ -480,9 +543,23 @@ mod tests {
             previous: Some(Some("success".to_string())),
             item: Some("main-failed:develop".to_string()),
             jobs: Some(vec!["unit-tests".to_string()]),
-            ..Event::new(EventKind::DefaultFailed, None, None, &format!("{PL_URL}/88123"), "", "pipeline 88123 failed", "develop")
+            ..Event::new(
+                EventKind::DefaultFailed,
+                None,
+                None,
+                &format!("{PL_URL}/88123"),
+                "",
+                "pipeline 88123 failed",
+                "develop",
+            )
         };
-        let reaction = mr_event(EventKind::Reaction, 5, "bob", ":tada: on your comment", &format!("{MR_URL}/5#note_7"));
+        let reaction = mr_event(
+            EventKind::Reaction,
+            5,
+            "bob",
+            ":tada: on your comment",
+            &format!("{MR_URL}/5#note_7"),
+        );
         let mut items = Items::default();
         let delivery = assign_rows(&mut items, vec![todo, failed, reaction], 100);
         let (items, data) = build_report(
@@ -513,7 +590,10 @@ develop {PL_URL}/88123"
 
     #[test]
     fn report_stack_mode_is_one_table_for_each_mr_with_title_and_url() {
-        let delivery = vec![RoutedEvent { event: mr_event(EventKind::Approved, 5, "anna", "approved", "u"), row: 1 }];
+        let delivery = vec![RoutedEvent {
+            event: mr_event(EventKind::Approved, 5, "anna", "approved", "u"),
+            row: 1,
+        }];
         let titles = BTreeMap::from([(5, "Add foo".to_string()), (6, "Add bar".to_string())]);
         let (_, data) = build_report(&input("{}"), &Items::default(), &delivery, &titles, 200);
         assert_eq!(
@@ -532,13 +612,19 @@ Add bar (!6)"
 
     #[test]
     fn report_add_needs_opens_a_model_item_with_a_new_number() {
-        let items = Items { next: 4, items: Vec::new() };
+        let items = Items {
+            next: 4,
+            items: Vec::new(),
+        };
         let add = r#"{"add": [{"section": "needs", "iid": 5, "what": "Fix waits", "result": "Ask the agent"}]}"#;
         let (items, data) = build_report(&input(add), &items, &[], &BTreeMap::new(), 200);
         assert_eq!(items.next, 5);
         let item = &items.items[0];
         assert_eq!((item.n, item.item.as_str(), item.owner), (4, "model:4", Owner::Model));
-        assert_eq!((item.what.as_deref(), item.result.as_deref(), item.since), (Some("Fix waits"), Some("Ask the agent"), Some(200)));
+        assert_eq!(
+            (item.what.as_deref(), item.result.as_deref(), item.since),
+            (Some("Fix waits"), Some("Ask the agent"), Some(200))
+        );
         assert_eq!(data.rows[0].section, RowSection::NeedsYou);
         assert_eq!(data.rows[0].since, None);
     }
@@ -557,11 +643,23 @@ Add bar (!6)"
             since: Some(100),
             event: Some(mr_event(EventKind::Comment, 5, "anna", "Why?", "u")),
         };
-        let items = Items { next: 3, items: vec![thread] };
-        let unaddressed = Event { item: Some("thread:d1".to_string()), ..mr_event(EventKind::Unaddressed, 5, "anna", "Why?", "u") };
+        let items = Items {
+            next: 3,
+            items: vec![thread],
+        };
+        let unaddressed = Event {
+            item: Some("thread:d1".to_string()),
+            ..mr_event(EventKind::Unaddressed, 5, "anna", "Why?", "u")
+        };
         let delivery = vec![
-            RoutedEvent { event: mr_event(EventKind::Approved, 5, "carl", "approved", "u"), row: 2 },
-            RoutedEvent { event: unaddressed, row: 1 },
+            RoutedEvent {
+                event: mr_event(EventKind::Approved, 5, "carl", "approved", "u"),
+                row: 2,
+            },
+            RoutedEvent {
+                event: unaddressed,
+                row: 1,
+            },
         ];
         let (items, data) = build_report(&input("{}"), &items, &delivery, &BTreeMap::new(), 200);
         assert_eq!(items.items[0].since, Some(100));

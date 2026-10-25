@@ -29,7 +29,10 @@ fn commented(updated_at: &str) -> String {
 
 fn fields(out: &str, keys: &[&str]) -> String {
     let event: Value = serde_json::from_str(out.lines().next().unwrap_or("null")).unwrap();
-    keys.iter().map(|key| support::raw(&event[key])).collect::<Vec<_>>().join(" ")
+    keys.iter()
+        .map(|key| support::raw(&event[key]))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn hub_todo() -> &'static Checks {
@@ -56,21 +59,37 @@ fn review_and_hub() -> &'static Checks {
         let mut c = Checks::default();
         let review_key = format!("{}-review-5", w.stack_key());
         gql(&w, 5, |_| {});
-        w.env.fixture("events", r#"[{"project_id": 7, "note": {"id": 300, "noteable_type": "MergeRequest", "noteable_iid": 5}}]"#);
+        w.env.fixture(
+            "events",
+            r#"[{"project_id": 7, "note": {"id": 300, "noteable_type": "MergeRequest", "noteable_iid": 5}}]"#,
+        );
         w.env.fixture("commented", &commented("t1"));
         let review = w.start(w.watch_command(&["--review", "--mr", "5"]));
         let hub = w.start(w.watch_command(&[]));
         wait_for(10, || w.rounds_of("app") >= 1 && w.rounds_of(&review_key) >= 1);
         w.env.fixture("commented", &commented("t2"));
         w.env.fixture("notes_5", &json!([anna_note(301)]).to_string());
-        w.env.fixture("discussions_5", &json!([{"id": "d301", "individual_note": false, "notes": [anna_note(301)]}]).to_string());
+        w.env.fixture(
+            "discussions_5",
+            &json!([{"id": "d301", "individual_note": false, "notes": [anna_note(301)]}]).to_string(),
+        );
         let hub_rounds = w.rounds_of("app");
         let review = review.wait(10).unwrap();
-        c.check("e2e review: real engine gives a comment to the review client", "0 comment anna",
-            format!("{} {}", review.code, fields(&review.out, &["kind", "actor"])));
+        c.check(
+            "e2e review: real engine gives a comment to the review client",
+            "0 comment anna",
+            format!("{} {}", review.code, fields(&review.out, &["kind", "actor"])),
+        );
         wait_for(5, || w.rounds_of("app") > hub_rounds);
-        c.check("e2e review: no note for the MR in the hub inbox", "running ",
-            format!("{} {}", if hub.running() { "running" } else { "stopped" }, w.inbox_of("app")));
+        c.check(
+            "e2e review: no note for the MR in the hub inbox",
+            "running ",
+            format!(
+                "{} {}",
+                if hub.running() { "running" } else { "stopped" },
+                w.inbox_of("app")
+            ),
+        );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
         hub.code();
         c
@@ -83,7 +102,10 @@ fn shared_fetch() -> &'static Checks {
         let w = Watchd::with_gitlab_engine();
         let mut c = Checks::default();
         gql(&w, 5, |_| {});
-        w.env.fixture("discussions_5", &json!([{"id": "d301", "individual_note": false, "notes": [anna_note(301)]}]).to_string());
+        w.env.fixture(
+            "discussions_5",
+            &json!([{"id": "d301", "individual_note": false, "notes": [anna_note(301)]}]).to_string(),
+        );
         let git = |args: &[&str]| {
             let status = Command::new("git")
                 .arg("-C")
@@ -100,9 +122,16 @@ fn shared_fetch() -> &'static Checks {
         let app2 = w.env.dir.join("app2");
         git(&["worktree", "add", "-q", app2.to_str().unwrap()]);
         let first = format!("{}-review-5", w.stack_key());
-        let mut hasher = Command::new("shasum").stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).spawn().unwrap();
+        let mut hasher = Command::new("shasum")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
         std::io::Write::write_all(hasher.stdin.as_mut().unwrap(), app2.to_str().unwrap().as_bytes()).unwrap();
-        let second = format!("app-{}-review-5", &String::from_utf8_lossy(&hasher.wait_with_output().unwrap().stdout)[..12]);
+        let second = format!(
+            "app-{}-review-5",
+            &String::from_utf8_lossy(&hasher.wait_with_output().unwrap().stdout)[..12]
+        );
         w.env.clear_calls();
         let review = w.start(w.watch_command(&["--interval", "600", "--review", "--mr", "5"]));
         wait_for(10, || w.rounds_of(&first) >= 1);
@@ -111,8 +140,19 @@ fn shared_fetch() -> &'static Checks {
         let bump = w.start(command);
         wait_for(10, || w.rounds_of(&second) >= 1 && w.rounds_of(&first) >= 2);
         let fetches = w.env.calls().lines().filter(|line| line.ends_with(" iid=5")).count();
-        c.check("review and bump on the same MR: one fetch in each round", "2 2", format!("{} {fetches}", w.rounds_of(&first)));
-        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--review", "--mr", "5"]);
+        c.check(
+            "review and bump on the same MR: one fetch in each round",
+            "2 2",
+            format!("{} {fetches}", w.rounds_of(&first)),
+        );
+        w.client(&[
+            "unsubscribe",
+            "--repo",
+            w.env.repo.to_str().unwrap(),
+            "--review",
+            "--mr",
+            "5",
+        ]);
         w.client(&["unsubscribe", "--repo", app2.to_str().unwrap(), "--review", "--mr", "5"]);
         review.code();
         bump.wait(20);
@@ -128,10 +168,15 @@ fn stack_pipeline() -> &'static Checks {
         gql(&w, 5, |_| {});
         let stack = w.start(w.watch_command(&["--mr", "5"]));
         wait_for(10, || w.rounds_of(&w.stack_key()) >= 1);
-        gql(&w, 5, |mr| mr["headPipeline"] = json!({"id": "gid://gitlab/Ci::Pipeline/50", "status": "FAILED"}));
+        gql(&w, 5, |mr| {
+            mr["headPipeline"] = json!({"id": "gid://gitlab/Ci::Pipeline/50", "status": "FAILED"})
+        });
         let stack = stack.wait(10).unwrap();
-        c.check("e2e stack: real engine gives a pipeline event", "0 pipeline 5 pipeline 50 failed",
-            format!("{} {}", stack.code, fields(&stack.out, &["kind", "iid", "detail"])));
+        c.check(
+            "e2e stack: real engine gives a pipeline event",
+            "0 pipeline 5 pipeline 50 failed",
+            format!("{} {}", stack.code, fields(&stack.out, &["kind", "iid", "detail"])),
+        );
         c
     })
 }

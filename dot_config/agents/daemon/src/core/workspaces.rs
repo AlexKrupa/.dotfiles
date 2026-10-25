@@ -52,11 +52,29 @@ mod tests {
 
     #[test]
     fn kind_without_live_subscription_clears_the_stage() {
-        let mut workspace = Workspace { kind: Some(Kind::Mine), stage: Some(Stage::Done) };
+        let mut workspace = Workspace {
+            kind: Some(Kind::Mine),
+            stage: Some(Stage::Done),
+        };
         set_kind(&mut workspace, Kind::Review, true);
-        assert_eq!(workspace, Workspace { kind: Some(Kind::Review), stage: Some(Stage::Done) });
+        assert_eq!(
+            workspace,
+            Workspace {
+                kind: Some(Kind::Review),
+                stage: Some(Stage::Done)
+            }
+        );
         set_kind(&mut workspace, Kind::Bump, false);
-        assert_eq!(workspace, Workspace { kind: Some(Kind::Bump), stage: None });
-        assert_eq!(serde_json::to_string(&workspace).unwrap(), r#"{"kind":"bump","stage":null}"#);
+        assert_eq!(
+            workspace,
+            Workspace {
+                kind: Some(Kind::Bump),
+                stage: None
+            }
+        );
+        assert_eq!(
+            serde_json::to_string(&workspace).unwrap(),
+            r#"{"kind":"bump","stage":null}"#
+        );
     }
 }

@@ -42,7 +42,13 @@ pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, String>
 }
 
 pub fn save<T: Serialize>(path: &Path, data: &T) -> std::io::Result<()> {
-    write_json(path, &Versioned { version: FORMAT_VERSION, data })
+    write_json(
+        path,
+        &Versioned {
+            version: FORMAT_VERSION,
+            data,
+        },
+    )
 }
 
 /// A temp file in the same folder and a rename, so that a reader never sees a partial file.
@@ -125,7 +131,10 @@ mod tests {
         std::io::Read::read_to_string(&mut reader, &mut old).unwrap();
         assert_eq!(old, "old content\n");
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\n  \"new\": true\n}\n");
-        let names: Vec<_> = std::fs::read_dir(path.parent().unwrap()).unwrap().map(|e| e.unwrap().file_name()).collect();
+        let names: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
         assert_eq!(names, vec!["app.json"]);
     }
 }

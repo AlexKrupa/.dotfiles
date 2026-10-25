@@ -11,7 +11,10 @@ pub struct Items {
 
 impl Default for Items {
     fn default() -> Items {
-        Items { next: 1, items: Vec::new() }
+        Items {
+            next: 1,
+            items: Vec::new(),
+        }
     }
 }
 
@@ -87,7 +90,9 @@ pub fn assign_rows(items: &mut Items, events: Vec<Event>, now: i64) -> Vec<Route
 }
 
 fn is_hub_item(key: &str) -> bool {
-    ["todo:", "note:", "main-failed:"].iter().any(|prefix| key.starts_with(prefix))
+    ["todo:", "note:", "main-failed:"]
+        .iter()
+        .any(|prefix| key.starts_with(prefix))
 }
 
 pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[String]>, mode: Mode) {
@@ -149,18 +154,35 @@ mod tests {
     #[test]
     fn assign_rows_keeps_the_event_of_an_item_for_an_unaddressed_line() {
         let mut items = Items::default();
-        let comment = Event { detail: "Why?".to_string(), ..event(EventKind::Comment, Some("thread:d1")) };
-        assign_rows(&mut items, vec![comment, event(EventKind::Unaddressed, Some("thread:d1"))], 100);
+        let comment = Event {
+            detail: "Why?".to_string(),
+            ..event(EventKind::Comment, Some("thread:d1"))
+        };
+        assign_rows(
+            &mut items,
+            vec![comment, event(EventKind::Unaddressed, Some("thread:d1"))],
+            100,
+        );
         let routed = assign_rows(&mut items, vec![event(EventKind::Unaddressed, Some("thread:d1"))], 200);
         assert_eq!(rows(&routed), vec![1]);
-        assert_eq!(items.items[0].event.as_ref().map(|event| event.kind), Some(EventKind::Comment));
-        assert_eq!(serde_json::to_string(&routed[0]).unwrap(), r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u","actor":"anna","detail":"d","branch":"b","item":"thread:d1","row":1}"#);
+        assert_eq!(
+            items.items[0].event.as_ref().map(|event| event.kind),
+            Some(EventKind::Comment)
+        );
+        assert_eq!(
+            serde_json::to_string(&routed[0]).unwrap(),
+            r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u","actor":"anna","detail":"d","branch":"b","item":"thread:d1","row":1}"#
+        );
     }
 
     #[test]
     fn event_without_item_gets_a_new_number_and_opens_nothing() {
         let mut items = Items::default();
-        let routed = assign_rows(&mut items, vec![event(EventKind::Approved, None), event(EventKind::Approved, None)], 100);
+        let routed = assign_rows(
+            &mut items,
+            vec![event(EventKind::Approved, None), event(EventKind::Approved, None)],
+            100,
+        );
         assert_eq!(rows(&routed), vec![1, 2]);
         assert_eq!(items.next, 3);
         assert!(items.items.is_empty());
@@ -194,10 +216,16 @@ mod tests {
         let left: Vec<u64> = items.items.iter().map(|item| item.n).collect();
         assert_eq!(left, vec![1, 2]);
 
-        let mut no_hub = Items { next: 3, items: vec![item(1, "todo:11", Owner::Daemon), item(2, "thread:d1", Owner::Daemon)] };
+        let mut no_hub = Items {
+            next: 3,
+            items: vec![item(1, "todo:11", Owner::Daemon), item(2, "thread:d1", Owner::Daemon)],
+        };
         prune_items(&mut no_hub, &[], None, Mode::Review);
         assert_eq!(no_hub.items.len(), 1);
-        let mut hub_mode = Items { next: 2, items: vec![item(1, "todo:11", Owner::Daemon)] };
+        let mut hub_mode = Items {
+            next: 2,
+            items: vec![item(1, "todo:11", Owner::Daemon)],
+        };
         prune_items(&mut hub_mode, &[], None, Mode::Hub);
         assert!(hub_mode.items.is_empty());
     }
@@ -206,9 +234,15 @@ mod tests {
     fn move_items_renumbers_in_the_target() {
         let mut source = Items::default();
         assign_rows(&mut source, vec![event(EventKind::Todo, Some("todo:1"))], 1);
-        let other = Event { iid: Some(6), ..event(EventKind::Todo, Some("todo:2")) };
+        let other = Event {
+            iid: Some(6),
+            ..event(EventKind::Todo, Some("todo:2"))
+        };
         assign_rows(&mut source, vec![other], 1);
-        let mut target = Items { next: 7, items: Vec::new() };
+        let mut target = Items {
+            next: 7,
+            items: Vec::new(),
+        };
         assert_eq!(move_items(&mut source, &mut target, Some(5)), 1);
         assert_eq!(target.next, 8);
         assert_eq!(target.items[0].n, 7);

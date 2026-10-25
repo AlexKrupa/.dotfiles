@@ -192,8 +192,7 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
     if let Some(file) = &cached
         && let Ok(text) = std::fs::read_to_string(file)
     {
-        return serde_json::from_str(&text)
-            .map_err(|error| EngineError::Other(format!("{}: {error}", file.display())));
+        return serde_json::from_str(&text).map_err(|error| EngineError::Other(format!("{}: {error}", file.display())));
     }
     let mr_path = format!("projects/{}/merge_requests/{iid}", ctx.project_ref);
     let query = format!("query={MR_QUERY}");
@@ -209,7 +208,10 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
     let (me, base) = graphql_mr(graphql, ctx, iid)?;
     let (rest, discussions) = (rest?, discussions?);
     let count = rest.user_notes_count.unwrap_or(0);
-    let all_system = discussions.iter().flat_map(|d| &d.notes).all(|note| note.system == Some(true));
+    let all_system = discussions
+        .iter()
+        .flat_map(|d| &d.notes)
+        .all(|note| note.system == Some(true));
     if count > 0 && all_system {
         return Err(EngineError::Permanent(format!(
             "MR !{iid} has {count} comment(s), but {mr_path}/discussions?per_page=100 gave none. \
@@ -231,8 +233,10 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
             Box::pin(api_pages::<GqlEmoji>(call)) as Task<_>
         })
         .collect();
-    let emoji_by_note: BTreeMap<u64, Vec<GqlEmoji>> =
-        comment_ids.into_iter().zip(all_ok(glab::parallel(calls).await)?).collect();
+    let emoji_by_note: BTreeMap<u64, Vec<GqlEmoji>> = comment_ids
+        .into_iter()
+        .zip(all_ok(glab::parallel(calls).await)?)
+        .collect();
     let url = base.web_url.clone();
     let data = MrData {
         current_user: Username { username: me },
@@ -241,9 +245,10 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
                 base,
                 description: rest.description.unwrap_or_default(),
                 labels: rest.labels.unwrap_or_default(),
-                diff_refs: rest
-                    .diff_refs
-                    .map(|refs| DiffRefs { base_sha: refs.base_sha, head_sha: refs.head_sha }),
+                diff_refs: rest.diff_refs.map(|refs| DiffRefs {
+                    base_sha: refs.base_sha,
+                    head_sha: refs.head_sha,
+                }),
                 award_emoji: Nodes { nodes: mr_emoji },
                 discussions: Nodes {
                     nodes: discussions
@@ -257,8 +262,7 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
     if let Some(file) = &cached {
         let mut text = serde_json::to_string(&data).expect("an MR serializes");
         text.push('\n');
-        std::fs::write(file, text)
-            .map_err(|error| EngineError::Other(format!("{}: {error}", file.display())))?;
+        std::fs::write(file, text).map_err(|error| EngineError::Other(format!("{}: {error}", file.display())))?;
     }
     Ok(data)
 }
@@ -275,8 +279,11 @@ fn graphql_mr(
         .collect::<Result<_, _>>()
         .unwrap_or_default();
     let truthy = |value: &serde_json::Value| !matches!(value, serde_json::Value::Null | serde_json::Value::Bool(false));
-    let errors: Vec<&serde_json::Value> =
-        responses.iter().filter_map(|response| response.errors.as_ref()).filter(|e| truthy(e)).collect();
+    let errors: Vec<&serde_json::Value> = responses
+        .iter()
+        .filter_map(|response| response.errors.as_ref())
+        .filter(|e| truthy(e))
+        .collect();
     if !errors.is_empty() {
         let messages: Vec<&str> = errors
             .iter()
@@ -290,11 +297,19 @@ fn graphql_mr(
         return Err(glab::classify("graphql", &output.stderr).into());
     }
     let data = responses.into_iter().next().and_then(|response| response.data);
-    let me = data.as_ref().and_then(|data| data.current_user.as_ref()).map(|user| user.username.clone());
-    let mr = data.and_then(|data| data.project).and_then(|project| project.merge_request);
+    let me = data
+        .as_ref()
+        .and_then(|data| data.current_user.as_ref())
+        .map(|user| user.username.clone());
+    let mr = data
+        .and_then(|data| data.project)
+        .and_then(|project| project.merge_request);
     match mr {
         Some(mr) => Ok((me.unwrap_or_default(), mr)),
-        None => Err(EngineError::Permanent(format!("MR !{iid} not found in {}", ctx.project))),
+        None => Err(EngineError::Permanent(format!(
+            "MR !{iid} not found in {}",
+            ctx.project
+        ))),
     }
 }
 
@@ -303,8 +318,11 @@ fn gql_discussion(
     url: &str,
     emoji_by_note: &BTreeMap<u64, Vec<GqlEmoji>>,
 ) -> GqlDiscussion {
-    let resolvable: Vec<&RestNote> =
-        discussion.notes.iter().filter(|note| note.resolvable == Some(true)).collect();
+    let resolvable: Vec<&RestNote> = discussion
+        .notes
+        .iter()
+        .filter(|note| note.resolvable == Some(true))
+        .collect();
     let resolved = !resolvable.is_empty() && resolvable.iter().all(|note| note.resolved == Some(true));
     let resolved_by = resolvable.first().and_then(|note| note.resolved_by.clone());
     GqlDiscussion {
@@ -327,12 +345,7 @@ fn gql_discussion(
                         new_line: position.new_line,
                     }),
                     award_emoji: Nodes {
-                        nodes: emoji_by_note
-                            .get(&note.id)
-                            .into_iter()
-                            .flatten()
-                            .cloned()
-                            .collect(),
+                        nodes: emoji_by_note.get(&note.id).into_iter().flatten().cloned().collect(),
                     },
                 })
                 .collect(),
@@ -517,7 +530,12 @@ pub fn normalize(data: &MrData, me: &str, review: bool) -> NormMr {
         url: mr.base.web_url.clone(),
         branch: mr.base.source_branch.clone(),
         state: mr.base.state.clone(),
-        merge_user: mr.base.merge_user.as_ref().map(|user| user.username.clone()).unwrap_or_default(),
+        merge_user: mr
+            .base
+            .merge_user
+            .as_ref()
+            .map(|user| user.username.clone())
+            .unwrap_or_default(),
         draft: mr.base.draft,
         draft_user: actor(mr, Action::Draft),
         close_user: actor(mr, Action::Close),
@@ -548,7 +566,13 @@ pub fn normalize(data: &MrData, me: &str, review: bool) -> NormMr {
             id: num(&pipeline.id),
             status: pipeline.status.to_lowercase(),
         }),
-        approved_by: mr.base.approved_by.nodes.iter().map(|user| user.username.clone()).collect(),
+        approved_by: mr
+            .base
+            .approved_by
+            .nodes
+            .iter()
+            .map(|user| user.username.clone())
+            .collect(),
         merge_status: mr.base.detailed_merge_status.clone().unwrap_or_default().to_lowercase(),
         conflicts: mr.base.conflicts,
         mergeable: mr.base.mergeable,
@@ -590,11 +614,22 @@ fn at(event: Event, position: &Option<Position>) -> Event {
 }
 
 fn event(kind: EventKind, mr: &NormMr, actor: &str, detail: &str, url: Option<&str>) -> Event {
-    Event::new(kind, Some(mr.iid), Some(&mr.title), url.unwrap_or(&mr.url), actor, detail, &mr.branch)
+    Event::new(
+        kind,
+        Some(mr.iid),
+        Some(&mr.title),
+        url.unwrap_or(&mr.url),
+        actor,
+        detail,
+        &mr.branch,
+    )
 }
 
 fn with_item(event: Event, item: String) -> Event {
-    Event { item: Some(item), ..event }
+    Event {
+        item: Some(item),
+        ..event
+    }
 }
 
 fn minus(left: &[String], right: &[String]) -> Vec<String> {
@@ -605,7 +640,10 @@ fn new_state(mr: &NormMr, old: &StackMrState, me: &str) -> StackMrState {
     let transient = transient(&mr.merge_status);
     let old_approved = old.approved_by.clone().unwrap_or_default();
     let seen = old.seen_head.is_none()
-        || mr.notes.iter().any(|note| note.id > old.last_note_id && note.author == me)
+        || mr
+            .notes
+            .iter()
+            .any(|note| note.id > old.last_note_id && note.author == me)
         || (mr.approved_by.iter().any(|user| user == me) && !old_approved.iter().any(|user| user == me));
     StackMrState {
         state: Some(mr.state.clone()),
@@ -617,9 +655,19 @@ fn new_state(mr: &NormMr, old: &StackMrState, me: &str) -> StackMrState {
         labels: Some(mr.labels.clone()),
         conflicts: if transient { old.conflicts } else { mr.conflicts },
         mergeable: if transient { old.mergeable } else { mr.mergeable },
-        merge_status: if transient { old.merge_status.clone() } else { Some(mr.merge_status.clone()) },
+        merge_status: if transient {
+            old.merge_status.clone()
+        } else {
+            Some(mr.merge_status.clone())
+        },
         seen_head: if seen { mr.head.clone() } else { old.seen_head.clone() },
-        last_note_id: mr.notes.iter().map(|note| note.id).chain([old.last_note_id]).max().unwrap_or(0),
+        last_note_id: mr
+            .notes
+            .iter()
+            .map(|note| note.id)
+            .chain([old.last_note_id])
+            .max()
+            .unwrap_or(0),
         reactions: Some(mr.reactions.iter().map(|reaction| reaction.key.clone()).collect()),
         base: mr.base.clone(),
         head: mr.head.clone(),
@@ -630,8 +678,15 @@ fn new_state(mr: &NormMr, old: &StackMrState, me: &str) -> StackMrState {
 fn mr_events(mr: &NormMr, old: &StackMrState, new: &StackMrState, me: &str, review: bool) -> Vec<Event> {
     let mut events = Vec::new();
     for note in mr.notes.iter().filter(|note| note.id > old.last_note_id) {
-        let kind = if note.author == me { EventKind::OwnComment } else { EventKind::Comment };
-        let comment = at(event(kind, mr, &note.author, &short(&note.body), Some(&note.url)), &note.position);
+        let kind = if note.author == me {
+            EventKind::OwnComment
+        } else {
+            EventKind::Comment
+        };
+        let comment = at(
+            event(kind, mr, &note.author, &short(&note.body), Some(&note.url)),
+            &note.position,
+        );
         let unaddressed = mr.unaddressed.iter().any(|thread| thread.discussion == note.discussion);
         events.push(match unaddressed {
             true => with_item(comment, format!("thread:{}", note.discussion)),
@@ -648,7 +703,13 @@ fn mr_events(mr: &NormMr, old: &StackMrState, new: &StackMrState, me: &str, revi
             Some(author) => format!("a comment of @{author}"),
         };
         let detail = format!(":{}: on {on}", reaction.name);
-        let reacted = event(EventKind::Reaction, mr, &reaction.user, &detail, reaction.url.as_deref());
+        let reacted = event(
+            EventKind::Reaction,
+            mr,
+            &reaction.user,
+            &detail,
+            reaction.url.as_deref(),
+        );
         events.push(at(reacted, &reaction.position));
     }
     if let Some(pipeline) = &new.pipeline
@@ -682,14 +743,24 @@ fn mr_events(mr: &NormMr, old: &StackMrState, new: &StackMrState, me: &str, revi
         events.push(event(EventKind::Title, mr, &mr.title_user, &short(&mr.title), None));
     }
     if old.description.is_some() && new.description != old.description && mr.description_user != me {
-        events.push(event(EventKind::Description, mr, &mr.description_user, "description changed", None));
+        events.push(event(
+            EventKind::Description,
+            mr,
+            &mr.description_user,
+            "description changed",
+            None,
+        ));
     }
     if let Some(old_labels) = &old.labels
         && new.labels.as_ref() != Some(old_labels)
         && mr.labels_user != me
     {
-        let added = minus(&mr.labels, old_labels).into_iter().map(|label| format!("+{label}"));
-        let removed = minus(old_labels, &mr.labels).into_iter().map(|label| format!("-{label}"));
+        let added = minus(&mr.labels, old_labels)
+            .into_iter()
+            .map(|label| format!("+{label}"));
+        let removed = minus(old_labels, &mr.labels)
+            .into_iter()
+            .map(|label| format!("-{label}"));
         let detail = added.chain(removed).collect::<Vec<_>>().join(", ");
         events.push(event(EventKind::Labels, mr, &mr.labels_user, &detail, None));
     }
@@ -705,11 +776,17 @@ fn mr_events(mr: &NormMr, old: &StackMrState, new: &StackMrState, me: &str, revi
     let own = |user: &str| if user == me { Some(true) } else { None };
     if was_open && mr.state == "merged" {
         let merged = event(EventKind::Merged, mr, &mr.merge_user, "merged", None);
-        events.push(Event { own: own(&mr.merge_user), ..merged });
+        events.push(Event {
+            own: own(&mr.merge_user),
+            ..merged
+        });
     }
     if was_open && mr.state == "closed" {
         let closed = event(EventKind::Closed, mr, &mr.close_user, "closed", None);
-        events.push(Event { own: own(&mr.close_user), ..closed });
+        events.push(Event {
+            own: own(&mr.close_user),
+            ..closed
+        });
     }
     if review
         && let (Some(old_head), Some(new_head)) = (&old.head, &new.head)
@@ -730,18 +807,19 @@ fn mr_events(mr: &NormMr, old: &StackMrState, new: &StackMrState, me: &str, revi
             continue;
         }
         let first = &thread.first;
-        let resolved = event(EventKind::Resolved, mr, &thread.by, &short(&first.body), Some(&first.url));
+        let resolved = event(
+            EventKind::Resolved,
+            mr,
+            &thread.by,
+            &short(&first.body),
+            Some(&first.url),
+        );
         events.push(at(resolved, &first.position));
     }
     events
 }
 
-pub fn stack_compare(
-    now: &[NormMr],
-    old: Option<&StackState>,
-    me: &str,
-    review: bool,
-) -> (StackState, Vec<Event>) {
+pub fn stack_compare(now: &[NormMr], old: Option<&StackState>, me: &str, review: bool) -> (StackState, Vec<Event>) {
     let fallback = StackMrState::default();
     let mut mrs = BTreeMap::new();
     let mut events = Vec::new();
@@ -767,7 +845,10 @@ pub fn stack_compare(
             (Need::Failed, failed(s)),
             (Need::Conflict, conflict(s)),
             (Need::Reply, !mr.unaddressed.is_empty()),
-            (Need::RequestedChanges, s.merge_status.as_deref() == Some("requested_changes")),
+            (
+                Need::RequestedChanges,
+                s.merge_status.as_deref() == Some("requested_changes"),
+            ),
             (Need::Commits, s.head.is_some() && s.head != s.seen_head),
             (Need::Ready, s.merge_status.as_deref() == Some("mergeable")),
             (Need::Draft, s.draft == Some(true)),
@@ -787,7 +868,11 @@ pub fn stack_compare(
     };
     let mut present = Vec::new();
     for (mr, s) in &open {
-        present.extend(mr.unaddressed.iter().map(|thread| format!("thread:{}", thread.discussion)));
+        present.extend(
+            mr.unaddressed
+                .iter()
+                .map(|thread| format!("thread:{}", thread.discussion)),
+        );
         if failed(s) {
             present.push(format!("pipeline:{}", mr.iid));
         }
@@ -799,12 +884,25 @@ pub fn stack_compare(
         for mr in now {
             for thread in &mr.unaddressed {
                 let last = &thread.last;
-                let line = event(EventKind::Unaddressed, mr, &last.author, &short(&last.body), Some(&last.url));
-                events.push(with_item(at(line, &thread.position), format!("thread:{}", thread.discussion)));
+                let line = event(
+                    EventKind::Unaddressed,
+                    mr,
+                    &last.author,
+                    &short(&last.body),
+                    Some(&last.url),
+                );
+                events.push(with_item(
+                    at(line, &thread.position),
+                    format!("thread:{}", thread.discussion),
+                ));
             }
         }
     }
-    let needs = order.iter().copied().filter(|need| present_needs.contains(need)).collect();
+    let needs = order
+        .iter()
+        .copied()
+        .filter(|need| present_needs.contains(need))
+        .collect();
     (StackState { mrs, needs, present }, events)
 }
 
@@ -820,7 +918,10 @@ pub async fn check_stack(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> 
         })
         .collect();
     let data: Vec<MrData> = all_ok(glab::parallel(fetches).await)?;
-    let me = data.first().map(|data| data.current_user.username.clone()).unwrap_or_default();
+    let me = data
+        .first()
+        .map(|data| data.current_user.username.clone())
+        .unwrap_or_default();
     let review = ctx.args.review;
     let now: Vec<NormMr> = data.iter().map(|data| normalize(data, &me, review)).collect();
     let (new_state, events) = stack_compare(&now, old.as_ref(), &me, review);
@@ -872,7 +973,10 @@ mod tests {
     }
 
     fn lines(events: &[Event]) -> Vec<String> {
-        events.iter().map(|event| serde_json::to_string(event).unwrap()).collect()
+        events
+            .iter()
+            .map(|event| serde_json::to_string(event).unwrap())
+            .collect()
     }
 
     #[test]
@@ -965,7 +1069,10 @@ mod tests {
             m["discussions"]["nodes"] = json!([thread(
                 "d1",
                 None,
-                vec![note(1, "me", "Why?", Value::Null), note(2, "anna", "Because", Value::Null)]
+                vec![
+                    note(1, "me", "Why?", Value::Null),
+                    note(2, "anna", "Because", Value::Null)
+                ]
             )]);
         });
         let stack_needs = compare(&data, None, false).0.needs;
@@ -1029,7 +1136,10 @@ esac
         let dir = fake_glab().join(project);
         std::fs::create_dir_all(&dir).unwrap();
         CheckContext {
-            args: EngineArgs { mrs, ..EngineArgs::default() },
+            args: EngineArgs {
+                mrs,
+                ..EngineArgs::default()
+            },
             repo: dir.clone(),
             state: dir.join("state.json"),
             project: project.to_string(),
@@ -1043,7 +1153,11 @@ esac
         let ctx = context("parallel", (1..=20).collect());
         check_stack(&ctx).await.unwrap();
         let counts = std::fs::read_to_string(fake_glab().join("parallel/counts")).unwrap();
-        let most = counts.lines().filter_map(|line| line.trim().parse::<u32>().ok()).max().unwrap();
+        let most = counts
+            .lines()
+            .filter_map(|line| line.trim().parse::<u32>().ok())
+            .max()
+            .unwrap();
         assert!((2..=8).contains(&most), "most live calls: {most}");
         let saved = std::fs::read_to_string(&ctx.state).unwrap();
         let state: StackState = serde_json::from_str(&saved).unwrap();
@@ -1064,7 +1178,11 @@ esac
         let live = fake_glab().join("slow/live");
         let live_pids = || -> Vec<u32> {
             std::fs::read_dir(&live)
-                .map(|entries| entries.map(|entry| entry.unwrap().file_name().to_string_lossy().parse().unwrap()).collect())
+                .map(|entries| {
+                    entries
+                        .map(|entry| entry.unwrap().file_name().to_string_lossy().parse().unwrap())
+                        .collect()
+                })
                 .unwrap_or_default()
         };
         let check = tokio::spawn(async move { check_stack(&ctx).await });
@@ -1076,7 +1194,10 @@ esac
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
         check.abort();
-        assert!(check.await.is_err_and(|error| error.is_cancelled()), "the slow check must be cancelled");
+        assert!(
+            check.await.is_err_and(|error| error.is_cancelled()),
+            "the slow check must be cancelled"
+        );
         let pids = live_pids();
         assert!(!pids.is_empty());
         for _ in 0..50 {

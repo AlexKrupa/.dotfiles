@@ -18,15 +18,38 @@ use crate::report::ReportInput;
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Request {
     Subscribe(SubscribeArgs),
-    Unsubscribe { key: String, slug: String, mode: Mode, session_pid: u32 },
+    Unsubscribe {
+        key: String,
+        slug: String,
+        mode: Mode,
+        session_pid: u32,
+    },
     Status,
-    Kind { workspace: String, kind: Kind },
-    Route { key: String, iid: u64, action: RouteAction },
-    Report { key: String, mode: Mode, mrs: Vec<u64>, input: ReportInput },
+    Kind {
+        workspace: String,
+        kind: Kind,
+    },
+    Route {
+        key: String,
+        iid: u64,
+        action: RouteAction,
+    },
+    Report {
+        key: String,
+        mode: Mode,
+        mrs: Vec<u64>,
+        input: ReportInput,
+    },
     DebugState,
-    Follow { after: Option<u64> },
-    WorkspaceForget { id: String },
-    ReplaceClients { repo: PathBuf },
+    Follow {
+        after: Option<u64>,
+    },
+    WorkspaceForget {
+        id: String,
+    },
+    ReplaceClients {
+        repo: PathBuf,
+    },
 }
 
 /// `again`: the client connects again after the daemon closed the socket.
@@ -50,14 +73,20 @@ pub struct SubscribeArgs {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Response {
-    Events { events: Vec<RoutedEvent> },
+    Events {
+        events: Vec<RoutedEvent>,
+    },
     /// The text for stderr, with its newline.
-    Error { text: String },
+    Error {
+        text: String,
+    },
     Replaced,
     Ended,
     Status(StatusReport),
     Ok,
-    Report { text: String },
+    Report {
+        text: String,
+    },
     State(Box<DebugState>),
 }
 
