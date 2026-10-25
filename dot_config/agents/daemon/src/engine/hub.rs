@@ -3,21 +3,17 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 use super::event::{Event, EventKind, short};
+use super::stack::{GqlEmoji, Username};
 use super::state::{self, HubMrState, HubState, Need, PipelineState};
 use super::{CheckContext, EngineError, add_jobs, all_ok, api_json, api_pages, uri_encode};
 use crate::glab::{self, Task};
 use crate::platform::{now_seconds, utc_date};
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct User {
-    pub username: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
 pub struct Todo {
     pub id: u64,
     pub action_name: String,
-    pub author: User,
+    pub author: Username,
     pub target: TodoTarget,
     pub target_url: String,
 }
@@ -27,7 +23,7 @@ pub struct TodoTarget {
     pub iid: u64,
     pub title: String,
     pub source_branch: String,
-    pub author: Option<User>,
+    pub author: Option<Username>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -38,7 +34,7 @@ pub struct RestMr {
     pub updated_at: Option<String>,
     pub source_branch: String,
     pub web_url: String,
-    pub author: User,
+    pub author: Username,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -46,14 +42,8 @@ pub struct RestNote {
     pub id: u64,
     pub system: Option<bool>,
     pub body: String,
-    pub author: User,
+    pub author: Username,
     pub resolved: Option<bool>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct Emoji {
-    pub name: String,
-    pub user: User,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -68,7 +58,7 @@ pub struct RestPipeline {
 pub struct NoteReactions {
     pub iid: u64,
     pub id: u64,
-    pub emoji: Vec<Emoji>,
+    pub emoji: Vec<GqlEmoji>,
 }
 
 /// The fetched data of one hub check.
@@ -224,7 +214,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
             let call = ctx.call(&[&format!(
                 "projects/{pid}/merge_requests/{iid}/notes/{id}/award_emoji?per_page=100"
             )]);
-            Box::pin(api_pages::<Emoji>(call)) as Task<_>
+            Box::pin(api_pages::<GqlEmoji>(call)) as Task<_>
         })
         .collect();
     let (notes, emoji) = tokio::join!(glab::parallel(notes_calls), glab::parallel(emoji_calls));

@@ -20,13 +20,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tokio::sync::{Mutex, MutexGuard, Notify};
+use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
 use tokio::task::JoinHandle;
 
-use self::store::Store;
+use self::store::{Store, first_line};
 use crate::core::subs::{Mode, Subscription};
-use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache};
-use crate::nap::{NapEnd, nap, remote_host};
+use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
+use crate::nap::{NapEnd, nap};
 use crate::paths::StateDirs;
 use crate::platform::{full_wake, now_seconds, online};
 
@@ -55,6 +55,9 @@ pub struct Daemon {
     pub memory: Mutex<Memory>,
     /// A change for the waiting clients.
     pub changed: Notify,
+    /// Read by each delivery from the removal of the inbox to the end of its send. A restart or a
+    /// stop takes it for write: no delivery is lost.
+    pub delivering: RwLock<()>,
     stopping: AtomicBool,
     stop: Notify,
     pub tick: u64,
@@ -159,7 +162,6 @@ impl Daemon {
         let result = self.engine.check(args, cache).await;
         let mut memory = self.lock().await;
         let (slug, key) = (sub.slug.as_str(), sub.key.as_str());
-        let first = |text: &str| text.lines().next().unwrap_or_default().to_string();
         let mut network = false;
         match result {
             Ok(events) => {
@@ -174,11 +176,11 @@ impl Daemon {
                 }
             }
             Err(EngineError::Network(text)) => {
-                self.store.log(slug, key, &format!("network error: {}", first(&text)));
+                self.store.log(slug, key, &format!("network error: {}", first_line(&text)));
                 network = true;
             }
             Err(EngineError::Permanent(text)) => {
-                self.store.log(slug, key, &format!("error: {}", first(&text)));
+                self.store.log(slug, key, &format!("error: {}", first_line(&text)));
                 if let Some(current) = self.store.sub(key) {
                     self.store.remove_record(&current, "permanent error", Some(&text));
                 }
@@ -187,7 +189,7 @@ impl Daemon {
             Err(EngineError::Other(text)) => {
                 let fails = memory.fails.get(key).copied().unwrap_or(0) + 1;
                 memory.fails.insert(key.to_string(), fails);
-                self.store.log(slug, key, &format!("error {fails} of 5: {}", first(&text)));
+                self.store.log(slug, key, &format!("error {fails} of 5: {}", first_line(&text)));
                 if fails >= 5 {
                     if let Some(current) = self.store.sub(key) {
                         self.store.remove_record(&current, "5 errors in a row", Some(&text));
@@ -277,8 +279,8 @@ async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
         if daemon.stopping() {
             break;
         }
-        let remote = git_remote(&subs[0].repo);
-        let host = remote.as_deref().and_then(remote_host);
+        let remote = remote_url(&subs[0].repo);
+        let host = remote.as_deref().and_then(split_remote).map(|(host, _)| host.to_string());
         // With the network up, as for HTTP 502, the normal wait follows.
         if network && !online(host.as_deref()).await {
             match daemon.wait_online(&slug, host.as_deref()).await {
@@ -306,15 +308,10 @@ async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
                 }
             }
         };
-        let awake = Arc::new(AtomicBool::new(true));
         let end = nap(interval, NAP_STEP, now_seconds, |step| {
-            let (sleep, awake) = (sleep(step), awake.clone());
-            async move {
-                let woken = sleep.await;
-                awake.store(full_wake().await, Ordering::SeqCst);
-                woken
-            }
-        }, || awake.load(Ordering::SeqCst))
+            let sleep = sleep(step);
+            async move { (sleep.await, full_wake().await) }
+        })
         .await;
         if end == NapEnd::Asleep && !daemon.wait_online(&slug, host.as_deref()).await {
             break;
@@ -326,20 +323,6 @@ async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
     daemon.store.log(&slug, "", "repo loop stop");
 }
 
-fn git_remote(repo: &std::path::Path) -> Option<String> {
-    let output = std::process::Command::new("git")
-        .arg("-C")
-        .arg(repo)
-        .args(["remote", "get-url", "origin"])
-        .stderr(std::process::Stdio::null())
-        .output()
-        .ok()?;
-    match output.status.success() {
-        true => Some(String::from_utf8_lossy(&output.stdout).trim().to_string()),
-        false => None,
-    }
-}
-
 fn inode(path: &std::path::Path) -> Option<u64> {
     std::fs::metadata(path).ok().map(|meta| meta.ino())
 }
@@ -349,6 +332,9 @@ fn inherited_fd(name: &str) -> Option<RawFd> {
     let fd = std::env::var(name).ok()?.parse().ok()?;
     // SAFETY: the daemon removes the variable before it starts a child.
     unsafe { std::env::remove_var(name) };
+    // The children of this image must not hold the lock or the listener.
+    // SAFETY: fcntl on an open descriptor.
+    unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) };
     Some(fd)
 }
 
@@ -411,6 +397,7 @@ pub async fn main() -> i32 {
         store,
         memory: Mutex::default(),
         changed: Notify::new(),
+        delivering: RwLock::new(()),
         stopping: AtomicBool::new(false),
         stop: Notify::new(),
         tick: env_seconds("WATCHD_TICK", 5),
@@ -428,6 +415,7 @@ pub async fn main() -> i32 {
     for task in tasks {
         let _ = task.await;
     }
+    let _deliveries = daemon.delivering.write().await;
     match end {
         End::Restart => {
             let _memory = daemon.lock().await;
@@ -508,5 +496,24 @@ async fn run(daemon: &Arc<Daemon>) -> End {
             _ = terminate.recv() => return End::Stop,
             _ = interrupt.recv() => return End::Stop,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inherited_fd_closes_on_the_next_exec() {
+        let file = std::fs::File::open("/dev/null").unwrap();
+        keep_open(file.as_raw_fd());
+        // SAFETY: no other test reads this variable.
+        unsafe { std::env::set_var("WATCHD_TEST_INHERITED_FD", file.as_raw_fd().to_string()) };
+
+        let fd = inherited_fd("WATCHD_TEST_INHERITED_FD").unwrap();
+
+        // SAFETY: fcntl on an open descriptor.
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert_eq!(flags & libc::FD_CLOEXEC, libc::FD_CLOEXEC);
     }
 }

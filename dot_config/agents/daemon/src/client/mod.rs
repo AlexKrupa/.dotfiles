@@ -14,6 +14,7 @@ use tokio::net::UnixStream;
 use crate::core::eventlog::RouteAction;
 use crate::core::subs::Mode;
 use crate::core::workspaces::Kind;
+use crate::engine::mr_number;
 use crate::daemon::store::Store;
 use crate::key::{KeyMode, repo_slug, watch_key, worktree_top};
 use crate::paths::StateDirs;
@@ -50,11 +51,7 @@ impl WatchArgs {
                 "--once" => parsed.once = true,
                 "--fresh" => parsed.fresh = true,
                 "--review" => parsed.review = true,
-                "--mr" => {
-                    let iid = args.next().map(|value| value.trim_start_matches('!').to_string());
-                    let iid = iid.filter(|value| digits(value)).and_then(|value| value.parse().ok());
-                    parsed.mrs.push(iid.ok_or("--mr needs an MR number")?);
-                }
+                "--mr" => parsed.mrs.push(mr_number(args.next()).ok_or("--mr needs an MR number")?),
                 _ => return Err(format!("unexpected argument: {arg}")),
             }
         }
@@ -228,10 +225,14 @@ fn orphaned(parents: &[u32], top: &Path) -> Option<i32> {
 fn deliver(response: Response) -> i32 {
     match response {
         Response::Events { events } => {
-            for event in events {
-                println!("{}", serde_json::to_string(&event).expect("an event serializes"));
+            let lines: String = events
+                .iter()
+                .map(|event| serde_json::to_string(event).expect("an event serializes") + "\n")
+                .collect();
+            match std::io::Write::write_all(&mut std::io::stdout(), lines.as_bytes()) {
+                Ok(()) => 0,
+                Err(error) => die(&format!("stdout: {error}")),
             }
-            0
         }
         Response::Error { text } => {
             eprint!("{text}");
@@ -257,15 +258,8 @@ pub async fn unsubscribe(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
-    let dirs = StateDirs::from_env();
-    let session_pid = session(&Store::new(dirs.clone()));
-    let request = Request::Unsubscribe { key: target.key, slug: target.slug, mode: args.mode(), session_pid };
-    match ask(&dirs, &request, true).await {
-        Ok(Response::Ok) => 0,
-        Ok(Response::Error { text }) => die(&text),
-        Ok(_) => die("unexpected answer of the daemon"),
-        Err(message) => die(&message),
-    }
+    let session_pid = session(&Store::new(StateDirs::from_env()));
+    ask_ok(&Request::Unsubscribe { key: target.key, slug: target.slug, mode: args.mode(), session_pid }).await
 }
 
 /// A request that gets `Ok`. The daemon starts if no daemon runs.
@@ -311,13 +305,10 @@ pub async fn route(args: Vec<String>) -> i32 {
                 Some(path) => repo = Some(PathBuf::from(path)),
                 None => return die("--repo needs a path"),
             },
-            "--iid" => {
-                let value = args.next().map(|value| value.trim_start_matches('!').to_string());
-                match value.filter(|value| digits(value)).and_then(|value| value.parse().ok()) {
-                    Some(number) => iid = Some(number),
-                    None => return die("--iid needs an MR number"),
-                }
-            }
+            "--iid" => match mr_number(args.next()) {
+                Some(number) => iid = Some(number),
+                None => return die("--iid needs an MR number"),
+            },
             "--action" => match args.next() {
                 Some(value) => action = Some(value),
                 None => return die("--action needs an action"),
@@ -392,9 +383,8 @@ pub async fn status() -> i32 {
         let sub = &status.sub;
         let mrs: Vec<String> = sub.mrs.iter().map(u64::to_string).collect();
         let mrs = if mrs.is_empty() { "-".to_string() } else { mrs.join(",") };
-        let mode = serde_json::to_value(sub.mode).expect("a mode serializes");
         let live = if status.live { "live" } else { "dead" };
-        println!("{}\t{}\t{mrs}\t{live}\t{}", sub.key, mode.as_str().unwrap_or_default(), status.inbox_lines);
+        println!("{}\t{}\t{mrs}\t{live}\t{}", sub.key, sub.mode.as_str(), status.inbox_lines);
     }
     0
 }
@@ -449,5 +439,18 @@ pub async fn follow(after: Option<u64>) -> i32 {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mr_flag_takes_one_bang_prefix() {
+        let parse = |value: &str| WatchArgs::parse(vec!["--mr".into(), value.into()]).map(|args| args.mrs);
+
+        assert_eq!(parse("!5"), Ok(vec![5]));
+        assert_eq!(parse("!!5"), Err("--mr needs an MR number".to_string()));
     }
 }

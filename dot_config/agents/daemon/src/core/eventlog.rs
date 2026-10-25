@@ -6,7 +6,7 @@ use crate::engine::event::EventKind;
 
 /// The event log `events.jsonl`: one JSON line for each routed event, each subscription that
 /// ended with an error, and each router result of the hub model. The herdr plugin reads it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LineType {
     Event,
@@ -15,7 +15,7 @@ pub enum LineType {
 }
 
 /// `request`: the event asks for the user, and the plugin plays a sound.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Sound {
     Request,
@@ -41,7 +41,7 @@ impl RouteAction {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct EventLine {
     /// Increases from line to line, also across daemon restarts. A reader goes on after it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -57,7 +57,7 @@ pub struct EventLine {
     pub sound: Sound,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct StoppedLine {
     /// Increases from line to line, also across daemon restarts. A reader goes on after it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -74,7 +74,7 @@ pub struct StoppedLine {
     pub error: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct RouteLine {
     /// Increases from line to line, also across daemon restarts. A reader goes on after it.
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -13,6 +13,17 @@ pub enum Mode {
     Review,
 }
 
+impl Mode {
+    /// The name in the files and the lines of the daemon.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Mode::Hub => "hub",
+            Mode::Stack => "stack",
+            Mode::Review => "review",
+        }
+    }
+}
+
 /// The record of a subscription, `subs/<key>.json`. The newest session owns the key:
 /// `replaced_sessions` has the live sessions that it replaced.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

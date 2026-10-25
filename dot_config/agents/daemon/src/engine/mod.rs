@@ -128,7 +128,7 @@ impl EngineArgs {
 }
 
 /// A positive decimal number, with an optional `!` prefix.
-fn mr_number(arg: Option<String>) -> Option<u64> {
+pub fn mr_number(arg: Option<String>) -> Option<u64> {
     let arg = arg?;
     let digits = arg.strip_prefix('!').unwrap_or(&arg);
     match !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit()) {
@@ -304,33 +304,36 @@ fn git_ok(repo: &Path, args: &[&str]) -> bool {
 }
 
 /// The URL of `origin`, else of the first remote.
-fn remote_url(repo: &Path) -> Option<String> {
+pub fn remote_url(repo: &Path) -> Option<String> {
     git(repo, &["remote", "get-url", "origin"]).or_else(|| {
         let remotes = git(repo, &["remote"])?;
         git(repo, &["remote", "get-url", remotes.lines().next()?])
     })
 }
 
-/// The group/project path of an https, ssh, or scp-like git URL.
-pub fn project_of_url(url: &str) -> String {
-    let url = url.strip_suffix(".git").unwrap_or(url);
+/// The host and the path of an https, ssh, or scp-like git URL. `None` for a local path.
+pub fn split_remote(url: &str) -> Option<(&str, &str)> {
     if let Some((scheme, rest)) = url.split_once("://")
         && !scheme.is_empty()
         && scheme.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'+')
-        && let Some((host, path)) = rest.split_once('/')
-        && !host.is_empty()
     {
-        return path.to_string();
+        let (authority, path) = rest.split_once('/')?;
+        let host = authority.split_once('@').map_or(authority, |(_, host)| host);
+        let host = host.split(':').next().unwrap_or_default();
+        return (!host.is_empty()).then_some((host, path));
     }
-    if let Some((user, rest)) = url.split_once('@')
-        && !user.is_empty()
-        && !user.contains(['/', ':'])
-        && let Some((host, path)) = rest.split_once(':')
-        && !host.is_empty()
-    {
-        return path.to_string();
+    let (user, rest) = url.split_once('@')?;
+    if user.is_empty() || user.contains(['/', ':']) {
+        return None;
     }
-    url.to_string()
+    let (host, path) = rest.split_once(':')?;
+    (!host.is_empty()).then_some((host, path))
+}
+
+/// The group/project path of an https, ssh, or scp-like git URL.
+pub fn project_of_url(url: &str) -> String {
+    let url = url.strip_suffix(".git").unwrap_or(url);
+    split_remote(url).map_or(url, |(_, path)| path).to_string()
 }
 
 /// jq `@uri`: each byte except the unreserved characters is percent-encoded.
@@ -487,6 +490,25 @@ mod tests {
             parse(&["--review", "--mr", "5", "--mr", "6"]).unwrap_err(),
             "--review needs exactly one --mr"
         );
+    }
+
+    #[test]
+    fn split_remote_gives_the_host_and_the_path_of_https_ssh_and_scp_urls() {
+        assert_eq!(split_remote("https://gitlab.example.com/g/a.git"), Some(("gitlab.example.com", "g/a.git")));
+        assert_eq!(split_remote("ssh://git@gitlab.example.com:22/g/a.git"), Some(("gitlab.example.com", "g/a.git")));
+        assert_eq!(split_remote("git@gitlab.example.com:g/a.git"), Some(("gitlab.example.com", "g/a.git")));
+        assert_eq!(split_remote("/tmp/repo"), None);
+    }
+
+    #[test]
+    fn remote_url_falls_back_to_the_first_remote() {
+        let repo = std::env::temp_dir().join(format!("watchd-remote-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&repo);
+        std::fs::create_dir_all(&repo).unwrap();
+        git(&repo, &["init", "-q"]).unwrap();
+        git(&repo, &["remote", "add", "upstream", "git@gitlab.example.com:g/a.git"]).unwrap();
+
+        assert_eq!(remote_url(&repo).as_deref(), Some("git@gitlab.example.com:g/a.git"));
     }
 
     #[test]

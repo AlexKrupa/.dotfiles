@@ -25,8 +25,6 @@ pub struct Store {
     pub dirs: StateDirs,
     /// The last id of the event log, read from the log at the first append.
     last_id: std::sync::Mutex<Option<u64>>,
-    /// Each new line of the event log, for the `follow` clients.
-    pub feed: tokio::sync::broadcast::Sender<String>,
 }
 
 fn remove(path: &Path) {
@@ -44,7 +42,7 @@ pub fn is_worktree_key(key: &str) -> bool {
         && key[key.len() - 12..].bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
-fn first_line(text: &str) -> &str {
+pub fn first_line(text: &str) -> &str {
     text.lines().next().unwrap_or_default()
 }
 
@@ -58,7 +56,7 @@ fn kind_of(mode: Mode) -> Kind {
 
 impl Store {
     pub fn new(dirs: StateDirs) -> Store {
-        Store { dirs, last_id: std::sync::Mutex::new(None), feed: tokio::sync::broadcast::channel(1024).0 }
+        Store { dirs, last_id: std::sync::Mutex::new(None) }
     }
 
     /// A missing file is `Ok(None)`. A file that is not JSON of the type is an error. A record of
@@ -160,6 +158,18 @@ impl Store {
         events
     }
 
+    /// The events of a delivery that did not get to the client.
+    pub fn put_back_inbox(&self, key: &str, events: &[RoutedEvent]) {
+        let path = self.dirs.inbox(key);
+        let newer = std::fs::read_to_string(&path).unwrap_or_default();
+        remove(&path);
+        self.append_lines(&path, events);
+        let file = std::fs::OpenOptions::new().append(true).open(&path);
+        if let Ok(mut file) = file {
+            let _ = file.write_all(newer.as_bytes());
+        }
+    }
+
     fn append_lines<T: Serialize>(&self, path: &Path, values: &[T]) {
         let text: String = values
             .iter()
@@ -178,13 +188,19 @@ impl Store {
         self.append_lines(&path, events);
     }
 
-    /// Appends the lines to the event log, each with a new id, and sends them to the followers.
-    pub fn event_log(&self, lines: Vec<LogLine>) {
+    /// The newest id of the event log.
+    pub fn last_id(&self) -> u64 {
         let mut last_id = self.last_id.lock().expect("the id lock is never poisoned");
-        let mut last = last_id.unwrap_or_else(|| {
+        *last_id.get_or_insert_with(|| {
             let text = std::fs::read_to_string(self.dirs.events()).unwrap_or_default();
             text.lines().map(id_of).max().unwrap_or(0)
-        });
+        })
+    }
+
+    /// Appends the lines to the event log, each with a new id.
+    pub fn event_log(&self, lines: Vec<LogLine>) {
+        let mut last = self.last_id();
+        let mut last_id = self.last_id.lock().expect("the id lock is never poisoned");
         let millis = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |duration| duration.as_millis() as u64);
@@ -199,9 +215,6 @@ impl Store {
         let file = std::fs::OpenOptions::new().create(true).append(true).open(self.dirs.events());
         if let Ok(mut file) = file {
             let _ = file.write_all(text.as_bytes());
-        }
-        for line in texts {
-            let _ = self.feed.send(line);
         }
     }
 
@@ -441,9 +454,7 @@ impl Store {
             });
         }
         let mrs: Vec<String> = sub.mrs.iter().map(u64::to_string).collect();
-        let mode = serde_json::to_value(sub.mode).expect("a mode serializes");
-        let mode = mode.as_str().unwrap_or_default();
-        self.log(&sub.slug, &sub.key, &format!("subscribed: {mode} {}", mrs.join(" ")));
+        self.log(&sub.slug, &sub.key, &format!("subscribed: {} {}", sub.mode.as_str(), mrs.join(" ")));
         old.is_none() || args.once || args.again
     }
 
@@ -651,5 +662,22 @@ mod tests {
         let log = std::fs::read_to_string(store.dirs.log()).unwrap();
         let expected = format!("{}: format 9 not supported, record removed\n", store.dirs.sub("app").display());
         assert!(log.ends_with(&expected), "{log}");
+    }
+
+    #[test]
+    fn put_back_inbox_puts_the_events_before_the_newer_lines() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-put-back", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs { watchd: base.join("watchd"), engine: base.join("watch-gitlab") });
+        store.ensure_dirs().unwrap();
+        let line = |row| format!(r#"{{"kind":"unaddressed","iid":5,"title":"T","url":"u","actor":"anna","detail":"d","branch":"b","row":{row}}}"#);
+        std::fs::write(store.dirs.inbox("app"), format!("{}\n{}\n", line(1), line(2))).unwrap();
+        let taken = store.take_inbox("app");
+        std::fs::write(store.dirs.inbox("app"), format!("{}\n", line(3))).unwrap();
+
+        store.put_back_inbox("app", &taken);
+
+        let rows: Vec<u64> = store.take_inbox("app").iter().map(|event| event.row).collect();
+        assert_eq!(rows, [1, 2, 3]);
     }
 }

@@ -30,25 +30,20 @@ pub enum NapEnd {
 }
 
 /// Waits for `seconds` of awake time, in steps of at most `max_step`. A clock jump of more than the
-/// step plus 30 seconds is a system sleep. `sleep` gives true for a wake-up.
-pub async fn nap<Now, Sleep, SleepFuture>(
-    seconds: u64,
-    max_step: u64,
-    now: Now,
-    mut sleep: Sleep,
-    full_wake: impl Fn() -> bool,
-) -> NapEnd
+/// step plus 30 seconds is a system sleep. `sleep` gives `(woken, awake)`: true for a wake-up, and
+/// false for no full wake after the step.
+pub async fn nap<Now, Sleep, SleepFuture>(seconds: u64, max_step: u64, now: Now, mut sleep: Sleep) -> NapEnd
 where
     Now: Fn() -> i64,
     Sleep: FnMut(u64) -> SleepFuture,
-    SleepFuture: std::future::Future<Output = bool>,
+    SleepFuture: std::future::Future<Output = (bool, bool)>,
 {
     let mut left = seconds;
     while left > 0 {
         let step = left.min(max_step);
         let start = now();
-        let woken = sleep(step).await;
-        if now() - start > step as i64 + 30 || !full_wake() {
+        let (woken, awake) = sleep(step).await;
+        if now() - start > step as i64 + 30 || !awake {
             return NapEnd::Asleep;
         }
         left -= step;
@@ -57,27 +52,6 @@ where
         }
     }
     NapEnd::Done
-}
-
-/// The host of an https://, ssh://, or git@host: URL. `None` for a local path.
-pub fn remote_host(url: &str) -> Option<String> {
-    if let Some((scheme, rest)) = url.split_once("://")
-        && !scheme.is_empty()
-        && scheme.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'+')
-    {
-        let rest = match rest.split_once('@') {
-            Some((user, after)) if !user.contains('/') => after,
-            _ => rest,
-        };
-        let host: String = rest.chars().take_while(|char| *char != ':' && *char != '/').collect();
-        return (!host.is_empty()).then_some(host);
-    }
-    let (user, rest) = url.split_once('@')?;
-    if user.is_empty() || user.contains(['/', ':']) {
-        return None;
-    }
-    let (host, _) = rest.split_once(':')?;
-    (!host.is_empty()).then(|| host.to_string())
 }
 
 #[cfg(test)]
@@ -100,9 +74,8 @@ mod tests {
             || clock.get(),
             |step| {
                 clock.set(clock.get() + step as i64 + 31);
-                async { false }
+                async { (false, true) }
             },
-            || true,
         ));
         assert_eq!(end, NapEnd::Asleep);
         assert_eq!(clock.get(), 41);
@@ -119,23 +92,14 @@ mod tests {
             |step| {
                 clock.set(clock.get() + step as i64);
                 steps.set(steps.get() + 1);
-                async { false }
+                async { (false, true) }
             },
-            || true,
         ));
         assert_eq!((end, clock.get(), steps.get()), (NapEnd::Done, 25, 3));
-        let woken = run(nap(25, 10, || 0, |_| async { true }, || true));
+        let woken = run(nap(25, 10, || 0, |_| async { (true, true) }));
         assert_eq!(woken, NapEnd::Interrupted);
-        let dark = run(nap(25, 10, || 0, |_| async { false }, || false));
+        let dark = run(nap(25, 10, || 0, |_| async { (false, false) }));
         assert_eq!(dark, NapEnd::Asleep);
-    }
-
-    #[test]
-    fn remote_host_handles_https_ssh_and_scp_urls_and_a_local_path() {
-        assert_eq!(remote_host("https://gitlab.example.com/g/a.git"), Some("gitlab.example.com".into()));
-        assert_eq!(remote_host("ssh://git@gitlab.example.com:22/g/a.git"), Some("gitlab.example.com".into()));
-        assert_eq!(remote_host("git@gitlab.example.com:g/a.git"), Some("gitlab.example.com".into()));
-        assert_eq!(remote_host("/tmp/repo"), None);
     }
 
     #[test]

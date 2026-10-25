@@ -183,18 +183,6 @@ struct RestPosition {
     new_line: Option<u64>,
 }
 
-#[derive(Clone, Deserialize)]
-struct RestEmoji {
-    name: String,
-    user: Username,
-}
-
-impl From<RestEmoji> for GqlEmoji {
-    fn from(emoji: RestEmoji) -> GqlEmoji {
-        GqlEmoji { name: emoji.name, user: emoji.user }
-    }
-}
-
 /// The MR of `iid`: GraphQL plus the REST fields, from the MR cache of the round if it has it.
 pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineError> {
     let name = format!("{}-{iid}.json", ctx.project_ref);
@@ -218,7 +206,7 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
         glab::run(&ctx.repo, &graphql_args),
         api_json::<RestMr>(ctx.call(&[&mr_path])),
         api_pages::<RestDiscussion>(ctx.call(&[&format!("{mr_path}/discussions?per_page=100"), "--paginate"])),
-        api_pages::<RestEmoji>(ctx.call(&[&format!("{mr_path}/award_emoji?per_page=100")])),
+        api_pages::<GqlEmoji>(ctx.call(&[&format!("{mr_path}/award_emoji?per_page=100")])),
     );
     let (me, base) = graphql_mr(graphql, ctx, iid)?;
     let (rest, discussions) = (rest?, discussions?);
@@ -242,10 +230,10 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
         .iter()
         .map(|id| {
             let call = ctx.call(&[&format!("{mr_path}/notes/{id}/award_emoji?per_page=100")]);
-            Box::pin(api_pages::<RestEmoji>(call)) as Task<_>
+            Box::pin(api_pages::<GqlEmoji>(call)) as Task<_>
         })
         .collect();
-    let emoji_by_note: BTreeMap<u64, Vec<RestEmoji>> =
+    let emoji_by_note: BTreeMap<u64, Vec<GqlEmoji>> =
         comment_ids.into_iter().zip(all_ok(glab::parallel(calls).await)?).collect();
     let url = base.web_url.clone();
     let data = MrData {
@@ -258,7 +246,7 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
                 diff_refs: rest
                     .diff_refs
                     .map(|refs| DiffRefs { base_sha: refs.base_sha, head_sha: refs.head_sha }),
-                award_emoji: Nodes { nodes: mr_emoji.into_iter().map(GqlEmoji::from).collect() },
+                award_emoji: Nodes { nodes: mr_emoji },
                 discussions: Nodes {
                     nodes: discussions
                         .into_iter()
@@ -316,7 +304,7 @@ fn graphql_mr(
 fn gql_discussion(
     discussion: RestDiscussion,
     url: &str,
-    emoji_by_note: &BTreeMap<u64, Vec<RestEmoji>>,
+    emoji_by_note: &BTreeMap<u64, Vec<GqlEmoji>>,
 ) -> GqlDiscussion {
     let resolvable: Vec<&RestNote> =
         discussion.notes.iter().filter(|note| note.resolvable == Some(true)).collect();
@@ -347,7 +335,6 @@ fn gql_discussion(
                             .into_iter()
                             .flatten()
                             .cloned()
-                            .map(GqlEmoji::from)
                             .collect(),
                     },
                 })

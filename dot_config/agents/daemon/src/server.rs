@@ -105,6 +105,7 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
         Request::Route { key, iid, action } => {
             let _memory = daemon.lock().await;
             daemon.store.event_log(vec![LogLine::Route(route_line(now_seconds(), &key, iid, action))]);
+            daemon.changed.notify_waiters();
             Response::Ok
         }
         Request::Report { key, mode, mrs, input } => {
@@ -131,7 +132,8 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
 }
 
 /// The answer for a waiting client, or `None` while it waits. The daemon writes the error or the
-/// last events before it removes the record, under the same lock.
+/// last events before it removes the record, under the same lock. The owner of an ended
+/// subscription stays until the send of its events.
 fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs) -> Option<Response> {
     let key = args.key.as_str();
     let sub = daemon.store.sub(key);
@@ -150,9 +152,6 @@ fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs) -> Option<Re
     if !args.once || ended || own_round {
         let events = daemon.store.take_inbox(key);
         if !events.is_empty() || (args.once && own_round) {
-            if ended {
-                daemon.store.remove_owner(key);
-            }
             daemon.store.write_last(key, &events);
             return Some(Response::Events { events });
         }
@@ -190,28 +189,39 @@ async fn subscribe(
     }
     daemon.changed.notify_waiters();
     let mut line = String::new();
-    let response = loop {
+    let (response, delivering) = loop {
         let changed = daemon.changed.notified();
         tokio::pin!(changed);
         changed.as_mut().enable();
+        let delivering = daemon.delivering.read().await;
         let answer = {
             let memory = daemon.lock().await;
             delivery(&daemon, &memory, &args)
         };
         if let Some(answer) = answer {
-            break Some(answer);
+            break (Some(answer), Some(delivering));
         }
+        drop(delivering);
         tokio::select! {
             _ = &mut changed => {}
             _ = tokio::time::sleep(Duration::from_secs(1)) => {}
             // The client sends nothing more: a read is the end of its connection.
-            _ = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line) => break None,
+            _ = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line) => break (None, None),
         }
     };
-    if let Some(response) = &response {
-        let _ = send(&mut write, response).await;
-    }
+    let sent = match &response {
+        Some(response) => send(&mut write, response).await.is_ok(),
+        None => false,
+    };
     let mut memory = daemon.lock().await;
+    if let Some(Response::Events { events }) = &response {
+        match sent {
+            true if daemon.store.sub(&args.key).is_none() => daemon.store.remove_owner(&args.key),
+            true => {}
+            false => daemon.store.put_back_inbox(&args.key, events),
+        }
+    }
+    drop(delivering);
     if memory.clients.get(&args.key) == Some(&args.client_pid) {
         memory.clients.remove(&args.key);
     }
@@ -236,7 +246,7 @@ fn lines_after(daemon: &Daemon, after: u64) -> Vec<String> {
 }
 
 /// A `follow` client: the sidebar state with the newest log id, the log lines after `after`, then
-/// each new log line and each sidebar change. The lines come from the file: the feed only wakes
+/// each new log line and each sidebar change. The lines come from the file: `changed` only wakes
 /// the client up.
 async fn follow(
     daemon: Arc<Daemon>,
@@ -244,12 +254,10 @@ async fn follow(
     mut reader: BufReader<tokio::net::unix::OwnedReadHalf>,
     mut write: tokio::net::unix::OwnedWriteHalf,
 ) {
-    // The feed first: a line that comes during the read of the file wakes the client up.
-    let mut feed = daemon.store.feed.subscribe();
     let (mut sidebar, newest) = {
         let mut memory = daemon.lock().await;
         memory.followers += 1;
-        (daemon.store.sidebar(), lines_after(&daemon, 0).iter().map(|line| id_of(line)).max().unwrap_or(0))
+        (daemon.store.sidebar(), daemon.store.last_id())
     };
     let mut first = sidebar.clone();
     first["last_id"] = json!(newest);
@@ -257,6 +265,10 @@ async fn follow(
     let mut ok = write_line(&mut write, &first.to_string()).await.is_ok();
     let mut closed = String::new();
     while ok {
+        // Before the read: a line that comes during the read wakes the client up.
+        let changed = daemon.changed.notified();
+        tokio::pin!(changed);
+        changed.as_mut().enable();
         for line in lines_after(&daemon, last) {
             last = last.max(id_of(&line));
             ok = ok && write_line(&mut write, &line).await.is_ok();
@@ -272,15 +284,7 @@ async fn follow(
         if !ok {
             break;
         }
-        let changed = daemon.changed.notified();
-        tokio::pin!(changed);
-        changed.as_mut().enable();
         tokio::select! {
-            line = feed.recv() => {
-                if let Err(tokio::sync::broadcast::error::RecvError::Closed) = line {
-                    break;
-                }
-            }
             _ = &mut changed => {}
             _ = tokio::time::sleep(Duration::from_secs(daemon.tick)) => {}
             _ = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut closed) => break,
