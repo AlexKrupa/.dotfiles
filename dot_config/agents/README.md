@@ -1,89 +1,97 @@
-This directory holds AI config: agent instructions and skills.
+This directory contains the AI configuration: the agent instructions and the skills.
 
-Files here are symlinked into `~/.claude/` by `claude.sh`, so editing them changes Claude's live
-behavior after a sync.
+`claude.sh` makes symlinks in `~/.claude/` to the files in this directory. Thus, after a sync, a
+change to these files changes the live behavior of Claude.
 
 ## Sync
 
-Run `./claude.sh` to (re)create symlinks. Idempotent; safe to rerun. It prints each entry's status:
-`linked` (already correct), `relinked` (a managed link moved to the current source), `NEW` (just
-created), `local` (real file at target, left untouched), or `removed` (stale managed link cleaned
-up). Rerun after adding/renaming a skill.
+Start `./claude.sh` to create the symlinks, or to create them again. You can start it again with
+no risk. For each entry, it shows one of these statuses:
 
-Mapping:
+- `linked`: the link is already correct.
+- `relinked`: the script moved a managed link to the current source.
+- `NEW`: the script created the link.
+- `local`: a real file is at the target. The script does not change it.
+- `removed`: the script removed a stale managed link.
 
-- `instructions-agents.md` -> `~/.claude/CLAUDE.md` (global instructions for every project)
+After you add or rename a skill, start the script again.
+
+The script makes these links:
+
+- `instructions-agents.md` -> `~/.claude/CLAUDE.md` (the global instructions for all projects)
 - `skills/*/` -> `~/.claude/skills/`
 
-`instructions-chat.md` is not symlinked. You paste it manually into the custom instructions of an AI
-chat app.
+The script does not make a symlink for `instructions-chat.md`. You paste it manually into the custom
+instructions of an AI chat app.
 
 ## Third-party skills
 
-Run `./install-skills.sh` to install third-party skills with the `skills` CLI. The script is the
-list of these skills. Rerun it on a new machine.
+Start `./install-skills.sh` to install the third-party skills with the `skills` CLI. The script
+contains the list of these skills. On a new machine, start the script again.
 
 ## Layout
 
-- `skills/<name>/SKILL.md` - one skill per folder. Claude Code finds skills only at this level, so
-  skills are not grouped. A script that only one skill uses is in the folder of the skill, and
-  `SKILL.md` calls it.
-- `skills/<name>/evals/` - regression evals for a skill, run with headless `claude -p`. Each has a
-  `README.md`.
-- `bin/` - scripts that more than one skill, or a file outside `skills/`, uses. The header comment
-  of each script tells what it does (see [Scripts](#scripts)). Search the skills for the script name
-  to find its callers.
-- `bin/git-lib.sh`, `bin/gitlab-lib.sh` - shared functions of the git scripts and of the GitLab
-  scripts. A script sources them.
-- `bin/repo-slug.sh` - resolves a repo to its `~/.ai/<repo-name>/` slug. `instructions-agents.md`,
+- `skills/<name>/SKILL.md` - one skill for each folder. Claude Code finds skills only at this
+  level. Thus, the skills are not in groups. If only one skill uses a script, the script is in the
+  folder of that skill, and `SKILL.md` calls it.
+- `skills/<name>/evals/` - the regression evals of a skill. You start them with headless
+  `claude -p`. Each has a `README.md`.
+- `bin/` - the scripts that two or more skills use, or that a file outside `skills/` uses. Each
+  script has a header comment about what it does (see [Scripts](#scripts)). To find the callers of
+  a script, search the skills for the script name.
+- `bin/git-lib.sh`, `bin/gitlab-lib.sh` - the shared functions of the git scripts and of the
+  GitLab scripts. The scripts source these files.
+- `bin/repo-slug.sh` - gives the `~/.ai/<repo-name>/` slug of a repo. `instructions-agents.md`,
   the skills, and the fish configuration use it.
 - `bin/watch/` - the GitLab watch: the client `watch.sh`, the daemon `watchd.sh` (one process for
   each machine), and the check engine `watch-gitlab.sh`. `hub`, `draft-pr`, `review-pr`, `bump`,
   and `debug-gitlab` use it. The herdr plugin `watch` reads its event log.
-- `references/` - rules that more than one skill reads by absolute path
-  (`~/.config/agents/references/...`). Not symlinked.
-- `references/watch/` - the watch rules. `common.md` has the shared rules, a host file
-  (`gitlab.md`) has the commands of a code host, and one role file for each skill has its events
+- `references/` - the rules that two or more skills read by absolute path
+  (`~/.config/agents/references/...`). `claude.sh` does not make symlinks for them.
+- `references/watch/` - the watch rules. `common.md` contains the shared rules. A host file
+  (`gitlab.md`) contains the commands of a code host. Each skill has one role file with its events
   and actions.
-- `evals/` - shared eval code: `harness.py` (run, isolation, timing, common checks), `compare.py`,
-  `snapshot.sh`, `fixture-lib.sh`. A run loads `instructions-agents.md`, but no auto memory,
-  MCP servers, or plugins, and only the skills in the `skills` list of `evals.json` (default:
-  `skill_name`).
+- `evals/` - the shared eval code: `harness.py` (run, isolation, timing, common checks),
+  `compare.py`, `snapshot.sh`, `fixture-lib.sh`. An eval run loads `instructions-agents.md` and
+  only the skills in the `skills` list of `evals.json`. The default list is `skill_name`. The run
+  does not load auto memory, MCP servers, or plugins.
 
 ## Scripts
 
-Skills call the scripts in `bin/` and `skills/<name>/`. No person runs them, so they have no
-`--help`, no prompts, and no color.
+The skills call the scripts in `bin/` and `skills/<name>/`. Persons do not start these scripts.
+Thus, the scripts have no `--help`, no prompts, and no color.
 
-- The header comment is the interface. It has the `# Usage:` lines, what the script does, what it
-  writes (or "Writes nothing"), the output format, and the exit codes. Agents read the header, so
-  change it together with the script.
-- stdout has only the result for the caller. Errors go to stderr, with the script name and the
-  value that failed, for example `work-start: agent not ready in pane 3`.
-- Output format: one value is one plain line, for example a path. Flat fields are `key: value`
-  lines. Records are JSON, one object per line.
-- Exit codes are 0 and 1. If a skill acts on a different code, add it from the shared codes: 2 not
-  found, 3 ambiguous, 4 missing dependency, auth, or herdr, 5 network, 6 timeout. These scripts
-  give some codes a different meaning:
+- The header comment is the interface. It contains the `# Usage:` lines, the function of the
+  script, the data that it writes (or "Writes nothing"), the output format, and the exit codes.
+  Agents read the header. When you change the script, also change the header.
+- stdout contains only the result for the caller. The script writes errors to stderr, with the
+  script name and the value that failed. For example: `work-start: agent not ready in pane 3`.
+- Output format: a single value is one plain line, for example a path. Flat fields are
+  `key: value` lines. Records are JSON, with one object on each line.
+- The exit codes are 0 and 1. If a skill must act on a different code, use a code from the shared
+  list: 2 not found, 3 ambiguous, 4 missing dependency, auth, or herdr, 5 network, 6 timeout. These
+  scripts give some codes a different meaning:
   - `bin/watch/watch-gitlab.sh`: 4 network, 5 permanent error. `watchd.sh` reads these codes.
   - `bin/watch/watch.sh`: 3 a new client or session replaced this one.
   - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
   - `bin/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
-- A script that rewrites commits saves a backup ref first. On a conflict or a failure, it resets to
-  the backup, so it never leaves a half-done rebase.
+- Before a script rewrites commits, it saves a backup ref. If a conflict or a failure occurs, the
+  script resets to the backup. Thus, it never leaves a partial rebase.
 
 ## Tests
 
 The scripts in `bin/` and `skills/` need bash 5 or later, for example Homebrew bash. They do not
 support the macOS `/bin/bash` 3.2.
 
-- A test file is `<script>.test.sh` next to its script. Run it with `bash <file>`.
-- After a change, run only the tests of the changed scripts, with the default bash.
-- Each test file uses its own temp folder. Run independent test files at the same time.
-- `bin/watch/watchd.test.sh` takes about 3.5 minutes. Run it in the background.
+- The test file of a script is `<script>.test.sh`, in the same folder. Start it with
+  `bash <file>`.
+- After a change, do only the tests of the changed scripts. Use the default bash.
+- Each test file uses its own temporary folder. Start independent test files at the same time.
+- `bin/watch/watchd.test.sh` takes approximately 3.5 minutes. Start it in the background.
 
 ## Editing conventions
 
-- Skill content follows `skills/documenting/SKILL.md` (avoids AI writing tropes) and the reply
-  style in `instructions-agents.md`.
-- A skill's `SKILL.md` needs YAML frontmatter (`name`, `description`) for the harness to load it.
+- The content of a skill must obey `skills/documenting/SKILL.md` (rules against AI writing tropes)
+  and the reply style in `instructions-agents.md`.
+- The `SKILL.md` of a skill must have YAML frontmatter with `name` and `description`. Without it,
+  Claude Code does not load the skill.
