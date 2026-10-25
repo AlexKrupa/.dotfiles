@@ -1,0 +1,3 @@
+#!/bin/sh
+# source hash: {{ output "sh" "-c" "cd \"$1\" && find src Cargo.toml Cargo.lock executable_build.sh -type f | sort | xargs shasum | shasum" "sh" (joinPath .chezmoi.sourceDir "dot_config/agents/daemon") }}
+exec "$HOME/.config/agents/daemon/build.sh"
