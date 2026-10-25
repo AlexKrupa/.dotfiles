@@ -30,12 +30,14 @@ old=$(daemon_pid)
 client_pid=$(jq -r .client_pid "$sub")
 mkdir -p "$WATCH_ENGINE_DIR"
 echo '{"todo": 1}' >"$WATCH_ENGINE_DIR/app.json"
-# The interval is long: the first round of the new daemon gives this event.
-events app "$(ev todo 5)"
 before=$(cat "$WATCHD_DIR/daemon.hash")
 echo '# new' >>"$d/wbin/watch.sh"
 wait_for 10 "[ \"\$(cat '$WATCHD_DIR/daemon.hash')\" = '$(watch_scripts_hash)' ] &&
   grep -q 'new scripts: client restart' '$WATCHD_DIR/watchd.log'"
+# An event before the client restart can reach the old client. The interval is long: the poke
+# gives the round of this event.
+events app "$(ev todo 5)"
+echo test >"$WATCHD_DIR/poke/app"
 check "new scripts: the daemon restarts by itself" "yes $old" \
   "$( [ "$(cat "$WATCHD_DIR/daemon.hash")" = "$(watch_scripts_hash)" ] &&
   [ "$before" != "$(watch_scripts_hash)" ] && echo yes || echo no) \
