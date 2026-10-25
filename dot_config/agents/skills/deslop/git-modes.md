@@ -16,6 +16,10 @@ The diff modes (branch, uncommitted, staged, and the branch- modes) include:
 **Out of scope:** code, identifiers, string literals, tests, generated files, vendored files, PR
 descriptions, and MR descriptions. Also all files outside the mode's target.
 
+If the user's words name text, that text is in scope, also if it is in the out-of-scope list. In a
+string literal, edit only the text between the quotes. Do not change the code around it. This
+edit obeys the prose-only rule of the loops.
+
 ## Judgment call
 
 Apply each fix that keeps all the facts. Ask first only if the fix removes a fact.
@@ -203,8 +207,8 @@ other lists. The fixups or `git diff` show each edit.
 - Commit messages reworded (branch mode): count and `<sha-short> <old subject>` -> `<new subject>`
 - Deferred (the fix would remove data): count and one line for each
 - Squashed (branch and path mode): N fixups, N `amend!` commits, N new commits, and the backup ref
-- Linter: the command and its result, or `none in repo`. Skip this line in file mode if no project
-  has the files.
+- Linter: the command and its result, or `none in repo`. In file mode with no project, skip this
+  line.
 - Out of scope: only if slop remains outside the targets - the paths, on one line
 
 ## Mistakes - stop
