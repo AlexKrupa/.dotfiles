@@ -67,7 +67,11 @@ function herdr-upgrade --description "Upgrade herdr and all installed herdr plug
   herdr-forks-sync
 
   set -l before (mktemp)
-  herdr plugin list --json >$before; or return 1
+  herdr plugin list --json >$before
+  or begin
+    rm -f $before
+    return 1
+  end
 
   # `plugin update` skips linked plugins, thus herdr-forks-sync rebuilds the fork clone.
   herdr plugin update --yes
@@ -106,11 +110,6 @@ function herdr-upgrade --description "Upgrade herdr and all installed herdr plug
   end
 end
 
-if status is-interactive
-  and command -v herdr >/dev/null
-  herdr completion fish | source
-end
-
 # To go back to tmux, set fish_tmux_autostart to true in tmux_utils.fish and
 # delete this file.
 
@@ -135,4 +134,9 @@ if status is-interactive
   and test "$TERMINAL_EMULATOR" != JetBrains-JediTerm
   and command -v herdr >/dev/null
   exec herdr
+end
+
+if status is-interactive
+  and command -v herdr >/dev/null
+  herdr completion fish | source
 end

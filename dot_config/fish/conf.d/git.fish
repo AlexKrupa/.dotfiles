@@ -6,7 +6,6 @@ alias giti "$EDITOR $XDG_CONFIG_HOME/git/ignore"
 
 set -gx GIT_SPICE_NO_GS_WARNING 1
 
-# Usage: branch [name...]
 function branch --description 'List branches or create prefixed branch'
   if test (count $argv) -eq 0
     git branch --sort=-committerdate
@@ -23,7 +22,8 @@ function catch-up --description 'Checkout and pull main branch'
 end
 
 function cd-git-root --description 'Navigate to repository root'
-  cd $(git rev-parse --show-toplevel)
+  set -l root (git rev-parse --show-toplevel)
+  and cd $root
 end
 
 function gco --wraps="git checkout" --description 'Checkout branch or default to main'

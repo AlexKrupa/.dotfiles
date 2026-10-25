@@ -1,4 +1,4 @@
-# File name is tmux-utils.fish instead of tmux.fish to avoid conflict with tmux.fish plugin (https://github.com/budimanjojo/tmux.fish)
+# File name is tmux_utils.fish instead of tmux.fish to avoid conflict with tmux.fish plugin (https://github.com/budimanjojo/tmux.fish)
 
 function tmux-split --description 'Run a command in a new tmux pane'
   if test (count $argv) -lt 1
@@ -6,23 +6,17 @@ function tmux-split --description 'Run a command in a new tmux pane'
     return 1
   end
 
-  set -l command $argv
-  # Count the number of panes in the current window
+  set -l command "$argv"
   set -l pane_count (tmux list-panes | wc -l)
 
-  # Determine the ID of the last pane in the current window
   set -l last_pane_id (tmux list-panes -F '#{pane_id}' | tail -n 1)
 
-  # If only one pane exists, split horizontally; otherwise, split vertically below the rightmost pane
   if test $pane_count -eq 1
-    tmux split-window -dh -t $last_pane_id "fish -c '$command; cat'"
-    # tmux select-layout even-horizontal
+    tmux split-window -dh -t $last_pane_id fish -c "$command; cat"
   else
-    tmux split-window -dv -t $last_pane_id "fish -c '$command; cat'"
-    # tmux select-layout even-vertical
+    tmux split-window -dv -t $last_pane_id fish -c "$command; cat"
   end
 
-  # Resize panes only after the second pane has been created
   if test $pane_count -ge 2
     tmux select-layout tiled
   end

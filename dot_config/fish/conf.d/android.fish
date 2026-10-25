@@ -1,9 +1,3 @@
-# Android development environment and utilities
-
-# ==============================================================================
-# Environment
-# ==============================================================================
-
 set -gx ANDROID_HOME $HOME/Library/Android/sdk
 set -gx ANDROID_SDK $ANDROID_HOME
 set -gx ANDROID_SDK_ROOT $ANDROID_HOME
@@ -14,23 +8,15 @@ set -g ADB_STATIC_PORT 4444
 fish_add_path -ga $ANDROID_HOME/cmdline-tools/latest/bin
 fish_add_path -ga $ANDROID_HOME/emulator
 fish_add_path -ga $ANDROID_HOME/platform-tools
-fish_add_path -ga $ANDROID_HOME/tools
 
 fish_add_path -ga ~/src/me/adx
 
-# ==============================================================================
-# Aliases
-# ==============================================================================
-
-# Emulator
 alias emu and-emu
 
-# Build & install
 alias andi and-install
 alias andis and-install-start
 alias andu and-uninstall
 
-# App lifecycle
 alias ands and-start
 alias andk and-kill
 alias andr and-restart
@@ -38,23 +24,16 @@ alias andc and-clear
 alias andcs and-clear-start
 alias andpd and-process-death
 
-# Device configuration
 alias and-lag-disable "adb shell settings put global ingress_rate_limit_bytes_per_second -1"
 alias and-lag-enable "adb shell settings put global ingress_rate_limit_bytes_per_second 16000"
 alias and-settings "adb shell am start -n com.android.settings/.Settings"
 alias and-settings-dev "adb shell am start -a com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
 
-# Media capture
 alias scr and-screenshot
 alias scrdn and-screenshot-daynight
 alias rec and-screenrecord
 
-# Connectivity
 alias and-dc and-disconnect
-
-# ==============================================================================
-# Emulator
-# ==============================================================================
 
 function and-emu --description 'Select and start Android emulator'
   set -l avd (emulator -list-avds | __select_one AVD)
@@ -64,11 +43,6 @@ function and-emu --description 'Select and start Android emulator'
   emulator -avd $avd -dns-server 8.8.8.8
 end
 
-# ==============================================================================
-# Build & install
-# ==============================================================================
-
-# Usage: and-install <variant>
 function and-install --description 'Build and install app on device'
   if test (count $argv) -lt 1
     echo "Usage: and-install <variant>" >&2
@@ -114,7 +88,6 @@ function and-install --description 'Build and install app on device'
   return 0
 end
 
-# Usage: and-install-start <variant> <package> [intent_args...]
 function and-install-start --description 'Build, install, and start app'
   if test (count $argv) -lt 2
     echo "Usage: and-install-start <variant> <package> [intent_args...]" >&2
@@ -147,12 +120,9 @@ function and-uninstall --description 'Uninstall apps matching package prefix'
 
   echo Uninstalling $package from $ANDROID_SERIAL
 
-  adb shell pm list packages | string match "*$package*" | string replace 'package:' '' | xargs -L1 adb uninstall
+  adb shell pm list packages | string replace 'package:' '' | string match -- "$package*" | xargs -L1 adb uninstall
 end
 
-# Find APK by variant name.
-# Usage: __find_apk [variant]
-# Returns path to most recent APK matching variant, or most recent APK if no variant specified.
 function __find_apk
   set -l variant (string lower $argv[1])
   set -l gradlew (upfind gradlew)
@@ -178,10 +148,6 @@ function __find_apk
   echo $apks[1]
 end
 
-# ==============================================================================
-# App lifecycle
-# ==============================================================================
-
 function and-start --description 'Start app on device'
   if test (count $argv) -lt 1
     echo "Usage: and-start <package> [intent_args...]" >&2
@@ -197,7 +163,6 @@ function and-start --description 'Start app on device'
 
   echo "Starting $package on $ANDROID_SERIAL"
 
-  # Resolve the launcher activity component
   set -l component (adb shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER $package 2>/dev/null | tail -n 1)
 
   if test -z "$component"
@@ -224,7 +189,6 @@ function and-kill --description 'Force stop app on device'
   adb shell am force-stop $package
 end
 
-# Usage: and-restart <package> [intent_args...]
 function and-restart --description 'Kill and restart app'
   if test (count $argv) -lt 1
     echo "Usage: and-restart <package> [intent_args...]" >&2
@@ -242,7 +206,6 @@ function and-restart --description 'Kill and restart app'
   and-start $package $intent_args
 end
 
-# Usage: and-clear <package>
 function and-clear --description 'Clear app data'
   if test (count $argv) -lt 1
     echo "Usage: and-clear <package>" >&2
@@ -259,7 +222,6 @@ function and-clear --description 'Clear app data'
   adb shell pm clear $package
 end
 
-# Usage: and-clear-start <package> [intent_args...]
 function and-clear-start --description 'Clear app data and start'
   if test (count $argv) -lt 1
     echo "Usage: and-clear-start <package> [intent_args...]" >&2
@@ -277,8 +239,6 @@ function and-clear-start --description 'Clear app data and start'
   and-start $package $intent_args
 end
 
-# Simulate process death by backgrounding the app and killing its process.
-# This tests state restoration when Android kills the app to reclaim memory.
 function and-process-death --description 'Simulate process death for state restoration testing'
   if test (count $argv) -lt 1
     echo "Usage: and-process-death <package>" >&2
@@ -293,23 +253,16 @@ function and-process-death --description 'Simulate process death for state resto
 
   echo "Simulating process death for $package on $ANDROID_SERIAL"
 
-  # Background the app by pressing home button
   echo "Backgrounding app..."
   adb shell input keyevent KEYCODE_HOME
 
-  # Wait for app to be backgrounded
   sleep 2
 
-  # Kill the process
   echo "Killing process..."
   adb shell am kill $package
 
   echo "Process death simulated. Re-open the app to test state restoration."
 end
-
-# ==============================================================================
-# Device configuration
-# ==============================================================================
 
 function and-dpi --description 'Set device display density'
   if test (count $argv) -lt 1
@@ -326,7 +279,6 @@ function and-dpi --description 'Set device display density'
   adb shell wm density $argv
 end
 
-# Usage: and-font-scale [scale]  (e.g. 1.2, omit to get current value)
 function and-font-scale --description 'Get or set device font scale'
   if not __require_device_selection
     return 1
@@ -344,7 +296,7 @@ function and-font-scale --description 'Get or set device font scale'
   adb shell settings put system font_scale $scale
 end
 
-# Usage: and-anim-scale [scale]  (e.g. 0.5, 0 to disable, omit to get current values)
+# A scale of 0 turns off the animations.
 function and-anim-scale --description 'Get or set device animation speeds'
   if not __require_device_selection
     return 1
@@ -381,10 +333,6 @@ function and-screen-size --description 'Set device screen resolution'
   adb shell wm size $argv
 end
 
-# ==============================================================================
-# Media capture
-# ==============================================================================
-
 function and-screenshot --description 'Screenshot device and copy to clipboard'
   set -l image (__media_file_path png)
 
@@ -395,6 +343,10 @@ function and-screenshot --description 'Screenshot device and copy to clipboard'
   echo Taking a screenshot of $ANDROID_SERIAL
 
   adbe -s $ANDROID_SERIAL screenshot $image &>/dev/null
+  if not test -s $image
+    echo "Screenshot of $ANDROID_SERIAL failed" >&2
+    return 1
+  end
   __optimize_png $image
   echo Screenshot saved at $image
   __copy_png_to_clipboard $image
@@ -419,6 +371,13 @@ function and-screenshot-daynight --description 'Screenshot in day and night mode
   sleep 2
   adbe -s $ANDROID_SERIAL screenshot $image_night &>/dev/null
 
+  if not test -s $image_day; or not test -s $image_night
+    echo "Day or night screenshot of $ANDROID_SERIAL failed" >&2
+    rm -f $image_day $image_night
+    adbe -s $ANDROID_SERIAL dark mode off &>/dev/null
+    return 1
+  end
+
   magick $image_day $image_night +append $image_stitched
   rm $image_day $image_night
 
@@ -441,15 +400,13 @@ function and-screenrecord --description 'Record and compress device video'
   echo Recording a video of $ANDROID_SERIAL
   echo Press Ctrl-C to finish
 
-  # Capture adbe output for debugging instead of discarding it. adbe pulls the
-  # recording from the device on Ctrl-C; direct invocation (no command
-  # substitution) keeps that signal handling intact.
+  # adbe pulls the recording from the device on Ctrl-C. A command substitution breaks that handling.
   set -l rec_log (mktemp -t android-screenrecord.XXXXXX.log)
   adbe -s $ANDROID_SERIAL screenrecord $video &>$rec_log
   set -l rec_status $status
 
-  # adbe often exits non-zero on the Ctrl-C used to stop recording, so treat a
-  # produced file as success and only report the exit code for debugging.
+  # adbe often exits non-zero after the Ctrl-C that stops the recording. Thus the file is the
+  # success check, and the exit code is only for debugging.
   if not test -s "$video"
     echo "Screen recording failed: no file produced at $video" >&2
     echo "adbe -s $ANDROID_SERIAL screenrecord exit status: $rec_status" >&2
@@ -466,12 +423,7 @@ function and-screenrecord --description 'Record and compress device video'
 
   echo Compressing recording...
 
-  # -f mp4: output format (can't infer from .tmp extension)
-  # -vcodec h264: broad compatibility
-  # -an: strip audio
-  # -preset fast: balanced encoding speed vs compression
-  # -crf 28: quality level (0-51, higher = smaller file)
-  # -movflags +faststart: enable streaming before full download
+  # ffmpeg cannot get the format from the .tmp extension.
   ffmpeg \
     -i $video \
     -f mp4 \
@@ -495,17 +447,9 @@ function and-screenrecord --description 'Record and compress device video'
   __reveal_in_finder $video
 end
 
-# --- Media helpers ---
-
-# Get full path for media file
-# Usage: __media_file_path <ext> [suffix]
-# Examples:
-#   __media_file_path png         → ~/Downloads/android-20250121-143025.png
-#   __media_file_path png daynight → ~/Downloads/android-20250121-143025-daynight.png
 function __media_file_path
   set -l ext $argv[1]
   set -l suffix $argv[2]
-  # Changed: compact timestamp format (YYYYMMDD-HHMMSS), dropped type prefix
   set -l timestamp (date +"%Y%m%d-%H%M%S")
 
   if test -n "$suffix"
@@ -515,7 +459,6 @@ function __media_file_path
   end
 end
 
-# Copy a PNG image to the macOS clipboard.
 function __copy_png_to_clipboard
   set -l file_path $argv[1]
 
@@ -532,7 +475,6 @@ function __copy_png_to_clipboard
   end
 end
 
-# Reveal a file in Finder with it selected.
 function __reveal_in_finder
   set -l file_path $argv[1]
 
@@ -544,8 +486,6 @@ function __reveal_in_finder
   end
 end
 
-# Optimize PNG for web upload (PRs, Slack) using pngquant.
-# Compresses in place. Returns 0 on success.
 function __optimize_png
   set -l png_path $argv[1]
 
@@ -554,15 +494,8 @@ function __optimize_png
     return 1
   end
 
-  # --quality 65-90: target quality range, picks best within budget
-  # --skip-if-larger: keep original if compressed is larger
-  # --force --ext .png: overwrite original
   pngquant --quality 65-90 --skip-if-larger --force --ext .png "$png_path" 2>/dev/null
 end
-
-# ==============================================================================
-# Connectivity
-# ==============================================================================
 
 function and-wifi --description 'Connect to device over WiFi'
   if test (count $argv) -lt 1
@@ -611,11 +544,6 @@ function and-disconnect --description 'Disconnect from WiFi device'
   adb disconnect $ip_with_port
 end
 
-# ==============================================================================
-# Debugging
-# ==============================================================================
-
-# Usage: and-log <package>
 function and-log --description 'Show logcat filtered by app PID'
   if test (count $argv) -lt 1
     echo "Usage: and-log <package>" >&2
@@ -638,7 +566,6 @@ function and-log --description 'Show logcat filtered by app PID'
   adb logcat --pid=$pid
 end
 
-# Usage: and-deeplink <url>
 function and-deeplink --description 'Open deep link on device'
   if test (count $argv) -lt 1
     echo "Usage: and-deeplink <url>" >&2
@@ -655,14 +582,9 @@ function and-deeplink --description 'Open deep link on device'
   adb shell am start -a android.intent.action.VIEW -d "$url"
 end
 
-# ==============================================================================
-# Asset utilities
-# ==============================================================================
-
-# Usage: convert-xxxhdpi-to-split-webp <pattern>
 function convert-xxxhdpi-to-split-webp --description 'Convert xxxhdpi PNGs to WebP and scale to lower densities'
   if test (count $argv) -lt 1
-    echo "Usage: convert-xxxhdpi-to-split-webp <pattern>" >&2
+    echo "Usage: convert-xxxhdpi-to-split-webp '<glob>'" >&2
     return 1
   end
 
@@ -670,42 +592,38 @@ function convert-xxxhdpi-to-split-webp --description 'Convert xxxhdpi PNGs to We
 
   for xxxhdpi_dir in (find . -name "drawable-xxxhdpi")
     echo "$xxxhdpi_dir"
-    for file in (ls $xxxhdpi_dir/$file_filter)
-      set -l file (basename $file)
+    for path in $xxxhdpi_dir/*
+      set -l file (path basename $path)
+      string match -q -- $file_filter $file
+      or continue
       echo "$file"
       if not string match -q "*.webp" $file
-        __convert_to_webp $xxxhdpi_dir $xxxhdpi_dir $file ""
+        __convert_to_webp $xxxhdpi_dir $xxxhdpi_dir $file
+        or continue
         rm "$xxxhdpi_dir/$file"
       end
 
       set -l webp_file (string replace '.png' '.webp' $file)
-      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xxhdpi" $webp_file "-resize 75%"
-      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xhdpi" $webp_file "-resize 50%"
-      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file "-resize 37.5%"
-      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file "-resize 25%"
+      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xxhdpi" $webp_file -resize 75%
+      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-xhdpi" $webp_file -resize 50%
+      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-hdpi" $webp_file -resize 37.5%
+      __convert_to_webp $xxxhdpi_dir "$xxxhdpi_dir/../drawable-mdpi" $webp_file -resize 25%
     end
   end
 end
 
-# Convert an image to WebP format with optional resize.
 function __convert_to_webp
   set -l in_dir $argv[1]
   set -l out_dir $argv[2]
   set -l file $argv[3]
-  set -l convert_arguments $argv[4]
+  set -l convert_arguments $argv[4..-1]
 
   mkdir -p $out_dir
   set -l webp_file (string replace '.png' '.webp' $file)
-  convert "$in_dir/$file" $convert_arguments -define webp:lossless=true "$out_dir/$webp_file"
+  magick "$in_dir/$file" $convert_arguments -define webp:lossless=true "$out_dir/$webp_file"
 end
 
-# ==============================================================================
-# Internal helpers
-# ==============================================================================
-
-# Helper function for device operations that require device selection
 function __require_device_selection
-  # Reuse existing selection if still connected
   if test -n "$ANDROID_SERIAL"
     if adb devices | string match -q -- "$ANDROID_SERIAL*"
       return 0
@@ -719,9 +637,7 @@ function __require_device_selection
   return 0
 end
 
-# Select an ADB device from the list of connected devices.
 function __select_adb_device
-  # Preview shows device model for highlighted device
   set -l device (adb devices -l | tail -n +2 | ghead -n -1 \
     | __select_one device --preview 'echo {} | cut -f1 -w | xargs -I{} adb -s {} shell getprop ro.product.model 2>/dev/null')
   or return 1

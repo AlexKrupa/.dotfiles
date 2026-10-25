@@ -1,22 +1,20 @@
-# Usage: jdk <version> [--silent]
 function jdk --description 'Switch Java version'
   argparse 's/silent' -- $argv
   or return
 
-  # This handles cases when --silent is passed as a first or second argument.
   set -l jdk_version $argv[-1]
-
-  if test -n "$jdk_version"
-    set -gx JAVA_HOME $(/usr/libexec/java_home -v "$jdk_version")
-  else
-    echo "Error: No JDK version specified." >&2  # Redirect to stderr
+  if test -z "$jdk_version"
+    echo "Error: No JDK version specified." >&2
     return 1
   end
+
+  set -l java_home (/usr/libexec/java_home -F -v "$jdk_version")
+  or return 1
+  set -gx JAVA_HOME $java_home
 
   if not set -q _flag_silent
     java -version
   end
 end
 
-# Set default Java version
 jdk 21 --silent
