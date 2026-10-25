@@ -87,7 +87,9 @@ support the macOS `/bin/bash` 3.2.
   `bash <file>`.
 - After a change, do only the tests of the changed scripts. Use the default bash.
 - Each test file uses its own temporary folder. Start independent test files at the same time.
-- `bin/watch/watchd.test.sh` takes approximately 3.5 minutes. Start it in the background.
+- The tests of `bin/watch/watchd.sh` are in 6 files, `bin/watch/watchd-<topic>.test.sh`. Their
+  common setup is in `bin/watch/watchd-test-lib.sh`. Each file takes up to 1 minute. Start all 6
+  at the same time, in the background.
 
 ## Editing conventions
 
