@@ -2,11 +2,11 @@
 # Usage: pr-draft-reuse.sh <draft-file> <parent>
 # Tells if a PR draft can stay as it is: the branch's own diff did not change since the draft got
 # its text. Reads `diff-base` and `diff-head` from the frontmatter of the draft. A rebase onto a
-# new base with no content change keeps the draft. Prints one `key=value` per line:
-#   reuse=yes|no
-#   reason=unchanged|changed|no-file|no-record|unknown-commit
-#   diff-base=<merge base of <parent> and HEAD>
-#   diff-head=<HEAD>
+# new base with no content change keeps the draft. Prints one `key: value` per line:
+#   reuse: yes|no
+#   reason: unchanged|changed|no-file|no-record|unknown-commit
+#   diff-base: <merge base of <parent> and HEAD>
+#   diff-head: <HEAD>
 # Writes nothing to the repo.
 # Exit codes: 0 ok, 1 usage error, unknown parent, or a failed git-interdiff.sh
 set -euo pipefail
@@ -24,7 +24,7 @@ new_base=$(git merge-base "$parent" HEAD)
 new_head=$(git rev-parse HEAD)
 
 result() {
-  printf 'reuse=%s\nreason=%s\ndiff-base=%s\ndiff-head=%s\n' "$1" "$2" "$new_base" "$new_head"
+  printf 'reuse: %s\nreason: %s\ndiff-base: %s\ndiff-head: %s\n' "$1" "$2" "$new_base" "$new_head"
   exit 0
 }
 

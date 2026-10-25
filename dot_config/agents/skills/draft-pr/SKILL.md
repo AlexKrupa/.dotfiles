@@ -133,14 +133,14 @@ A PR branch is always clean. Do this step and do not ask the user first.
 
 `<file>` is the `file` value of `pr-path.sh`. `<parent>` is the `parent` value of step 3. The
 script prints `reuse`, `reason`, `diff-base`, and `diff-head`. If the branch's own diff did not
-change since the last full write of the draft, the script prints `reuse=yes`. A rebase onto a new
+change since the last full write of the draft, the script prints `reuse: yes`. A rebase onto a new
 base is not a change.
 
-- `reuse=yes`: skip steps 5 to 7. In the file, set `base` (see "File format"), `draft` from the
+- `reuse: yes`: skip steps 5 to 7. In the file, set `base` (see "File format"), `draft` from the
   arguments, `diff-base`, and `diff-head`. If the arguments have notes, add them to the sections
   that they are about, for example Testing. Do not write the other sections again. The user's
   edits in the file stay. Tell "draft reused, no content change" in the 🧹 line. Go to step 8.
-- `reuse=no`, or the user asks for a new draft: continue with step 5.
+- `reuse: no`, or the user asks for a new draft: continue with step 5.
 - If the script exits `1`, stop and show its error.
 
 ### 5. Analysis

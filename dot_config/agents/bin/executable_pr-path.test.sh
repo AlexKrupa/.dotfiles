@@ -25,8 +25,8 @@ git -C "$repo" switch -q -c Feature/CSV_export
 
 out=$(cd "$repo" && "$script")
 prs="$HOME/.ai/notes-app/prs"
-check "file path" "file=$prs/feature-csv-export.md" "$(sed -n 1p <<<"$out")"
-check "media path" "media=$prs/feature-csv-export" "$(sed -n 2p <<<"$out")"
+check "file path" "file: $prs/feature-csv-export.md" "$(sed -n 1p <<<"$out")"
+check "media path" "media: $prs/feature-csv-export" "$(sed -n 2p <<<"$out")"
 check "prs dir exists" yes "$([ -d "$prs" ] && echo yes || echo no)"
 check "no media dir" no "$([ -e "$prs/feature-csv-export" ] && echo yes || echo no)"
 

@@ -11,7 +11,7 @@ check() {
   if [ "$2" = "$3" ]; then printf 'ok   %s\n' "$1"
   else printf 'FAIL %s\n  expected: %s\n  actual:   %s\n' "$1" "$2" "$3"; fail=1; fi
 }
-key() { sed -n "s/^$1=//p" <<<"$2"; }
+key() { sed -n "s/^$1: //p" <<<"$2"; }
 draft() {
   printf -- '---\ntype: fix\nbase: main\ndiff-base: %s\ndiff-head: %s\n---\n\n# Title\n' "$1" "$2" \
     >"$d/draft.md"
