@@ -20,7 +20,8 @@ if [ -f "$match" ]; then
     *.svg|*.SVG) exec open "$match" ;;
   esac
   enc=$(file -b --mime-encoding -- "$match" 2>/dev/null || echo binary)
-  [ "$enc" != "binary" ] || exec open "$match"
+  # `file` reports an empty file as binary.
+  [ "$enc" != "binary" ] || [ ! -s "$match" ] || exec open "$match"
   # open-link is the Ctrl+click handler. It takes its input from these env vars and
   # rejects a bare filename, hence the absolute path.
   match="$(cd "$(dirname "$match")" && pwd)/$(basename "$match")"

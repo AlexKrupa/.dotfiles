@@ -43,15 +43,15 @@ state_dir() { printf '%s/%s' "$state_root" "$(printf '%s' "$1" | tr : _)"; }
 # The state dir of the `branch` pane $1, or of a live `branch` pane opened next
 # to agent pane $1. Empty if there is none.
 branch_pane_dir() {
+  # A killed pane skips its EXIT trap and leaves its dir behind.
   dir=$(state_dir "$1")
-  if [ -f "$dir/agent" ]; then
+  if [ -f "$dir/agent" ] && kill -0 "$(cat "$dir/pid")" 2>/dev/null; then
     printf '%s' "$dir"
     return
   fi
   for agent_file in "$state_root"/*/agent; do
     [ "$(cat "$agent_file" 2>/dev/null)" = "$1" ] || continue
     dir=${agent_file%/agent}
-    # A killed pane skips its EXIT trap and leaves its dir behind.
     if kill -0 "$(cat "$dir/pid")" 2>/dev/null; then
       printf '%s' "$dir"
       return

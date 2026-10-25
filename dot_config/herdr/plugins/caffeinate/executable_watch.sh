@@ -89,6 +89,9 @@ sweep() {
 # interval is still minutes ahead of macOS idle sleep, and the release is a clock decision
 # that no event announces.
 watch() {
+  # Only one watcher holds the lock. A hold file here is from a watcher that died before its
+  # EXIT trap. Its pid can now belong to another process, which `release` then kills.
+  rm -f "$holdfile" "$idlefile"
   trap release EXIT
   while :; do
     sweep
