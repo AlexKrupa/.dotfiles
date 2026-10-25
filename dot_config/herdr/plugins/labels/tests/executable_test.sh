@@ -85,6 +85,55 @@ check "a backslash in a label is kept" '2 • a\b' "$(label_of "$out" wB:t2)"
 out=$(run '{"wB:t4":"cargo"}' '.result.snapshot.tabs[8].label = "4 • cargo"')
 check "ignored command keeps the owned name" "" "$(label_of "$out" wB:t4)"
 
+out=$(run '{}' '.result.snapshot.panes[2].tokens.session = "Fix\tthe login flow"')
+check "agent pane takes its session title" "3 • Fix the login flow" "$(label_of "$out" wA:t3)"
+
+long=$(printf 'x%.0s' {1..50})
+out=$(run '{}' ".result.snapshot.panes[2].tokens.session = \"$long\"")
+check "a session title is cut at 40" "3 • ${long:0:40}" "$(label_of "$out" wA:t3)"
+
+# A second agent in tab wA:t3. The filter changes the snapshot after the pane is added.
+second='.result.snapshot.panes += [{pane_id: "wA:p6", tab_id: "wA:t3", agent: "codex",
+  tokens: {session: "Review the diff"}}]'
+
+# titles <state-json> [jq-filter] -> {state, titles: {pane_id: title}}, with only the pane
+# titles the run changes. An empty title is a clear.
+titles() {
+  printf '%s' "$1" >"$tmp/state.json"
+  jq "$second | ${2:-.}" snapshot.json |
+    jq -r --slurpfile st "$tmp/state.json" --argjson fg "$fg" --argjson now 10000 \
+      --argjson glyphs "$glyphs" -f ../policy.jq |
+    jq -cRn '[inputs] | { state: (.[0] | fromjson),
+      titles: (.[1:] | map(split("\t")) | map(select(.[0] == "pane" and (.[2] | startswith("@title="))))
+               | map({key: .[1], value: (.[2] | ltrimstr("@title="))}) | from_entries) }'
+}
+
+# title <titles-output> <pane_id> -> the title to write, "" to clear, <none> if unchanged
+title() { jq -r --arg p "$2" '.titles[$p] // "<none>"' <<<"$1"; }
+
+out=$(titles '{}')
+check "an agent next to another agent shows its session title" \
+  "Review the diff" "$(title "$out" wA:p6)"
+check "an agent next to another agent with no session shows its name" \
+  "claude" "$(title "$out" wA:p3)"
+check "a titled pane is recorded in state" \
+  "true" "$(jq -r '.state.titled["wA:p6"]' <<<"$out")"
+
+out=$(titles '{}' 'del(.result.snapshot.panes[-1])')
+check "an agent alone in its tab gets no title" "<none>" "$(title "$out" wA:p3)"
+
+out=$(titles '{"titled":{"wA:p3":true}}' 'del(.result.snapshot.panes[-1])')
+check "an agent left alone in its tab loses its title" "" "$(title "$out" wA:p3)"
+check "a cleared pane leaves the state" "null" "$(jq -r '.state.titled["wA:p3"]' <<<"$out")"
+
+out=$(titles '{}' '.result.snapshot.panes[-1].title = "Review the diff"')
+check "a current title is not written again" "<none>" "$(title "$out" wA:p6)"
+
+out=$(titles '{"titled":{"wA:p6":true}}' '.result.snapshot.panes[-1].label = "mine"')
+check "a pane with a manual label loses the title" "" "$(title "$out" wA:p6)"
+out=$(titles '{}' '.result.snapshot.panes[-1].label = "mine"')
+check "a pane with a manual label gets no title" "<none>" "$(title "$out" wA:p6)"
+
 # slot <workspace_id> [jq-filter] -> the idx token a run writes, from workspaces in sidebar
 # order. herdr appends a new worktree to the end of its list, but the sidebar and `alt+1..9`
 # put it under its checkout. The filter changes the snapshot after the workspaces are set.

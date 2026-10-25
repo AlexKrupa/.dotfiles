@@ -55,6 +55,12 @@ def agent_rows($s):
 # again on every sweep.
 def herdr_text: gsub("[\u0000-\u001f\u007f-\u009f]"; "") | trim | .[0:80] | trim;
 
+# The name of an agent pane in its tab label and on its border: the session title of the
+# sidebar row, or else the agent name. The terminal title of an agent is its own product name.
+def agent_label:
+  (.tokens.session // "" | gsub("[\t\r\n]"; " ") | herdr_text) as $session
+  | if $session == "" then .agent else $session end;
+
 # A worktree row sits 2 columns right of a root row.
 def indent: zwsp + "  ";
 

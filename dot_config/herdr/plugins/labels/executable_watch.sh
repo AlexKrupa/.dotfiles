@@ -58,12 +58,18 @@ programs() {
 }
 
 # One call per pane or workspace, with every token that changed. `report-metadata` rejects
-# the flags unless the id comes first. `name=` with no value clears the token.
+# the flags unless the id comes first. `name=` with no value clears the token. `@title` is
+# the pane title.
 meta() { # meta <kind> <id> <name=value>...
   local kind=$1 id=$2 kv args=()
   shift 2
   for kv in "$@"; do
-    if [ -n "${kv#*=}" ]; then args+=(--token "$kv"); else args+=(--clear-token "${kv%=}"); fi
+    case $kv in
+      @title=) args+=(--clear-title) ;;
+      @title=*) args+=(--title "${kv#@title=}") ;;
+      *=) args+=(--clear-token "${kv%=}") ;;
+      *) args+=(--token "$kv") ;;
+    esac
   done
   herdr "$kind" report-metadata "$id" --source labels "${args[@]}"
 }

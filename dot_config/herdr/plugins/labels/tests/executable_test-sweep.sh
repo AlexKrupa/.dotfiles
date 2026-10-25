@@ -59,6 +59,20 @@ LABELS_DRY='' HERDR_MOCK_LOG="$log" LABELS_STATE="$tmp/applied.json" \
 check "apply sets and clears pane tokens in one call" \
   "pane report-metadata wB:p9 --source labels --token ord=002 --token rank=2 --clear-token idx --token dot_unknown=·" \
   "$(grep '^pane report-metadata wB:p9' "$log")"
+jq '.result.snapshot.panes += [{pane_id: "wA:p6", tab_id: "wA:t3", agent: "codex",
+  tokens: {session: "Review the diff"}}]' snapshot.json >"$tmp/two-agents.json"
+jq '.result.snapshot.panes[-1].label = "mine"' "$tmp/two-agents.json" >"$tmp/labeled.json"
+titles_log="$tmp/titles.log"
+LABELS_SNAPSHOT="$tmp/two-agents.json" LABELS_DRY='' HERDR_MOCK_LOG="$titles_log" \
+  LABELS_STATE="$tmp/titled.json" ../watch.sh sweep >/dev/null
+check "apply sets a pane title" \
+  "pane report-metadata wA:p6 --source labels --title Review the diff" \
+  "$(grep '^pane report-metadata wA:p6' "$titles_log")"
+LABELS_SNAPSHOT="$tmp/labeled.json" LABELS_DRY='' HERDR_MOCK_LOG="$titles_log" \
+  LABELS_STATE="$tmp/titled.json" ../watch.sh sweep >/dev/null
+check "apply clears a pane title" \
+  "pane report-metadata wA:p6 --source labels --clear-title" \
+  "$(grep '^pane report-metadata wA:p6' "$titles_log" | tail -n 1)"
 check "apply clears a workspace token in one call" \
   "workspace report-metadata wZ --source labels --clear-token idx" \
   "$(grep '^workspace report-metadata wZ' "$log")"

@@ -8,6 +8,7 @@
 #        "<kind>\t<id>\t...". It is one text stream. The caller needs no second jq to
 #        split it. `tab` is a label to apply. `workspace` and `pane` are followed by
 #        "<name>=<value>" fields, one per token to report. An empty value clears the token.
+#        The name `@title` is the pane title, not a token.
 #
 # Pure: no herdr calls, no clock, no files.
 
@@ -20,7 +21,7 @@ def ignored: ["ls","cd","cat","echo","clear","git","jj","rm","cp","mv","grep","r
 # A pane whose foreground program is a shell is sitting at its prompt.
 def shells: ["fish","bash","zsh","sh","dash","ksh","nu"];
 
-def cap: .[0:20] | sub(" +$"; "");
+def cap($length): .[0:$length] | sub(" +$"; "");
 
 def linked: .worktree.is_linked_worktree == true;
 
@@ -29,16 +30,17 @@ def basename: sub("/+$"; "") | split("/") | last | if . == "" then "/" else . en
 # The base label for one pane, or null to leave the tab's label alone.
 def label_of($pane; $program):
   if $pane == null then null
-  # An agent rewrites its title with its current task, so use the agent name instead.
-  elif $pane.agent != null then $pane.agent
-  # No reading for this pane: it went away, or the process call failed.
-  elif $program == null or $program == "" then null
-  elif (shells | index($program)) then
-    (if $pane.cwd == env.HOME then "~" else ($pane.cwd // "" | basename) end)
-  elif (ignored | index($program)) then null
-  else $program
-  end
-  | if . == null or . == "" then null else cap end;
+  elif $pane.agent != null then $pane | agent_label | cap(40)
+  else
+    # No reading for this pane: it went away, or the process call failed.
+    if $program == null or $program == "" then null
+    elif (shells | index($program)) then
+      (if $pane.cwd == env.HOME then "~" else ($pane.cwd // "" | basename) end)
+    elif (ignored | index($program)) then null
+    else $program
+    end
+    | if . == null or . == "" then null else cap(20) end
+  end;
 
 ($st[0] // {}) as $state
 # The state was a bare {tab_id: base} map before it held more than tabs.
@@ -48,6 +50,12 @@ def label_of($pane; $program):
 | ($state.idle_since // {}) as $since
 | ($s.panes   | map({key: .pane_id, value: .})           | from_entries) as $pane
 | ($s.layouts | map({key: .tab_id,  value: .focused_pane_id}) | from_entries) as $focus
+# In a tab with more than one agent, each agent pane shows its label on its border. herdr
+# draws this title over a manual pane label, so a pane with one gets none.
+| ($state.titled // {}) as $titled
+| ($s.panes | map(select(.agent != null)) | group_by(.tab_id) | map(select(length > 1))
+   | add // [] | map(select((.label // "") == "") | {key: .pane_id, value: agent_label})
+   | from_entries) as $titles
 | [ $s.tabs[]
     | . as $t
     # `number` is a creation counter, so position comes from snapshot order.
@@ -66,7 +74,8 @@ def label_of($pane; $program):
     | { tab_id: $t.tab_id, mode: $mode, current: $t.label, base: $newbase,
         label: (($pos | tostring) + " • " + $newbase) } ]
 | ({ tabs: (map(select(.mode == "auto") | {key: .tab_id, value: .base}) | from_entries),
-     idle_since: idle_since($rows; $since; $now) }
+     idle_since: idle_since($rows; $since; $now),
+     titled: ($titles | map_values(true)) }
    | tojson),
   # Not @tsv: it writes `\` as `\\`, and `read -r` keeps both.
   (.[] | select(.label != .current) | ["tab", .tab_id, .label] | join("\t")),
@@ -96,4 +105,10 @@ def label_of($pane; $program):
    | select((.tokens.idx // "") != $idx)
    | ["workspace", .workspace_id, "idx=" + $idx] | @tsv),
   # This plugin sets the panel order: herdr sorts by `ord`, and `focus_agent` counts the panel.
-  ($rows[] | pane_line($since; $now; $glyphs))
+  ($rows[] | pane_line($since; $now; $glyphs)),
+  # The snapshot title can come from another reporter, so only a title in state is cleared.
+  ($s.panes[]
+   | .pane_id as $id
+   | ($titles[$id] // "") as $want
+   | select(if $want == "" then $titled[$id] != null else $want != (.title // "") end)
+   | ["pane", $id, "@title=" + $want] | join("\t"))
