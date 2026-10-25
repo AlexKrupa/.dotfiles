@@ -9,7 +9,6 @@ fish_add_path -ga $ANDROID_HOME/cmdline-tools/latest/bin
 fish_add_path -ga $ANDROID_HOME/emulator
 fish_add_path -ga $ANDROID_HOME/platform-tools
 
-fish_add_path -ga ~/src/me/adx
 
 alias emu and-emu
 
