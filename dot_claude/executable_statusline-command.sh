@@ -94,11 +94,12 @@ cache_remaining() {
 # Show the Claude Code session title on herdr's sidebar agent row.
 herdr_session_title() {
   [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ] || return
-  local name
+  local name token
   name=$(jq -r '.session_name // empty' <<< "$1")
-  [ -n "$name" ] || return
+  # `/clear` drops a generated title, and the old one must not stay on the row.
+  if [ -n "$name" ]; then token=(--token session="$name"); else token=(--clear-token session); fi
   herdr pane report-metadata "$HERDR_PANE_ID" --source herdr:claude \
-    --agent claude --token session="$name" >/dev/null 2>&1
+    --agent claude "${token[@]}" >/dev/null 2>&1
 }
 
 # ============================================================
