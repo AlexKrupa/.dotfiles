@@ -33,3 +33,8 @@ skills add android/skills --global --agent claude-code --yes \
   --skill r8-analyzer \
   --skill android-intent-security \
   --skill testing-setup
+
+# https://github.com/gradle/gradle-skills
+skills add gradle/gradle-skills --global --agent claude-code --yes \
+  --skill gradle-best-practices \
+  --skill gradle-wrapper-upgrade
