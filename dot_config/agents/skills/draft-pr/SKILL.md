@@ -12,6 +12,7 @@ allowed-tools:
   - Bash(~/.config/agents/bin/git-squash-fixups.sh *)
   - Bash(~/.config/agents/bin/pr-path.sh *)
   - Bash(~/.config/agents/skills/draft-pr/pr-draft-reuse.sh *)
+  - Bash(watchd *)
 ---
 
 # draft-pr
