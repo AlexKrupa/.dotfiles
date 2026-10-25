@@ -5,7 +5,8 @@
 # saves the state. A value that the saved state does not have gives no event at its first check.
 # --fresh: delete the state file before the check.
 # --skip-mr: hub mode, an MR with a review watch.
-# WATCH_MR_CACHE=DIR: a fetched MR goes to DIR/<iid>.json, and a later fetch of the MR reads it.
+# WATCH_MR_CACHE=DIR: a fetched MR goes to DIR/<project>-<iid>.json, and a later fetch of the MR
+# reads it. Two clones with the same directory name share one DIR.
 #
 # Hub mode (no --mr) watches the project of the repo, for the hub. Events:
 #   kind            when                                          except
@@ -46,7 +47,7 @@
 # Comments, reactions, and threads on a diff line also have path and line. The actor of a change
 # comes from the newest system note of that change, or is empty.
 #
-# Open items. An event that opens an item waits for the user has the item key in item. The state
+# Open items. An event that opens an item for the user has the item key in `item`. The state
 # file has present: the item keys whose cause GitLab still shows. The daemon closes the other
 # items.
 #   item                     event                        present while
@@ -72,6 +73,8 @@ die() { echo "watch-gitlab: $1" >&2; exit 1; }
 source "$HOME/.config/agents/bin/watch/watch-lib.sh"
 # shellcheck source=watch-state.sh
 source "$HOME/.config/agents/bin/watch/watch-state.sh"
+# shellcheck source=../gitlab-lib.sh
+source "$HOME/.config/agents/bin/gitlab-lib.sh"
 
 repo=$PWD
 mrs=()
@@ -110,7 +113,7 @@ trap 'rm -rf "$tmp"' EXIT
 
 remote=$(git remote get-url origin 2>/dev/null \
   || git remote get-url "$(git remote | head -n1)" 2>/dev/null) || die "no git remote in $repo"
-project=$(sed -E 's#\.git$##; s#^[a-z+]+://[^/]+/##; s#^[^@/]+@[^:]+:##' <<<"$remote")
+project=$(project_of_url "$remote")
 project_ref=$(jq -rn --arg p "$project" '$p | @uri')
 
 permission_for() {
@@ -162,8 +165,8 @@ MR_QUERY='query($path: ID!, $iid: String!) {
 # the same error.
 fetch_mr() {
   local rc=0 mr_path count note_id
-  if [[ -n ${WATCH_MR_CACHE:-} && -f $WATCH_MR_CACHE/$1.json ]]; then
-    cat "$WATCH_MR_CACHE/$1.json"
+  if [[ -n ${WATCH_MR_CACHE:-} && -f $WATCH_MR_CACHE/$project_ref-$1.json ]]; then
+    cat "$WATCH_MR_CACHE/$project_ref-$1.json"
     return
   fi
   api graphql -f query="$MR_QUERY" -f path="$project" -f iid="$1" >"$tmp/gql.json" || rc=$?
@@ -215,11 +218,9 @@ fetch_mr() {
                  | if . then {newPath: .new_path, newLine: .new_line} else null end),
                awardEmoji: ($emoji_by_note[.id | tostring] // [] | emoji)}]}}]}
       }' "$tmp/gql.json" >"$tmp/fetched.json" || return
-  if [[ -n ${WATCH_MR_CACHE:-} ]]; then cp "$tmp/fetched.json" "$WATCH_MR_CACHE/$1.json"; fi
+  if [[ -n ${WATCH_MR_CACHE:-} ]]; then cp "$tmp/fetched.json" "$WATCH_MR_CACHE/$project_ref-$1.json"; fi
   cat "$tmp/fetched.json"
 }
-
-pid=''
 
 PROGRAM=$(cat <<'JQ'
 def by_iid: map({key: (.iid | tostring), value: .}) | from_entries;
@@ -473,15 +474,13 @@ check_mode() { if ((${#mrs[@]})); then check_stack; else check; fi; }
 
 check() {
   local old=$state since iids iid note user project_json
-  if [[ -z $pid ]]; then
-    user=$(api user) || return
-    project_json=$(api "projects/$project_ref") || return
-    me_id=$(jq -r .id <<<"$user")
-    me=$(jq -r .username <<<"$user")
-    pid=$(jq -r .id <<<"$project_json")
-    default_branch=$(jq -r .default_branch <<<"$project_json")
-    default_ref=$(jq -r '.default_branch | @uri' <<<"$project_json")
-  fi
+  user=$(api user) || return
+  project_json=$(api "projects/$project_ref") || return
+  me_id=$(jq -r .id <<<"$user")
+  me=$(jq -r .username <<<"$user")
+  pid=$(jq -r .id <<<"$project_json")
+  default_branch=$(jq -r .default_branch <<<"$project_json")
+  default_ref=$(jq -r '.default_branch | @uri' <<<"$project_json")
   [[ -f $old ]] || old=/dev/null
   since=$(jq -nr 'now | floor - 14 * 86400 | todate')
   api "todos?project_id=$pid&type=MergeRequest&state=pending&per_page=100" >"$tmp/todos.json" \
@@ -489,16 +488,20 @@ check() {
   # Only the newest 100: an older MR is not new.
   api "projects/$pid/merge_requests?state=opened&order_by=created_at&sort=desc&per_page=100" \
     >"$tmp/opened.json" || return
-  api "users/$me_id/events?target_type=note&after=${since%%T*}&per_page=100" \
-    >"$tmp/events.json" || return
-  iids=$(jq -r --argjson pid "$pid" '[.[] | select(.project_id == $pid
-      and .note.noteable_type == "MergeRequest") | "iids[]=\(.note.noteable_iid)"]
-    | unique | join("&")' "$tmp/events.json")
-  echo '[]' >"$tmp/commented.json"
-  if [[ -n $iids ]]; then
-    api "projects/$pid/merge_requests?state=all&$iids&per_page=100" >"$tmp/commented.json" \
+  api "users/$me_id/events?target_type=note&after=${since%%T*}&per_page=100" --paginate \
+    >"$tmp/event-pages.json" || return
+  # glab can print one array for each page.
+  jq -s 'add // []' "$tmp/event-pages.json" >"$tmp/events.json"
+  : >"$tmp/commented-pages.json"
+  # 100 MRs for each call: the size of one page.
+  for iids in $(jq -r --argjson pid "$pid" '[.[] | select(.project_id == $pid
+      and .note.noteable_type == "MergeRequest") | .note.noteable_iid] | unique
+    | range(0; length; 100) as $i | .[$i:$i + 100] | map("iids[]=\(.)") | join("&")' \
+      "$tmp/events.json"); do
+    api "projects/$pid/merge_requests?state=all&$iids&per_page=100" >>"$tmp/commented-pages.json" \
       || return
-  fi
+  done
+  jq -s 'add // []' "$tmp/commented-pages.json" >"$tmp/commented.json"
   cp "$tmp/commented.json" "$tmp/watched.json"
   # Only MRs with a changed updated_at get a notes call: a new note changes updated_at.
   : >"$tmp/notes.jsonl"

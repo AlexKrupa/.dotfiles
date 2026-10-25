@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Usage: ./claude.sh
+# Links instructions-agents.md and skills/*/ into ~/.claude/, and prints the status of each entry
+# (see README.md, section Sync).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,8 +22,6 @@ tilde_path() {
   echo "${1/$home/\~}"
 }
 
-# --- CLAUDE.md ---
-
 source="$SCRIPT_DIR/instructions-agents.md"
 target="$CLAUDE_DIR/CLAUDE.md"
 
@@ -37,60 +38,50 @@ else
   add_entry "CLAUDE.md" "NEW" "$(tilde_path "$source")"
 fi
 
-# --- Link entries from a source dir into a target dir under $CLAUDE_DIR ---
-
 link_entries() {
-  local label="$1" glob="$2" strip_ext="${3-}"
+  local label="$1" glob="$2"
   local target_dir="$CLAUDE_DIR/$label"
   mkdir -p "$target_dir"
 
-  # Track which basenames we've already processed
   declare -A seen=()
 
-  # Process source entries
   for src in $SCRIPT_DIR/$glob; do
     [ -e "$src" ] || continue
     local base="$(basename "$src")"
     [ "$base" = "deprecated" ] && continue
-    local display="$base"
-    [ -n "$strip_ext" ] && display="$(basename "$src" "$strip_ext")"
     local target="$target_dir/$base"
     seen["$base"]=1
 
     if [ -L "$target" ] && [ "$(readlink "$target")" = "$src" ]; then
-      add_entry "$label/$display" "linked" "$(tilde_path "$src")"
+      add_entry "$label/$base" "linked" "$(tilde_path "$src")"
     elif [ -e "$target" ] || [ -L "$target" ]; then
-      add_entry "$label/$display" "local"
+      add_entry "$label/$base" "local"
     else
       ln -s "$src" "$target"
-      add_entry "$label/$display" "NEW" "$(tilde_path "$src")"
+      add_entry "$label/$base" "NEW" "$(tilde_path "$src")"
     fi
   done
 
-  # Scan target dir for entries not covered by source
   for entry in "$target_dir"/*; do
     [ -e "$entry" ] || [ -L "$entry" ] || continue
     local base="$(basename "$entry")"
     [ -n "${seen[$base]+x}" ] && continue
-    local display="$base"
-    [ -n "$strip_ext" ] && display="$(basename "$entry" "$strip_ext")"
 
     if [ -L "$entry" ]; then
       local link_target="$(readlink "$entry")"
-      # Check if it points into our source dir (stale managed link)
+      # A link into the source dir with no source entry is a stale managed link.
       if [[ "$link_target" == "$SCRIPT_DIR/$label/"* ]]; then
         rm "$entry"
-        add_entry "$label/$display" "removed" "$(tilde_path "$link_target") (was stale)"
+        add_entry "$label/$base" "removed" "$(tilde_path "$link_target") (was stale)"
       else
-        add_entry "$label/$display" "local"
+        add_entry "$label/$base" "local"
       fi
     else
-      add_entry "$label/$display" "local"
+      add_entry "$label/$base" "local"
     fi
   done
 }
 
-# --- Un-symlink skills that have been moved under skills/deprecated/ ---
 unlink_deprecated() {
   local label="$1" glob="$2"
   local target_dir="$CLAUDE_DIR/$label"
@@ -109,8 +100,6 @@ unlink_deprecated() {
 
 unlink_deprecated skills "skills/deprecated/*/"
 link_entries      skills "skills/*/"
-
-# --- Print aligned output ---
 
 max_path=0
 max_status=0

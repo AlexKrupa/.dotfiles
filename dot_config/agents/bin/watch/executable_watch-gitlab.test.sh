@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks watch-gitlab.sh with a real git repo and a fake glab.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -140,6 +139,16 @@ fixture todos '[{"id": 13, "action_name": "mentioned", "author": {"username": "a
   "target_url": "'"$url"'/5"}]'
 run
 check "to-do item on an own MR: no events" "" "$out"
+
+reset_mock
+echo '{"todos": []}' >"$state"
+fixture events "$(jq -nc '[range(1; 101) | {project_id: 7, note: {noteable_type: "MergeRequest", noteable_iid: .}}]')"
+fixture events_p1 '[{"project_id": 7, "note": {"noteable_type": "MergeRequest", "noteable_iid": 101}}]'
+: >"$MOCK_LOG"
+run
+calls=$(grep '^api projects/7/merge_requests?state=all' "$MOCK_LOG")
+check "commented MRs: all event pages, one call for each 100 MRs" "2 iids[]=101&per_page=100" \
+  "$(grep -c '' <<<"$calls") $(tail -n1 <<<"$calls" | sed 's/.*state=all&//')"
 
 reset_mock
 echo '{"todos": []}' >"$state"
@@ -292,7 +301,12 @@ mkdir -p "$d/cache"
 WATCH_MR_CACHE="$d/cache" srun --mr 5
 WATCH_MR_CACHE="$d/cache" srun --fresh --mr 5
 check "MR cache: second fetch reads the cache" 1 "$(grep -c ' iid=5$' "$MOCK_LOG")"
-check "MR cache: file written" yes "$([ -f "$d/cache/5.json" ] && echo yes || echo no)"
+check "MR cache: file written" yes "$([ -f "$d/cache/group%2Fsub%2Fapp-5.json" ] && echo yes || echo no)"
+mkdir -p "$d/cache-other"
+echo '{"note": "MR 5 of a different project with the same repo directory name"}' >"$d/cache-other/5.json"
+: >"$MOCK_LOG"
+WATCH_MR_CACHE="$d/cache-other" srun --fresh --mr 5
+check "MR cache: the MR of a different project is not read" 1 "$(grep -c ' iid=5$' "$MOCK_LOG")"
 
 gql 5 '.headPipeline = {id: "gid://gitlab/Ci::Pipeline/50", status: "FAILED"}'
 srun --mr 5

@@ -1,26 +1,21 @@
 #!/usr/bin/env bash
-# Read-only GitLab MR fetcher for the review-pr and work skills.
-# Subcommands: preflight | resolve | locate | fetch | discussions | diff-check
+# Usage: fetch-gitlab-mr.sh preflight
+#        fetch-gitlab-mr.sh resolve     <MR/pipeline/job URL | iid | branch | "">
+#        fetch-gitlab-mr.sh locate      <project_path>
+#        fetch-gitlab-mr.sh fetch       <source_branch> [target_branch [project_path]]
+#        fetch-gitlab-mr.sh discussions <iid> [project_path]
+#        fetch-gitlab-mr.sh diff-check  <iid> [target_branch]
+# GitLab MR fetcher. Read-only on GitLab. `fetch` updates the local source branch and the
+# remote-tracking refs.
 # Exit codes: 0 ok, 1 usage/other, 2 not found, 3 ambiguous, 4 missing dep / auth, 5 network
 
 set -euo pipefail
 
-E_NOTFOUND=2
-E_AMBIGUOUS=3
-E_DEP=4
-E_NETWORK=5
+die() { echo "fetch-gitlab-mr: $1" >&2; exit "${2:-1}"; }
+# shellcheck source=gitlab-lib.sh
+source "$(dirname "$0")/gitlab-lib.sh"
 
-die() { echo "$1" >&2; exit "${2:-1}"; }
-
-preflight() {
-  command -v glab >/dev/null || die "glab not installed" "$E_DEP"
-  command -v jq   >/dev/null || die "jq not installed"   "$E_DEP"
-}
-
-urlencode_path() { jq -nRr --arg s "$1" '$s|@uri'; }
-
-# preflight: deterministic prereqs in fail-fast order (cheap local -> network).
-# glab/jq presence already verified by top-level preflight().
+# The top-level preflight() checks glab and jq first.
 cmd_preflight() {
   glab auth status >/dev/null 2>&1 \
     || die "glab not authenticated, run: glab auth login" "$E_DEP"
@@ -93,17 +88,12 @@ cmd_locate() {
   esac
 }
 
-# worktree_of <branch>: prints the path of the worktree that has the branch checked out.
-worktree_of() {
-  git worktree list --porcelain | awk -v ref="refs/heads/$1" '
-    /^worktree / { path = substr($0, 10) }
-    $0 == "branch " ref { print path; exit }'
-}
+# shellcheck source=git-lib.sh
+source "$(dirname "$0")/git-lib.sh"
 
 # fetch <source_branch> [target_branch [project_path]]
-# Brings the local <source> branch to the remote tip without a checkout in the current
-# worktree, and refreshes the target's remote-tracking ref (does NOT touch the user's
-# local target branch). review-diff then diffs against a fresh base.
+# Moves the local <source> branch to the remote tip with no checkout in the current worktree.
+# Updates the remote-tracking ref of the target. The local target branch stays as it is.
 # Emits JSON: remote, source_branch, and with a target: target_branch, target_ref.
 cmd_fetch() {
   local source="${1-}" target="${2-}" project="${3-}"
@@ -137,16 +127,15 @@ cmd_fetch() {
   fi
 
   if [[ -z "$target" ]]; then
-    jq -n --arg remote "$remote" --arg source "$source" '{remote:$remote, source_branch:$source}'
+    jq -nc --arg remote "$remote" --arg source "$source" '{remote:$remote, source_branch:$source}'
     return
   fi
-  jq -n \
+  jq -nc \
     --arg remote "$remote" --arg source "$source" --arg target "$target" \
     --arg target_ref "$remote/$target" \
     '{remote:$remote, source_branch:$source, target_branch:$target, target_ref:$target_ref}'
 }
 
-# Pull the MR fields out of `glab mr view --output json`.
 project_mr_view() {
   jq '{
     iid,
@@ -165,33 +154,17 @@ project_mr_view() {
 }
 
 glab_mr_view_json() {
-  local iid="$1" repo="${2-}"
-  if [[ -n "$repo" ]]; then
-    glab mr view "$iid" -R "$repo" --output json 2>/dev/null \
-      || die "glab mr view failed (iid=$iid repo=$repo)" "$E_NETWORK"
-  else
-    glab mr view "$iid" --output json 2>/dev/null \
-      || die "glab mr view failed (iid=$iid)" "$E_NETWORK"
-  fi
+  local iid="$1" repo="${2-}" repo_args=()
+  [[ -z "$repo" ]] || repo_args=(-R "$repo")
+  glab mr view "$iid" "${repo_args[@]}" --output json 2>/dev/null \
+    || die "glab mr view failed (iid=$iid${repo:+ repo=$repo})" "$E_NETWORK"
 }
 
 resolve_branch_to_iid() {
-  local branch="$1" repo="${2-}" json count repo_args=()
-  [[ -z "$repo" ]] || repo_args=(-R "$repo")
-  json=$(glab mr list --source-branch "$branch" "${repo_args[@]}" --output json 2>/dev/null) \
-    || die "glab mr list failed for branch '$branch'" "$E_NETWORK"
-  count=$(jq 'length' <<<"$json")
-  case "$count" in
-    0) die "no open MR for branch '$branch'" "$E_NOTFOUND" ;;
-    1) jq -r '.[0].iid' <<<"$json" ;;
-    *)
-      {
-        echo "multiple open MRs for branch '$branch':"
-        jq -r '.[] | "  iid \(.iid): \(.title) (\(.web_url))"' <<<"$json"
-      } >&2
-      exit "$E_AMBIGUOUS"
-      ;;
-  esac
+  local iid
+  iid=$(open_mr_of_branch "$@")
+  [[ -n "$iid" ]] || die "no open MR for branch '$1'" "$E_NOTFOUND"
+  echo "$iid"
 }
 
 cmd_resolve() {
@@ -232,12 +205,11 @@ cmd_resolve() {
 }
 
 # discussions <iid> [project_path]
-# project_path can also come from $REVIEW_GITLAB_PROJECT. When neither is set,
-# the script asks `glab mr view` to discover it (one extra round-trip).
+# With no project_path, the script asks `glab mr view` to discover it (one extra round-trip).
 cmd_discussions() {
   local iid="${1-}"
   [[ -n "$iid" ]] || die "usage: discussions <iid> [project_path]" 1
-  local project="${2-${REVIEW_GITLAB_PROJECT-}}"
+  local project="${2-}"
   if [[ -z "$project" ]]; then
     project=$(glab_mr_view_json "$iid" \
       | jq -r '.web_url | capture("https?://[^/]+/(?<p>.+)/-/merge_requests/").p')
@@ -246,11 +218,11 @@ cmd_discussions() {
   fi
 
   local enc; enc=$(urlencode_path "$project")
-  glab api "projects/$enc/merge_requests/$iid/discussions" 2>/dev/null \
+  # glab can print one array for each page.
+  glab api "projects/$enc/merge_requests/$iid/discussions?per_page=100" --paginate 2>/dev/null \
+    | jq -s 'add // []' \
     | jq '[
         .[]
-        # Drop discussions whose every note is a GitLab system note
-        # (label changes, assignee churn, pipeline status pings).
         | select(any(.notes[]; .system == false))
         | {
             id,
@@ -266,9 +238,8 @@ cmd_discussions() {
     || die "glab api discussions failed" "$E_NETWORK"
 }
 
-# diff-check <iid>: compare the set of changed files (and total +/- counts)
-# between the local branch and the MR. A full-diff hash compare is too brittle
-# (whitespace/headers). File-set + line-count is a stable check.
+# diff-check <iid> [target_branch]: compare the changed file sets of the local branch and the MR.
+# A full-diff hash compare is too brittle (whitespace/headers).
 cmd_diff_check() {
   local iid="${1-}" target="${2-}"
   [[ -n "$iid" ]] || die "usage: diff-check <iid> [target_branch]" 1
@@ -279,9 +250,10 @@ cmd_diff_check() {
   fi
 
   local local_files mr_files
-  local_files=$(git diff "${target}...HEAD" --name-only | sort -u)
+  # `fetch` updates the remote-tracking ref, not the local target branch.
+  local_files=$(git diff "$(pick_remote)/${target}...HEAD" --name-only | sort -u)
   mr_files=$(glab mr diff "$iid" 2>/dev/null \
-    | awk '/^diff --git / { sub(/^a\//, "", $3); print $3 }' \
+    | awk '/^diff --git / { sub(/^b\//, "", $4); print $4 }' \
     | sort -u) \
     || die "glab mr diff failed" "$E_NETWORK"
 
@@ -295,22 +267,6 @@ cmd_diff_check() {
   exit 1
 }
 
-usage() {
-  cat <<'USAGE'
-fetch-gitlab-mr.sh - read-only GitLab MR fetcher for the review-pr and work skills.
-
-Usage:
-  fetch-gitlab-mr.sh preflight
-  fetch-gitlab-mr.sh resolve     <MR/pipeline/job URL | iid | branch | "">
-  fetch-gitlab-mr.sh locate      <project_path>
-  fetch-gitlab-mr.sh fetch       <source_branch> [target_branch [project_path]]
-  fetch-gitlab-mr.sh discussions <iid> [project_path]      # or REVIEW_GITLAB_PROJECT
-  fetch-gitlab-mr.sh diff-check  <iid> [target_branch]
-
-Exit codes: 0 ok · 1 usage/other · 2 not found · 3 ambiguous · 4 dep/auth · 5 network
-USAGE
-}
-
 preflight
 case "${1-}" in
   preflight)    cmd_preflight ;;
@@ -319,6 +275,5 @@ case "${1-}" in
   fetch)        shift; cmd_fetch "$@" ;;
   discussions)  shift; cmd_discussions "$@" ;;
   diff-check)   shift; cmd_diff_check "$@" ;;
-  ""|-h|--help) usage ;;
-  *)            die "unknown subcommand: $1" 1 ;;
+  *)            die "unknown subcommand '${1-}': read the # Usage: lines in $0" 1 ;;
 esac

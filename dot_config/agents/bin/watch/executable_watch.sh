@@ -136,7 +136,7 @@ shopt -s nullglob
 daemon_alive() {
   local pid
   pid=$(cat "$WATCHD_DIR/daemon.pid" 2>/dev/null) || return 1
-  [[ $(ps -o command= -p "$pid" 2>/dev/null) == *watchd.sh* ]]
+  is_daemon_process "$pid"
 }
 
 if [[ $command == status ]]; then
@@ -274,8 +274,8 @@ if [[ $command == unsubscribe ]]; then
 fi
 
 # The lock makes sure that two clients do not start two daemons. Claude Code stops a background task
-# with its process group, so the daemon gets a new session (setsid), and the subshell makes launchd
-# its parent.
+# with its process group. Thus the daemon gets a new session (setsid), and the subshell makes
+# launchd its parent.
 start_daemon() {
   watch_lock "$WATCHD_DIR/start.lock" || exit 1
   if ! daemon_alive; then
@@ -290,8 +290,8 @@ start_daemon() {
   daemon_alive || die "the daemon did not start, see $WATCHD_DIR/watchd.log"
 }
 
-# The parent of this script can be a wrapper shell that stays alive after the agent is killed,
-# so the check covers all ancestors.
+# The parent of this script can be a wrapper shell that stays alive after the agent is killed. Thus
+# the check covers all ancestors.
 ancestors=()
 p=$PPID
 while ((p > 1)); do ancestors+=("$p"); p=$(ps -o ppid= -p "$p" | tr -d ' '); done
@@ -310,7 +310,7 @@ poked=$WATCHD_DIR/rounds/$key.poked
 poke_token=$$-$EPOCHSECONDS
 ((fresh)) && rm -f "$WATCH_ENGINE_DIR/$key.json"
 # New scripts, for example after a chezmoi update: the daemon starts again after its current
-# round. An older daemon exits, and this client starts the new one. The state is on disk, so no
+# round. An older daemon exits, and this client starts the new one. The state is on disk. Thus no
 # event is lost.
 hash=$(watch_scripts_hash)
 seen_hash=$hash
@@ -400,7 +400,7 @@ while :; do
   fi
   watch_unlock "$sub.lock"
   # With --once, the client takes the inbox only after the check of its own poke. The daemon writes
-  # the token after it routes the events of that check, so a check that started before the poke
+  # the token after it routes the events of that check. Thus a check that started before the poke
   # does not count.
   own_round=0
   if [[ $(cat "$poked" 2>/dev/null) == "$poke_token" ]]; then own_round=1; fi

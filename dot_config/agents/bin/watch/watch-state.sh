@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # State paths, keys, and locks of the watch client, the watch daemon, and the check engine.
 # Source this file. WATCH_BIN is the folder of the watch scripts. repo-slug.sh is in its parent.
 # The event log and the workspace files are the data of the herdr plugin `watch`, which sends the
@@ -27,6 +28,10 @@ watch_alive() {
   ps -p "$1" >/dev/null 2>&1
 }
 
+is_daemon_process() {
+  [[ $(ps -o command= -p "$1" 2>/dev/null) == *watchd.sh* ]]
+}
+
 # The Claude Code process that runs the caller. Its life is the life of the subscription.
 watch_session_pid() {
   local p=$PPID comm
@@ -36,7 +41,7 @@ watch_session_pid() {
     if [[ ${comm##*/} == claude ]]; then echo "$p"; return; fi
     p=$(ps -o ppid= -p "$p" | tr -d ' ')
   done
-  # The parent dies with the client, so the subscription ends soon after each client.
+  # The parent dies with the client. Thus the subscription ends soon after each client.
   watch_log "" "" "no claude process above PID $PPID: the session is PID $PPID"
   echo "$PPID"
 }

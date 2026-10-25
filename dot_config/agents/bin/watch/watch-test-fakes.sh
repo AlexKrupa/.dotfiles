@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Fakes for the watch tests. Source this file after `d` is set to an empty temp folder.
 # It creates a fake glab, herdr, pmset, and nc in $d/bin, the fixtures folder $d/mock, and the git
 # repo $d/app with a GitLab origin, and exports the variables for them.

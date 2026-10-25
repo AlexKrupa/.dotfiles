@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks watch-lib.sh with fake pmset, nc, sleep, and date.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)

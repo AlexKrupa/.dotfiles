@@ -31,13 +31,13 @@ key() { sed -n "s/^$1: //p"; }
 mkdir -p "$tmp/plain"
 (cd "$tmp/plain" && "$bin/git-diff-context.sh" >/dev/null 2>"$tmp/stderr"); code=$?
 check "context: not a repo exits 1" 1 "$code"
-check "context: not a repo message" "Not inside a git work tree — nothing to review." "$(cat "$tmp/stderr")"
+check "context: not a repo message" "git-diff-context: Not inside a git work tree - nothing to review." "$(cat "$tmp/stderr")"
 
 new_repo "$tmp/solo"
 git -C "$tmp/solo" switch -q -c feat/empty
 ctx "$tmp/solo" >/dev/null; code=$?
 check "context: no diff exits 1" 1 "$code"
-check "context: no diff message" "Branch 'feat/empty' has no diff vs parent 'main' — nothing to review." \
+check "context: no diff message" "git-diff-context: Branch 'feat/empty' has no diff vs parent 'main' - nothing to review." \
   "$(tail -1 "$tmp/stderr")"
 
 commit_file "$tmp/solo" a.txt a
@@ -60,7 +60,7 @@ rm "$tmp/solo/untracked.txt"
 
 ctx "$tmp/solo" nope >/dev/null; code=$?
 check "context: missing override exits 1" 1 "$code"
-check "context: missing override message" "Override parent ref 'nope' not found." "$(cat "$tmp/stderr")"
+check "context: missing override message" "git-diff-context: Override parent ref 'nope' not found." "$(cat "$tmp/stderr")"
 
 # A remote with no remote-tracking ref: local main is the parent.
 git -C "$tmp/solo" remote add origin "$tmp/none.git"
@@ -120,7 +120,7 @@ check "context: uncommitted - diffstat is the edit only" " b.txt | 2 +-" \
   "$(sed -n '/^## Diffstat/,/^$/p' <<<"$out" | grep '|' | paste -sd'|' -)"
 ctx "$tmp/stack" --uncommitted main >/dev/null; code=$?
 check "context: uncommitted - override needs --with-branch" 1 "$code"
-check "context: uncommitted - override message" "A parent override needs --with-branch." \
+check "context: uncommitted - override message" "git-diff-context: A parent override needs --with-branch." \
   "$(cat "$tmp/stderr")"
 
 # --uncommitted --with-branch: branch commits plus working tree.
@@ -155,17 +155,17 @@ git -C "$tmp/stack" reset -q && git -C "$tmp/stack" checkout -q -- b.txt && rm "
 # --with-branch alone is not a scope.
 ctx "$tmp/stack" --with-branch >/dev/null; code=$?
 check "context: with-branch alone exits 1" 1 "$code"
-check "context: with-branch alone message" "--with-branch needs --uncommitted or --staged." \
+check "context: with-branch alone message" "git-diff-context: --with-branch needs --uncommitted or --staged." \
   "$(cat "$tmp/stderr")"
 
 # No local changes.
 ctx "$tmp/stack" --uncommitted >/dev/null; code=$?
 check "context: uncommitted - nothing exits 1" 1 "$code"
-check "context: uncommitted - nothing message" "No uncommitted changes — nothing to review." \
+check "context: uncommitted - nothing message" "git-diff-context: No uncommitted changes - nothing to review." \
   "$(tail -1 "$tmp/stderr")"
 ctx "$tmp/stack" --staged >/dev/null; code=$?
 check "context: staged - nothing exits 1" 1 "$code"
-check "context: staged - nothing message" "No staged changes — nothing to review." \
+check "context: staged - nothing message" "git-diff-context: No staged changes - nothing to review." \
   "$(tail -1 "$tmp/stderr")"
 
 # Uncommitted edits on the parent itself: HEAD equals parent.
@@ -173,7 +173,7 @@ git -C "$tmp/solo" switch -q main
 ctx "$tmp/solo" --uncommitted --with-branch >/dev/null; code=$?
 check "context: branch-uncommitted - nothing exits 1" 1 "$code"
 check "context: branch-uncommitted - nothing message" \
-  "No committed or uncommitted changes vs parent 'main' — nothing to review." "$(tail -1 "$tmp/stderr")"
+  "git-diff-context: No committed or uncommitted changes vs parent 'main' - nothing to review." "$(tail -1 "$tmp/stderr")"
 printf 'u\n' >"$tmp/solo/untracked.txt"
 out=$(ctx "$tmp/solo" --uncommitted)
 check "context: uncommitted - untracked only is a diff" "uncommitted" "$(key scope <<<"$out")"
@@ -184,7 +184,7 @@ check "context: branch-uncommitted - untracked only is a diff" "branch-uncommitt
 ctx "$tmp/solo" --staged --with-branch >/dev/null; code=$?
 check "context: branch-staged - nothing exits 1" 1 "$code"
 check "context: branch-staged - nothing message" \
-  "No committed or staged changes vs parent 'main' — nothing to review." "$(tail -1 "$tmp/stderr")"
+  "git-diff-context: No committed or staged changes vs parent 'main' - nothing to review." "$(tail -1 "$tmp/stderr")"
 rm "$tmp/solo/untracked.txt"
 git -C "$tmp/solo" switch -q feat/empty
 
@@ -209,12 +209,12 @@ out=$(ctx "$tmp/stack" --rev feat/a...)
 check "context: range - three dots, empty tip" "git diff feat/a...HEAD" "$(key diff-command <<<"$out")"
 ctx "$tmp/stack" --rev main..main >/dev/null; code=$?
 check "context: range - empty exits 1" 1 "$code"
-check "context: range - empty message" "No diff in 'main..main' — nothing to review." "$(cat "$tmp/stderr")"
+check "context: range - empty message" "git-diff-context: No diff in 'main..main' - nothing to review." "$(cat "$tmp/stderr")"
 ctx "$tmp/stack" --rev "$(git -C "$tmp/stack" rev-list --max-parents=0 HEAD)" >/dev/null; code=$?
 check "context: rev - root commit exits 1" 1 "$code"
 ctx "$tmp/stack" --rev nope >/dev/null; code=$?
 check "context: rev - missing ref exits 1" 1 "$code"
-check "context: rev - missing ref message" "Ref 'nope' not found." "$(cat "$tmp/stderr")"
+check "context: rev - missing ref message" "git-diff-context: Ref 'nope' not found." "$(cat "$tmp/stderr")"
 ctx "$tmp/stack" --rev main..feat/b main >/dev/null; code=$?
 check "context: rev - parent override exits 1" 1 "$code"
 

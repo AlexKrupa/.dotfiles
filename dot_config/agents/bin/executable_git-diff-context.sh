@@ -3,7 +3,9 @@
 #        git-diff-context.sh [--parent-only] [--fetch] --uncommitted | --staged
 #        git-diff-context.sh [--parent-only] [--fetch] --uncommitted | --staged --with-branch [parent-override]
 #        git-diff-context.sh [--parent-only] [--fetch] --rev <rev | A..B | A...B>
-# Prints the review context of a diff as a keyed text block on stdout.
+# Prints the review context of a diff as a keyed text block on stdout: scope, branch, tip,
+# parent, parent-source, uncommitted, log-range, report-prefix, diff-command, then the
+# `## Diffstat`, `## Commits`, `## Authors (shortlog)`, and `## Uncommitted` blocks.
 # Cheap local guards abort before any diff. --parent-only prints only the lines from
 # `scope:` to `parent-source:`, and skips the slow status, diffstat, and log commands.
 #
@@ -13,17 +15,15 @@
 # parent, or a range (A..B and A...B both mean the commits in B and not in A),
 # independent of the current branch.
 #
-# The --uncommitted and --staged scopes use HEAD as the parent. In the other scopes,
-# with no arg, the parent is the nearest local branch that is a strict ancestor of
-# HEAD. If git-spice tracks the current branch, its base branch is used instead. When
-# that branch is mainline (main/master/develop or the remote default
-# branch), the remote-tracking ref is the base, because the local mainline can be far
-# behind. If the remote-tracking ref does not exist, the local mainline is the base.
-# The script does not fetch, because a fetch on a slow network takes seconds. The
-# diffs start at the merge base, so an older remote-tracking ref gives the same diff.
-# --fetch fetches the mainline first (best-effort). Intermediate
-# stack parents stay anchored on their local tip. With an arg, that ref is the
-# parent (validated to exist).
+# The --uncommitted and --staged scopes use HEAD as the parent. In the other scopes, with no
+# arg, the parent is the nearest local branch that is a strict ancestor of HEAD. If git-spice
+# tracks the current branch, its base branch is the parent. If that branch is mainline
+# (main/master/develop or the remote default branch), the remote-tracking ref is the base,
+# because the local mainline can be far behind. If the remote-tracking ref does not exist, the
+# local mainline is the base. The script does not fetch, because a fetch on a slow network takes
+# seconds. The diffs start at the merge base. Thus an older remote-tracking ref gives the same
+# diff. --fetch fetches the mainline first, and a failed fetch is only a warning. An intermediate
+# stack parent stays at its local tip. With an arg, that ref is the parent, and it must exist.
 #
 # Aborts (exit 1, message on stderr) when: not a repo, no diff in scope, parent
 # unresolved, override ref missing.
@@ -32,7 +32,7 @@
 # for the reviewable content, plus bounded metadata (--stat, log, status).
 set -euo pipefail
 
-die() { printf '%s\n' "$1" >&2; exit 1; }
+die() { printf 'git-diff-context: %s\n' "$1" >&2; exit 1; }
 
 parent_only=no
 fetch=no
@@ -66,7 +66,7 @@ if [ -n "$override" ] && { [ "$scope" = uncommitted ] || [ "$scope" = staged ]; 
 fi
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
-  || die "Not inside a git work tree — nothing to review."
+  || die "Not inside a git work tree - nothing to review."
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
 tip="$branch"
@@ -122,7 +122,7 @@ else
 
   # git-spice keeps the base of each tracked branch, so no scan of all branches.
   # Without refs/spice/data, git-spice initializes the repo, so check it first.
-  # --no-prompt: stdin can be a terminal, and a prompt would stop the script.
+  # --no-prompt: stdin can be a terminal, and a prompt stops the script.
   nearest=""
   if [ "$branch" != HEAD ] && command -v git-spice >/dev/null \
     && git show-ref --verify --quiet refs/spice/data; then
@@ -145,7 +145,7 @@ else
   fi
 
   if [ -n "$nearest" ] && ! is_mainline "$nearest"; then
-    # Intermediate stack parent: the split point is your local tip. No fetch.
+    # Intermediate stack parent: the split point is the local tip. No fetch.
     parent="$nearest"
     parent_source="ancestor-branch"
   else
@@ -182,43 +182,41 @@ log_range="$parent..HEAD"
 report_prefix="$scope"
 case "$scope" in
   branch)
-    # Compare resolved SHAs, not names: branch may equal parent via a differently
-    # named upstream that points at the same commit.
-    if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$parent")" ]; then
-      die "Branch '$branch' has no diff vs parent '$parent' — nothing to review."
-    fi
     diff_args=("$parent...HEAD")
+    # A branch with no own commits can be behind the parent: the SHAs differ, and the diff is empty.
+    git diff --quiet "${diff_args[@]}" \
+      && die "Branch '$branch' has no diff vs parent '$parent' - nothing to review."
     report_prefix=""
     ;;
   uncommitted)
     log_range="HEAD..HEAD"
     diff_args=(HEAD)
     if git diff --quiet HEAD && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-      die "No uncommitted changes — nothing to review."
+      die "No uncommitted changes - nothing to review."
     fi
     ;;
   staged)
     log_range="HEAD..HEAD"
     diff_args=(--cached)
-    git diff --quiet --cached && die "No staged changes — nothing to review."
+    git diff --quiet --cached && die "No staged changes - nothing to review."
     ;;
   branch-uncommitted)
     diff_args=(--merge-base "$parent")
-    # `git diff` does not show untracked files, so check them separately.
+    # `git diff` does not show untracked files. They get a separate check.
     if git diff --quiet "${diff_args[@]}" && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-      die "No committed or uncommitted changes vs parent '$parent' — nothing to review."
+      die "No committed or uncommitted changes vs parent '$parent' - nothing to review."
     fi
     ;;
   branch-staged)
     diff_args=(--cached --merge-base "$parent")
     git diff --quiet "${diff_args[@]}" \
-      && die "No committed or staged changes vs parent '$parent' — nothing to review."
+      && die "No committed or staged changes vs parent '$parent' - nothing to review."
     ;;
   rev)
     log_range="$parent..$tip"
     report_prefix="$rev"
     diff_args=("$parent...$tip")
-    git diff --quiet "${diff_args[@]}" && die "No diff in '$rev' — nothing to review."
+    git diff --quiet "${diff_args[@]}" && die "No diff in '$rev' - nothing to review."
     ;;
 esac
 

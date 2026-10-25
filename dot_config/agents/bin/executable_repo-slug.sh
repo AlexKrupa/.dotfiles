@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Print the ~/.ai/ subdirectory name for the current location.
+# Usage: repo-slug.sh
+# Prints the ~/.ai/ subdirectory name for the current location.
 # All linked worktrees of one repo resolve to the same name.
 # Outside a git repo: prints `_no-repo`.
-set -e
+# Writes nothing. Exit codes: 0 ok.
+set -euo pipefail
 
-slugify() {
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' \
-    | sed -E 's#[^a-z0-9]+#-#g; s#^-+##; s#-+$##'
-}
+# shellcheck source=git-lib.sh
+source "$(dirname "$0")/git-lib.sh"
 
 common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
 

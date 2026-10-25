@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks git-squash-fixups.sh with scratch repos. No LLM.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -19,26 +18,23 @@ export GIT_AUTHOR_NAME="Test Dev" GIT_AUTHOR_EMAIL=dev@example.com
 export GIT_COMMITTER_NAME="Test Dev" GIT_COMMITTER_EMAIL=dev@example.com
 mkdir -p "$HOME"
 
-# new_repo <name>: sets $repo to a fresh repo on branch feat, one commit ahead of nothing.
+# new_repo <name>: sets $repo to a new repo on branch feat with one commit.
 new_repo() {
   repo="$tmp/$1"
   mkdir -p "$repo" && git -C "$repo" init -q -b main
   commit README.md "# R" Init
   git -C "$repo" switch -q -c feat
 }
-# commit <file> <content> <subject>
 commit() { printf '%s\n' "$2" >"$repo/$1"; git -C "$repo" add -A; git -C "$repo" commit -q -m "$3"; }
 tip() { git -C "$repo" rev-parse HEAD; }
 run() { (cd "$repo" && "$script" "$@") >"$tmp/out" 2>"$tmp/err"; }
 subjects() { git -C "$repo" log --reverse --format=%s main..HEAD | paste -sd, -; }
 backups() { git -C "$repo" for-each-ref --format='%(objectname)' refs/review-me/; }
 
-# --- guards ---
-
 mkdir -p "$tmp/plain"
 (cd "$tmp/plain" && "$script" main) >/dev/null 2>"$tmp/err"; code=$?
 check "not a repo: exit 1" 1 "$code"
-check "not a repo: message" "Not inside a git work tree." "$(cat "$tmp/err")"
+check "not a repo: message" "git-squash-fixups: Not inside a git work tree." "$(cat "$tmp/err")"
 
 new_repo guards
 commit a.txt 1 A; a=$(tip)
@@ -49,39 +45,39 @@ main=$(git -C "$repo" rev-parse main)
 
 run; check "no args: exit 1" 1 "$?"
 check "no args: message" \
-  "Usage: git-squash-fixups.sh [--dry-run] <parent> [<repair>:<target>...]" "$(cat "$tmp/err")"
+  "git-squash-fixups: Usage: git-squash-fixups.sh [--dry-run] <parent> [<repair>:<target>...]" "$(cat "$tmp/err")"
 
 run nope
-check "bad parent" "Parent ref 'nope' not found." "$(cat "$tmp/err")"
+check "bad parent" "git-squash-fixups: Parent ref 'nope' not found." "$(cat "$tmp/err")"
 
 run HEAD
-check "HEAD is parent" "HEAD == parent; no branch commits to rewrite." "$(cat "$tmp/err")"
+check "HEAD is parent" "git-squash-fixups: HEAD == parent; no branch commits to rewrite." "$(cat "$tmp/err")"
 
 run main "$c"
-check "squash without colon" "Bad squash '$c'; expected <repair>:<target>." "$(cat "$tmp/err")"
+check "squash without colon" "git-squash-fixups: Bad squash '$c'; expected <repair>:<target>." "$(cat "$tmp/err")"
 
 run main "$c:$c"
-check "squash into itself" "Squash '$c:$c' folds a commit into itself." "$(cat "$tmp/err")"
+check "squash into itself" "git-squash-fixups: Squash '$c:$c' folds a commit into itself." "$(cat "$tmp/err")"
 
 run main "$c:main"
-check "target outside range" "Target ${main:0:7} is outside main..HEAD." "$(cat "$tmp/err")"
+check "target outside range" "git-squash-fixups: Target ${main:0:7} is outside main..HEAD." "$(cat "$tmp/err")"
 
 run main "$a:$c"
 check "reversed squash" \
-  "Target ${c:0:7} is not an ancestor of repair ${a:0:7}; use <newer>:<older>." "$(cat "$tmp/err")"
+  "git-squash-fixups: Target ${c:0:7} is not an ancestor of repair ${a:0:7}; use <newer>:<older>." "$(cat "$tmp/err")"
 
 run main "$c:$a" "$c:$b"
-check "repair twice" "Commit ${c:0:7} given as repair twice." "$(cat "$tmp/err")"
+check "repair twice" "git-squash-fixups: Commit ${c:0:7} given as repair twice." "$(cat "$tmp/err")"
 
 run main "$c:$a" "$d:$c"
-check "target was a repair" "Commit ${c:0:7} is both a repair and a target." "$(cat "$tmp/err")"
+check "target was a repair" "git-squash-fixups: Commit ${c:0:7} is both a repair and a target." "$(cat "$tmp/err")"
 
 run main "$d:$c" "$c:$a"
-check "repair was a target" "Commit ${c:0:7} is both a repair and a target." "$(cat "$tmp/err")"
+check "repair was a target" "git-squash-fixups: Commit ${c:0:7} is both a repair and a target." "$(cat "$tmp/err")"
 
 echo dirty >"$repo/a.txt"
 run main
-check "dirty tree" "Working tree not clean. Commit or stash first." "$(cat "$tmp/err")"
+check "dirty tree" "git-squash-fixups: Working tree not clean. Commit or stash first." "$(cat "$tmp/err")"
 git -C "$repo" checkout -q -- a.txt
 
 check "guards: HEAD unchanged" "$d" "$(tip)"
@@ -95,9 +91,7 @@ git -C "$repo" switch -q feat
 commit b.txt 1 B
 git -C "$repo" merge -q --no-ff side -m M
 run main
-check "merge in range" "Range contains merge commits; refusing to flatten history." "$(cat "$tmp/err")"
-
-# --- dry run ---
+check "merge in range" "git-squash-fixups: Range contains merge commits; refusing to flatten history." "$(cat "$tmp/err")"
 
 new_repo dry
 commit a.txt 1 A; a=$(tip)
@@ -112,8 +106,6 @@ planned-squashes: 1
   "$(cat "$tmp/out")"
 check "dry run: HEAD unchanged" "$c" "$(tip)"
 check "dry run: no backup ref" "" "$(backups)"
-
-# --- one squash ---
 
 new_repo one
 commit a.txt 1 A; a=$(tip)
@@ -130,8 +122,6 @@ check "one squash: backup ref" "$old" "$(backups)"
 check "one squash: counts" "commits-before: 4
 commits-after: 3
 result: ok" "$(grep -E '^(commits-|result)' "$tmp/out")"
-
-# --- two repairs for one target ---
 
 # Each repair builds on the one before. The wrong order conflicts.
 new_repo order
@@ -153,8 +143,6 @@ run main "$r2:$a" "$r1:$a"; code=$?
 check "two repairs, reversed args: exit 0" 0 "$code"
 check "two repairs, reversed args: subjects" "A,B" "$(subjects)"
 
-# --- repair and a pending fixup! for one target ---
-
 # The fixup! commit builds on the repair, so it must stay after it.
 new_repo pending-and-repair
 commit a.txt 1 A; a=$(tip)
@@ -166,8 +154,6 @@ check "repair + fixup!: exit 0" 0 "$code"
 check "repair + fixup!: subjects" "A,B" "$(subjects)"
 check "repair + fixup!: fixup! wins" 3 "$(git -C "$repo" show HEAD~1:a.txt)"
 
-# --- no squashes ---
-
 new_repo pending
 commit a.txt 1 A
 commit b.txt 1 B
@@ -177,8 +163,6 @@ check "pending only: exit 0" 0 "$code"
 check "pending only: subjects" "A,B" "$(subjects)"
 check "pending only: fixup in target" 2 "$(git -C "$repo" show HEAD~1:a.txt)"
 
-# --- conflict ---
-
 # C changes a.txt from 2 to 3. Moved onto A (a.txt is 1), it conflicts.
 new_repo conflict
 commit a.txt 1 A; a=$(tip)
@@ -186,7 +170,7 @@ commit a.txt 2 B
 commit a.txt 3 C; c=$(tip)
 run main "$c:$a"; code=$?
 check "conflict: exit 1" 1 "$code"
-check "conflict: message" "Rebase failed (conflict or bad todo). Branch restored to $c." \
+check "conflict: message" "git-squash-fixups: Rebase failed (conflict or bad todo). Branch restored to $c." \
   "$(sed 's/ Backup: .*//' "$tmp/err")"
 check "conflict: HEAD restored" "$c" "$(tip)"
 check "conflict: no rebase in progress" no \
@@ -194,8 +178,6 @@ check "conflict: no rebase in progress" no \
     && echo yes || echo no)"
 check "conflict: clean tree" "" "$(git -C "$repo" status --porcelain)"
 check "conflict: backup ref" "$c" "$(backups)"
-
-# --- git config that changes the todo ---
 
 new_repo config
 git -C "$repo" config rebase.abbreviateCommands true
@@ -219,8 +201,6 @@ check "update-refs: exit 0" 0 "$code"
 check "update-refs: subjects" "A,B" "$(subjects)"
 check "update-refs: stacked branch moved" "$(git -C "$repo" rev-parse HEAD~1)" \
   "$(git -C "$repo" rev-parse mid)"
-
-# --- git-spice stack ---
 
 restack_line() { grep '^upstack-restack:' "$tmp/out"; }
 

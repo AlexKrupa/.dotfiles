@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks git-absorb-fixes.sh with scratch repos and the real git-absorb. No LLM.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -33,36 +32,34 @@ new_repo() {
   commit a.txt 'a1\na2\na3' A; a=$(git -C "$repo" rev-parse --short HEAD)
   commit b.txt 'b1' B
 }
-# commit <file> <content> <subject>. Content takes printf escapes.
+# The content takes printf escapes.
 commit() { write "$1" "$2"; git -C "$repo" add -A; git -C "$repo" commit -q -m "$3"; }
 write() { printf "$2\n" >"$repo/$1"; }
 run() { (cd "$repo" && "$script" "$@") >"$tmp/out" 2>"$tmp/err"; }
 subjects() { git -C "$repo" log --reverse --format=%s main..HEAD | paste -sd, -; }
 staged() { git -C "$repo" diff --cached --name-only | paste -sd, -; }
 
-# --- guards ---
-
 mkdir -p "$tmp/plain"
 (cd "$tmp/plain" && "$script" main a.txt) >/dev/null 2>"$tmp/err"; code=$?
 check "not a repo: exit 1" 1 "$code"
-check "not a repo: message" "Not inside a git work tree." "$(cat "$tmp/err")"
+check "not a repo: message" "git-absorb-fixes: Not inside a git work tree." "$(cat "$tmp/err")"
 
 new_repo guards
 run main; check "one arg: exit 1" 1 "$?"
-check "one arg: message" "Usage: git-absorb-fixes.sh <parent> <file>..." "$(cat "$tmp/err")"
+check "one arg: message" "git-absorb-fixes: Usage: git-absorb-fixes.sh <parent> <file>..." "$(cat "$tmp/err")"
 
 run nope a.txt
-check "bad parent" "Parent ref 'nope' not found." "$(cat "$tmp/err")"
+check "bad parent" "git-absorb-fixes: Parent ref 'nope' not found." "$(cat "$tmp/err")"
 
 run HEAD a.txt
-check "HEAD is parent" "HEAD == parent; nothing to absorb into." "$(cat "$tmp/err")"
+check "HEAD is parent" "git-absorb-fixes: HEAD == parent; nothing to absorb into." "$(cat "$tmp/err")"
 
 run main nope.txt
-check "missing file" "File not found and not tracked: nope.txt" "$(cat "$tmp/err")"
+check "missing file" "git-absorb-fixes: File not found and not tracked: nope.txt" "$(cat "$tmp/err")"
 
 write b.txt 'b2'; git -C "$repo" add b.txt
 run main a.txt
-check "pre-staged index" "Index not empty before staging — refusing to mix in pre-staged changes." \
+check "pre-staged index" "git-absorb-fixes: Index not empty before staging - refusing to mix in pre-staged changes." \
   "$(cat "$tmp/err")"
 git -C "$repo" reset -q --hard
 
@@ -73,8 +70,6 @@ blame-fixups: 0
 needs-message: 0
 staged-remaining: no" "$(cat "$tmp/out")"
 check "unchanged file: no commit" "A,B" "$(subjects)"
-
-# --- git absorb places the hunk ---
 
 new_repo absorb
 write a.txt 'a1\nA2\na3'
@@ -96,7 +91,6 @@ check "unrelated change: subjects" "A,B,fixup! A" "$(subjects)"
 check "unrelated change: still unstaged" "b.txt" "$(git -C "$repo" diff --name-only)"
 check "unrelated change: not staged" "" "$(staged)"
 
-# --- blame fallback ---
 # A different configured user makes git absorb skip all commits, as for a teammate's branch.
 
 new_repo blame

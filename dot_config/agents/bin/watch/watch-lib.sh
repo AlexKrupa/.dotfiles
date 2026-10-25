@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Sleep, wake, and network rules for the watch scripts. Source this file.
 # The caller declares sleeper='' and kills $sleeper in its EXIT trap. The caller sets WATCH_HOST
 # before the first nap. An empty WATCH_HOST (a local remote) skips the network probe.

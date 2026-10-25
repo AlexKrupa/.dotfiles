@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks watch.sh and watchd.sh with a fake engine, and with the real engine and a fake glab.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -314,9 +313,8 @@ watch --interval 600
 events "app-$wt" "$(ev pipeline 5)"
 watch --mr 5
 before=$(cat "$WATCHD_DIR/rounds/app")
-sleep 5
 check "smallest interval used" yes \
-  "$( (($(cat "$WATCHD_DIR/rounds/app") - before > 1)) && echo yes || echo no)"
+  "$(wait_for 10 "(( \$(cat '$WATCHD_DIR/rounds/app') - before > 1 ))" && echo yes || echo no)"
 
 reset
 events app "$(ev todo 5)"
@@ -335,7 +333,7 @@ mkdir -p "$d/wbin"
 for file in watch.sh watchd.sh watch-gitlab.sh watch-lib.sh watch-state.sh watch-report.jq; do
   cp "$here/$file" "$d/wbin/"
 done
-cp "$here/../repo-slug.sh" "$d/"
+cp "$here/../repo-slug.sh" "$here/../git-lib.sh" "$d/"
 export WATCH_BIN="$d/wbin"
 start a --interval 600 --fresh
 wait_for 10 "[ -f '$sub' ] && [ -s '$WATCHD_DIR/rounds/app' ]"

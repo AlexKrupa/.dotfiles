@@ -11,7 +11,7 @@ allowed-tools:
   - Bash(~/.config/agents/bin/git-diff-context.sh *)
   - Bash(~/.config/agents/bin/git-squash-fixups.sh *)
   - Bash(~/.config/agents/bin/pr-path.sh *)
-  - Bash(~/.config/agents/bin/pr-draft-reuse.sh *)
+  - Bash(~/.config/agents/skills/draft-pr/pr-draft-reuse.sh *)
 ---
 
 # draft-pr
@@ -128,7 +128,7 @@ A PR branch is always clean. Do this step and do not ask the user first.
 
 ```sh
 ~/.config/agents/bin/pr-path.sh
-~/.config/agents/bin/pr-draft-reuse.sh <file> <parent>
+~/.config/agents/skills/draft-pr/pr-draft-reuse.sh <file> <parent>
 ```
 
 `<file>` is the `file` value of `pr-path.sh`. `<parent>` is the `parent` value of step 3. The

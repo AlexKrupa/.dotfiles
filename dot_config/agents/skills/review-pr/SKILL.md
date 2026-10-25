@@ -31,8 +31,8 @@ finding format. After it writes the report, add the MR context to that file (see
 
 ## Helper scripts
 
-The shared script `fetch-gitlab-mr.sh` does all GitLab fetches and JSON parsing. Run it with
-`--help` for its usage. The working directory is not the skill directory. Always run the script by
+The shared script `fetch-gitlab-mr.sh` does all GitLab fetches and JSON parsing. Its header has
+the usage. The working directory is not the skill directory. Always run the script by
 its absolute path. Shell variables do not persist between Bash calls. Start each command that uses
 `$FMR` with the binding:
 

@@ -1,29 +1,26 @@
 #!/usr/bin/env bash
-# Read-only GitLab pipeline CLI: prereq check, pipeline/job/MR fetch, and trace
-# slicing.
-# Subcommands: check | resolve | failed-jobs | failed-logs | test-failures | trace | signals
-# Exit codes: 0 ok · 1 usage/other · 2 not found · 3 ambiguous · 4 dep/auth · 5 network
+# Usage: gitlab-pipeline.sh check
+#        gitlab-pipeline.sh resolve       <URL | branch | "">
+#        gitlab-pipeline.sh failed-jobs   <pipeline_id> [project_path]
+#        gitlab-pipeline.sh failed-logs   <pipeline_id> [project_path]
+#        gitlab-pipeline.sh test-failures <pipeline_id> [project_path]
+#        gitlab-pipeline.sh trace         <job_id>      [project_path]
+#        gitlab-pipeline.sh signals       <job_id>      [project_path]
+# Read-only GitLab pipeline CLI: prereq check, pipeline/job/MR fetch, and trace slicing.
+# failed-logs prints the failed-jobs output, then the signals of each job with the verdict
+# needs-analysis or unknown. With no project_path, the script uses the glab remote of the repo.
+# Exit codes: 0 ok, 1 usage/other, 2 not found, 3 ambiguous, 4 dep/auth, 5 network
 
 set -euo pipefail
 
-E_NOTFOUND=2
-E_AMBIGUOUS=3
-E_DEP=4
-E_NETWORK=5
+die() { echo "gitlab-pipeline: $1" >&2; exit "${2:-1}"; }
+# shellcheck source=gitlab-lib.sh
+source "$(dirname "$0")/gitlab-lib.sh"
 
-die() { echo "$1" >&2; exit "${2:-1}"; }
-
-preflight() {
-  command -v glab >/dev/null || die "glab not installed" "$E_DEP"
-  command -v jq   >/dev/null || die "jq not installed"   "$E_DEP"
-}
-
-# Full fail-fast prerequisite chain: local checks first, network last.
-# Hard-fails (exit) on not-in-repo / missing glab|jq / unauthenticated.
-# Token absence and a dirty worktree are reported, not blocking.
+# Local checks first, network last. A missing token and a dirty worktree are only reported.
 cmd_check() {
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
-    || die "not in a git repo" 1
+    || die "not in a git repo" "$E_DEP"
   echo "git-repo: yes"
   command -v glab >/dev/null || die "glab not installed" "$E_DEP"
   echo "glab: ok"
@@ -46,93 +43,55 @@ cmd_check() {
   fi
 }
 
-urlencode_path() { jq -nRr --arg s "$1" '$s|@uri'; }
-
-# glab api wrapper: retries on non-zero exit (transient 5xx/network), prints raw body.
+# Retries, because 5xx and network errors are often transient.
 glab_api_retry() {
-  local path="$1" resp rc
+  local path="$1" resp err
+  err=$(mktemp)
   for _ in 1 2 3; do
-    resp=$(glab api "$path" 2>&1); rc=$?
-    [[ $rc -eq 0 ]] && { printf '%s' "$resp"; return 0; }
+    if resp=$(glab api "$path" 2>"$err"); then rm -f "$err"; printf '%s' "$resp"; return 0; fi
     sleep 1
   done
-  die "glab api failed after retries ($path): ${resp:0:200}" "$E_NETWORK"
+  resp=$(head -c 200 "$err"); rm -f "$err"
+  die "glab api failed after retries ($path): $resp" "$E_NETWORK"
 }
 
 # Derive the GitLab project_path (group/proj) for the current repo. Order:
-# 1) $DEBUG_GITLAB_PROJECT, 2) `glab repo view`, 3) git remote URL.
+# 1) `glab repo view`, 2) git remote URL.
 derive_project() {
-  if [[ -n "${DEBUG_GITLAB_PROJECT-}" ]]; then
-    echo "$DEBUG_GITLAB_PROJECT"
-    return
-  fi
   local p=""
   p=$(glab repo view --output json 2>/dev/null \
     | jq -r '.fullPath // .path_with_namespace // empty' 2>/dev/null) || p=""
   if [[ -z "$p" || "$p" == "null" ]]; then
-    p=$(git config --get remote.origin.url 2>/dev/null \
-      | sed -E 's|^(https?://[^/]+/|git@[^:]+:)||; s|\.git$||')
+    p=$(project_of_url "$(git config --get remote.origin.url 2>/dev/null)")
   fi
-  [[ -n "$p" ]] || die "could not derive project_path (set DEBUG_GITLAB_PROJECT or pass as arg)" 1
+  [[ -n "$p" ]] || die "could not derive project_path (pass it as an argument)" 1
   echo "$p"
 }
 
 glab_pipeline_view() {
-  local pid="$1" project="${2-}"
-  if [[ -n "$project" ]]; then
-    glab ci get --pipeline-id "$pid" -R "$project" --output json 2>/dev/null \
-      || die "glab ci get failed (pid=$pid repo=$project)" "$E_NETWORK"
-  else
-    glab ci get --pipeline-id "$pid" --output json 2>/dev/null \
-      || die "glab ci get failed (pid=$pid)" "$E_NETWORK"
-  fi
-}
-
-# Returns the iid (number) or empty. >1 open MR -> exit 3.
-resolve_mr_for_branch() {
-  local branch="$1" project="${2-}" json count
-  if [[ -n "$project" ]]; then
-    json=$(glab mr list --source-branch "$branch" --state opened -R "$project" --output json 2>/dev/null) \
-      || { echo ""; return 0; }
-  else
-    json=$(glab mr list --source-branch "$branch" --state opened --output json 2>/dev/null) \
-      || { echo ""; return 0; }
-  fi
-  count=$(jq 'length' <<<"$json")
-  case "$count" in
-    0) echo "" ;;
-    1) jq -r '.[0].iid' <<<"$json" ;;
-    *)
-      {
-        echo "multiple open MRs for branch '$branch':"
-        jq -r '.[] | "  iid \(.iid): \(.title) (\(.web_url))"' <<<"$json"
-      } >&2
-      exit "$E_AMBIGUOUS"
-      ;;
-  esac
+  local pid="$1" project="${2-}" repo_args=()
+  [[ -z "$project" ]] || repo_args=(-R "$project")
+  glab ci get --pipeline-id "$pid" "${repo_args[@]}" --output json 2>/dev/null \
+    || die "glab ci get failed (pid=$pid${project:+ repo=$project})" "$E_NETWORK"
 }
 
 mr_target_branch() {
-  local iid="$1" project="${2-}"
-  if [[ -n "$project" ]]; then
-    glab mr view "$iid" -R "$project" --output json 2>/dev/null | jq -r '.target_branch // empty'
-  else
-    glab mr view "$iid" --output json 2>/dev/null | jq -r '.target_branch // empty'
-  fi
+  local iid="$1" project="${2-}" repo_args=()
+  [[ -z "$project" ]] || repo_args=(-R "$project")
+  glab mr view "$iid" "${repo_args[@]}" --output json 2>/dev/null | jq -r '.target_branch // empty'
 }
 
 emit_context() {
   local pjson="$1" project="$2" iid="${3-}"
   local ref target=""
   ref=$(jq -r '.ref // ""' <<<"$pjson")
-  # Skip branch lookup when caller already knows the iid, or ref is an MR merge ref.
   if [[ -z "$iid" && "$ref" != refs/merge-requests/* ]]; then
-    iid=$(resolve_mr_for_branch "$ref" "$project")
+    iid=$(open_mr_of_branch "$ref" "$project")
   fi
   if [[ -n "$iid" ]]; then
     target=$(mr_target_branch "$iid" "$project")
   fi
-  jq -n \
+  jq -nc \
     --arg project_path "$project" \
     --argjson p "$pjson" \
     --arg target "$target" \
@@ -203,12 +162,11 @@ cmd_failed_jobs() {
   [[ -n "$pid" ]] || die "usage: failed-jobs <pipeline_id> [project_path]" 1
   [[ -n "$project" ]] || project=$(derive_project)
   local enc resp; enc=$(urlencode_path "$project")
-  resp=$(glab_api_retry "projects/$enc/pipelines/$pid/jobs?scope[]=failed")
+  resp=$(glab_api_retry "projects/$enc/pipelines/$pid/jobs?scope[]=failed&per_page=100")
   jq -e . >/dev/null 2>&1 <<<"$resp" \
     || die "non-JSON from failed-jobs (pid=$pid): ${resp:0:200}" "$E_NETWORK"
-  # verdict/action: deterministic map from failure_reason. `needs-analysis`
-  # means the skill must pull test report / trace; everything else is a
-  # verdict the skill can write without the raw log.
+  # `needs-analysis` means that the skill needs the test report or the trace. The skill can write
+  # each other verdict without the raw log.
   jq '
     def verdict:
       { "script_failure":             {verdict:"needs-analysis",      action:"analyze"},
@@ -226,7 +184,6 @@ cmd_failed_jobs() {
       } + ($j.failure_reason | verdict) ]' <<<"$resp"
 }
 
-# failed-jobs, then signals for each job that needs the trace.
 cmd_failed_logs() {
   local pid="${1-}" project="${2-}"
   [[ -n "$pid" ]] || die "usage: failed-logs <pipeline_id> [project_path]" 1
@@ -264,21 +221,22 @@ cmd_test_failures() {
             stack_trace:   ((.stack_trace   // "")[0:800]) } ]' <<<"$out"
 }
 
-# Download a job trace to /tmp/gl-trace-<jid>.log and echo the path.
-# glab api first; curl with GITLAB_API_TOKEN as fallback.
+# Prints the path of the downloaded trace, /tmp/gl-trace-<jid>.log. The fallback is curl with
+# GITLAB_API_TOKEN.
 download_trace() {
   local jid="$1" project="$2" enc path host resp
   enc=$(urlencode_path "$project")
   path="/tmp/gl-trace-${jid}.log"
   # Trace is raw log text, not JSON. Reject a bare HTTP-code or JSON error body.
-  if resp=$(glab api "projects/$enc/jobs/$jid/trace" 2>&1) \
+  if resp=$(glab api "projects/$enc/jobs/$jid/trace" 2>/dev/null) \
        && [[ -n "$resp" && ! "$resp" =~ ^[0-9]{3}$ ]] \
        && ! jq -e 'objects | has("message")' >/dev/null 2>&1 <<<"$resp"; then
     printf '%s' "$resp" >"$path"
   elif [[ -n "${GITLAB_API_TOKEN-}" ]]; then
     host=$(glab config get host 2>/dev/null || echo "gitlab.com")
-    curl -sfH "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
-      "https://$host/api/v4/projects/$enc/jobs/$jid/trace" >"$path" \
+    # The token goes on stdin, because ps shows argv.
+    curl -sf -H @- "https://$host/api/v4/projects/$enc/jobs/$jid/trace" \
+      <<<"PRIVATE-TOKEN: $GITLAB_API_TOKEN" >"$path" \
       || die "trace download failed (jid=$jid)" "$E_NETWORK"
   else
     die "trace download failed; set GITLAB_API_TOKEN for curl fallback" "$E_NETWORK"
@@ -294,9 +252,8 @@ cmd_trace() {
   download_trace "$jid" "$project"
 }
 
-# Slice a downloaded trace into the signals that pinpoint most failures, so the
-# skill never reads the whole log. Sections: tail, hot lines (with line numbers
-# for sed context follow-up), step boundaries. Each section bounded.
+# The skill reads these bounded parts of the trace, not the full log. The line numbers of the hot
+# lines are for a sed follow-up.
 cmd_signals() {
   local jid="${1-}" project="${2-}"
   [[ -n "$jid" ]] || die "usage: signals <job_id> [project_path]" 1
@@ -316,30 +273,7 @@ cmd_signals() {
   echo "== step boundaries (\$ cmd) =="
   # GitLab prefixes each shell command with "$ ", often after an ANSI reset.
   local step_pat=$'^(\x1b\\[[0-9;]*[A-Za-z])*[[:space:]]*\\$ '
-  grep -nE "$step_pat" "$path" || echo "(none)"
-}
-
-usage() {
-  cat <<'USAGE'
-gitlab-pipeline.sh - read-only GitLab pipeline CLI.
-
-Usage:
-  gitlab-pipeline.sh check
-  gitlab-pipeline.sh resolve       <URL | branch | "">
-  gitlab-pipeline.sh failed-jobs   <pipeline_id> [project_path]
-  gitlab-pipeline.sh failed-logs   <pipeline_id> [project_path]
-  gitlab-pipeline.sh test-failures <pipeline_id> [project_path]
-  gitlab-pipeline.sh trace         <job_id>      [project_path]
-  gitlab-pipeline.sh signals       <job_id>      [project_path]
-
-failed-logs prints the failed-jobs output, then the signals of each job with
-verdict needs-analysis or unknown.
-
-project_path may be omitted; falls back to $DEBUG_GITLAB_PROJECT, else the
-current repo's glab remote.
-
-Exit codes: 0 ok · 1 usage/other · 2 not found · 3 ambiguous · 4 dep/auth · 5 network
-USAGE
+  grep -nE "$step_pat" "$path" | sed -E $'s/\x1b\\[[0-9;]*[A-Za-z]//g' || echo "(none)"
 }
 
 case "${1-}" in
@@ -350,6 +284,5 @@ case "${1-}" in
   test-failures)  preflight; shift; cmd_test_failures "${1-}" "${2-}" ;;
   trace)          preflight; shift; cmd_trace "${1-}" "${2-}" ;;
   signals)        preflight; shift; cmd_signals "${1-}" "${2-}" ;;
-  ""|-h|--help)   usage ;;
-  *)              die "unknown subcommand: $1" 1 ;;
+  *)              die "unknown subcommand '${1-}': read the # Usage: lines in $0" 1 ;;
 esac

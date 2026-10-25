@@ -600,7 +600,7 @@ push_branch ABC-5/review-me
 before=$(git -C "$work" rev-parse ABC-5/review-me)
 run p ABC-5 --branch ABC-5/review-me
 check "existing diverged: exit 1" 1 "$code"
-check "existing diverged: message" "work-start: cannot update ABC-5/review-me: local \
+check "existing diverged: message" "work-start: cannot update ABC-5/review-me: fetch-gitlab-mr: local \
 ABC-5/review-me and origin/ABC-5/review-me diverged, reconcile them and re-run" "$err"
 check "existing diverged: branch not moved" "$before" "$(git -C "$work" rev-parse ABC-5/review-me)"
 check "existing diverged: no herdr call" "" "$(cat "$MOCK_LOG")"

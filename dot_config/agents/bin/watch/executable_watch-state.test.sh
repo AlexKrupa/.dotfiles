@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks watch-state.sh with a real git repo.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)

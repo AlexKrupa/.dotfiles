@@ -4,7 +4,7 @@
 # It runs one poll loop for each repo with a live subscription. A subscription is live while its
 # session process runs. Each round runs the check engine (watch-gitlab.sh) for each live
 # subscription of the repo, and appends the events to the inbox of the subscription. The hub check
-# skips the MRs of the live review subscriptions. The fetched MRs go to a cache of the round, so
+# skips the MRs of the live review subscriptions. The fetched MRs go to a cache of the round. Thus
 # two subscriptions of one MR get one fetch. The round interval is the smallest --interval of the
 # subscriptions of the repo.
 # A network error does not count: the loop waits for the network, with no limit. A permanent
@@ -31,7 +31,7 @@
 # the hub when it ends.
 # The daemon makes no herdr call. At its start and once an hour, it removes the event log lines
 # and the engine states with no record that are older than 7 days.
-# Test seams: WATCHD_TICK (main loop seconds), WATCHD_IDLE_SECONDS, WATCHD_CLIENT_SECONDS,
+# Test variables: WATCHD_TICK (main loop seconds), WATCHD_IDLE_SECONDS, WATCHD_CLIENT_SECONDS,
 # WATCHD_ENGINE.
 # No `set -e`: an error in one round must not stop the watches of all sessions.
 set -uo pipefail
@@ -55,10 +55,6 @@ WATCH_NAP_STEP=2
 # Usage: field KEY FILTER. Prints a field of the record of KEY.
 field() {
   jq -r "$2" "$WATCHD_DIR/subs/$1.json" 2>/dev/null
-}
-
-is_daemon_process() {
-  [[ $(ps -o command= -p "$1" 2>/dev/null) == *watchd.sh* ]]
 }
 
 # Usage: live_keys [SLUG]. Prints the key of each subscription of SLUG (or of all) whose session
@@ -242,10 +238,10 @@ end_mrs() {
 # Usage: check SLUG KEY ROUND_DIR. One engine run for the subscription KEY. Returns 4 for a
 # network error.
 check() {
-  local slug=$1 key=$2 round=$3 mode repo iid rc=0 fails args poke
+  local slug=$1 key=$2 round=$3 mode repo iid rc=0 fails args poke=''
   read -r mode repo < <(field "$key" '"\(.mode) \(.repo)"') || return 0
-  poke=$(cat "$WATCHD_DIR/poke/$key" 2>/dev/null)
-  rm -f "$WATCHD_DIR/poke/$key"
+  # mv, not cat and rm: a poke that arrives between cat and rm is lost.
+  if mv "$WATCHD_DIR/poke/$key" "$round/poke" 2>/dev/null; then poke=$(cat "$round/poke"); fi
   args=(--repo "$repo")
   case $mode in
     hub) args+=("${skip[@]}") ;;
@@ -374,7 +370,7 @@ stop() {
   watch_log "" "" "daemon stop $$"
 }
 
-# The log grows with each round. The clients and this daemon append to it, so it shrinks in place.
+# The log grows with each round. The clients and this daemon append to it. Thus it shrinks in place.
 log=$WATCHD_DIR/watchd.log
 if [[ -f $log ]] && (($(wc -l <"$log") > 10000)); then
   tail -n 5000 "$log" >"$log.tmp" && cat "$log.tmp" >"$log"

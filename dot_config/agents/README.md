@@ -6,8 +6,9 @@ behavior after a sync.
 ## Sync
 
 Run `./claude.sh` to (re)create symlinks. Idempotent; safe to rerun. It prints each entry's status:
-`linked` (already correct), `NEW` (just created), `local` (real file at target, left untouched), or
-`removed` (stale managed link cleaned up). Rerun after adding/renaming a skill.
+`linked` (already correct), `relinked` (a managed link moved to the current source), `NEW` (just
+created), `local` (real file at target, left untouched), or `removed` (stale managed link cleaned
+up). Rerun after adding/renaming a skill.
 
 Mapping:
 
@@ -32,11 +33,13 @@ list of these skills. Rerun it on a new machine.
 - `bin/` - scripts that more than one skill, or a file outside `skills/`, uses. The header comment
   of each script tells what it does (see [Scripts](#scripts)). Search the skills for the script name
   to find its callers.
+- `bin/git-lib.sh`, `bin/gitlab-lib.sh` - shared functions of the git scripts and of the GitLab
+  scripts. A script sources them.
 - `bin/repo-slug.sh` - resolves a repo to its `~/.ai/<repo-name>/` slug. `instructions-agents.md`,
   the skills, and the fish configuration use it.
 - `bin/watch/` - the GitLab watch: the client `watch.sh`, the daemon `watchd.sh` (one process for
-  each machine), and the check engine `watch-gitlab.sh`. `hub`, `draft-pr`, `review-pr`, and `bump`
-  use it. The herdr plugin `watch` reads its event log.
+  each machine), and the check engine `watch-gitlab.sh`. `hub`, `draft-pr`, `review-pr`, `bump`,
+  and `debug-gitlab` use it. The herdr plugin `watch` reads its event log.
 - `references/` - rules that more than one skill reads by absolute path
   (`~/.config/agents/references/...`). Not symlinked.
 - `references/watch/` - the watch rules. `common.md` has the shared rules, a host file
@@ -60,7 +63,12 @@ Skills call the scripts in `bin/` and `skills/<name>/`. No person runs them, so 
 - Output format: one value is one plain line, for example a path. Flat fields are `key: value`
   lines. Records are JSON, one object per line.
 - Exit codes are 0 and 1. If a skill acts on a different code, add it from the shared codes: 2 not
-  found, 3 ambiguous, 4 missing dependency, auth, or herdr, 5 network, 6 timeout.
+  found, 3 ambiguous, 4 missing dependency, auth, or herdr, 5 network, 6 timeout. These scripts
+  give some codes a different meaning:
+  - `bin/watch/watch-gitlab.sh`: 4 network, 5 permanent error. `watchd.sh` reads these codes.
+  - `bin/watch/watch.sh`: 3 a new client or session replaced this one.
+  - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
+  - `bin/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
 - A script that rewrites commits saves a backup ref first. On a conflict or a failure, it resets to
   the backup, so it never leaves a half-done rebase.
 

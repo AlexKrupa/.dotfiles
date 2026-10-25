@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks herdr-start-claude with a fake herdr.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)

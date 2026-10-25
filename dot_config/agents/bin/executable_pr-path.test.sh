@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks pr-path.sh with scratch repos. No LLM.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)

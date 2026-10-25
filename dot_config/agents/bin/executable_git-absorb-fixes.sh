@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: git-absorb-fixes.sh <parent> <file>...
-# Folds already-applied fixes into the commits that introduced them, deterministically.
+# Folds applied fixes into the commits that added the changed lines.
 # <parent> is the parent ref/SHA review-diff resolved (its report's `parent:` line).
 # <file>... are ONLY the files the skill modified this pass (never the whole tree).
 #
@@ -11,15 +11,18 @@
 #      dominant in-range commit, and `git commit --fixup=<sha> -- <file>`.
 #   4. Files whose dominant blame SHA is outside <parent>..HEAD (or pure additions with
 #      nothing to blame) are LEFT STAGED and reported as `needs-message`. The caller
-#      writes a conventional message and commits them. The script never invents messages.
+#      writes a conventional message and commits them.
 #
-# Emits a keyed text block on stdout for the caller's summary. Makes no other git writes
+# Emits a keyed text block on stdout for the caller's summary: absorb-fixups, blame-fixups
+# (`<sha> <file>` lines), needs-message, staged-remaining. Makes no other git writes
 # (no push/rebase/amend/reset). Changes outside the given files stay unstaged and uncommitted.
 # Aborts (exit 1) on: no files, git-absorb missing, not a repo, bad parent, HEAD == parent,
-# a non-empty index (would mix pre-staged work into the fixups), or a missing file.
+# a non-empty index (pre-staged work must not go into the fixups), or a missing file.
 set -euo pipefail
 
-die() { printf '%s\n' "$1" >&2; exit 1; }
+die() { printf 'git-absorb-fixes: %s\n' "$1" >&2; exit 1; }
+# shellcheck source=git-lib.sh
+source "$(dirname "$0")/git-lib.sh"
 
 [ "$#" -ge 2 ] || die "Usage: git-absorb-fixes.sh <parent> <file>..."
 parent="$1"; shift
@@ -32,9 +35,8 @@ git rev-parse --verify --quiet "$parent" >/dev/null || die "Parent ref '$parent'
 parent_sha="$(git rev-parse "$parent")"
 [ "$parent_sha" != "$(git rev-parse HEAD)" ] || die "HEAD == parent; nothing to absorb into."
 
-# Refuse pre-staged content: the caller must reach here with a clean index.
 if [ -n "$(git diff --cached --name-only)" ]; then
-  die "Index not empty before staging — refusing to mix in pre-staged changes."
+  die "Index not empty before staging - refusing to mix in pre-staged changes."
 fi
 for f in "${files[@]}"; do
   [ -e "$f" ] || git ls-files --error-unmatch -- "$f" >/dev/null 2>&1 \
@@ -43,7 +45,6 @@ done
 
 git add -- "${files[@]}"
 
-# Nothing staged after add (e.g. files identical to HEAD) -> no-op.
 if [ -z "$(git diff --cached --name-only)" ]; then
   printf 'absorb-fixups: 0\nblame-fixups: 0\nneeds-message: 0\nstaged-remaining: no\n'
   exit 0
@@ -54,14 +55,11 @@ git absorb --base "$parent" >/dev/null 2>&1 || true
 after="$(git rev-list --count "$parent_sha"..HEAD)"
 absorb_fixups=$(( after - before ))
 
-# Dominant in-range blame SHA for a file's staged changes, or empty if none qualifies.
-# Blames the OLD (pre-change) line ranges from the staged diff against HEAD, tallies SHAs,
-# keeps the most frequent one that lies strictly within <parent>..HEAD.
+# Blames the old lines of the staged hunks. Prints the most frequent SHA in <parent>..HEAD, or
+# nothing.
 dominant_sha() {
   local file="$1" hunks sha
-  # Old-side ranges "@@ -a,b" from the staged diff (HEAD vs index).
-  # --no-ext-diff/--no-pager: a configured external differ (e.g. difftastic) emits no
-  # @@ headers, which would silently break hunk parsing.
+  # --no-ext-diff: an external diff tool (for example difftastic) prints no @@ headers.
   hunks="$(git --no-pager diff --no-ext-diff --cached -U0 -- "$file" \
     | sed -n 's/^@@ -\([0-9]*\),\{0,1\}\([0-9]*\) .*/\1 \2/p')"
   {
@@ -73,9 +71,7 @@ dominant_sha() {
     done <<< "$hunks"
   } | tr -d ' ' | grep -v '^0\{40\}$' \
     | sort | uniq -c | sort -rn | while read -r _ sha; do
-        if [ "$sha" != "$parent_sha" ] \
-          && git merge-base --is-ancestor "$parent_sha" "$sha" 2>/dev/null \
-          && git merge-base --is-ancestor "$sha" HEAD 2>/dev/null; then
+        if in_range "$parent_sha" "$sha"; then
           printf '%s\n' "$sha"; break
         fi
       done
@@ -85,7 +81,7 @@ dominant_sha() {
 blame_fixups=()    # "<sha7> <file>"
 needs_message=()   # "<file>"
 
-# Orphans: files absorb could not place. Resolve one at a time.
+# The files that git absorb did not place.
 while IFS= read -r file; do
   [ -n "$file" ] || continue
   sha="$(dominant_sha "$file")"

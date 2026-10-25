@@ -23,8 +23,8 @@ skills add chrisbanes/skills --global --agent claude-code --yes \
   --skill compose-ui-testing-patterns
 
 # https://github.com/android/skills
-# Untested: these skills sit in nested directories (jetpack-compose/theming/styles),
-# so the flat names can fail. Fallback is the Android CLI:
+# Untested: these skills are in nested directories (jetpack-compose/theming/styles). The flat
+# names can fail. The fallback is the Android CLI:
 #   android skills add --skill=r8-analyzer --project=.
 skills add android/skills --global --agent claude-code --yes \
   --skill android-cli \

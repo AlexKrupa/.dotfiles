@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: git-squash-fixups.sh [--dry-run] <parent> [<repair>:<target>...]
-# Squashes over-fragmented commits into the commits they belong to, deterministically.
+# Squashes repair commits into the commits that they repair.
 # <parent> is the parent ref/SHA review-diff resolved (its report's `parent:` line).
-# Each squash means: commit <repair> is a repair of commit <target>. Fold repair into target.
+# Each squash means: commit <repair> is a repair of commit <target>.
 # <repair> must be NEWER than <target>. Both must lie strictly within <parent>..HEAD.
 # With no squashes, the script only squashes the pending fixup!/amend! commits.
 #
@@ -13,20 +13,23 @@
 #   3. `git rebase -i --autosquash <parent>` with this script as GIT_SEQUENCE_EDITOR.
 #      --autosquash places any pending fixup!/amend! commits. The editor pass then moves
 #      each <repair> line to sit right after its <target> block and marks it `fixup`.
-#      Reordering therefore happens as part of the same rewrite, not as a separate step.
 #   4. On any conflict or failure: `git rebase --abort`, reset back to the backup, exit 1.
 #      The script never leaves a half-rebased branch and never resolves a conflict itself.
 #   5. If git-spice tracks the branch and branches are stacked on it, restack them with
 #      `git-spice upstack restack --skip-start`.
 #
-# Emits a keyed text block on stdout for the caller's summary. Makes no other git writes
-# (no push, no remote change, no commit outside the rebase and the restack).
+# Emits a keyed text block on stdout for the caller's summary: backup-ref, squashes-applied
+# (one indented `<repair> -> <target>` line for each squash), commits-before, commits-after,
+# upstack-restack, result. --dry-run prints dry-run, commits-before, and planned-squashes.
+# Makes no other git writes (no push, no remote change, no commit outside the rebase and the
+# restack). Exit codes: 0 ok, 1 failure (the branch stays at the backup ref).
 set -euo pipefail
 
-die() { printf '%s\n' "$1" >&2; exit 1; }
+die() { printf 'git-squash-fixups: %s\n' "$1" >&2; exit 1; }
+# shellcheck source=git-lib.sh
+source "$(dirname "$0")/git-lib.sh"
 
-# ---- GIT_SEQUENCE_EDITOR mode -------------------------------------------------------
-# Re-entry: the parent process re-execs this script as the rebase todo editor.
+# The parent process runs this script again as the rebase todo editor.
 # $REVIEW_ME_SQUASHES holds one "<full-repair-sha> <full-target-sha>" pair per line.
 if [ "${1:-}" = "--edit-todo" ]; then
   todo="$2"
@@ -70,7 +73,6 @@ if [ "${1:-}" = "--edit-todo" ]; then
   exit 0
 fi
 
-# ---- normal mode --------------------------------------------------------------------
 dry_run=no
 [ "${1:-}" = "--dry-run" ] && { dry_run=yes; shift; }
 
@@ -90,14 +92,7 @@ head_sha="$(git rev-parse HEAD)"
 [ -z "$(git rev-list --merges "$parent_sha"..HEAD)" ] \
   || die "Range contains merge commits; refusing to flatten history."
 
-# Resolve and validate every squash before touching anything.
-in_range() {
-  local sha="$1"
-  [ "$sha" != "$parent_sha" ] \
-    && git merge-base --is-ancestor "$parent_sha" "$sha" 2>/dev/null \
-    && git merge-base --is-ancestor "$sha" HEAD 2>/dev/null
-}
-
+# Validate all squashes before the first write.
 squashes=""; repairs=""; targets=""
 for squash in "$@"; do
   case "$squash" in *:*) ;; *) die "Bad squash '$squash'; expected <repair>:<target>." ;; esac
@@ -106,8 +101,8 @@ for squash in "$@"; do
   tgt="$(git rev-parse --verify --quiet "${squash##*:}^{commit}")" \
     || die "Target commit '${squash##*:}' not found."
   [ "$src" != "$tgt" ] || die "Squash '$squash' folds a commit into itself."
-  in_range "$src" || die "Repair ${src:0:7} is outside $parent..HEAD."
-  in_range "$tgt" || die "Target ${tgt:0:7} is outside $parent..HEAD."
+  in_range "$parent_sha" "$src" || die "Repair ${src:0:7} is outside $parent..HEAD."
+  in_range "$parent_sha" "$tgt" || die "Target ${tgt:0:7} is outside $parent..HEAD."
   git merge-base --is-ancestor "$tgt" "$src" \
     || die "Target ${tgt:0:7} is not an ancestor of repair ${src:0:7}; use <newer>:<older>."
   case "$repairs" in *"$src"*) die "Commit ${src:0:7} given as repair twice." ;; esac

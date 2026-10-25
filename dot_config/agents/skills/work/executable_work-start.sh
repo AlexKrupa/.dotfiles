@@ -40,6 +40,8 @@ set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd -P)
 bin=$(cd "$here/../../bin" && pwd)
+# shellcheck source=../../bin/git-lib.sh
+source "$bin/git-lib.sh"
 WORK_NEXT=${WORK_NEXT:-$bin/herdr-after-turn.sh}
 watch_client=${WATCH_BIN:-$bin/watch}/watch.sh
 spice_ref=refs/spice/data
@@ -55,12 +57,11 @@ mode_of() {
   if [[ $git_dir == "$common_dir" ]]; then echo new; else echo next; fi
 }
 
-# slugify <text> <max length>: lowercase ASCII words joined by hyphens. Longer than the max
-# length: cut at a word end.
-slugify() {
+# short_slug <text> <max length>: the slug of the text. Longer than the max length: cut at a word
+# end.
+short_slug() {
   local s max=$2
-  s=$(printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]' \
-    | LC_ALL=C sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')
+  s=$(slugify "$1")
   if ((${#s} > max)); then
     if [[ ${s:max:1} == - ]]; then
       s=${s:0:max}
@@ -117,7 +118,7 @@ if [[ -n $existing ]]; then
 else
   [[ -n $ticket && -n $text && -z $reset_local ]] \
     || die "usage: work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]"
-  slug=$(slugify "$text" 40)
+  slug=$(short_slug "$text" 40)
   [[ -n $slug ]] || die "slug text has no letters or digits: $text"
   branch="$ticket/$slug"
   if [[ $ticket == "$placeholder" ]]; then title=$text; else title="[$ticket] $text"; fi
@@ -227,11 +228,6 @@ ref=$(origin_head || { git remote set-head origin --auto >/dev/null 2>&1 && orig
   || die "cannot find the default branch: origin/HEAD is not set"
 default=${ref#origin/}
 
-# worktree_of <branch>: the path of the worktree that has the branch checked out, else empty.
-worktree_of() {
-  git worktree list --porcelain | awk -v ref="branch refs/heads/$1" \
-    '/^worktree /{p = substr($0, 10)} $0 == ref {print p; exit}'
-}
 
 main=$(worktree_of "$default")
 [[ -n $main ]] || die "no worktree has $default checked out"
@@ -255,7 +251,7 @@ if [[ -n $existing ]]; then
     die "branch not found in the local repo or on origin: $branch"
   fi
 
-  opened=$("$bin/herdr-worktree.sh" "$branch" --repo "$main" 2>&1) \
+  opened=$("$here/herdr-worktree.sh" "$branch" --repo "$main" 2>&1) \
     || die "herdr-worktree.sh failed: $opened"
   worktree=$(jq -r '.path' <<<"$opened")
   workspace=$(jq -r '.workspace_id' <<<"$opened")
@@ -302,7 +298,7 @@ else
 fi
 
 # herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max.
-name=$(slugify "$branch" 32)
+name=$(short_slug "$branch" 32)
 
 if [[ -n ${NONO_CAP_FILE:-} ]]; then
   # nono denies `herdr agent start` in the sandbox. This mediated command starts only claude.

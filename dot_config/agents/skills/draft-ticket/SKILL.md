@@ -7,8 +7,8 @@ description:
   issues, or bug reports.
 argument-hint: "<what the ticket is about>"
 allowed-tools:
-  - Bash(~/.config/agents/bin/ticket-path.sh *)
-  - Bash(~/.config/agents/bin/ticket-id-rename.sh *)
+  - Bash(~/.config/agents/skills/draft-ticket/ticket-path.sh *)
+  - Bash(~/.config/agents/skills/draft-ticket/ticket-id-rename.sh *)
 ---
 
 # draft-ticket
@@ -128,7 +128,7 @@ Sections that more than one type uses:
 5. Get the path and write the file there:
 
    ```sh
-   path="$(~/.config/agents/bin/ticket-path.sh "<title>")"
+   path="$(~/.config/agents/skills/draft-ticket/ticket-path.sh "<title>")"
    ```
 
 6. Show the full content of the file. The last line of the reply is
@@ -153,7 +153,7 @@ If the two conditions are true, do these steps. Do not ask before you start.
    ticket title in single quotes, with each `'` replaced by a space.
 
    ```sh
-   ~/.config/agents/bin/ticket-id-rename.sh <placeholder> <ticket-id> <branch>... --title '<title>'
+   ~/.config/agents/skills/draft-ticket/ticket-id-rename.sh <placeholder> <ticket-id> <branch>... --title '<title>'
    ```
 
 3. Exit `2`: the branches are pushed. Each `pushed:` line gives a branch and its upstream. If
