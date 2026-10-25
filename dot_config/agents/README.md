@@ -1,7 +1,7 @@
 This directory contains the AI configuration: the agent instructions and the skills.
 
-`claude.sh` makes symlinks in `~/.claude/` to the files in this directory. Thus, after a sync, a
-change to these files changes the live behavior of Claude.
+`claude.sh` makes symlinks in `~/.claude/` to the files in this directory. After a sync, a change to
+these files changes the live behavior of Claude.
 
 ## Sync
 
@@ -31,9 +31,9 @@ contains the list of these skills. On a new machine, start the script again.
 
 ## Layout
 
-- `skills/<name>/SKILL.md` - one skill for each folder. Claude Code finds skills only at this
-  level. Thus, the skills are not in groups. If only one skill uses a script, the script is in the
-  folder of that skill, and `SKILL.md` calls it.
+- `skills/<name>/SKILL.md` - one skill for each folder. The skills are not in groups, because
+  Claude Code finds skills only at this level. If only one skill uses a script, the script is in
+  the folder of that skill, and `SKILL.md` calls it.
 - `skills/<name>/evals/` - the regression evals of a skill. You start them with headless
   `claude -p`. Each has a `README.md`.
 - `bin/` - the scripts that two or more skills use, or that a file outside `skills/` uses. Each
@@ -58,8 +58,8 @@ contains the list of these skills. On a new machine, start the script again.
 
 ## Scripts
 
-The skills call the scripts in `bin/` and `skills/<name>/`. Persons do not start these scripts.
-Thus, the scripts have no `--help`, no prompts, and no color.
+The skills call the scripts in `bin/` and `skills/<name>/`. Because persons do not start these
+scripts, the scripts have no `--help`, no prompts, and no color.
 
 - The header comment is the interface. It contains the `# Usage:` lines, the function of the
   script, the data that it writes (or "Writes nothing"), the output format, and the exit codes.
@@ -76,7 +76,7 @@ Thus, the scripts have no `--help`, no prompts, and no color.
   - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
   - `bin/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
 - Before a script rewrites commits, it saves a backup ref. If a conflict or a failure occurs, the
-  script resets to the backup. Thus, it never leaves a partial rebase.
+  script resets to the backup and does not leave a partial rebase.
 
 ## Tests
 
