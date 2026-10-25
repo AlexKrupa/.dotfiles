@@ -117,6 +117,9 @@ brew "uv" # also manages Python versions (`uv python install`)
 # Ruby
 brew "rbenv"
 
+# Rust
+brew "rust" # builds the watch daemon in ~/.config/agents/daemon
+
 
 # Mac apps
 # Some apps go stale when brew replaces the binary while running (accessibility/input-monitoring

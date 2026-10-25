@@ -4,8 +4,16 @@ set -u
 
 cd "$(dirname "$0")" || exit 1
 tmp=$(cd "$(mktemp -d)" && pwd -P) || exit 1
-trap 'rm -rf "$tmp"' EXIT
+# The sweep checks start test daemons. Each state folder has its own.
+stop_daemons() {
+  local dir
+  for dir in "$tmp"/state*/watchd; do
+    if [ -s "$dir/daemon.pid" ]; then kill "$(cat "$dir/daemon.pid")" 2>/dev/null; fi
+  done
+}
+trap 'stop_daemons; rm -rf "$tmp"' EXIT
 fail=0
+now=$(date +%s)
 
 check() { # check <name> <expected> <actual>
   if [ "$2" = "$3" ]; then
@@ -18,7 +26,7 @@ check() { # check <name> <expected> <actual>
 
 # line <round> <kind> <actor> <detail> [jq filter on the line]: one event line of the log.
 line() {
-  jq -nc --arg r "$1" --arg k "$2" --arg a "$3" --arg dt "$4" '{time: 1000, round: $r,
+  jq -nc --arg r "$1" --arg k "$2" --arg a "$3" --arg dt "$4" --argjson t "$now" '{time: $t, round: $r,
     type: "event", slug: "app", key: "app-x", mode: "stack",
     event: {kind: $k, iid: 5, title: "Add retry banner to login", url: "u", actor: $a,
       detail: $dt, branch: "ABC-1/retry"},
@@ -26,8 +34,8 @@ line() {
     | '"${5:-.}"
 }
 route() { # route <iid> <action>
-  jq -nc --argjson i "$1" --arg a "$2" \
-    '{time: 1000, type: "route", slug: "app", key: "app", iid: $i, action: $a}'
+  jq -nc --argjson i "$1" --arg a "$2" --argjson t "$now" \
+    '{time: $t, type: "route", slug: "app", key: "app", iid: $i, action: $a}'
 }
 opened() { # opened <time>
   jq -nc --argjson t "$1" '{time: $t, round: "app-\($t)", type: "event", slug: "app",
@@ -85,8 +93,9 @@ check "sidebar: dead subscription uses the workspace file" \
   "$(sidebar '{"workspaces": {"wR": {"kind": "bump", "stage": "stopped"}}, "subs": [
     {"mode": "review", "herdr_workspace": "wR", "live": false, "needs": ["reply"]}]}')"
 
-# The sweep, with a fake herdr. It logs its arguments, prints the snapshot, and fails for
-# the workspace wBad.
+# The sweep, with a fake herdr and a test daemon. The fake herdr logs its arguments, prints the
+# snapshot, and fails for the workspace wBad. The live record of the test has no git repo: its
+# check fails before a glab call.
 mkdir -p "$tmp/bin" "$tmp/config"
 cat >"$tmp/bin/herdr" <<EOF
 #!/bin/sh
@@ -100,7 +109,8 @@ EOF
 printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>"%s/lockf.log"\n' "$tmp" >"$tmp/bin/lockf"
 chmod +x "$tmp/bin/herdr" "$tmp/bin/lockf"
 echo '{"notify_opened": ["bump"]}' >"$tmp/config/config.json"
-export PATH="$tmp/bin:$PATH" XDG_STATE_HOME="$tmp/state" HERDR_PLUGIN_CONFIG_DIR="$tmp/config"
+export PATH="$tmp/bin:$PATH" XDG_STATE_HOME="$tmp/state" HERDR_PLUGIN_CONFIG_DIR="$tmp/config" \
+  WATCHD_TICK=1
 watchd=$tmp/state/watchd
 plugin=$tmp/state/herdr-watch
 mkdir -p "$watchd/subs" "$watchd/workspaces" "$tmp/state/watch-gitlab"
@@ -108,47 +118,46 @@ snapshot() { # snapshot <workspace id>...
   jq -nc '{result: {snapshot: {workspaces: [$ARGS.positional[] | {workspace_id: .}]}}}' \
     --args "$@" >"$tmp/snapshot.json"
 }
+with_id() { jq -c --argjson id "$1" '{id: $id} + .'; } # stdin: one log line
 sweep() { : >"$tmp/herdr.log"; ../watch.sh sweep; }
 notes() { grep '^notification show' "$tmp/herdr.log"; }
 metadata() { grep '^workspace report-metadata' "$tmp/herdr.log"; }
 snapshot wT
 
-line r0 comment bob Old >"$watchd/events.jsonl"
+line r0 comment bob Old | with_id 1 >"$watchd/events.jsonl"
 sweep
 check "first run: starts at the end of the log" '' "$(notes)"
-line r1 comment bob 'Can we reuse?' >>"$watchd/events.jsonl"
-printf '{"time": 1000, "type": "event"' >>"$watchd/events.jsonl"
+line r1 comment bob 'Can we reuse?' | with_id 2 >>"$watchd/events.jsonl"
 sweep
-check "new line: one notification, not the partial line" \
+check "new line: one notification" \
   'notification show Add retry banner to login --body @bob commented: "Can we reuse?" --sound request' \
   "$(notes)"
-printf ', "round": "r2", "slug": "app", "key": "app-x", "mode": "stack", "sound": "none", "event": {"kind": "approved", "iid": 5, "title": "T", "actor": "bob", "detail": "approved"}}\n' \
-  >>"$watchd/events.jsonl"
 sweep
-check "partial line: read when it is complete" \
-  'notification show T --body @bob approved --sound none' "$(notes)"
+check "a line gives one notification: none at the next sweep" '' "$(notes)"
 
 tail -n 1 "$watchd/events.jsonl" >"$watchd/events.tmp" && mv "$watchd/events.tmp" "$watchd/events.jsonl"
-line r3 comment anna Later >>"$watchd/events.jsonl"
+line r3 comment anna Later | with_id 3 >>"$watchd/events.jsonl"
 sweep
 check "pruned log: no repeat, new line read" \
   'notification show Add retry banner to login --body @anna commented: "Later" --sound request' \
   "$(notes)"
 
-opened $(($(date +%s) - 601)) >>"$watchd/events.jsonl"
+opened $((now - 601)) | with_id 4 >>"$watchd/events.jsonl"
 sweep
 check "opened with no route: dropped after 10 minutes" " 0" \
   "$(notes) $(jq length "$plugin/pending.json")"
-opened "$(date +%s)" >>"$watchd/events.jsonl"
+opened "$(date +%s)" | with_id 5 >>"$watchd/events.jsonl"
 sweep
 check "opened: waits for its route" " 1" "$(notes) $(jq length "$plugin/pending.json")"
-route 61 bump >>"$watchd/events.jsonl"
+route 61 bump | with_id 6 >>"$watchd/events.jsonl"
 sweep
 check "opened: route in a later sweep gives the notification" \
   'notification show Update dependency foo --body New dependency bump. Bump agent started. --sound none 0' \
   "$(notes) $(jq length "$plugin/pending.json")"
 
-echo "{\"key\": \"app-x\", \"mode\": \"stack\", \"session_pid\": $$, \"herdr_workspace\": \"wT\"}" \
+jq -n --argjson pid $$ --argjson now "$(date +%s)" --arg repo "$tmp" '{key: "app-x", slug: "app",
+  repo: $repo, mode: "stack", mrs: [5], interval: 600, session_pid: $pid, client_pid: 0,
+  client_at: $now, replaced_sessions: [], ended_mrs: [], herdr_workspace: "wT"}' \
   >"$watchd/subs/app-x.json"
 echo '{"needs": ["failed", "reply"]}' >"$tmp/state/watch-gitlab/app-x.json"
 sweep
@@ -177,7 +186,7 @@ check "startup starts the watcher" "-s -k -t 0 $plugin/watch.lock $(cd .. && pwd
 
 echo '{"kind": "hub"}' >"$watchd/workspaces/wGone.json"
 sweep
-check "closed workspace: file removed, no call" "no " \
+check "closed workspace: record forgotten, no call" "no " \
   "$([ -e "$watchd/workspaces/wGone.json" ] && echo yes || echo no) $(metadata)"
 
 snapshot wBad wT wU
@@ -192,12 +201,12 @@ check "a failed write: the next sweep tries again" 1 "$(metadata | grep -c wBad)
 
 mv "$tmp/snapshot.json" "$tmp/snapshot.off"
 sweep
-check "no herdr: no file removed" yes "$([ -e "$watchd/workspaces/wU.json" ] && echo yes || echo no)"
+check "no herdr: no record forgotten" yes "$([ -e "$watchd/workspaces/wU.json" ] && echo yes || echo no)"
 
 mv "$tmp/snapshot.off" "$tmp/snapshot.json"
 mkdir -p "$tmp/state2/watchd"
 XDG_STATE_HOME=$tmp/state2 ../watch.sh sweep
-line r9 comment bob Hi >"$tmp/state2/watchd/events.jsonl"
+line r9 comment bob Hi | with_id 1 >"$tmp/state2/watchd/events.jsonl"
 : >"$tmp/herdr.log"
 XDG_STATE_HOME=$tmp/state2 ../watch.sh sweep
 check "no log at the first sweep: the first lines of a new log are read" 1 "$(notes | wc -l | tr -d ' ')"
@@ -207,10 +216,10 @@ XDG_STATE_HOME=$tmp/state3 ../watch.sh watch &
 watcher=$!
 for _ in $(seq 50); do [ -s "$tmp/state3/herdr-watch/reader" ] || sleep 0.1; done
 rm "$tmp/state3/herdr-watch/pending.json" "$tmp/state3/herdr-watch/tokens.json"
-line r9 comment bob Again >"$tmp/state3/watchd/events.jsonl"
+line r9 comment bob Again | with_id 1 >"$tmp/state3/watchd/events.jsonl"
 for _ in $(seq 80); do grep -q Again "$tmp/herdr.log" || sleep 0.1; done
 kill "$watcher"
-check "state files removed while the watcher runs: the next sweep sends the notification" 1 \
+check "state files removed while the watcher runs: the next line gives the notification" 1 \
   "$(grep -c Again "$tmp/herdr.log")"
 
 exit "$fail"

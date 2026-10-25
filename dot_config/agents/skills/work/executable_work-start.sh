@@ -28,7 +28,7 @@
 # creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
 # NAME is used again. A workspace that is open already stops the script. --reset-local first moves
 # a local NAME to the origin tip, also in a worktree with no local changes. The local commits go.
-# New and next mode set the kind `mine` of the herdr workspace with bin/watch/watch.sh, for the
+# New and next mode set the kind `mine` of the herdr workspace with `watchd kind`, for the
 # sidebar. Existing mode does not: the skill in the first prompt sets the kind.
 # In a nono sandbox, new and existing mode start the agent with bin/herdr-start-claude, and the
 # only claude flag is --effort.
@@ -43,7 +43,7 @@ bin=$(cd "$here/../../bin" && pwd)
 # shellcheck source=../../bin/git-lib.sh
 source "$bin/git-lib.sh"
 WORK_NEXT=${WORK_NEXT:-$bin/herdr-after-turn.sh}
-watch_client=${WATCH_BIN:-$bin/watch}/watch.sh
+watch_client=${WATCHD:-$HOME/.local/bin/watchd}
 spice_ref=refs/spice/data
 
 die() { echo "work-start: $1" >&2; exit 1; }

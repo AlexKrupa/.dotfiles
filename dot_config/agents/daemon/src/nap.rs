@@ -1,0 +1,147 @@
+const NETWORK_ERRORS: &[&str] = &[
+    "no such host",
+    "dial tcp",
+    "i/o timeout",
+    "TLS handshake timeout",
+    "Could not resolve host",
+    "Failed to connect",
+    "Connection refused",
+    "connection refused",
+    "connection reset",
+    "timed out",
+    "Network is unreachable",
+    "network is unreachable",
+    "HTTP 502",
+    "HTTP 503",
+    "HTTP 504",
+];
+
+pub fn is_network_error(stderr: &str) -> bool {
+    NETWORK_ERRORS.iter().any(|pattern| stderr.contains(pattern))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum NapEnd {
+    Done,
+    /// A wake-up: a poke or a stop.
+    Interrupted,
+    /// A system sleep, or no full wake: the caller waits for the network.
+    Asleep,
+}
+
+/// Waits for `seconds` of awake time, in steps of at most `max_step`. A clock jump of more than the
+/// step plus 30 seconds is a system sleep. `sleep` gives true for a wake-up.
+pub async fn nap<Now, Sleep, SleepFuture>(
+    seconds: u64,
+    max_step: u64,
+    now: Now,
+    mut sleep: Sleep,
+    full_wake: impl Fn() -> bool,
+) -> NapEnd
+where
+    Now: Fn() -> i64,
+    Sleep: FnMut(u64) -> SleepFuture,
+    SleepFuture: std::future::Future<Output = bool>,
+{
+    let mut left = seconds;
+    while left > 0 {
+        let step = left.min(max_step);
+        let start = now();
+        let woken = sleep(step).await;
+        if now() - start > step as i64 + 30 || !full_wake() {
+            return NapEnd::Asleep;
+        }
+        left -= step;
+        if woken {
+            return NapEnd::Interrupted;
+        }
+    }
+    NapEnd::Done
+}
+
+/// The host of an https://, ssh://, or git@host: URL. `None` for a local path.
+pub fn remote_host(url: &str) -> Option<String> {
+    if let Some((scheme, rest)) = url.split_once("://")
+        && !scheme.is_empty()
+        && scheme.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'+')
+    {
+        let rest = match rest.split_once('@') {
+            Some((user, after)) if !user.contains('/') => after,
+            _ => rest,
+        };
+        let host: String = rest.chars().take_while(|char| *char != ':' && *char != '/').collect();
+        return (!host.is_empty()).then_some(host);
+    }
+    let (user, rest) = url.split_once('@')?;
+    if user.is_empty() || user.contains(['/', ':']) {
+        return None;
+    }
+    let (host, _) = rest.split_once(':')?;
+    (!host.is_empty()).then(|| host.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::cell::Cell;
+
+    fn run(nap_future: impl std::future::Future<Output = NapEnd>) -> NapEnd {
+        let runtime = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        runtime.block_on(nap_future)
+    }
+
+    #[test]
+    fn clock_jump_longer_than_step_plus_30_seconds_is_a_sleep() {
+        let clock = Cell::new(0_i64);
+        let end = run(nap(
+            60,
+            10,
+            || clock.get(),
+            |step| {
+                clock.set(clock.get() + step as i64 + 31);
+                async { false }
+            },
+            || true,
+        ));
+        assert_eq!(end, NapEnd::Asleep);
+        assert_eq!(clock.get(), 41);
+    }
+
+    #[test]
+    fn nap_waits_in_steps_and_ends_early_on_a_wake_up() {
+        let clock = Cell::new(0_i64);
+        let steps = Cell::new(0);
+        let end = run(nap(
+            25,
+            10,
+            || clock.get(),
+            |step| {
+                clock.set(clock.get() + step as i64);
+                steps.set(steps.get() + 1);
+                async { false }
+            },
+            || true,
+        ));
+        assert_eq!((end, clock.get(), steps.get()), (NapEnd::Done, 25, 3));
+        let woken = run(nap(25, 10, || 0, |_| async { true }, || true));
+        assert_eq!(woken, NapEnd::Interrupted);
+        let dark = run(nap(25, 10, || 0, |_| async { false }, || false));
+        assert_eq!(dark, NapEnd::Asleep);
+    }
+
+    #[test]
+    fn remote_host_handles_https_ssh_and_scp_urls_and_a_local_path() {
+        assert_eq!(remote_host("https://gitlab.example.com/g/a.git"), Some("gitlab.example.com".into()));
+        assert_eq!(remote_host("ssh://git@gitlab.example.com:22/g/a.git"), Some("gitlab.example.com".into()));
+        assert_eq!(remote_host("git@gitlab.example.com:g/a.git"), Some("gitlab.example.com".into()));
+        assert_eq!(remote_host("/tmp/repo"), None);
+    }
+
+    #[test]
+    fn network_error_matches_the_bash_patterns() {
+        assert!(is_network_error("dial tcp: i/o timeout"));
+        assert!(is_network_error("HTTP 503"));
+        assert!(!is_network_error("HTTP 404 Not Found"));
+    }
+}

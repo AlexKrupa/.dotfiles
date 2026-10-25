@@ -1,20 +1,14 @@
 #!/usr/bin/env bash
 # Fake glab for the bump evals. Answers from <repo>.host/ of the fixture and logs each call to
 # <repo>.host/calls.log. A call that it does not know fails. `api graphql` comes only from the
-# watch engine. It writes a different client_pid in the watch subscriptions of the repo, so the
-# waiting watch.sh client stops with exit 3 ("replaced"). Then no run waits for the watch.
+# watch engine. It makes the waiting watch clients of the repo stop with exit 3 ("replaced"). Then
+# no run waits for the watch.
 top=$(git rev-parse --show-toplevel)
 host="$top.host"
 echo "glab $*" >>"$host/calls.log"
 
 replace_clients() {
-  local file
-  # shellcheck source=../../../../bin/watch/watch-state.sh
-  source "$HOME/.config/agents/bin/watch/watch-state.sh"
-  for file in "$WATCHD_DIR"/subs/*.json; do
-    [[ -f $file && $(jq -r .repo "$file") == "$top" ]] || continue
-    watch_sub_update "$(basename "$file" .json)" '.client_pid = 0'
-  done
+  "$HOME/.local/bin/watchd" debug replace-clients --repo "$top" >/dev/null
 }
 
 # The latest pipeline. After a push to the MR branch, it is a passed pipeline 901 for the new head.

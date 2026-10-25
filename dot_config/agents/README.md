@@ -43,9 +43,12 @@ contains the list of these skills. On a new machine, start the script again.
   GitLab scripts. The scripts source these files.
 - `bin/repo-slug.sh` - gives the `~/.ai/<repo-name>/` slug of a repo. `instructions-agents.md`,
   the skills, and the fish configuration use it.
-- `bin/watch/` - the GitLab watch: the client `watch.sh`, the daemon `watchd.sh` (one process for
-  each machine), and the check engine `watch-gitlab.sh`. `hub`, `draft-pr`, `review-pr`, `bump`,
-  and `debug-gitlab` use it. The herdr plugin `watch` reads its event log.
+- `daemon/` - the GitLab watch: one Rust program, `watchd`, with the daemon (one process for each
+  machine), the check engine, and the client commands. `daemon/build.sh` builds it and installs it
+  to `~/.local/bin/watchd`. `hub`, `draft-pr`, `review-pr`, `bump`, and `debug-gitlab` use it. The
+  herdr plugin `watch` reads its event log with `watchd follow`.
+- `bin/watch/watch-lib.sh` - the sleep, wake, and network rules of `skills/hub/hub-pull.sh` and
+  `skills/hub/hub-retry.sh`.
 - `references/` - the rules that two or more skills read by absolute path
   (`~/.config/agents/references/...`). `claude.sh` does not make symlinks for them.
 - `references/watch/` - the watch rules. `common.md` contains the shared rules. A host file
@@ -71,8 +74,8 @@ scripts, the scripts have no `--help`, no prompts, and no color.
 - The exit codes are 0 and 1. If a skill must act on a different code, use a code from the shared
   list: 2 not found, 3 ambiguous, 4 missing dependency, auth, or herdr, 5 network, 6 timeout. These
   scripts give some codes a different meaning:
-  - `bin/watch/watch-gitlab.sh`: 4 network, 5 permanent error. `watchd.sh` reads these codes.
-  - `bin/watch/watch.sh`: 3 a new client or session replaced this one.
+  - `watchd engine`: 4 network, 5 permanent error.
+  - `watchd watch`: 3 a new client or session replaced this one.
   - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
   - `bin/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
 - Before a script rewrites commits, it saves a backup ref. If a conflict or a failure occurs, the
@@ -87,9 +90,10 @@ support the macOS `/bin/bash` 3.2.
   `bash <file>`.
 - After a change, do only the tests of the changed scripts. Use the default bash.
 - Each test file uses its own temporary folder. Start independent test files at the same time.
-- The tests of `bin/watch/watchd.sh` are in 6 files, `bin/watch/watchd-<topic>.test.sh`. Their
-  common setup is in `bin/watch/watchd-test-lib.sh`. Each file takes up to 1 minute. Start all 6
-  at the same time, in the background.
+- The tests of `watchd` are `cargo` tests: the unit tests in `daemon/src/`, the engine and daemon
+  tests in `daemon/tests/`. Start them with
+  `cargo test --manifest-path ~/.config/agents/daemon/Cargo.toml`. The daemon tests start one test
+  daemon at a time, and all tests take about 3 minutes.
 
 ## Editing conventions
 

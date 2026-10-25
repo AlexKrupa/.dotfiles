@@ -9,7 +9,7 @@ disable-model-invocation: true
 allowed-tools:
   - Bash(~/.claude/skills/hub/hub-status.sh *)
   - Bash(~/.claude/skills/hub/hub-pull.sh *)
-  - Bash(~/.config/agents/bin/watch/watch.sh *)
+  - Bash(watchd *)
 ---
 
 # hub
@@ -23,7 +23,7 @@ of that branch.
 The pull task is a background Bash task (`run_in_background: true`). It does one round each 120
 seconds: give the script `--interval 120`.
 
-At the start, run `~/.config/agents/bin/watch/watch.sh kind hub`. It sets the kind of work of the
+At the start, run `watchd kind hub`. It sets the kind of work of the
 herdr workspace for the sidebar. Outside herdr, it does nothing.
 
 ## Role

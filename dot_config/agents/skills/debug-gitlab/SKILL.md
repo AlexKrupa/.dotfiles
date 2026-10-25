@@ -7,7 +7,7 @@ description:
 argument-hint: "[pipeline-url | job-url | mr-url | branch | <empty>]"
 allowed-tools:
   - Bash(~/.config/agents/bin/gitlab-pipeline.sh *)
-  - Bash(~/.config/agents/bin/watch/watch.sh *)
+  - Bash(watchd *)
 ---
 
 # debug-gitlab
@@ -18,7 +18,7 @@ skill applies and commits the fix after the analysis.
 
 An empty argument means "the failed pipeline on the current branch".
 
-At the start, run `~/.config/agents/bin/watch/watch.sh kind debug`. It sets the kind of work of the
+At the start, run `watchd kind debug`. It sets the kind of work of the
 herdr workspace for the sidebar. Outside herdr, it does nothing.
 
 ## Prerequisites

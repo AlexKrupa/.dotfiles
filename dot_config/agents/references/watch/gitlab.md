@@ -1,18 +1,18 @@
 # Watch: GitLab
 
-The host file for GitLab. Run each command in the repo of the watched MRs. `$W` is
-`~/.config/agents/bin/watch/watch.sh`, the client of the watch daemon.
+The host file for GitLab. Run each command in the repo of the watched MRs. `watchd` is the client
+of the watch daemon, on PATH.
 
 | Function                                  | Command                                                         |
 | ----------------------------------------- | --------------------------------------------------------------- |
-| Watch command, hub mode                   | `$W --interval 120`                                             |
-| Watch command, stack mode                 | `$W --interval 120 --mr <iid>`, with one `--mr` for each MR     |
-| Watch command, review mode                | `$W --review --fresh --mr <iid> --interval 120`                 |
+| Watch command, hub mode                   | `watchd watch --interval 120`                                   |
+| Watch command, stack mode                 | `watchd watch --interval 120 --mr <iid>`, with one `--mr` for each MR |
+| Watch command, review mode                | `watchd watch --review --fresh --mr <iid> --interval 120`       |
 | Restart command                           | The same watch command, with no `--fresh`                       |
-| Unsubscribe                               | `$W unsubscribe`, with the `--review` and `--mr` flags of the watch command |
-| Daemon status                             | `$W status`                                                     |
-| Router result                             | `$W route --iid <iid> --action <bump\|review\|none>`            |
-| Report                                    | `printf '%s' '<json>' \| $W report <flags of the watch command>` |
+| Unsubscribe                               | `watchd unsubscribe`, with the `--review` and `--mr` flags of the watch command |
+| Daemon status                             | `watchd status`                                                 |
+| Router result                             | `watchd route --iid <iid> --action <bump\|review\|none>`        |
+| Report                                    | `printf '%s' '<json>' \| watchd report <flags of the watch command>` |
 | MR details: branches, author, labels      | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`         |
 | Logs of the failed jobs of a pipeline     | `~/.config/agents/bin/gitlab-pipeline.sh failed-logs <pipeline id>` |
 | Retry a job                               | `glab ci retry <job id>`                                        |
@@ -23,4 +23,4 @@ The host file for GitLab. Run each command in the repo of the watched MRs. `$W` 
 - The id of an MR is `!<iid>`.
 - If the stderr text of exit `1` names a token permission, tell the user to add that permission to
   the fine-grained token of `glab`.
-- The events of each mode are in the header comment of `watch-gitlab.sh`.
+- The events of each mode are in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`.

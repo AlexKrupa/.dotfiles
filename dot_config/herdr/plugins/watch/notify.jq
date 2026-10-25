@@ -1,4 +1,4 @@
-# The notification of one group of event log lines of ~/.config/agents/bin/watch/watchd.sh.
+# The notification of one group of event log lines of the watch daemon `watchd`.
 #
 #   in:  an array of log lines: the events of one MR in one round, one `stopped` line, or an
 #        `opened` event with its `route` line

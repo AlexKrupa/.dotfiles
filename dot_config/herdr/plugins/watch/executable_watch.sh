@@ -1,21 +1,18 @@
 #!/usr/bin/env bash
-# The notifications and the sidebar values of the watch daemon ~/.config/agents/bin/watch/watchd.sh.
-# This file is transport only: it reads the data of the daemon and makes the herdr calls. The
-# decisions are in notify.jq and sidebar.jq, which are pure.
+# The notifications and the sidebar values of the watch daemon `watchd`. This file is transport
+# only: it reads the lines of `watchd follow` and makes the herdr calls. The decisions are in
+# notify.jq and sidebar.jq, which are pure.
 #
-# Usage: watch.sh sweep     one pass, then exit
-#        watch.sh watch     a sweep every 3 seconds
+# Usage: watch.sh sweep     one pass: the lines after the last id, then exit
+#        watch.sh watch     follow the daemon, and connect again when it closes the socket
 #        watch.sh ensure    start a detached watcher unless one runs
 #        watch.sh startup   forget the written tokens, then ensure
 #
-# Data of the daemon, in ${XDG_STATE_HOME:-~/.local/state}:
-#   watchd/events.jsonl        the event log: one notification for each group of lines
-#   watchd/subs/*.json         the subscriptions, with their herdr workspace
-#   watchd/workspaces/*.json   the kind and the end stage of each workspace
-#   watch-gitlab/<key>.json    the engine state, with the needs-you values
-# State of the plugin, in herdr-watch/:
-#   reader         the inode of the event log and the byte offset of the next line
-#   last.jsonl     the last line read
+# `watchd follow` sends the sidebar state first: the workspace records, the subscriptions with
+# their live state, and the needs of each subscription. Then one line for each new event log line
+# and each sidebar change. Each event log line has an id.
+# State of the plugin, in ${XDG_STATE_HOME:-~/.local/state}/herdr-watch/:
+#   reader         the id of the last event log line read
 #   pending.json   the opened events that wait for the router result of the hub
 #   tokens.json    the tokens written to each workspace
 # The configuration file config.json has notify_opened: the router results of an opened event
@@ -25,47 +22,17 @@ set -u
 
 root=${HERDR_PLUGIN_ROOT:-$(cd "$(dirname "$0")" && pwd)}
 state_home=${XDG_STATE_HOME:-$HOME/.local/state}
-watchd=$state_home/watchd
-engine_dir=$state_home/watch-gitlab
 state_dir=$state_home/herdr-watch
 config=${HERDR_PLUGIN_CONFIG_DIR:-$HOME/.config/herdr/plugins/config/local.watch}/config.json
-log=$watchd/events.jsonl
+watchd=${WATCHD:-$HOME/.local/bin/watchd}
 
 mkdir -p "$state_dir"
 
-# Prints the complete lines of the event log after the last read, and saves the new position
-# first: a crash loses a notification, but never sends one two times. The first run starts at
-# the end. The daemon prunes the log into a new file: then the read goes on after the last line
-# read, or at the start if that line is gone.
-read_log() {
-  local inode size old_inode offset number chunk complete
-  # With no log, a log that comes later is read from its start.
-  if [ ! -f "$log" ]; then
-    [ -s "$state_dir/reader" ] || echo "none 0" >"$state_dir/reader"
-    return 0
-  fi
-  inode=$(stat -f %i "$log")
-  size=$(stat -f %z "$log")
-  if [ ! -s "$state_dir/reader" ]; then
-    echo "$inode $size" >"$state_dir/reader"
-    return 0
-  fi
-  read -r old_inode offset <"$state_dir/reader"
-  if [ "$inode" != "$old_inode" ]; then
-    offset=0
-    number=$(grep -n -F -x -f "$state_dir/last.jsonl" "$log" 2>/dev/null | tail -n1 | cut -d: -f1)
-    if [ -n "$number" ]; then offset=$(head -n "$number" "$log" | wc -c | tr -d ' '); fi
-  elif ((size < offset)); then
-    offset=$size
-  fi
-  chunk=$(tail -c +"$((offset + 1))" "$log"; printf x)
-  chunk=${chunk%x}
-  # The daemon can be in the middle of a line.
-  complete=${chunk%"${chunk##*$'\n'}"}
-  echo "$inode $((offset + $(printf %s "$complete" | wc -c)))" >"$state_dir/reader"
-  [ -n "$complete" ] || return 0
-  printf %s "$complete" | tail -n1 >"$state_dir/last.jsonl"
-  printf %s "$complete"
+# The id of the last event log line read, or nothing at the first run.
+last_id() {
+  local id
+  id=$(cat "$state_dir/reader" 2>/dev/null)
+  [[ $id =~ ^[0-9]+$ ]] && echo "$id"
 }
 
 # in: the new log lines. out: {groups, pending}. A group is the events of one MR in one round,
@@ -88,9 +55,9 @@ GROUPS_PROGRAM='
         + [$opened[] | select(.route) | [.line, .route]]),
      pending: [$opened[] | select(.route == null and $now - .line.time <= 600) | .line]}'
 
-notify() {
+notify() { # notify <log line>...
   local result opened_list group note
-  result=$(read_log | jq -sc --slurpfile pending "$state_dir/pending.json" \
+  result=$(printf '%s\n' "$@" | jq -sc --slurpfile pending "$state_dir/pending.json" \
     --argjson now "$(date +%s)" "$GROUPS_PROGRAM") || return 0
   jq -c .pending <<<"$result" >"$state_dir/pending.json"
   opened_list=$(jq -c '.notify_opened // ["bump"]' "$config" 2>/dev/null) || opened_list='["bump"]'
@@ -101,27 +68,6 @@ notify() {
     herdr notification show "$(jq -r .title <<<"$note")" --body "$(jq -r .body <<<"$note")" \
       --sound "$(jq -r .sound <<<"$note")" >/dev/null 2>&1
   done
-}
-
-subs_json() {
-  local file key pid live
-  for file in "$watchd"/subs/*.json; do
-    [ -e "$file" ] || continue
-    key=$(basename "$file" .json)
-    pid=$(jq -r '.session_pid // empty' "$file" 2>/dev/null) || continue
-    live=false
-    if [ -n "$pid" ] && ps -p "$pid" >/dev/null 2>&1; then live=true; fi
-    jq -c --argjson live "$live" --slurpfile engine <(cat "$engine_dir/$key.json" 2>/dev/null) \
-      '. + {live: $live, needs: ($engine[0].needs // [])}' "$file" 2>/dev/null
-  done | jq -sc .
-}
-
-workspaces_json() {
-  local file
-  for file in "$watchd"/workspaces/*.json; do
-    [ -e "$file" ] || continue
-    jq -c --arg id "$(basename "$file" .json)" '{($id): .}' "$file" 2>/dev/null
-  done | jq -sc 'add // {}'
 }
 
 # One call for each workspace, with its 3 tokens. An empty value clears the token.
@@ -138,24 +84,17 @@ meta() { # meta <workspace id> <kind> <stage> <needs>
 }
 
 # Writes the tokens that changed since the last write, only for the workspaces that herdr has.
-# With no herdr answer, nothing changes. A closed workspace loses its workspace file.
-sidebar() {
-  local ids file id desired changes kind stage needs written=''
+# With no herdr answer, nothing changes. A closed workspace loses its workspace record.
+sidebar() { # sidebar <sidebar line>
+  local ids id desired changes kind stage needs written=''
   ids=$(herdr api snapshot 2>/dev/null | jq -c '[.result.snapshot.workspaces[].workspace_id]' \
     2>/dev/null)
   [ -n "$ids" ] || return 0
-  for file in "$watchd"/workspaces/*.json; do
-    [ -e "$file" ] || continue
-    id=$(basename "$file" .json)
-    jq -e --arg id "$id" 'index($id)' <<<"$ids" >/dev/null && continue
-    # The lock of the daemon: watch_lock in watch-state.sh.
-    if mkdir "$file.lock" 2>/dev/null; then
-      rm -f "$file"
-      rmdir "$file.lock"
-    fi
+  for id in $(jq -r --argjson ids "$ids" '.workspaces | keys[] | select(IN($ids[]) | not)' <<<"$1"); do
+    "$watchd" workspace forget "$id" >/dev/null 2>&1
   done
-  desired=$(jq -nc --argjson workspaces "$(workspaces_json)" --argjson subs "$(subs_json)" \
-    '{workspaces: $workspaces, subs: $subs}' | jq -c -f "$root/sidebar.jq") || return 0
+  desired=$(jq -c '{workspaces, subs: [.engine_needs as $needs | .subs[]
+      | . + {needs: ($needs[.key] // [])}]}' <<<"$1" | jq -c -f "$root/sidebar.jq") || return 0
   changes=$(jq -r --argjson ids "$ids" --slurpfile cache "$state_dir/tokens.json" '
     . as $desired | $cache[0] as $cache
     | ([$desired | keys[]] + [$cache | keys[]] | unique)[] | select(IN($ids[]))
@@ -174,18 +113,61 @@ sidebar() {
     >"$state_dir/tokens.tmp" && mv "$state_dir/tokens.tmp" "$state_dir/tokens.json"
 }
 
-sweep() {
-  # A cleanup can remove the state files while the watcher runs.
+# One batch of follow lines. The first run starts at the end of the log: the first sidebar line
+# has the newest id. The new id is saved first: a crash loses a notification, but never sends one
+# two times.
+handle() { # handle <line>...
+  local line events=() sidebar_line='' id
+  for line in "$@"; do
+    case $(jq -r .type <<<"$line" 2>/dev/null) in
+      sidebar) sidebar_line=$line ;;
+      '') ;;
+      *) events+=("$line") ;;
+    esac
+  done
   [ -s "$state_dir/pending.json" ] || echo '[]' >"$state_dir/pending.json"
   [ -s "$state_dir/tokens.json" ] || echo '{}' >"$state_dir/tokens.json"
-  notify
-  sidebar
+  if [ -z "$(last_id)" ] && [ -n "$sidebar_line" ]; then
+    jq -r '.last_id // 0' <<<"$sidebar_line" >"$state_dir/reader"
+  fi
+  if ((${#events[@]})); then
+    id=$(printf '%s\n' "${events[@]}" | jq -s 'map(.id // 0) | max')
+    if ((id > $(last_id || echo 0))); then echo "$id" >"$state_dir/reader"; fi
+    notify "${events[@]}"
+  fi
+  if [ -n "$sidebar_line" ]; then sidebar "$sidebar_line"; fi
+}
+
+# One connection to the daemon. The lines that come within half a second are one batch. With
+# --once, the pass ends at the first pause after the first line, else when the daemon closes the
+# socket.
+pass() { # pass [--once]
+  local batch=() line got=0 status id args=(follow)
+  if id=$(last_id); then args+=(--after "$id"); fi
+  coproc FOLLOW { exec "$watchd" "${args[@]}" 2>/dev/null; }
+  while :; do
+    if IFS= read -r -t 0.5 line <&"${FOLLOW[0]}"; then
+      batch+=("$line")
+      got=1
+      continue
+    fi
+    status=$?
+    if ((${#batch[@]})); then handle "${batch[@]}"; batch=(); fi
+    if ((status <= 128)); then break; fi
+    if [ "${1:-}" = --once ] && ((got)); then break; fi
+  done
+  kill "$FOLLOW_PID" 2>/dev/null
+  wait "$FOLLOW_PID" 2>/dev/null
+}
+
+sweep() {
+  pass --once
 }
 
 watch() {
   while :; do
-    sweep
-    sleep 3
+    pass
+    sleep 1
   done
 }
 
