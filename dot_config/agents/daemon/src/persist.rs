@@ -3,8 +3,8 @@ use std::path::Path;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// The format of the state files. The Bash files have no `version` field: they are the format
-/// before version 1, with the same fields.
+/// The format of the state files: files with no `version` field still load, because they are the
+/// format before version 1, with the same fields.
 pub const FORMAT_VERSION: u32 = 1;
 
 #[derive(Serialize, Deserialize)]
@@ -17,11 +17,9 @@ pub struct Versioned<T> {
 pub enum Load<T> {
     Current(T),
     Converted(T),
-    /// The reason that the record goes away.
     Dropped(String),
 }
 
-/// A missing or empty file is `Ok(None)`. A file that is not JSON of the type is an error.
 pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, String> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
@@ -43,13 +41,11 @@ pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, String>
     Ok(Some(loaded))
 }
 
-/// Writes the record in the current format.
 pub fn save<T: Serialize>(path: &Path, data: &T) -> std::io::Result<()> {
     write_json(path, &Versioned { version: FORMAT_VERSION, data })
 }
 
-/// Writes the JSON to a temp file in the same folder, then renames it: a reader never sees a
-/// partial file.
+/// A temp file in the same folder and a rename, so that a reader never sees a partial file.
 pub fn write_json<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
     let mut text = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
     text.push('\n');

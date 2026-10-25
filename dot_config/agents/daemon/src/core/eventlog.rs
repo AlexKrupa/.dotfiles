@@ -4,8 +4,7 @@ use crate::core::items::RoutedEvent;
 use crate::core::subs::Mode;
 use crate::engine::event::EventKind;
 
-/// The event log `events.jsonl`: one JSON line for each routed event, each subscription that
-/// ended with an error, and each router result of the hub model. The herdr plugin reads it.
+/// The line types of the event log `events.jsonl`, which `follow` sends to its readers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LineType {
@@ -43,7 +42,7 @@ impl RouteAction {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct EventLine {
-    /// Increases from line to line, also across daemon restarts. A reader goes on after it.
+    /// Increases from line to line, also across daemon restarts, so that a reader can go on after it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
     pub time: i64,
@@ -59,7 +58,7 @@ pub struct EventLine {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct StoppedLine {
-    /// Increases from line to line, also across daemon restarts. A reader goes on after it.
+    /// Increases from line to line, also across daemon restarts, so that a reader can go on after it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
     pub time: i64,
@@ -76,7 +75,7 @@ pub struct StoppedLine {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct RouteLine {
-    /// Increases from line to line, also across daemon restarts. A reader goes on after it.
+    /// Increases from line to line, also across daemon restarts, so that a reader can go on after it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
     pub time: i64,
@@ -88,7 +87,6 @@ pub struct RouteLine {
     pub action: RouteAction,
 }
 
-/// One line of the event log.
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum LogLine {
@@ -112,13 +110,11 @@ struct WithId {
     id: Option<u64>,
 }
 
-/// The id of a log line, or 0 for a line with no id.
 pub fn id_of(line: &str) -> u64 {
     serde_json::from_str::<WithId>(line).ok().and_then(|line| line.id).unwrap_or(0)
 }
 
-/// The next id: greater than the last id, and at least the time in milliseconds. Thus the ids
-/// increase also after the prune of the log.
+/// At least the time in milliseconds, so that the ids increase also after the prune of the log.
 pub fn next_id(last: u64, now_millis: u64) -> u64 {
     (last + 1).max(now_millis)
 }
@@ -186,7 +182,6 @@ pub fn stopped_line(
     }
 }
 
-/// The router result of an opened event of the hub, with the hub key of the repo.
 pub fn route_line(now: i64, key: &str, iid: u64, action: RouteAction) -> RouteLine {
     RouteLine {
         id: None,
@@ -204,7 +199,6 @@ struct Timed {
     time: i64,
 }
 
-/// The lines with a time at or after `cut`. A line with no time stays.
 pub fn prune_lines(lines: &str, cut: i64) -> String {
     lines
         .lines()

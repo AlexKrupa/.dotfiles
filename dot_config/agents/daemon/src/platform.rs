@@ -30,7 +30,6 @@ fn parent_of(pid: u32) -> Option<u32> {
     ps_field("ppid", pid)?.parse().ok()
 }
 
-/// The ancestors of this process, from the parent up to the child of PID 1.
 pub fn ancestors() -> Vec<u32> {
     let mut pids = Vec::new();
     let mut pid = std::os::unix::process::parent_id();
@@ -44,8 +43,7 @@ pub fn ancestors() -> Vec<u32> {
     pids
 }
 
-/// The Claude Code process that runs the caller. Its life is the life of the subscription. With
-/// no `claude` process above, the parent, and a log message.
+/// The Claude Code process that runs the caller, whose life is the life of the subscription.
 pub fn session_pid() -> (u32, Option<String>) {
     if let Some(pid) = std::env::var("WATCH_SESSION_PID").ok().and_then(|pid| pid.parse().ok()) {
         return (pid, None);
@@ -57,12 +55,12 @@ pub fn session_pid() -> (u32, Option<String>) {
             return (pid, None);
         }
     }
-    // The parent dies with the client. Thus the subscription ends soon after each client.
+    // The parent dies with the client: the subscription ends soon after each client.
     let message = format!("no claude process above PID {parent}: the session is PID {parent}");
     (parent, Some(message))
 }
 
-/// True during full wake. A maintenance wake during system sleep has no Graphics capability.
+/// A maintenance wake during system sleep has no Graphics capability.
 pub async fn full_wake() -> bool {
     let output = tokio::process::Command::new("pmset")
         .args(["-g", "systemstate"])
@@ -73,7 +71,7 @@ pub async fn full_wake() -> bool {
     output.is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("Graphics"))
 }
 
-/// One try: full wake, and the host accepts a connection on port 443. No host is a local remote.
+/// No host is a local remote.
 pub async fn online(host: Option<&str>) -> bool {
     if !full_wake().await {
         return false;
@@ -89,8 +87,7 @@ pub async fn online(host: Option<&str>) -> bool {
     status.is_ok_and(|status| status.success())
 }
 
-/// Starts PROGRAM in a new session, so that a stop of the process group of the caller does not
-/// stop it. launchd becomes its parent when the caller exits.
+/// A new session, so that a stop of the process group of the caller does not stop the program.
 pub fn spawn_detached(program: &Path, args: &[&str], log: &Path) -> std::io::Result<()> {
     let output = std::fs::OpenOptions::new().create(true).append(true).open(log)?;
     let mut command = Command::new(program);
@@ -105,7 +102,7 @@ pub fn spawn_detached(program: &Path, args: &[&str], log: &Path) -> std::io::Res
     command.spawn().map(|_| ())
 }
 
-/// The first 12 hex digits of the SHA-1 of `text`, as `printf %s TEXT | shasum | cut -c1-12`.
+/// Must give the same 12 hex digits of the SHA-1 as the keys of the state files on disk.
 pub fn shasum12(text: &str) -> Result<String, String> {
     let mut child = Command::new("shasum")
         .stdin(Stdio::piped())
@@ -131,7 +128,7 @@ pub fn now_seconds() -> i64 {
     now.map_or(0, |duration| duration.as_secs() as i64)
 }
 
-/// Year, month, and day of a Unix time in UTC, by the civil-from-days algorithm of Howard Hinnant.
+/// The civil-from-days algorithm of Howard Hinnant.
 fn utc_civil(seconds: i64) -> (i64, i64, i64) {
     let days = seconds.div_euclid(86400) + 719_468;
     let era = days.div_euclid(146_097);
@@ -145,13 +142,11 @@ fn utc_civil(seconds: i64) -> (i64, i64, i64) {
     (year_of_era + era * 400 + i64::from(month <= 2), month, day)
 }
 
-/// `YYYY-MM-DD` in UTC.
 pub fn utc_date(seconds: i64) -> String {
     let (year, month, day) = utc_civil(seconds);
     format!("{year:04}-{month:02}-{day:02}")
 }
 
-/// `YYYY-MM-DDTHH:MM:SSZ`, as `date -u +%Y-%m-%dT%H:%M:%SZ`.
 pub fn utc_timestamp(seconds: i64) -> String {
     let second_of_day = seconds.rem_euclid(86400);
     format!(
@@ -163,7 +158,6 @@ pub fn utc_timestamp(seconds: i64) -> String {
     )
 }
 
-/// Hour, minute, and second of a Unix time in the local time zone.
 pub fn local_time(seconds: i64) -> (i32, i32, i32) {
     let time: libc::time_t = seconds;
     // SAFETY: localtime_r writes only to `parts`.

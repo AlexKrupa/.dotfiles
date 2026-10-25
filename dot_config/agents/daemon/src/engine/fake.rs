@@ -1,8 +1,11 @@
 //! The engine of the tests. For the key of a check, the files `<key>.*` of its folder give:
-//! `.jsonl` the event lines (the check takes them and empties the file), `.exit` exit codes, one
-//! for each line (the check takes the first line and fails with the text of `.err`), `.state` the
-//! saved state of the engine, `.sleep` the seconds to wait after the events are read (the file then
-//! goes away). Each check adds its arguments as one line to `args`.
+//! - `.jsonl`: the event lines. The check takes them and empties the file.
+//! - `.exit`: one exit code for each line. The check takes the first line and fails with the text
+//!   of `.err`.
+//! - `.state`: the saved state of the engine.
+//! - `.sleep`: the seconds to wait after the events are read. The file then goes away.
+//!
+//! Each check adds its arguments as one line to `args`.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -13,7 +16,6 @@ use crate::key::watch_key;
 
 pub struct FakeEngine {
     pub dir: PathBuf,
-    /// The state folder of the engine.
     pub engine_dir: PathBuf,
 }
 
@@ -25,7 +27,6 @@ fn take_first_line(path: &Path) -> Option<String> {
     Some(first).filter(|line| !line.is_empty())
 }
 
-/// The flags of the `engine` subcommand for `args`.
 fn arguments(args: &EngineArgs) -> Vec<String> {
     let mut flags = Vec::new();
     if let Some(repo) = &args.repo {

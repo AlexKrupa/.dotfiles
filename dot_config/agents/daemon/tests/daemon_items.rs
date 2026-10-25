@@ -1,6 +1,3 @@
-//! Open items: rows, the items files, moves between the hub and a review, and `report`. Each
-//! scenario runs once, and each of its checks is one test.
-
 mod support;
 
 use std::sync::OnceLock;
@@ -12,7 +9,6 @@ use support::{Checks, Run};
 const MR_URL: &str = "https://gitlab.example.com/app/-/merge_requests";
 const PL_URL: &str = "https://gitlab.example.com/app/-/pipelines";
 
-/// The row of each event line, joined with spaces.
 fn rows(out: &str) -> String {
     out.lines()
         .map(|line| support::raw(&serde_json::from_str::<Value>(line).unwrap()["row"]))
@@ -20,21 +16,18 @@ fn rows(out: &str) -> String {
         .join(" ")
 }
 
-/// An event line of the fake engine with an item.
 fn iev(kind: &str, iid: u64, item: &str) -> String {
     json!({"kind": kind, "iid": iid, "title": "Add foo", "url": "u", "actor": "anna", "detail": "d", "branch": "b",
         "item": item})
     .to_string()
 }
 
-/// The fields of each item, as `[.items[] | [<fields>]]`.
 fn item_fields(items: &Value, fields: &[&str]) -> String {
     let items = items["items"].as_array().cloned().unwrap_or_default();
     let rows: Vec<Value> = items.iter().map(|item| fields.iter().map(|field| item[*field].clone()).collect()).collect();
     Value::from(rows).to_string()
 }
 
-/// `[.items[].item]`.
 fn item_keys(items: &Value) -> String {
     let items = items["items"].as_array().cloned().unwrap_or_default();
     Value::from(items.iter().map(|item| item["item"].clone()).collect::<Vec<_>>()).to_string()
@@ -49,7 +42,6 @@ fn write_items(w: &Watchd, key: &str, json: &str) {
     std::fs::write(w.watchd.join(format!("items/{key}.json")), format!("{json}\n")).unwrap();
 }
 
-/// The report with no time line and no blank line after it, if the time line is correct.
 fn body(out: &str) -> String {
     let lines: Vec<&str> = out.lines().collect();
     match lines.as_slice() {
@@ -272,7 +264,6 @@ fn empty_report() -> &'static Checks {
     })
 }
 
-/// An event of the two MRs of the work table.
 fn work_event(kind: &str, iid: u64, actor: &str, detail: &str, item: Option<&str>, at: Option<(&str, u64)>) -> Value {
     let title = if iid == 123 { "Fix crash on rotation" } else { "Fix rotation test" };
     let mut event = json!({"kind": kind, "iid": iid, "title": title, "url": format!("{MR_URL}/{iid}"), "actor": actor,

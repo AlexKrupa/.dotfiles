@@ -1,6 +1,3 @@
-//! The daemon with the GitLab engine and the fake `glab`. Each scenario runs once, and each of its
-//! checks is one test.
-
 mod support;
 
 use std::process::Command;
@@ -10,7 +7,6 @@ use serde_json::{Value, json};
 use support::daemon::{Watchd, norow, wait_for};
 use support::{Checks, URL};
 
-/// The GraphQL response of MR `iid`, after `change` on the default MR.
 fn gql(w: &Watchd, iid: u64, change: impl FnOnce(&mut Value)) {
     let mut mr = json!({"iid": iid.to_string(), "title": "Add foo", "webUrl": format!("{URL}/{iid}"),
         "sourceBranch": "ABC-1/foo", "state": "opened", "draft": false, "mergeUser": null, "headPipeline": null,
@@ -31,7 +27,6 @@ fn commented(updated_at: &str) -> String {
     .to_string()
 }
 
-/// `jq -r` of the fields of the first event line, joined with spaces.
 fn fields(out: &str, keys: &[&str]) -> String {
     let event: Value = serde_json::from_str(out.lines().next().unwrap_or("null")).unwrap();
     keys.iter().map(|key| support::raw(&event[key])).collect::<Vec<_>>().join(" ")

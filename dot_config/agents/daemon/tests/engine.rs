@@ -1,6 +1,3 @@
-//! The `engine` subcommand against a fake `glab`. Each scenario runs once, and each of its checks
-//! is one test.
-
 mod support;
 
 use std::fmt;
@@ -9,7 +6,6 @@ use std::sync::OnceLock;
 use serde_json::{Value, json};
 use support::{Checks, PIPELINES, TestEnv, URL, each, field, raw, read_json, yes_no};
 
-/// `$url` and `$pipelines` in an expected text.
 fn u(text: &str) -> String {
     text.replace("$url", URL).replace("$pipelines", PIPELINES)
 }
@@ -19,7 +15,6 @@ fn mr(iid: u64, title: &str, state: &str, updated_at: &str, author: &str, branch
         "web_url": format!("{URL}/{iid}"), "author": {"username": author}})
 }
 
-/// The GraphQL response of MR `iid`, after `change` on the default MR.
 fn gql(env: &TestEnv, iid: u64, change: impl FnOnce(&mut Value)) {
     let mut mr = json!({"iid": iid.to_string(), "title": "Add foo", "webUrl": format!("{URL}/{iid}"),
         "sourceBranch": "ABC-1/foo", "state": "opened", "draft": false, "author": {"username": "me"},
@@ -49,7 +44,6 @@ fn note(id: u64, author: &str, body: &str, position: Option<Value>) -> Value {
         "position": position.unwrap_or(Value::Null), "resolvable": true, "resolved": false, "resolved_by": null})
 }
 
-/// A thread of `notes`. `resolver` is empty for an open thread.
 fn thread(resolver: &str, notes: Vec<Value>) -> Value {
     let id = format!("d{}", notes[0]["id"]);
     let notes: Vec<Value> = notes
@@ -63,7 +57,6 @@ fn thread(resolver: &str, notes: Vec<Value>) -> Value {
     json!({"id": id, "individual_note": false, "notes": notes})
 }
 
-/// A system note in a discussion of its own.
 fn system_note(id: u64, author: &str, body: &str) -> Value {
     json!({"id": format!("s{id}"), "individual_note": true, "notes": [{"id": id, "body": body, "system": true,
         "author": {"username": author}, "resolvable": false, "resolved": false, "resolved_by": null}]})
@@ -88,7 +81,7 @@ fn failed_pipeline(id: u64, status: &str) -> String {
     json!([{"id": id, "status": status, "web_url": format!("{PIPELINES}/{id}")}]).to_string()
 }
 
-/// An expected event line of a stack or review watch, with its fields in the order of the engine.
+/// The fields are in the order of the engine output.
 struct Line(Vec<(&'static str, Value)>);
 
 impl Line {
@@ -104,7 +97,6 @@ impl Line {
         ])
     }
 
-    /// The URL of the note `id` of MR 5.
     fn note(self, id: u64) -> Line {
         self.set("url", json!(format!("{URL}/5#note_{id}")))
     }
@@ -555,7 +547,6 @@ fn stack_reactions() -> &'static Checks {
     })
 }
 
-/// A first check of MR 5, then a check after `change` of the MR and its discussions.
 fn after_change(env: &TestEnv, change: impl FnOnce(&mut Value), threads: Option<&[Value]>) -> String {
     gql(env, 5, plain);
     env.run(&["--mr", "5"]);
@@ -787,7 +778,6 @@ fn review_threads() -> &'static Checks {
     })
 }
 
-/// The needs of the stack state after one check of `iids`.
 fn stack_needs(change: impl FnOnce(&TestEnv), iids: &[&str]) -> String {
     let env = TestEnv::new();
     change(&env);

@@ -4,7 +4,7 @@ set -u
 
 cd "$(dirname "$0")" || exit 1
 tmp=$(cd "$(mktemp -d)" && pwd -P) || exit 1
-# The sweep checks start test daemons. Each state folder has its own.
+# The sweep checks start one test daemon for each state folder.
 stop_daemons() {
   local dir
   for dir in "$tmp"/state*/watchd; do
@@ -93,8 +93,7 @@ check "sidebar: dead subscription uses the workspace file" \
   "$(sidebar '{"workspaces": {"wR": {"kind": "bump", "stage": "stopped"}}, "subs": [
     {"mode": "review", "herdr_workspace": "wR", "live": false, "needs": ["reply"]}]}')"
 
-# The sweep, with a fake herdr and a test daemon. The fake herdr logs its arguments, prints the
-# snapshot, and fails for the workspace wBad. The live record of the test has no git repo: its
+# The sweep, with a fake herdr and a test daemon. The live record of the test has no git repo: its
 # check fails before a glab call.
 mkdir -p "$tmp/bin" "$tmp/config"
 cat >"$tmp/bin/herdr" <<EOF

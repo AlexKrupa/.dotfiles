@@ -28,7 +28,6 @@ watchd=${WATCHD:-$HOME/.local/bin/watchd}
 
 mkdir -p "$state_dir"
 
-# The id of the last event log line read, or nothing at the first run.
 last_id() {
   local id
   id=$(cat "$state_dir/reader" 2>/dev/null)
@@ -84,7 +83,6 @@ meta() { # meta <workspace id> <kind> <stage> <needs>
 }
 
 # Writes the tokens that changed since the last write, only for the workspaces that herdr has.
-# With no herdr answer, nothing changes. A closed workspace loses its workspace record.
 sidebar() { # sidebar <sidebar line>
   local ids id desired changes kind stage needs written=''
   ids=$(herdr api snapshot 2>/dev/null | jq -c '[.result.snapshot.workspaces[].workspace_id]' \
@@ -113,9 +111,8 @@ sidebar() { # sidebar <sidebar line>
     >"$state_dir/tokens.tmp" && mv "$state_dir/tokens.tmp" "$state_dir/tokens.json"
 }
 
-# One batch of follow lines. The first run starts at the end of the log: the first sidebar line
-# has the newest id. The new id is saved first: a crash loses a notification, but never sends one
-# two times.
+# The first run starts at the end of the log, at the id of the first sidebar line. The id is saved
+# before the notifications: a crash can lose a notification, but never sends one two times.
 handle() { # handle <line>...
   local line events=() sidebar_line='' id
   for line in "$@"; do
@@ -138,9 +135,8 @@ handle() { # handle <line>...
   if [ -n "$sidebar_line" ]; then sidebar "$sidebar_line"; fi
 }
 
-# One connection to the daemon. The lines that come within half a second are one batch. With
-# --once, the pass ends at the first pause after the first line, else when the daemon closes the
-# socket.
+# With --once, the pass ends at the first pause after the first line, else when the daemon closes
+# the socket.
 pass() { # pass [--once]
   local batch=() line got=0 status id args=(follow)
   if id=$(last_id); then args+=(--after "$id"); fi

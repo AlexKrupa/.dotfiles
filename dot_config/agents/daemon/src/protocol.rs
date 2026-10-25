@@ -1,5 +1,5 @@
-//! The socket protocol between the client commands and the daemon: one JSON object per line. A
-//! client sends one request. The daemon sends one response, except for `follow`.
+//! The socket protocol between the client commands and the daemon: one JSON object per line, one
+//! request, and one response, except for `follow`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -24,14 +24,12 @@ pub enum Request {
     Route { key: String, iid: u64, action: RouteAction },
     Report { key: String, mode: Mode, mrs: Vec<u64>, input: ReportInput },
     DebugState,
-    /// The sidebar state, then each line of the event log with an id greater than `after`, then
-    /// each new line and each sidebar change, until the client closes the socket.
     Follow { after: Option<u64> },
     WorkspaceForget { id: String },
     ReplaceClients { repo: PathBuf },
 }
 
-/// A `watch` client. `again`: the client connects again after the daemon closed the socket.
+/// `again`: the client connects again after the daemon closed the socket.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscribeArgs {
     pub key: String,
@@ -63,7 +61,7 @@ pub enum Response {
     State(Box<DebugState>),
 }
 
-/// All state, for `debug state`. The memory fields are `None` when no daemon runs.
+/// The memory fields are `None` when no daemon runs.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DebugState {
     pub pid: Option<u32>,
@@ -112,7 +110,7 @@ pub async fn send<W: AsyncWrite + Unpin, T: Serialize>(writer: &mut W, value: &T
     writer.flush().await
 }
 
-/// The next message, or `None` when the other side closed the socket.
+/// Returns `None` when the other side closed the socket.
 pub async fn receive<R, T>(reader: &mut BufReader<R>) -> std::io::Result<Option<T>>
 where
     R: tokio::io::AsyncRead + Unpin,

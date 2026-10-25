@@ -28,8 +28,8 @@ pub struct Nodes<T> {
     pub nodes: Vec<T>,
 }
 
-/// One fetched MR in the GraphQL form, also the file of the MR cache. With a fine-grained token,
-/// GraphQL gives no discussions, diff refs, or reactions, and no error. They come from REST.
+/// Also the format of an MR cache file. With a fine-grained token, GraphQL gives no discussions,
+/// diff refs, or reactions, and no error, thus they come from REST.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MrData {
@@ -55,7 +55,6 @@ pub struct GqlMr {
     pub discussions: Nodes<GqlDiscussion>,
 }
 
-/// The fields of `MR_QUERY`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GqlMrBase {
@@ -183,7 +182,6 @@ struct RestPosition {
     new_line: Option<u64>,
 }
 
-/// The MR of `iid`: GraphQL plus the REST fields, from the MR cache of the round if it has it.
 pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineError> {
     let name = format!("{}-{iid}.json", ctx.project_ref);
     let _fetch = match &ctx.cache {
@@ -265,8 +263,7 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
     Ok(data)
 }
 
-/// The user and the MR of the GraphQL call. On a GraphQL error, glab exits 1 and prints the
-/// body. The error is permanent, because a new try gives the same error.
+/// On a GraphQL error, `glab` exits 1 with the body on stdout, and a new try gives the same error.
 fn graphql_mr(
     output: std::io::Result<std::process::Output>,
     ctx: &CheckContext,
@@ -343,7 +340,6 @@ fn gql_discussion(
     }
 }
 
-/// One comment of an MR, with its thread.
 #[derive(Clone, Debug)]
 pub struct NormNote {
     pub id: u64,
@@ -379,7 +375,6 @@ pub struct Unaddressed {
     pub discussion: String,
 }
 
-/// The values of one MR that the comparison uses.
 #[derive(Clone, Debug)]
 pub struct NormMr {
     pub iid: u64,
@@ -410,17 +405,14 @@ pub struct NormMr {
     pub unaddressed: Vec<Unaddressed>,
 }
 
-/// The number after the last `/` of a GraphQL id.
 fn num(id: &str) -> u64 {
     id.rsplit('/').next().unwrap_or(id).parse().unwrap_or(0)
 }
 
-/// The jq `$` of `test`: the end, or before a newline at the end.
 fn at_end(rest: &str) -> bool {
     rest.is_empty() || rest == "\n"
 }
 
-/// `^(added|removed) ~.* labels?( |$)`, where `.` matches no newline.
 pub fn is_labels_note(body: &str) -> bool {
     let Some(rest) = body.strip_prefix("added ~").or_else(|| body.strip_prefix("removed ~")) else {
         return false;
@@ -433,7 +425,6 @@ pub fn is_labels_note(body: &str) -> bool {
     })
 }
 
-/// The kinds of system notes that tell who did an action.
 enum Action {
     Draft,
     Close,
@@ -457,7 +448,6 @@ impl Action {
     }
 }
 
-/// The author of the newest system note of the action, or empty.
 fn actor(mr: &GqlMr, action: Action) -> String {
     mr.discussions
         .nodes
@@ -469,7 +459,6 @@ fn actor(mr: &GqlMr, action: Action) -> String {
         .unwrap_or_default()
 }
 
-/// The values of the MR that `stack_compare` compares.
 pub fn normalize(data: &MrData, me: &str, review: bool) -> NormMr {
     let mr = &data.project.merge_request;
     let discussions: Vec<(&GqlDiscussion, Vec<NormNote>)> = mr
@@ -584,12 +573,11 @@ pub fn normalize(data: &MrData, me: &str, review: bool) -> NormMr {
     }
 }
 
-/// GitLab computes the merge status async. A transient status keeps the last stable values.
+/// GitLab computes the merge status async, thus a transient status keeps the last stable values.
 fn transient(status: &str) -> bool {
     matches!(status, "checking" | "unchecked" | "preparing" | "approvals_syncing")
 }
 
-/// jq `at($p)`: path and line of a diff comment.
 fn at(event: Event, position: &Option<Position>) -> Event {
     match position.as_ref().and_then(|position| position.new_path.clone()) {
         Some(path) => Event {
@@ -748,7 +736,6 @@ fn mr_events(mr: &NormMr, old: &StackMrState, new: &StackMrState, me: &str, revi
     events
 }
 
-/// The new state, and the events against the old state.
 pub fn stack_compare(
     now: &[NormMr],
     old: Option<&StackState>,
@@ -821,7 +808,6 @@ pub fn stack_compare(
     (StackState { mrs, needs, present }, events)
 }
 
-/// The stack or review check. The MRs are fetched in parallel.
 pub async fn check_stack(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     let old: Option<StackState> = state::load(&ctx.state)?;
     let fetches: Vec<Task<_>> = ctx
@@ -838,7 +824,6 @@ pub async fn check_stack(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> 
     let review = ctx.args.review;
     let now: Vec<NormMr> = data.iter().map(|data| normalize(data, &me, review)).collect();
     let (new_state, events) = stack_compare(&now, old.as_ref(), &me, review);
-    // Before the save of the state: a failed call must not lose the events.
     let events = add_jobs(ctx, &ctx.project_ref, events).await?;
     state::save(&ctx.state, &new_state)?;
     Ok(events)
@@ -1006,8 +991,6 @@ mod tests {
         assert!(!is_labels_note("changed ~7 label"));
     }
 
-    /// A fake `glab`, first on PATH. The project of a call names its folder. Each call records the
-    /// number of live calls of its project. The project `slow` never answers.
     fn fake_glab() -> &'static Path {
         static DIR: OnceLock<PathBuf> = OnceLock::new();
         DIR.get_or_init(|| {
@@ -1036,7 +1019,7 @@ esac
             std::fs::write(&glab, script).unwrap();
             std::fs::set_permissions(&glab, std::fs::Permissions::from_mode(0o755)).unwrap();
             let path = format!("{}:{}", dir.join("bin").display(), std::env::var("PATH").unwrap());
-            // SAFETY: once, before the first fake call. The other tests only read PATH.
+            // SAFETY: this runs once, before the first fake call, and the other tests only read PATH.
             unsafe { std::env::set_var("PATH", path) };
             dir
         })
@@ -1085,7 +1068,7 @@ esac
                 .unwrap_or_default()
         };
         let check = tokio::spawn(async move { check_stack(&ctx).await });
-        // A busy machine can start the first glab call late: the check is cancelled once a call runs.
+        // On a busy machine, the first glab call can start late.
         for _ in 0..100 {
             if !live_pids().is_empty() {
                 break;

@@ -1,5 +1,5 @@
-//! The socket server of the daemon. A `watch` client keeps its connection until its delivery: the
-//! events of its subscription, an error, or the end.
+//! The socket server of the daemon: a `watch` client keeps its connection until its delivery, an
+//! error, or the end.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -131,9 +131,7 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
     let _ = send(&mut write, &response).await;
 }
 
-/// The answer for a waiting client, or `None` while it waits. The daemon writes the error or the
-/// last events before it removes the record, under the same lock. The owner of an ended
-/// subscription stays until the send of its events.
+/// Returns `None` while the client waits.
 fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs) -> Option<Response> {
     let key = args.key.as_str();
     let sub = daemon.store.sub(key);
@@ -146,8 +144,7 @@ fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs) -> Option<Re
         return Some(Response::Replaced);
     }
     let ended = sub.is_none();
-    // With --once, the client takes the inbox only after the check of its own poke. Thus a check
-    // that started before the poke does not count.
+    // With `--once`, a check that started before the poke of the client does not count.
     let own_round = memory.poked.get(key) == Some(&args.poke_token);
     if !args.once || ended || own_round {
         let events = daemon.store.take_inbox(key);
@@ -176,8 +173,8 @@ async fn subscribe(
             let _ = send(&mut write, &Response::Replaced).await;
             return;
         }
-        // No record, but an error or events: the subscription ended with no client. This client
-        // gives the result and does not subscribe again.
+        // No record, but an error or events: the subscription ended with no client, and this client
+        // gives the result.
         let ended_with_result = old.is_none() && daemon.store.ended_with_result(&args.key, args.session_pid);
         if !ended_with_result && daemon.store.subscribe(&args, old.as_ref(), now_seconds()) {
             daemon.poke(&mut memory, &args.key, &args.slug, &args.poke_token);
@@ -225,7 +222,7 @@ async fn subscribe(
     if memory.clients.get(&args.key) == Some(&args.client_pid) {
         memory.clients.remove(&args.key);
     }
-    // The last time with a client: the limit of the time with no client starts now.
+    // The limit of the time with no client starts now.
     if let Some(mut sub) = daemon.store.sub(&args.key)
         && sub.client_pid == args.client_pid
     {
@@ -239,15 +236,14 @@ async fn write_line(write: &mut tokio::net::unix::OwnedWriteHalf, line: &str) ->
     write.flush().await
 }
 
-/// The log lines with an id greater than `after`, from the event log file.
 fn lines_after(daemon: &Daemon, after: u64) -> Vec<String> {
     let text = std::fs::read_to_string(daemon.store.dirs.events()).unwrap_or_default();
     text.lines().filter(|line| id_of(line) > after).map(str::to_string).collect()
 }
 
-/// A `follow` client: the sidebar state with the newest log id, the log lines after `after`, then
-/// each new log line and each sidebar change. The lines come from the file: `changed` only wakes
-/// the client up.
+/// A `follow` client gets the sidebar state with the newest log id, the log lines after `after`,
+/// then each new log line and each sidebar change. The lines come from the file: `changed` only
+/// wakes the client up.
 async fn follow(
     daemon: Arc<Daemon>,
     after: Option<u64>,
@@ -265,7 +261,7 @@ async fn follow(
     let mut ok = write_line(&mut write, &first.to_string()).await.is_ok();
     let mut closed = String::new();
     while ok {
-        // Before the read: a line that comes during the read wakes the client up.
+        // Before the read, so that a line that comes during the read wakes the client up.
         let changed = daemon.changed.notified();
         tokio::pin!(changed);
         changed.as_mut().enable();

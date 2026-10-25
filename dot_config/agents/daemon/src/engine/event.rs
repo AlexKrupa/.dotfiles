@@ -27,8 +27,8 @@ pub enum EventKind {
     Resolved,
 }
 
-/// One event line of the engine. The field order is the order of the jq programs. A field with
-/// `Option<Option<_>>` is absent for `None` and `null` for `Some(None)`.
+/// The field order is the order that readers expect. An `Option<Option<_>>` field is absent for
+/// `None` and `null` for `Some(None)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Event {
     pub kind: EventKind,
@@ -60,7 +60,7 @@ pub struct Event {
     pub jobs: Option<Vec<String>>,
 }
 
-/// A field that is in the JSON, also with `null`.
+/// Gives `Some(None)` for a `null` field, so that `null` and absent stay different.
 pub fn present<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -101,8 +101,6 @@ impl Event {
     }
 }
 
-/// jq `gsub("\\s+"; " ") | .[0:100]`: each run of whitespace becomes one space, then the first 100
-/// characters.
 pub fn short(text: &str) -> String {
     let mut result = String::new();
     let mut count = 0;

@@ -37,8 +37,7 @@ pub fn worktree_top(repo: &Path) -> Result<PathBuf, String> {
     }
 }
 
-/// The repo slug. With MRs, also the worktree hash, so that a stack watch and the hub watch of one
-/// repo have different keys. In review mode, also the MR, so that each reviewed MR has its own key.
+/// The worktree hash keeps the key of a stack watch apart from the hub watch of the same repo.
 pub fn watch_key(repo: &Path, mode: &KeyMode) -> Result<String, String> {
     let slug = repo_slug(repo)?;
     let worktree = |slug: &str| -> Result<String, String> {
@@ -71,7 +70,6 @@ mod tests {
         repo.canonicalize().unwrap()
     }
 
-    /// The first 12 hex digits of `shasum` of the path.
     fn hash(path: &Path) -> String {
         let mut child = Command::new("shasum")
             .stdin(std::process::Stdio::piped())

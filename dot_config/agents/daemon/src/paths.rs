@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-/// The state folders and the file paths in them.
 #[derive(Clone)]
 pub struct StateDirs {
     pub watchd: PathBuf,
@@ -24,7 +23,6 @@ impl StateDirs {
         self.watchd.join(format!("subs/{key}.json"))
     }
 
-    /// The events that wait for a client.
     pub fn inbox(&self, key: &str) -> PathBuf {
         self.watchd.join(format!("inbox/{key}.jsonl"))
     }
@@ -39,7 +37,6 @@ impl StateDirs {
         self.watchd.join(format!("inbox/{key}.owner"))
     }
 
-    /// The last delivery, for `report`.
     pub fn last(&self, key: &str) -> PathBuf {
         self.watchd.join(format!("inbox/{key}.last.jsonl"))
     }

@@ -1,7 +1,7 @@
 //! Usage: watchd engine [--repo PATH] [--fresh] [--review] [--mr IID]... [--skip-mr IID]...
-//! The check engine of the watch daemon. It does one check and prints one JSON line for
-//! each new event: kind, iid, title, url, actor, detail, branch. With no state file, the check only
-//! saves the state. A value that the saved state does not have gives no event at its first check.
+//! One check of the watch daemon. It prints one JSON line for each new event: kind, iid, title,
+//! url, actor, detail, branch. With no state file, the check only saves the state. A value that the
+//! saved state does not have gives no event at its first check.
 //! --fresh: delete the state file before the check.
 //! --skip-mr: hub mode, an MR with a review watch.
 //! WATCH_MR_CACHE=DIR: a fetched MR goes to DIR/<project>-<iid>.json, and a later fetch of the MR
@@ -19,7 +19,7 @@
 //! An MR of --skip-mr gives only the review_requested to-do item and the opened event. The agent of
 //! the review watch reports the other events.
 //! opened: actor is the MR author. default-failed: iid and title are null, previous is the status
-//! of the saved default-branch pipeline, or null, and jobs are the names of the failed jobs.
+//! of the saved default-branch pipeline or null, and jobs are the names of the failed jobs.
 //!
 //! Stack mode (--mr, one for each MR, `!` prefix allowed) watches the MRs of the stack of the user.
 //! Review mode (--review and one --mr) watches one MR for its reviewer. Events of both modes:
@@ -44,11 +44,11 @@
 //!   resolved                 a different user resolved a thread that the user started
 //!   unaddressed              only for the threads that have a comment of the user
 //! Comments, reactions, and threads on a diff line also have path and line. The actor of a change
-//! comes from the newest system note of that change, or is empty.
+//! is the author of the newest system note of that change, or empty.
 //!
-//! Open items. An event that opens an item for the user has the item key in `item`. The state
-//! file has present: the item keys whose cause GitLab still shows. The daemon closes the other
-//! items.
+//! Open items. An event that opens an item for the user has the item key in `item`. The `present`
+//! list of the state file has the item keys whose cause GitLab still shows. The daemon closes the
+//! other items.
 //!   item                     event                        present while
 //!   todo:<to-do id>          todo                         the to-do item is pending
 //!   note:<note id>           note                         the MR is open, the note is not
@@ -94,7 +94,7 @@ pub struct EngineArgs {
 }
 
 impl EngineArgs {
-    /// The flags of the `engine` subcommand. The callers compare the error texts.
+    /// Callers compare the error texts.
     pub fn parse(args: Vec<String>) -> Result<EngineArgs, String> {
         let mut parsed = EngineArgs::default();
         let mut args = args.into_iter();
@@ -127,7 +127,6 @@ impl EngineArgs {
     }
 }
 
-/// A positive decimal number, with an optional `!` prefix.
 pub fn mr_number(arg: Option<String>) -> Option<u64> {
     let arg = arg?;
     let digits = arg.strip_prefix('!').unwrap_or(&arg);
@@ -172,11 +171,9 @@ impl From<glab::ApiError> for EngineError {
     }
 }
 
-/// What a check needs, from the preflight.
 #[derive(Clone)]
 pub struct CheckContext {
     pub args: EngineArgs,
-    /// The worktree: the `glab` calls run in it.
     pub repo: PathBuf,
     pub state: PathBuf,
     pub project: String,
@@ -186,7 +183,6 @@ pub struct CheckContext {
 
 pub type EngineFuture<'a> = std::pin::Pin<Box<dyn Future<Output = Result<Vec<Event>, EngineError>> + Send + 'a>>;
 
-/// One check of a subscription. The daemon runs the GitLab engine, the tests a fake.
 pub trait Engine: Send + Sync {
     fn check(&self, args: EngineArgs, cache: Arc<MrCache>) -> EngineFuture<'_>;
 }
@@ -196,7 +192,6 @@ pub struct GitlabEngine {
 }
 
 impl Engine for GitlabEngine {
-    /// The error text starts with `watch-gitlab: `, as the error of the `engine` subcommand.
     fn check(&self, args: EngineArgs, cache: Arc<MrCache>) -> EngineFuture<'_> {
         Box::pin(async move {
             let result = match preflight(args, &self.dirs, Some(cache)).await {
@@ -215,8 +210,7 @@ impl Engine for GitlabEngine {
     }
 }
 
-/// The MR cache of a round: a fetched MR goes to `<dir>/<project>-<iid>.json`, and a later fetch
-/// of the MR reads it. The checks of one MR wait for each other, so that the MR has one fetch.
+/// The checks of one MR wait for each other, so that the MR has one fetch in a round.
 pub struct MrCache {
     pub dir: PathBuf,
     locks: std::sync::Mutex<std::collections::HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
@@ -236,8 +230,7 @@ impl MrCache {
     }
 }
 
-/// The checks before the first fetch. Their order selects the error of a setup with more than one
-/// problem.
+/// The order of the checks selects the error of a setup with more than one problem.
 pub async fn preflight(
     args: EngineArgs,
     dirs: &StateDirs,
@@ -303,7 +296,6 @@ fn git_ok(repo: &Path, args: &[&str]) -> bool {
     git(repo, args).is_some()
 }
 
-/// The URL of `origin`, else of the first remote.
 pub fn remote_url(repo: &Path) -> Option<String> {
     git(repo, &["remote", "get-url", "origin"]).or_else(|| {
         let remotes = git(repo, &["remote"])?;
@@ -311,7 +303,6 @@ pub fn remote_url(repo: &Path) -> Option<String> {
     })
 }
 
-/// The host and the path of an https, ssh, or scp-like git URL. `None` for a local path.
 pub fn split_remote(url: &str) -> Option<(&str, &str)> {
     if let Some((scheme, rest)) = url.split_once("://")
         && !scheme.is_empty()
@@ -330,13 +321,11 @@ pub fn split_remote(url: &str) -> Option<(&str, &str)> {
     (!host.is_empty()).then_some((host, path))
 }
 
-/// The group/project path of an https, ssh, or scp-like git URL.
 pub fn project_of_url(url: &str) -> String {
     let url = url.strip_suffix(".git").unwrap_or(url);
     split_remote(url).map_or(url, |(_, path)| path).to_string()
 }
 
-/// jq `@uri`: each byte except the unreserved characters is percent-encoded.
 pub fn uri_encode(text: &str) -> String {
     text.bytes()
         .map(|byte| match byte {
@@ -348,26 +337,23 @@ pub fn uri_encode(text: &str) -> String {
         .collect()
 }
 
-/// One `glab api` call: its folder and its arguments. The first argument is the path.
 pub struct Call {
     pub dir: PathBuf,
     pub args: Vec<String>,
 }
 
 impl CheckContext {
-    /// A call in the worktree of the check.
     pub fn call(&self, items: &[&str]) -> Call {
         Call { dir: self.repo.clone(), args: args(items) }
     }
 }
 
-/// `glab api ARGS`, one JSON value.
 pub async fn api_json<T: DeserializeOwned>(call: Call) -> Result<T, EngineError> {
     let output = glab::api(&call.dir, &call.args).await?;
     serde_json::from_slice(&output).map_err(|error| bad_json(&call.args, error))
 }
 
-/// `glab api ARGS`, one array or one array for each page, as `jq -s 'add // []'`.
+/// With `--paginate`, `glab` prints one array for each page.
 pub async fn api_pages<T: DeserializeOwned>(call: Call) -> Result<Vec<T>, EngineError> {
     let output = glab::api(&call.dir, &call.args).await?;
     let mut items = Vec::new();
@@ -386,7 +372,6 @@ pub fn args(items: &[&str]) -> Vec<String> {
     items.iter().map(|item| item.to_string()).collect()
 }
 
-/// The first error in the order of the results, else all values.
 pub fn all_ok<T>(results: Vec<Result<T, EngineError>>) -> Result<Vec<T>, EngineError> {
     results.into_iter().collect()
 }
@@ -396,8 +381,7 @@ struct Job {
     name: String,
 }
 
-/// A failed pipeline gets the sorted names of its failed jobs. An error must not save the state,
-/// so that the events of the check come again.
+/// Call this before the state is saved, so that a failed call gives the events again.
 pub async fn add_jobs(
     ctx: &CheckContext,
     project: &str,
@@ -431,7 +415,6 @@ pub async fn add_jobs(
     Ok(events)
 }
 
-/// The id of `pipeline <id> failed`.
 fn failed_pipeline(detail: &str) -> Option<&str> {
     let id = detail.strip_prefix("pipeline ")?.strip_suffix(" failed")?;
     match !id.is_empty() && id.bytes().all(|byte| byte.is_ascii_digit()) {
@@ -440,7 +423,6 @@ fn failed_pipeline(detail: &str) -> Option<&str> {
     }
 }
 
-/// One check: the events, and the new state saved.
 pub async fn run_check(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     match ctx.args.mrs.is_empty() {
         true => hub::check_hub(ctx).await,
@@ -448,7 +430,6 @@ pub async fn run_check(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     }
 }
 
-/// The `engine` subcommand: one check, the events on stdout, and the exit codes of the module doc.
 pub async fn main(args: Vec<String>) -> i32 {
     let result = match EngineArgs::parse(args) {
         Ok(args) => {

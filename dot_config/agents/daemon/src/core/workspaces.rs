@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-/// `workspaces/<id>.json`: the kind of work and the end stage of a herdr workspace, for the
-/// sidebar of the herdr plugin.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Workspace {
     #[serde(default)]
@@ -27,8 +25,7 @@ pub enum Stage {
     Stopped,
 }
 
-/// With no live watch in the workspace, a new task starts: the end stage of an earlier watch does
-/// not apply to it.
+/// With no live watch, a new task starts, and the end stage of an earlier watch does not apply to it.
 pub fn set_kind(workspace: &mut Workspace, kind: Kind, live_watch: bool) {
     workspace.kind = Some(kind);
     if !live_watch {

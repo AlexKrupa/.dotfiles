@@ -1,5 +1,5 @@
-//! The files of the daemon state. The daemon is their only writer: each function runs under the
-//! state lock of the daemon. The tests and the herdr plugin read the files.
+//! The daemon state files, with the daemon as the only writer: each function runs under its state
+//! lock.
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -23,7 +23,6 @@ pub const ALL_ENDED: &str = "all MRs merged or closed";
 
 pub struct Store {
     pub dirs: StateDirs,
-    /// The last id of the event log, read from the log at the first append.
     last_id: std::sync::Mutex<Option<u64>>,
 }
 
@@ -31,7 +30,6 @@ fn remove(path: &Path) {
     let _ = std::fs::remove_file(path);
 }
 
-/// `-<12 hex digits>` or `-<12 hex digits>-review-<iid>` at the end: a stack or review key.
 pub fn is_worktree_key(key: &str) -> bool {
     let key = match key.rsplit_once("-review-") {
         Some((front, iid)) if !iid.is_empty() && iid.bytes().all(|byte| byte.is_ascii_digit()) => front,
@@ -59,8 +57,6 @@ impl Store {
         Store { dirs, last_id: std::sync::Mutex::new(None) }
     }
 
-    /// A missing file is `Ok(None)`. A file that is not JSON of the type is an error. A record of
-    /// an unknown format goes away: its subscription starts again with a first check.
     fn read_json<T: DeserializeOwned>(&self, path: &Path) -> Result<Option<T>, String> {
         match load(path)? {
             None => Ok(None),
@@ -80,8 +76,6 @@ impl Store {
         Ok(())
     }
 
-    /// One line of `watchd.log`: time, repo slug, subscription key, message. An empty slug or key
-    /// is `-`.
     pub fn log(&self, slug: &str, key: &str, message: &str) {
         let dash = |text: &str| if text.is_empty() { "-".to_string() } else { text.to_string() };
         let line = format!("{} {} {} {message}\n", utc_timestamp(now_seconds()), dash(slug), dash(key));
@@ -91,8 +85,7 @@ impl Store {
         }
     }
 
-    /// The log grows with each round. Thus it shrinks in place: the log file stays the stdout of
-    /// the daemon.
+    /// Shrinks the log in place, because the log file is the stdout of the daemon.
     pub fn trim_log(&self) {
         let Ok(text) = std::fs::read_to_string(self.dirs.log()) else { return };
         let lines: Vec<&str> = text.lines().collect();
@@ -109,7 +102,6 @@ impl Store {
         self.read_json(&self.dirs.sub(key)).ok().flatten()
     }
 
-    /// All readable records, in the order of their keys.
     pub fn subs(&self) -> Vec<Subscription> {
         let Ok(entries) = std::fs::read_dir(self.dirs.watchd.join("subs")) else { return Vec::new() };
         let mut keys: Vec<String> = entries
@@ -120,7 +112,6 @@ impl Store {
         keys.iter().filter_map(|key| self.sub(key)).collect()
     }
 
-    /// The subscriptions of `slug`, or of all repos, whose session runs.
     pub fn live_subs(&self, slug: Option<&str>) -> Vec<Subscription> {
         self.subs()
             .into_iter()
@@ -143,7 +134,6 @@ impl Store {
         std::fs::metadata(self.dirs.inbox(key)).is_ok_and(|meta| meta.len() > 0)
     }
 
-    /// The events that wait in the inbox. The inbox goes away.
     pub fn take_inbox(&self, key: &str) -> Vec<RoutedEvent> {
         let path = self.dirs.inbox(key);
         let text = std::fs::read_to_string(&path).unwrap_or_default();
@@ -158,7 +148,6 @@ impl Store {
         events
     }
 
-    /// The events of a delivery that did not get to the client.
     pub fn put_back_inbox(&self, key: &str, events: &[RoutedEvent]) {
         let path = self.dirs.inbox(key);
         let newer = std::fs::read_to_string(&path).unwrap_or_default();
@@ -181,14 +170,13 @@ impl Store {
         }
     }
 
-    /// The delivery of the next `report`.
+    /// The delivery that the next `report` shows.
     pub fn write_last(&self, key: &str, events: &[RoutedEvent]) {
         let path = self.dirs.last(key);
         remove(&path);
         self.append_lines(&path, events);
     }
 
-    /// The newest id of the event log.
     pub fn last_id(&self) -> u64 {
         let mut last_id = self.last_id.lock().expect("the id lock is never poisoned");
         *last_id.get_or_insert_with(|| {
@@ -197,7 +185,6 @@ impl Store {
         })
     }
 
-    /// Appends the lines to the event log, each with a new id.
     pub fn event_log(&self, lines: Vec<LogLine>) {
         let mut last = self.last_id();
         let mut last_id = self.last_id.lock().expect("the id lock is never poisoned");
@@ -218,7 +205,6 @@ impl Store {
         }
     }
 
-    /// Changes the workspace file. A missing file is `{}`. A file that is not JSON stays.
     pub fn workspace_update(&self, id: &str, change: impl FnOnce(&mut Workspace)) {
         let path = self.dirs.workspace(id);
         let Ok(workspace) = self.read_json::<Workspace>(&path) else { return };
@@ -232,8 +218,8 @@ impl Store {
         self.read_json(&self.dirs.engine_state(key)).ok().flatten()
     }
 
-    /// The error text goes to the next client of the session, which sees it before it sees that
-    /// the record is gone. The owner file keeps the session of the results.
+    /// Writes the error before it removes the record: the next client of the session must see the
+    /// error first.
     pub fn remove_record(&self, sub: &Subscription, reason: &str, error: Option<&str>) {
         if let Some(text) = error {
             let _ = std::fs::write(self.dirs.error(&sub.key), text);
@@ -260,8 +246,6 @@ impl Store {
         }
     }
 
-    /// Ends the subscription if its session is gone, or if it has no client for the limit. True
-    /// if it ended.
     pub fn end_if_due(&self, sub: &Subscription, now: i64, client_seconds: i64) -> bool {
         let reason = if !process_alive(sub.session_pid) {
             format!("session {} is gone", sub.session_pid)
@@ -274,9 +258,7 @@ impl Store {
         true
     }
 
-    /// Removes the results of ended subscriptions whose session is gone, and results with no
-    /// record and no owner. The open items of a stack or review key are results. The hub keeps its
-    /// items: the present rules close them, and a new hub session gets them.
+    /// The hub keeps its items: the present rules close them, and a new hub session gets them.
     pub fn sweep(&self) {
         let mut keys = Vec::new();
         for (dir, suffixes) in [("inbox", &[".jsonl", ".error"][..]), ("items", &[".json"][..])] {
@@ -315,7 +297,6 @@ impl Store {
         }
     }
 
-    /// The events get their rows. Then they go to the event log, then to the inbox.
     pub fn route(&self, sub: &Subscription, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
         let count = events.len();
         let path = self.dirs.items(&sub.key);
@@ -326,7 +307,7 @@ impl Store {
                 let _ = save(&path, &items);
                 routed
             }
-            // The engine saved its state: events that do not go out now are lost.
+            // The engine saved its state already: events that do not go out now are lost.
             Err(_) => {
                 self.log(&sub.slug, &sub.key, "no rows: the items file is not readable");
                 assign_rows(&mut Items::default(), events, now)
@@ -342,7 +323,6 @@ impl Store {
         routed
     }
 
-    /// After a check: closes the daemon items whose cause GitLab does not show.
     pub fn prune_items(&self, sub: &Subscription) {
         let path = self.dirs.items(&sub.key);
         let Ok(Some(mut items)) = self.read_json::<Items>(&path) else { return };
@@ -360,8 +340,6 @@ impl Store {
         let _ = save(&path, &items);
     }
 
-    /// Adds the MRs of the merged and closed events to `ended_mrs`. If all MRs ended, the
-    /// subscription ends. Its inbox stays until the client takes it.
     pub fn end_mrs(&self, key: &str, routed: &[RoutedEvent]) -> bool {
         let ended = routed.iter().any(|event| matches!(event.event.kind, EventKind::Merged | EventKind::Closed));
         let Some(mut sub) = self.sub(key).filter(|_| ended) else { return false };
@@ -373,8 +351,6 @@ impl Store {
         all
     }
 
-    /// Moves the open items of `source`, or only the items of the MR `iid`, to `target`. With no
-    /// `iid`, the source file goes away.
     pub fn move_items(&self, source: &str, target: &str, iid: Option<u64>) {
         let source_path = self.dirs.items(source);
         let Ok(Some(mut from)) = self.read_json::<Items>(&source_path) else { return };
@@ -390,8 +366,6 @@ impl Store {
         }
     }
 
-    /// Removes the event log lines and the engine states with no record that are older than 7
-    /// days.
     pub fn prune(&self, now: i64) {
         let cut = now - 7 * 86400;
         if let Ok(text) = std::fs::read_to_string(self.dirs.events()) {
@@ -416,8 +390,7 @@ impl Store {
         }
     }
 
-    /// Writes the record of a `watch` client. The newest session owns the key: it adds the old
-    /// live session to `replaced_sessions`. True if the key needs a first check now.
+    /// Returns true if the key needs a first check now.
     pub fn subscribe(&self, args: &SubscribeArgs, old: Option<&Subscription>, now: i64) -> bool {
         let mut replaced: Vec<u32> = old.map(|old| old.replaced_sessions.clone()).unwrap_or_default();
         if let Some(old) = old
@@ -458,8 +431,8 @@ impl Store {
         old.is_none() || args.once || args.again
     }
 
-    /// The results of an ended subscription are only for the next client of its session. Gives
-    /// true if they wait for this client: then it does not subscribe again.
+    /// Returns true if the results of an ended subscription wait for this client, which then does
+    /// not subscribe again.
     pub fn ended_with_result(&self, key: &str, session_pid: u32) -> bool {
         let owner = std::fs::read_to_string(self.dirs.owner(key)).unwrap_or_default();
         if owner.trim() != session_pid.to_string() {
@@ -481,8 +454,6 @@ impl Store {
         remove(&self.dirs.owner(key));
     }
 
-    /// Ends the subscription of the repo and mode of a session. The open items of a review go
-    /// back to the hub. The hub keeps its items.
     pub fn unsubscribe(&self, key: &str, slug: &str, mode: Mode, session_pid: u32) -> Result<(), String> {
         let sub = self.sub(key);
         if let Some(sub) = &sub
@@ -512,7 +483,6 @@ impl Store {
         Ok(())
     }
 
-    /// The report of the last delivery and of the open items. The model input changes the items.
     pub fn report(&self, key: &str, mode: Mode, mrs: &[u64], input: &ReportInput) -> Result<String, String> {
         let unreadable = || "report: jq could not read the input or the state".to_string();
         let path = self.dirs.items(key);
@@ -540,7 +510,6 @@ impl Store {
         Ok(render(mode, &format!("{hour:02}:{minute:02}"), mrs, &data))
     }
 
-    /// The readable JSON files of a folder, by name with no extension.
     fn json_files<T: DeserializeOwned>(&self, dir: &Path, suffix: &str) -> BTreeMap<String, T> {
         let Ok(entries) = std::fs::read_dir(dir) else { return BTreeMap::new() };
         entries
@@ -554,8 +523,6 @@ impl Store {
             .collect()
     }
 
-    /// The data of the sidebar: the workspace files, the records with their live state, and the
-    /// needs of the engine state of each record.
     pub fn sidebar(&self) -> serde_json::Value {
         let workspaces: BTreeMap<String, serde_json::Value> =
             self.json_files(&self.dirs.watchd.join("workspaces"), ".json");
@@ -580,7 +547,6 @@ impl Store {
         serde_json::json!({"type": "sidebar", "workspaces": workspaces, "subs": subs, "engine_needs": engine_needs})
     }
 
-    /// The state on disk, for `debug state`.
     pub fn debug_disk(&self) -> DebugState {
         let mut inbox = BTreeMap::new();
         let mut errors = BTreeMap::new();

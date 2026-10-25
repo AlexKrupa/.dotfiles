@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Fake glab for the bump evals. Answers from <repo>.host/ of the fixture and logs each call to
 # <repo>.host/calls.log. A call that it does not know fails. `api graphql` comes only from the
-# watch engine. It makes the waiting watch clients of the repo stop with exit 3 ("replaced"). Then
-# no run waits for the watch.
+# watch engine. It stops the waiting watch clients of the repo with exit 3 ("replaced"), and no run
+# waits for the watch.
 top=$(git rev-parse --show-toplevel)
 host="$top.host"
 echo "glab $*" >>"$host/calls.log"

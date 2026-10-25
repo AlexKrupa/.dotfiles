@@ -8,7 +8,6 @@ use super::EngineError;
 use crate::persist::{self, Load};
 use super::event::present;
 
-/// What an open MR or project needs from the user, for the sidebar.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Need {
@@ -30,8 +29,8 @@ pub struct PipelineState {
     pub status: String,
 }
 
-/// The hub state file. A field that the saved state does not have gives no event at its first
-/// check, thus `opened` and `default_pipeline` keep the difference of absent and empty.
+/// `opened` and `default_pipeline` keep absent and empty apart, because a field that the saved
+/// state does not have gives no event at its first check.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct HubState {
     #[serde(default)]
@@ -62,7 +61,6 @@ pub struct HubMrState {
     pub reactions: Option<Vec<String>>,
 }
 
-/// The state file of a stack or review watch.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct StackState {
     #[serde(default)]
@@ -97,8 +95,6 @@ pub struct StackMrState {
     pub resolved: Option<Vec<String>>,
 }
 
-/// The saved state, or `None` for a missing or empty file. A state of an unknown format goes
-/// away: the check is a first check.
 pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<T>, EngineError> {
     match persist::load(path).map_err(|error| EngineError::Other(format!("{}: {error}", path.display())))? {
         None => Ok(None),

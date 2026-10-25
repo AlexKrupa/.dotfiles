@@ -23,15 +23,13 @@ pub fn is_network_error(stderr: &str) -> bool {
 #[derive(Debug, PartialEq, Eq)]
 pub enum NapEnd {
     Done,
-    /// A wake-up: a poke or a stop.
+    /// A poke or a stop.
     Interrupted,
     /// A system sleep, or no full wake: the caller waits for the network.
     Asleep,
 }
 
-/// Waits for `seconds` of awake time, in steps of at most `max_step`. A clock jump of more than the
-/// step plus 30 seconds is a system sleep. `sleep` gives `(woken, awake)`: true for a wake-up, and
-/// false for no full wake after the step.
+/// `sleep` gives `(woken, awake)`: true for a wake-up, and false for no full wake after the step.
 pub async fn nap<Now, Sleep, SleepFuture>(seconds: u64, max_step: u64, now: Now, mut sleep: Sleep) -> NapEnd
 where
     Now: Fn() -> i64,

@@ -7,7 +7,6 @@ use tokio::sync::Semaphore;
 
 use crate::nap::is_network_error;
 
-/// The limit of parallel `glab` calls of the whole process.
 static LIMIT: Semaphore = Semaphore::const_new(8);
 
 #[derive(Debug)]
@@ -30,7 +29,6 @@ impl fmt::Display for ApiError {
     }
 }
 
-/// Runs `glab ARGS` in the folder `dir`, under the limit. The child dies with the future.
 pub async fn run(dir: &Path, args: &[&str]) -> std::io::Result<Output> {
     let _permit = LIMIT.acquire().await.expect("the semaphore is never closed");
     Command::new("glab")
@@ -42,7 +40,6 @@ pub async fn run(dir: &Path, args: &[&str]) -> std::io::Result<Output> {
         .await
 }
 
-/// Runs `glab api ARGS` in the folder `dir`. The first argument is the path. Gives stdout.
 pub async fn api(dir: &Path, args: &[String]) -> Result<Vec<u8>, ApiError> {
     let path = args.first().map(String::as_str).unwrap_or_default();
     let argv: Vec<&str> = std::iter::once("api").chain(args.iter().map(String::as_str)).collect();
@@ -55,8 +52,7 @@ pub async fn api(dir: &Path, args: &[String]) -> Result<Vec<u8>, ApiError> {
 
 pub type Task<T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send>>;
 
-/// Runs the futures as parallel tasks and gives their results in the order of the input. A drop
-/// of the returned future aborts the tasks.
+/// A drop of the returned future aborts the tasks.
 pub async fn parallel<T: Send + 'static>(
     tasks: Vec<Task<T>>,
 ) -> Vec<T> {
@@ -73,7 +69,6 @@ pub async fn parallel<T: Send + 'static>(
     results.into_iter().map(|result| result.expect("each task gives a result")).collect()
 }
 
-/// The error of a failed call: the stderr lines joined with spaces, as `paste -s -d ' '`.
 pub fn classify(path: &str, stderr: &[u8]) -> ApiError {
     let text = String::from_utf8_lossy(stderr);
     let joined = text.strip_suffix('\n').unwrap_or(&text).replace('\n', " ");
@@ -86,7 +81,6 @@ pub fn classify(path: &str, stderr: &[u8]) -> ApiError {
     }
 }
 
-/// The status of the leftmost `HTTP 401` or `HTTP 403`.
 fn auth_status(text: &str) -> Option<u16> {
     ["HTTP 401", "HTTP 403"]
         .iter()
@@ -112,7 +106,6 @@ pub fn permission_for(path: &str) -> &'static str {
         .map_or("Project (group or project boundary)", |(_, permission)| permission)
 }
 
-/// A shell `case` pattern with `*` only.
 fn glob(pattern: &[u8], text: &[u8]) -> bool {
     match pattern.split_first() {
         None => text.is_empty(),

@@ -77,7 +77,6 @@ printf 'herdr-start-claude'  >>"$MOCK_LOG"
 printf ' [%s]' "$@" >>"$MOCK_LOG"
 echo >>"$MOCK_LOG"
 EOF
-# Fake watchd: logs each call.
 cat >"$tmp/bin/watchd" <<'EOF'
 #!/bin/sh
 printf 'watchd %s\n' "$*" >>"$MOCK_LOG"

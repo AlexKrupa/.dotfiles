@@ -1,7 +1,3 @@
-//! Sessions and clients: replaced clients, the client limit, leftover results, the hub and its
-//! review MRs, ended MRs, `--once`, intervals, and MR lists. Each scenario runs once, and each of
-//! its checks is one test.
-
 mod support;
 
 use std::process::Command;

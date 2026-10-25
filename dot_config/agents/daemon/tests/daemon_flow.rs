@@ -1,6 +1,3 @@
-//! The client and the daemon: events, the inbox, status, errors, sessions, and the end of the
-//! daemon and of the client. Each scenario runs once, and each of its checks is one test.
-
 mod support;
 
 use std::os::unix::process::CommandExt;
@@ -71,7 +68,7 @@ fn errors() -> &'static Checks {
         c.check("two clients at once: both get events", format!("{} {}", ev("todo", 5), ev("pipeline", 5)),
             format!("{} {}", combined(&one), combined(&two)));
         c.check("two clients at once: one daemon", 1, w.log_count("daemon start"));
-        // The lock file, not pgrep: a daemon of a real session can run beside the test daemon.
+        // lsof on the lock file: pgrep also finds the daemon of a real session.
         let holders = std::process::Command::new("lsof").arg("-t").arg(w.watchd.join("daemon.lock")).output().unwrap();
         c.check("two clients with no daemon: one daemon process", 1, String::from_utf8_lossy(&holders.stdout).lines().count());
 
@@ -173,7 +170,6 @@ fn client_ends() -> &'static Checks {
         c.check("client: worktree gone: exit 1", format!("1 watch: the worktree is gone: {}", gone.display()),
             format!("{} {}", run.code, run.err.lines().last().unwrap_or_default()));
 
-        // The parent shell exits at once. The client must stop after its next check.
         let (err, pid) = (w.env.dir.join("orphan.err"), w.env.dir.join("orphan.pid"));
         let mut shell = std::process::Command::new("bash");
         shell

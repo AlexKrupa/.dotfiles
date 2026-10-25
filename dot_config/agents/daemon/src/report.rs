@@ -1,8 +1,5 @@
-//! The report of the last delivery of a subscription and of its open items. Sections: Needs you
-//! (all open items), Agent, Info (the other events of the delivery). Hub mode: one table, then
-//! one link line for each MR of the table. Stack and review mode: for each MR, its title line,
-//! then its table. An MR with no rows has no table. Rows of no MR of the subscription follow in
-//! one table.
+//! The report of the last delivery of a subscription and of its open items, in the sections Needs
+//! you, Agent, and Info.
 
 use std::collections::BTreeMap;
 
@@ -13,16 +10,16 @@ use crate::core::subs::Mode;
 use crate::engine::event::{Event, EventKind};
 use crate::platform::local_time;
 
-/// The input of the model. All fields are optional.
+/// The input of the model.
 #[derive(Clone, Debug, Default, Deserialize, serde::Serialize)]
 pub struct ReportInput {
-    /// The Proposal or result text of a row. An open item keeps it for the next reports.
+    /// The Proposal or result text of a row, which an open item keeps for the next reports.
     #[serde(default)]
     pub cells: BTreeMap<String, serde_json::Value>,
-    /// Rows that go to the Agent section. An open item in it closes.
+    /// The rows of the Agent section, whose open items close.
     #[serde(default)]
     pub agent: Vec<serde_json::Value>,
-    /// Open items that close, also items of the model.
+    /// Open items to close, also items that the model added.
     #[serde(default)]
     pub close: Vec<serde_json::Value>,
     #[serde(default)]
@@ -37,7 +34,7 @@ pub struct Add {
     pub result: Option<String>,
 }
 
-/// A needs row opens an item of the model. An agent or info row is only in this report.
+/// A needs row opens an item, and an agent or info row is only in this report.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AddSection {
@@ -77,7 +74,7 @@ pub struct Row {
     pub title: Option<String>,
     pub url: Option<String>,
     pub event: Option<Event>,
-    /// The text of a model row. Else the sentence comes from the event.
+    /// The text of a model row, else the sentence comes from the event.
     pub what: Option<String>,
     pub result: String,
     /// The time of an item from an earlier delivery.
@@ -98,7 +95,6 @@ pub struct ReportData {
     pub links: Vec<Link>,
 }
 
-/// jq `tostring`: a string stays, another value is its JSON.
 fn text_of(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(text) => text.clone(),
@@ -110,7 +106,6 @@ fn without_anchor(url: &str) -> String {
     url.split('#').next().unwrap_or_default().to_string()
 }
 
-/// The new open items and the rows of the report.
 pub fn build_report(
     input: &ReportInput,
     items: &Items,
@@ -121,7 +116,7 @@ pub fn build_report(
     let agent: Vec<String> = input.agent.iter().map(text_of).collect();
     let close: Vec<String> = input.close.iter().map(text_of).collect();
     let cell = |n: u64| input.cells.get(&n.to_string()).map(text_of);
-    // One event for each row: a comment before its unaddressed line.
+    // Of the events of one row, a comment wins over its unaddressed line.
     let mut events: Vec<&RoutedEvent> = Vec::new();
     let mut by_row: Vec<&RoutedEvent> = delivery.iter().collect();
     by_row.sort_by_key(|event| (event.row, event.event.kind == EventKind::Unaddressed));
@@ -276,7 +271,6 @@ fn capital(text: &str) -> String {
     }
 }
 
-/// `@<actor> <text>`, or the text with a capital letter if the actor is empty.
 fn by(actor: &str, text: &str) -> String {
     match actor.is_empty() {
         true => capital(text),
@@ -289,7 +283,6 @@ fn line_of(event: &Event) -> String {
     format!("{}:{line}", event.path.as_deref().unwrap_or_default())
 }
 
-/// The sentence of an event in the What happened column.
 pub fn sentence(event: &Event) -> String {
     let actor = event.actor.as_str();
     let detail = event.detail.as_str();
@@ -338,7 +331,6 @@ fn failed(event: &Event) -> String {
     }
 }
 
-/// One line, at most 200 characters, and an escaped pipe.
 fn cell(text: &str) -> String {
     let mut one_line = String::new();
     let mut in_break = false;
@@ -378,7 +370,6 @@ fn pad(text: &str, width: usize) -> String {
     text.to_string() + &" ".repeat(width.saturating_sub(length))
 }
 
-/// The lines of an aligned Markdown table. A column is 3 characters at least.
 fn table(header: &[&str], rows: &[Vec<String>]) -> Vec<String> {
     let all: Vec<Vec<String>> =
         std::iter::once(header.iter().map(|text| text.to_string()).collect()).chain(rows.iter().cloned()).collect();
@@ -407,7 +398,6 @@ fn work_table(rows: &[&Row]) -> Vec<String> {
     table(&["#", "Section", "What happened", "Proposal or result"], &cells)
 }
 
-/// The Markdown of the report.
 pub fn render(mode: Mode, time: &str, mrs: &[u64], data: &ReportData) -> String {
     let mut lines = vec![time.to_string()];
     match mode {

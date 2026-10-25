@@ -1,6 +1,3 @@
-//! Restarts: a new binary, a killed daemon, SIGTERM, a leftover socket, the log size, `--once`,
-//! and the network wait. Each scenario runs once, and each of its checks is one test.
-
 mod support;
 
 use std::path::{Path, PathBuf};
@@ -14,8 +11,7 @@ fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
 }
 
-/// A copy of the binary in the test folder, so that a check can install a new binary under a live
-/// daemon and client.
+/// A check installs a new binary over this copy under a live daemon and client.
 fn copy_binary(w: &Watchd) -> PathBuf {
     let copy = w.env.dir.join("bin/watchd");
     std::fs::copy(env!("CARGO_BIN_EXE_watchd"), &copy).unwrap();
@@ -78,8 +74,8 @@ fn new_binary_client() -> &'static Checks {
         let old = w.daemon_pid();
         let client_pid = w.client_is();
         w.env.write_engine_state("app", r#"{"todo": 1}"#);
-        // The interval is long: the new subscription of the waiting client gives the round of this
-        // event.
+        // The interval is long: the round of this event comes from the new subscription of the
+        // waiting client.
         w.events("app", &[ev("todo", 5)]);
         install_copy(&copy);
         let run = client.wait(10).unwrap();
@@ -111,7 +107,6 @@ fn daemon_killed() -> &'static Checks {
     })
 }
 
-/// A first check, then a client with `--once` whose check reads `todo 6` and sleeps 3 seconds.
 fn slow_check(w: &Watchd) -> support::daemon::Background {
     w.events("app", &[ev("todo", 5)]);
     w.watch(&["--interval", "600"]);

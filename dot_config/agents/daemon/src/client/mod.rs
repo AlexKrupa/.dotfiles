@@ -1,9 +1,5 @@
-//! The client commands. `watch` is the background task of a session: it starts the daemon if no
-//! daemon runs, subscribes, waits for the events of the subscription, and prints one JSON line
-//! for each event. The subscription stays live after the client exits: the events of the time
-//! with no client wait for the next client. When the daemon closes the socket, for example at an
-//! upgrade, the client connects again with the same PID.
-//! Exit codes: 0 events, 1 error, 3 a new client or session replaced this one.
+//! The client commands, with the exit codes 0 for events, 1 for an error, and 3 when a new client
+//! or session replaced this one.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -21,7 +17,6 @@ use crate::paths::StateDirs;
 use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
 use crate::protocol::{Request, Response, StatusReport, SubscribeArgs, receive, send};
 
-/// An error of a client command: the text after `watch: `, and exit 1.
 fn die(message: &str) -> i32 {
     eprintln!("watch: {message}");
     1
@@ -74,7 +69,6 @@ fn digits(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
 }
 
-/// The repo of the flags: its worktree top, slug, and key.
 struct Target {
     top: PathBuf,
     slug: String,
@@ -107,7 +101,6 @@ fn target(args: &WatchArgs) -> Result<Target, String> {
     Ok(Target { top, slug, key })
 }
 
-/// The socket of the daemon. With `start`, the client starts the daemon if no daemon answers.
 async fn connect(dirs: &StateDirs, start: bool) -> Result<UnixStream, String> {
     if let Ok(stream) = UnixStream::connect(dirs.socket()).await {
         return Ok(stream);
@@ -128,7 +121,6 @@ async fn connect(dirs: &StateDirs, start: bool) -> Result<UnixStream, String> {
     Err(failed)
 }
 
-/// One request and its response.
 async fn ask(dirs: &StateDirs, request: &Request, start: bool) -> Result<Response, String> {
     let stream = connect(dirs, start).await?;
     let (read, mut write) = stream.into_split();
@@ -161,8 +153,8 @@ pub async fn watch(args: Vec<String>) -> i32 {
     let _ = std::fs::create_dir_all(&dirs.watchd);
     let session_pid = session(&Store::new(dirs.clone()));
     let client_pid = std::process::id();
-    // The parent of the client can be a wrapper shell that stays alive after the agent is
-    // killed. Thus the check covers all ancestors.
+    // The check covers all ancestors: the parent can be a wrapper shell that stays alive after the
+    // agent is killed.
     let parents = ancestors();
     let mut subscribe = SubscribeArgs {
         key: target.key.clone(),
@@ -202,7 +194,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
                 }
             }
         }
-        // The daemon closed the socket. --fresh applies once.
+        // The daemon closed the socket: `--fresh` applies to the first subscribe only.
         subscribe.again = true;
         subscribe.fresh = false;
         if let Some(code) = orphaned(&parents, &target.top) {
@@ -262,7 +254,6 @@ pub async fn unsubscribe(args: Vec<String>) -> i32 {
     ask_ok(&Request::Unsubscribe { key: target.key, slug: target.slug, mode: args.mode(), session_pid }).await
 }
 
-/// A request that gets `Ok`. The daemon starts if no daemon runs.
 async fn ask_ok(request: &Request) -> i32 {
     match ask(&StateDirs::from_env(), request, true).await {
         Ok(Response::Ok) => 0,
@@ -272,8 +263,6 @@ async fn ask_ok(request: &Request) -> i32 {
     }
 }
 
-/// `kind KIND [--workspace ID]`: the kind of work of the herdr workspace, for the sidebar. The
-/// workspace is ID, else `HERDR_WORKSPACE_ID`. With no workspace it does nothing.
 pub async fn kind(args: Vec<String>) -> i32 {
     let mut args = args.into_iter();
     let Some(kind) = args.next() else { return die("kind needs a kind") };
@@ -292,8 +281,6 @@ pub async fn kind(args: Vec<String>) -> i32 {
     ask_ok(&Request::Kind { workspace, kind }).await
 }
 
-/// `route --iid IID --action bump|review|none [--repo PATH]`: the router result of an opened
-/// event of the hub goes to the event log, with the hub key of the repo.
 pub async fn route(args: Vec<String>) -> i32 {
     let mut repo = None;
     let mut iid = None;
@@ -328,8 +315,6 @@ pub async fn route(args: Vec<String>) -> i32 {
     ask_ok(&Request::Route { key: target.key, iid, action }).await
 }
 
-/// `report [--repo PATH] [--review] [--mr IID]... <JSON`: the Markdown report of the last
-/// delivery of the subscription and of its open items. stdin is the input of the model.
 pub async fn report(args: Vec<String>) -> i32 {
     let args = match WatchArgs::parse(args) {
         Ok(args) => args,
@@ -363,8 +348,6 @@ pub async fn report(args: Vec<String>) -> i32 {
     }
 }
 
-/// The daemon PID, the last poll of each repo, and one TSV line for each subscription: key, mode,
-/// MRs, live or dead session, inbox line count.
 pub async fn status() -> i32 {
     let dirs = StateDirs::from_env();
     let report = match ask(&dirs, &Request::Status, false).await {
@@ -389,8 +372,6 @@ pub async fn status() -> i32 {
     0
 }
 
-/// All state as JSON, also the parts in memory only. With no daemon, the state on disk, with
-/// `null` for the memory fields.
 pub async fn debug_state() -> i32 {
     let dirs = StateDirs::from_env();
     let state = match ask(&dirs, &Request::DebugState, false).await {
@@ -401,20 +382,16 @@ pub async fn debug_state() -> i32 {
     0
 }
 
-/// The waiting clients of the repo stop with exit 3. Only for the eval shims, so that an eval
-/// run does not wait for its watch.
+/// Only for the eval shims, so that an eval run does not wait for its watch.
 pub async fn replace_clients(repo: &Path) -> i32 {
     let top = worktree_top(repo).unwrap_or_else(|_| repo.to_path_buf());
     ask_ok(&Request::ReplaceClients { repo: top }).await
 }
 
-/// Removes the workspace record of a closed herdr workspace.
 pub async fn forget_workspace(id: String) -> i32 {
     ask_ok(&Request::WorkspaceForget { id }).await
 }
 
-/// Prints the sidebar state, the event log lines after `after`, then each new line and each
-/// sidebar change, until the daemon closes the socket.
 pub async fn follow(after: Option<u64>) -> i32 {
     let dirs = StateDirs::from_env();
     let stream = match connect(&dirs, true).await {

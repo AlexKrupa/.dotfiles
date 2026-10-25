@@ -8,8 +8,7 @@ struct Cli {
     command: Commands,
 }
 
-/// The skills and the tests compare the error texts of the flags. Thus each command parses its own
-/// flags.
+/// Each command parses its own flags, because the skills and the tests compare the error texts.
 #[derive(Subcommand)]
 enum Commands {
     /// One check of the GitLab project or MRs of a repo.
@@ -18,17 +17,15 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    /// The daemon. A client starts it.
+    /// The daemon, which a client starts.
     Daemon,
-    /// Subscribe and wait: [--repo PATH] [--interval SECONDS] [--once] [--fresh] [--review]
-    /// [--mr IID]...
+    /// Subscribe and wait: [--repo PATH] [--interval SECONDS] [--once] [--fresh] [--review] [--mr IID]...
     #[command(disable_help_flag = true)]
     Watch {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    /// End the subscription of the repo and mode of this session: [--repo PATH] [--review]
-    /// [--mr IID]...
+    /// End the subscription of the repo and mode of this session: [--repo PATH] [--review] [--mr IID]...
     #[command(disable_help_flag = true)]
     Unsubscribe {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -42,8 +39,7 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    /// The router result of an opened event of the hub: --iid IID --action bump|review|none
-    /// [--repo PATH].
+    /// The router result of an opened event of the hub: --iid IID --action bump|review|none [--repo PATH].
     #[command(disable_help_flag = true)]
     Route {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -77,7 +73,7 @@ enum Commands {
 enum DebugCommand {
     /// All state as JSON, also the parts in memory only.
     State,
-    /// The waiting clients of the repo exit 3. For the eval shims.
+    /// The waiting clients of the repo exit 3, for the eval shims.
     ReplaceClients {
         #[arg(long)]
         repo: std::path::PathBuf,

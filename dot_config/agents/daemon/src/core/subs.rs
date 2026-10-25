@@ -24,8 +24,7 @@ impl Mode {
     }
 }
 
-/// The record of a subscription, `subs/<key>.json`. The newest session owns the key:
-/// `replaced_sessions` has the live sessions that it replaced.
+/// The newest session owns the key: `replaced_sessions` has the live sessions that it replaced.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Subscription {
     pub key: String,
@@ -45,8 +44,7 @@ pub struct Subscription {
     pub herdr_workspace: Option<String>,
 }
 
-/// Adds the MRs of the merged and closed events to `ended_mrs`. True if this made all MRs of the
-/// subscription end.
+/// Returns true if this made all MRs of the subscription end.
 pub fn add_ended(sub: &mut Subscription, events: &[RoutedEvent]) -> bool {
     let ended: Vec<u64> = events
         .iter()

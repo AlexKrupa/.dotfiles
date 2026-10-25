@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 pub use super::subs::Mode;
 use crate::engine::event::{Event, EventKind};
 
-/// The open items of a subscription, `items/<key>.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Items {
     pub next: u64,
@@ -30,8 +29,8 @@ pub struct Item {
     pub event: Option<Event>,
 }
 
-/// The daemon closes its items by the present list of the engine. The model closes its items in a
-/// report.
+/// The daemon closes its items by the present list of the engine, and the model closes its items in
+/// a report.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Owner {
@@ -39,7 +38,7 @@ pub enum Owner {
     Model,
 }
 
-/// An event with `row`: the number of its open item, or a new number.
+/// `row`: the number of the open item of the event, or a new number.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RoutedEvent {
     #[serde(flatten)]
@@ -47,8 +46,7 @@ pub struct RoutedEvent {
     pub row: u64,
 }
 
-/// An event with a new item key opens a new item. An event with no item key gets a new number. An
-/// unaddressed line keeps the event of its item: the item shows the comment that opened it.
+/// An unaddressed line keeps the event of its item: the item shows the comment that opened it.
 pub fn assign_rows(items: &mut Items, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
     let mut routed = Vec::new();
     for event in events {
@@ -88,13 +86,10 @@ pub fn assign_rows(items: &mut Items, events: Vec<Event>, now: i64) -> Vec<Route
     routed
 }
 
-/// The item keys of the hub. A review key takes the hub items of its MR.
 fn is_hub_item(key: &str) -> bool {
     ["todo:", "note:", "main-failed:"].iter().any(|prefix| key.starts_with(prefix))
 }
 
-/// After a check: removes each daemon item whose key is not in the present list of the engine. A
-/// hub item of a review or stack key uses the present list of the hub, and stays if there is none.
 pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[String]>, mode: Mode) {
     items.items.retain(|item| {
         let other_mode = match mode {
@@ -111,8 +106,6 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
     });
 }
 
-/// Moves the items of `source`, or only the items of the MR `iid`, to `target`, with new numbers of
-/// the target. Gives the number of moved items.
 pub fn move_items(source: &mut Items, target: &mut Items, iid: Option<u64>) -> usize {
     let (moved, kept): (Vec<Item>, Vec<Item>) = std::mem::take(&mut source.items)
         .into_iter()

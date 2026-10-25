@@ -1,15 +1,5 @@
-//! The watch daemon: one process for each machine. A client starts it when no daemon runs. It runs
-//! one poll loop for each repo with a live subscription. A subscription is live while its session
-//! process runs. Each round runs the check of each live subscription of the repo, and routes the
-//! events to the client of the subscription. The hub check skips the MRs of the live review
-//! subscriptions. The fetched MRs go to a cache of the round. Thus two subscriptions of one MR get
-//! one fetch. The round interval is the smallest interval of the subscriptions of the repo.
-//! A network error does not count: the loop waits for the network, with no limit. A permanent
-//! error, or 5 other errors in a row, end the subscription, and its client gets the error text.
-//! A subscription also ends when all its MRs are merged or closed, and after 30 minutes with no
-//! client. The next client of its session still gets the events and the error that wait.
-//! With no subscription for 10 minutes, the daemon exits. When the binary changes, it completes
-//! the current round of each repo and starts the new binary with the same PID.
+//! The watch daemon: one process for each machine, with one poll loop for each repo that has a live
+//! subscription.
 
 pub mod store;
 
@@ -32,15 +22,13 @@ use crate::platform::{full_wake, now_seconds, online};
 
 const LOCK_FD: &str = "WATCHD_LOCK_FD";
 const SOCKET_FD: &str = "WATCHD_SOCKET_FD";
-/// A short nap step, so that a poke or a stop gets an answer in seconds.
+/// Short, so that a poke or a stop gets an answer in seconds.
 const NAP_STEP: u64 = 2;
 
 fn env_seconds(name: &str, default: u64) -> u64 {
     std::env::var(name).ok().and_then(|value| value.parse().ok()).unwrap_or(default)
 }
 
-/// The fake engine of the tests with `WATCHD_FAKE_ENGINE=<folder>`, in a build with the
-/// `test-support` feature only.
 fn engine_of(dirs: &StateDirs) -> Box<dyn Engine> {
     #[cfg(feature = "test-support")]
     if let Some(dir) = std::env::var_os("WATCHD_FAKE_ENGINE").filter(|value| !value.is_empty()) {
@@ -51,12 +39,11 @@ fn engine_of(dirs: &StateDirs) -> Box<dyn Engine> {
 
 pub struct Daemon {
     pub store: Store,
-    /// The state lock: each change of the state files and of `Memory` holds it.
+    /// Each change of the state files and of `Memory` holds this lock.
     pub memory: Mutex<Memory>,
-    /// A change for the waiting clients.
     pub changed: Notify,
-    /// Read by each delivery from the removal of the inbox to the end of its send. A restart or a
-    /// stop takes it for write: no delivery is lost.
+    /// A delivery holds it for read from the inbox removal to the end of its send: a restart or a
+    /// stop that takes it for write loses no delivery.
     pub delivering: RwLock<()>,
     stopping: AtomicBool,
     stop: Notify,
@@ -66,22 +53,19 @@ pub struct Daemon {
     engine: Box<dyn Engine>,
 }
 
-/// The state that a new fetch gives back: it stays in memory only.
 #[derive(Default)]
 pub struct Memory {
-    /// The poke of each key: its slug and the token of the client.
+    /// The slug and the client token of the poke of each key.
     pokes: HashMap<String, (String, String)>,
     /// The token of the last poke that a check of the key handled.
     pub poked: HashMap<String, String>,
     pub rounds: HashMap<String, u64>,
     fails: HashMap<String, u32>,
     pub last_poll: BTreeMap<String, i64>,
-    /// The end of the nap of each repo loop.
     pub next_round: BTreeMap<String, i64>,
-    /// The connected `follow` clients. The daemon does not exit while one is connected.
+    /// The daemon does not exit while a `follow` client is connected.
     pub followers: usize,
     repos: HashMap<String, RepoTask>,
-    /// The connected client of each key.
     pub clients: HashMap<String, u32>,
 }
 
@@ -99,7 +83,6 @@ impl Daemon {
         self.memory.lock().await
     }
 
-    /// A round of the repo of `key` now.
     pub fn poke(&self, memory: &mut Memory, key: &str, slug: &str, token: &str) {
         memory.pokes.insert(key.to_string(), (slug.to_string(), token.to_string()));
         if let Some(task) = memory.repos.get(slug) {
@@ -107,7 +90,6 @@ impl Daemon {
         }
     }
 
-    /// Removes the memory of an ended subscription.
     pub fn forget(&self, memory: &mut Memory, key: &str) {
         memory.pokes.remove(key);
         memory.poked.remove(key);
@@ -142,7 +124,7 @@ impl Daemon {
         }
     }
 
-    /// One check of the subscription `sub`. True for a network error.
+    /// Returns true for a network error.
     async fn check(self: &Arc<Self>, sub: Subscription, skip: Vec<u64>, cache: Arc<MrCache>) -> bool {
         let poke = self.lock().await.pokes.remove(&sub.key).map(|(_, token)| token);
         let args = EngineArgs {
@@ -210,7 +192,6 @@ impl Daemon {
         network
     }
 
-    /// True if a subscription of the repo asks for a round now, or the daemon stops.
     async fn interrupted(&self, slug: &str) -> bool {
         self.stopping() || self.lock().await.pokes.values().any(|(poked, _)| poked == slug)
     }
@@ -220,8 +201,7 @@ impl Daemon {
         self.store.live_subs(Some(slug))
     }
 
-    /// The wait for the network has no limit, but a stop, or the end of the subscriptions of the
-    /// repo, ends it. False if the loop must stop.
+    /// Returns false if the loop must stop.
     async fn wait_online(&self, slug: &str, host: Option<&str>) -> bool {
         while !online(host).await {
             self.sleep_or_stop(10).await;
@@ -243,7 +223,6 @@ async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
         if subs.is_empty() {
             break;
         }
-        // A live review key takes the open hub items of its MR.
         let mut skip = Vec::new();
         {
             let _memory = daemon.lock().await;
@@ -281,7 +260,7 @@ async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
         }
         let remote = remote_url(&subs[0].repo);
         let host = remote.as_deref().and_then(split_remote).map(|(host, _)| host.to_string());
-        // With the network up, as for HTTP 502, the normal wait follows.
+        // A network error with the network up, as for HTTP 502, gets the normal wait.
         if network && !online(host.as_deref()).await {
             match daemon.wait_online(&slug, host.as_deref()).await {
                 true => continue,
@@ -327,18 +306,16 @@ fn inode(path: &std::path::Path) -> Option<u64> {
     std::fs::metadata(path).ok().map(|meta| meta.ino())
 }
 
-/// An open file descriptor of the image before an `exec`, or `None`.
 fn inherited_fd(name: &str) -> Option<RawFd> {
     let fd = std::env::var(name).ok()?.parse().ok()?;
     // SAFETY: the daemon removes the variable before it starts a child.
     unsafe { std::env::remove_var(name) };
-    // The children of this image must not hold the lock or the listener.
     // SAFETY: fcntl on an open descriptor.
     unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) };
     Some(fd)
 }
 
-/// The lock of the one daemon: it goes away with the process, also after `kill -9`.
+/// A `flock` goes away with the process, also after `kill -9`.
 fn take_lock(dirs: &StateDirs) -> Option<std::fs::File> {
     if let Some(fd) = inherited_fd(LOCK_FD) {
         // SAFETY: the image before the exec left this descriptor open for this image.
@@ -357,7 +334,7 @@ fn listen(dirs: &StateDirs) -> std::io::Result<std::os::unix::net::UnixListener>
         // SAFETY: the image before the exec left this listener open for this image.
         return Ok(unsafe { std::os::unix::net::UnixListener::from_raw_fd(fd) });
     }
-    // The lock makes sure that no daemon listens: a socket file is of a daemon that died.
+    // With the lock held, a socket file is from a daemon that died.
     let _ = std::fs::remove_file(dirs.socket());
     std::os::unix::net::UnixListener::bind(dirs.socket())
 }
@@ -372,7 +349,6 @@ enum End {
     Restart,
 }
 
-/// The `daemon` subcommand.
 pub async fn main() -> i32 {
     let _ = std::env::set_current_dir("/");
     let dirs = StateDirs::from_env();
@@ -457,8 +433,8 @@ async fn run(daemon: &Arc<Daemon>) -> End {
     let mut idle_since = now_seconds();
     let mut pruned_at = 0;
     loop {
-        // The install renames a new file over the binary: a new inode that stays for one tick is
-        // the full update.
+        // An install renames a new file over the binary: a new inode that stays for one tick is a
+        // complete update.
         let current = inode(&exe);
         if current.is_some() && current != start && current == seen {
             daemon.store.log("", "", "restart: waiting for the repo loops");

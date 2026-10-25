@@ -18,8 +18,8 @@ skill applies and commits the fix after the analysis.
 
 An empty argument means "the failed pipeline on the current branch".
 
-At the start, run `watchd kind debug`. It sets the kind of work of the
-herdr workspace for the sidebar. Outside herdr, it does nothing.
+At the start, run `watchd kind debug`. It sets the kind of work of the herdr workspace for the
+sidebar. Outside herdr, it does nothing.
 
 ## Prerequisites
 

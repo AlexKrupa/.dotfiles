@@ -1,6 +1,3 @@
-//! The folder of a test: a state folder, a fake `glab` with fixtures, and a git repo with a GitLab
-//! origin. The fakes are on the PATH of the child process only.
-
 #![allow(dead_code)]
 
 pub mod daemon;
@@ -15,12 +12,6 @@ use serde_json::Value;
 pub const URL: &str = "https://gitlab.example.com/group/sub/app/-/merge_requests";
 pub const PIPELINES: &str = "https://gitlab.example.com/group/sub/app/-/pipelines";
 
-/// `api <path>` prints $MOCK_DIR/<fixture>.json. With --paginate, the other pages
-/// <fixture>_p<N>.json follow. If the file does not exist, it prints {} for an MR,
-/// {"approved_by": []} for approvals, and [] for a list.
-/// MOCK_FAIL is a path pattern: a matching call writes $MOCK_FAIL_MSG on stderr and fails. With
-/// MOCK_FAIL_TIMES=N, only the first N matching calls fail. $MOCK_DIR/fails counts them.
-/// MOCK_NOAUTH=1 makes `auth status` fail.
 const FAKE_GLAB: &str = r##"#!/bin/sh
 # One write for each line: calls in parallel append to one log, and printf writes a long line in
 # parts.
@@ -79,7 +70,7 @@ case "$f" in
 esac
 "##;
 
-/// Full wake, and the network is up.
+/// `pmset` output for full wake with the network up.
 const FAKE_PMSET: &str = "#!/bin/sh\necho \"Current System Capabilities are: CPU Graphics Audio Network\"\n";
 const FAKE_NC: &str = "#!/bin/sh\nexit 0\n";
 
@@ -87,14 +78,13 @@ static NEXT: AtomicUsize = AtomicUsize::new(0);
 
 pub struct TestEnv {
     pub dir: PathBuf,
-    /// `XDG_STATE_HOME` of the child.
     pub state: PathBuf,
     pub repo: PathBuf,
     pub mock: PathBuf,
     env: Vec<(String, String)>,
 }
 
-/// The result of one run. As in `$(...)` of the shell, the trailing newlines are gone.
+/// The trailing newlines are gone, as in `$(...)` of the shell.
 pub struct Run {
     pub out: String,
     pub err: String,
@@ -157,7 +147,6 @@ impl TestEnv {
         std::fs::write(self.mock.join(format!("{name}.json")), format!("{json}\n")).unwrap();
     }
 
-    /// A variable of the child processes, until `remove_env`.
     pub fn set_env(&mut self, name: &str, value: &str) {
         self.remove_env(name);
         self.env.push((name.to_string(), value.to_string()));
@@ -167,12 +156,10 @@ impl TestEnv {
         self.env.retain(|(key, _)| key != name);
     }
 
-    /// `watchd` with the fakes and the state folder of the test, in the repo.
     pub fn command(&self) -> Command {
         self.command_of(Path::new(env!("CARGO_BIN_EXE_watchd")))
     }
 
-    /// `command` with another copy of the binary.
     pub fn command_of(&self, program: &Path) -> Command {
         let mut command = Command::new(program);
         let path = format!("{}:{}", self.dir.join("bin").display(), std::env::var("PATH").unwrap_or_default());
@@ -202,17 +189,14 @@ impl TestEnv {
         self.command().arg("engine").args(args).output().unwrap()
     }
 
-    /// One check in the repo.
     pub fn run(&self, args: &[&str]) -> Run {
         Run::of(self.run_engine(args))
     }
 
-    /// One check in `folder`.
     pub fn run_in(&self, folder: &Path, args: &[&str]) -> Run {
         Run::of(self.command().current_dir(folder).arg("engine").args(args).output().unwrap())
     }
 
-    /// The glab calls, one for each line.
     pub fn calls(&self) -> String {
         std::fs::read_to_string(self.dir.join("calls.log")).unwrap_or_default()
     }
@@ -221,12 +205,10 @@ impl TestEnv {
         std::fs::write(self.dir.join("calls.log"), "").unwrap();
     }
 
-    /// The calls that start with `prefix`.
     pub fn calls_with(&self, prefix: &str) -> String {
         self.calls().lines().filter(|line| line.starts_with(prefix)).collect::<Vec<_>>().join("\n")
     }
 
-    /// The first 12 hex digits of `shasum` of the repo folder.
     pub fn worktree_hash(&self) -> String {
         let mut child = Command::new("shasum").stdin(Stdio::piped()).stdout(Stdio::piped()).spawn().unwrap();
         std::io::Write::write_all(child.stdin.as_mut().unwrap(), self.repo.to_str().unwrap().as_bytes()).unwrap();
@@ -251,7 +233,7 @@ impl Drop for TestEnv {
     }
 }
 
-/// The checks of one scenario, by name: a scenario runs once, and each check is a test.
+/// A scenario runs once, and each of its checks is one test.
 #[derive(Default)]
 pub struct Checks(Vec<(String, String, String)>);
 
@@ -267,7 +249,6 @@ impl Checks {
     }
 }
 
-/// A value as `jq -r` prints it on one line: a string with no quotes, else compact JSON.
 pub fn raw(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
@@ -275,7 +256,6 @@ pub fn raw(value: &Value) -> String {
     }
 }
 
-/// `jq -r <key>` for each line of `out`, joined with spaces.
 pub fn each(out: &str, key: &str) -> String {
     out.lines()
         .map(|line| raw(&serde_json::from_str::<Value>(line).unwrap()[key]))
@@ -287,7 +267,6 @@ pub fn read_json(path: &Path) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
-/// `jq -c .<key> <file>`.
 pub fn field(path: &Path, key: &str) -> String {
     read_json(path)[key].to_string()
 }

@@ -53,7 +53,6 @@ pub struct RestPipeline {
     pub web_url: String,
 }
 
-/// The reactions on one comment of the user.
 #[derive(Clone, Debug)]
 pub struct NoteReactions {
     pub iid: u64,
@@ -61,7 +60,6 @@ pub struct NoteReactions {
     pub emoji: Vec<GqlEmoji>,
 }
 
-/// The fetched data of one hub check.
 #[derive(Clone, Debug, Default)]
 pub struct HubInput {
     pub me: String,
@@ -70,7 +68,7 @@ pub struct HubInput {
     pub opened: Vec<RestMr>,
     /// The MRs that the user commented on.
     pub watched: Vec<RestMr>,
-    /// The fetched notes of each MR with a changed `updated_at`.
+    /// Only the MRs with a changed `updated_at` have notes.
     pub notes: Vec<(u64, Vec<RestNote>)>,
     pub reactions: Vec<NoteReactions>,
     /// The newest finished pipeline of the default branch.
@@ -122,7 +120,6 @@ struct EventNote {
 }
 
 impl UserEvent {
-    /// The MR iid and the note id of a comment of the user on an MR of the project.
     fn mr_note(&self, project: u64) -> Option<(u64, Option<u64>)> {
         let note = self.note.as_ref()?;
         match self.project_id == Some(project) && note.noteable_type.as_deref() == Some("MergeRequest") {
@@ -132,8 +129,8 @@ impl UserEvent {
     }
 }
 
-/// The hub check. The independent calls run in parallel. The first error in the order of the calls
-/// wins: the error text does not depend on the timing.
+/// The first error in the order of the calls wins, so that the error text does not depend on the
+/// timing.
 pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     let (user, project) = tokio::join!(
         api_json::<CurrentUser>(ctx.call(&["user"])),
@@ -148,7 +145,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         api_pages::<Todo>(ctx.call(&[&format!(
             "todos?project_id={pid}&type=MergeRequest&state=pending&per_page=100"
         )])),
-        // Only the newest 100: an older MR is not new.
+        // An MR older than the newest 100 is not new.
         api_pages::<RestMr>(ctx.call(&[&format!(
             "projects/{pid}/merge_requests?state=opened&order_by=created_at&sort=desc&per_page=100"
         )])),
@@ -166,7 +163,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     let mut iids: Vec<u64> = events.iter().filter_map(|event| event.mr_note(pid)).map(|(iid, _)| iid).collect();
     iids.sort_unstable();
     iids.dedup();
-    // 100 MRs for each call: the size of one page.
+    // 100 MRs is the size of one page.
     let pages: Vec<Task<_>> = iids
         .chunks(100)
         .map(|chunk| {
@@ -180,7 +177,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         .collect();
     let watched: Vec<RestMr> = all_ok(glab::parallel(pages).await)?.into_iter().flatten().collect();
 
-    // Only MRs with a changed updated_at get a notes call: a new note changes updated_at.
+    // A new note changes `updated_at`.
     let changed: Vec<u64> = watched
         .iter()
         .filter(|mr| {
@@ -199,8 +196,8 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
             Box::pin(api_pages::<RestNote>(call)) as Task<_>
         })
         .collect();
-    // GraphQL gives no reactions to a fine-grained token. The comments of the user come from the
-    // events, one reaction call for each comment.
+    // GraphQL gives no reactions to a fine-grained token, thus each comment of the user gets one
+    // REST call.
     let others: Vec<u64> = watched.iter().filter(|mr| mr.author.username != me).map(|mr| mr.iid).collect();
     let own_notes: Vec<(u64, u64)> = events
         .iter()
@@ -240,7 +237,6 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     Ok(events)
 }
 
-/// The new state, and the events against the old state.
 pub fn hub_compare(
     input: &HubInput,
     old: Option<&HubState>,

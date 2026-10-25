@@ -1,6 +1,3 @@
-//! The event log, the workspace records, `kind`, `route`, `follow`, and `replace-clients`. Each
-//! scenario runs once, and each of its checks is one test.
-
 mod support;
 
 use std::sync::OnceLock;
@@ -24,7 +21,7 @@ fn with_workspace(w: &Watchd, args: &[&str]) -> std::process::Command {
     command
 }
 
-/// `kind` in the test folder: `kind` needs no git repo.
+/// `kind` runs in the test folder because it needs no git repo.
 fn kind(w: &Watchd, args: &[&str], workspace: Option<&str>) -> support::Run {
     let mut command = w.command();
     command.current_dir(&w.env.dir).arg("kind").args(args);
