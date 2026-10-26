@@ -6,6 +6,7 @@ diff_watch_interval_ms = 2000
 ignore_whitespace = true
 compact_folders = true
 scroll_offset = 5
+relative_line_numbers = true
 comment_vim = true
 pr_comments_visibility = "all"
 no_update_check = true
