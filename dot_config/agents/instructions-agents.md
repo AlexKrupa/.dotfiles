@@ -207,6 +207,9 @@ delve, leverage, streamline, land, carry, overstep, ship,
 #### Formatting
 
 - Markdown files: wrap prose lines at 100 characters. Do not wrap tables, code blocks, or URLs.
+- Markdown renderers join lines with a single line break into one line. For a new line, put a
+  blank line between the lines, or make each line a list item. Use a list for items of the same
+  kind, for example links or findings.
 - Lists are fine - both bullets and numbers! They can be more readable than forced enumeration in
   one sentence. This rule overrides the simple-english plugin's "prose only" reply rule.
 - Prefer ASCII over Unicode for punctuation and stylistic symbols: single dashes, not en- or

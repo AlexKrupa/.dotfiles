@@ -276,8 +276,8 @@ fn hub_report() -> &'static Checks {
 | 2   | Agent     | develop | Pipeline failed: unit-tests         | Retried, 1 of 2    |
 | 3   | Info      | Add foo | @bob reacted :tada: on your comment |                    |
 
-Add foo (!5) {MR_URL}/5
-develop {PL_URL}/88123"), with_body(&run));
+- Add foo (!5) {MR_URL}/5
+- develop {PL_URL}/88123"), with_body(&run));
         let items = || item_keys(&w.items_of("app"));
         c.check("report: agent closes the item", r#"["todo:11"]"#, items());
         w.report(r#"{"cells": {"1": "Review agent started"}}"#, &[]);

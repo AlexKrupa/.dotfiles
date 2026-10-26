@@ -479,8 +479,8 @@ pub fn render(mode: Mode, time: &str, mrs: &[u64], data: &ReportData) -> String 
             lines.push(String::new());
             for link in &data.links {
                 lines.push(match link.iid {
-                    Some(iid) => format!("{} (!{iid}) {}", title_text(&link.title), link.url),
-                    None => format!("{} {}", title_text(&link.title), link.url),
+                    Some(iid) => format!("- {} (!{iid}) {}", title_text(&link.title), link.url),
+                    None => format!("- {} {}", title_text(&link.title), link.url),
                 });
             }
         }
@@ -580,8 +580,8 @@ mod tests {
 | 2   | Agent     | develop | Pipeline failed: unit-tests         | Retried, 1 of 2    |
 | 3   | Info      | Add foo | @bob reacted :tada: on your comment |                    |
 
-Add foo (!5) {MR_URL}/5
-develop {PL_URL}/88123"
+- Add foo (!5) {MR_URL}/5
+- develop {PL_URL}/88123"
             )
         );
         let open: Vec<&str> = items.items.iter().map(|item| item.item.as_str()).collect();
