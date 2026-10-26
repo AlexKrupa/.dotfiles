@@ -1,0 +1,4 @@
+#!/bin/sh
+# The links follow the file contents, so only the script and the set of skill folders matter.
+# source hash: {{ output "sh" "-c" "cd \"$1\" && { shasum executable_claude.sh; find skills -mindepth 1 -maxdepth 2 -type d | sort; } | shasum" "sh" (joinPath .chezmoi.sourceDir "dot_config/agents") }}
+exec "$HOME/.config/agents/claude.sh"

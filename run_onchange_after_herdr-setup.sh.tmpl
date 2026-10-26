@@ -1,0 +1,4 @@
+#!/bin/sh
+# source hash: {{ output "sh" "-c" "cd \"$1\" && { shasum executable_setup.sh; find plugins -name herdr-plugin.toml | sort | xargs shasum; } | shasum" "sh" (joinPath .chezmoi.sourceDir "dot_config/herdr") }}
+command -v herdr >/dev/null || exit 0
+exec "$HOME/.config/herdr/setup.sh"
