@@ -49,8 +49,7 @@ a new machine also runs it.
   machine), the check engine, and the client commands. `daemon/build.sh` builds it and installs it
   to `~/.local/bin/watchd`. `hub`, `draft-pr`, `review-pr`, `bump`, and `debug-gitlab` use it. The
   herdr plugin `watch` reads its event log with `watchd follow`.
-- `bin/watch/watch-lib.sh` - the sleep, wake, and network rules of `skills/hub/hub-pull.sh` and
-  `skills/hub/hub-retry.sh`.
+- `bin/watch/watch-lib.sh` - the sleep, wake, and network rules of `skills/hub/hub-retry.sh`.
 - `references/` - the rules that two or more skills read by absolute path
   (`~/.config/agents/references/...`). `claude.sh` does not make symlinks for them.
 - `references/watch/` - the watch rules. `common.md` contains the shared rules. A host file

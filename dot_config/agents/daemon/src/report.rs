@@ -360,6 +360,7 @@ pub fn sentence(event: &Event) -> String {
         EventKind::Labels => by(actor, "changed the labels"),
         EventKind::Pushed => "New commits".to_string(),
         EventKind::Resolved => by(actor, "resolved your thread"),
+        EventKind::PullBlocked => format!("Pull blocked: {detail}"),
     }
 }
 
@@ -531,6 +532,24 @@ mod tests {
 
     fn mr_event(kind: EventKind, iid: u64, actor: &str, detail: &str, url: &str) -> Event {
         Event::new(kind, Some(iid), Some("Add foo"), url, actor, detail, "b")
+    }
+
+    #[test]
+    fn sentence_of_a_blocked_pull_has_the_reason() {
+        let event = Event::new(
+            EventKind::PullBlocked,
+            None,
+            None,
+            "",
+            "",
+            "the checkout has changes in tracked files",
+            "main",
+        );
+
+        assert_eq!(
+            sentence(&event),
+            "Pull blocked: the checkout has changes in tracked files"
+        );
     }
 
     #[test]

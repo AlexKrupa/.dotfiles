@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::core::worktrees::{SpiceBranch, parse_spice_log};
+use crate::nap::is_network_error;
 
 /// `branch` has no `refs/heads/` prefix. A detached or bare entry has no branch.
 #[derive(Clone, Debug, PartialEq)]
@@ -118,6 +119,102 @@ pub fn shared_refs(repo: &Path) -> SharedRefs {
     refs
 }
 
+#[derive(Debug)]
+pub enum FetchError {
+    Network(String),
+    Other(String),
+}
+
+/// No prompt for credentials: the daemon has no terminal.
+pub fn fetch(repo: &Path, branch: &str) -> Result<(), FetchError> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["fetch", "-q", "origin", branch])
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|error| FetchError::Other(format!("git fetch: {error}")))?;
+    let text = String::from_utf8_lossy(&output.stderr).trim_end().replace('\n', " ");
+    match (output.status.success(), is_network_error(&text)) {
+        (true, _) => Ok(()),
+        (false, true) => Err(FetchError::Network(format!("git fetch: {text}"))),
+        (false, false) => Err(FetchError::Other(format!("git fetch: {text}"))),
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Blocked {
+    OtherBranch(String),
+    Changes,
+    NoFastForward,
+}
+
+impl Blocked {
+    pub fn text(&self, default: &str) -> String {
+        match self {
+            Blocked::OtherBranch(branch) => format!("the checkout is on {branch}, not {default}"),
+            Blocked::Changes => "the checkout has changes in tracked files".to_string(),
+            Blocked::NoFastForward => format!("cannot fast-forward {default} to origin/{default}"),
+        }
+    }
+}
+
+fn is_ancestor(folder: &Path, ancestor: &str, commit: &str) -> bool {
+    git(folder, &["merge-base", "--is-ancestor", ancestor, commit]).is_ok()
+}
+
+/// Returns false if the checkout has all commits of `origin/<branch>` already.
+pub fn fast_forward(main: &Path, branch: &str) -> Result<bool, Blocked> {
+    let current = git(main, &["rev-parse", "--abbrev-ref", "HEAD"]).unwrap_or_default();
+    if current.trim_end() != branch {
+        return Err(Blocked::OtherBranch(current.trim_end().to_string()));
+    }
+    let remote = format!("origin/{branch}");
+    if is_ancestor(main, &remote, "HEAD") {
+        return Ok(false);
+    }
+    if !is_ancestor(main, "HEAD", &remote) {
+        return Err(Blocked::NoFastForward);
+    }
+    // The refresh makes a file with a new time but the same content count as unchanged.
+    let _ = git(main, &["update-index", "-q", "--refresh"]);
+    if git(main, &["diff-index", "--quiet", "HEAD"]).is_err() {
+        return Err(Blocked::Changes);
+    }
+    match git(main, &["merge", "-q", "--ff-only", &remote]) {
+        Ok(_) => Ok(true),
+        Err(_) => Err(Blocked::NoFastForward),
+    }
+}
+
+/// The files of the conflict of a merge of `top` into `origin/<default>`, empty for a clean merge.
+pub fn conflict(worktree: &Path, default: &str, top: &str) -> Result<Vec<String>, String> {
+    let base = format!("origin/{default}");
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(worktree)
+        .args(["merge-tree", "--write-tree", "--name-only", "--no-messages", &base, top])
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|error| format!("git merge-tree: {error}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    match output.status.code() {
+        Some(0) => Ok(Vec::new()),
+        // The first line is the tree.
+        Some(1) => Ok(stdout
+            .lines()
+            .skip(1)
+            .filter(|line| !line.is_empty())
+            .map(str::to_string)
+            .collect()),
+        _ => Err(format!(
+            "git merge-tree {base} {top}: {}",
+            String::from_utf8_lossy(&output.stderr).trim_end()
+        )),
+    }
+}
+
 pub fn spice_log(worktree: &Path) -> Result<Vec<SpiceBranch>, String> {
     let output = Command::new("git-spice")
         .args(["log", "short", "--json", "--no-cr-status", "--no-cr-comments"])
@@ -181,6 +278,112 @@ mod tests {
         git(&repo, &["add", "f"]);
         git(&repo, &["commit", "-q", "-m", "one"]);
         repo
+    }
+
+    /// A bare origin with one commit on `main`, a clone that pushes, and the clone under test.
+    fn origin_and_clones(name: &str) -> (PathBuf, PathBuf) {
+        let dir = scratch(name);
+        git(&dir, &["init", "-q", "--bare", "-b", "main", "origin.git"]);
+        git(&dir, &["clone", "-q", "origin.git", "pusher"]);
+        let pusher = dir.join("pusher");
+        std::fs::write(pusher.join("f"), "one\n").unwrap();
+        git(&pusher, &["add", "f"]);
+        git(&pusher, &["commit", "-q", "-m", "one"]);
+        git(&pusher, &["push", "-q", "origin", "main"]);
+        git(&dir, &["clone", "-q", "origin.git", "clone"]);
+        (pusher, dir.join("clone"))
+    }
+
+    fn push(pusher: &Path, file: &str) {
+        std::fs::write(pusher.join(file), "pushed\n").unwrap();
+        git(pusher, &["add", file]);
+        git(pusher, &["commit", "-q", "-m", file]);
+        git(pusher, &["push", "-q", "origin", "main"]);
+    }
+
+    #[test]
+    fn fast_forward_moves_main_to_origin() {
+        let (pusher, clone) = origin_and_clones("ff");
+        push(&pusher, "g");
+
+        fetch(&clone, "main").unwrap();
+
+        assert_eq!(fast_forward(&clone, "main"), Ok(true));
+        assert_eq!(
+            git(&clone, &["rev-parse", "HEAD"]),
+            git(&pusher, &["rev-parse", "HEAD"])
+        );
+        assert_eq!(fast_forward(&clone, "main"), Ok(false));
+    }
+
+    #[test]
+    fn fast_forward_is_blocked_on_another_branch() {
+        let (pusher, clone) = origin_and_clones("ff-branch");
+        git(&clone, &["switch", "-q", "-c", "other"]);
+        push(&pusher, "g");
+        fetch(&clone, "main").unwrap();
+
+        let blocked = fast_forward(&clone, "main").unwrap_err();
+
+        assert_eq!(blocked.text("main"), "the checkout is on other, not main");
+    }
+
+    #[test]
+    fn fast_forward_is_blocked_with_changes_in_tracked_files() {
+        let (pusher, clone) = origin_and_clones("ff-changes");
+        std::fs::write(clone.join("f"), "local\n").unwrap();
+        push(&pusher, "g");
+        fetch(&clone, "main").unwrap();
+
+        let blocked = fast_forward(&clone, "main").unwrap_err();
+
+        assert_eq!(blocked.text("main"), "the checkout has changes in tracked files");
+    }
+
+    #[test]
+    fn fast_forward_is_blocked_when_main_diverged() {
+        let (pusher, clone) = origin_and_clones("ff-diverged");
+        std::fs::write(clone.join("h"), "local\n").unwrap();
+        git(&clone, &["add", "h"]);
+        git(&clone, &["commit", "-q", "-m", "local"]);
+        push(&pusher, "g");
+        fetch(&clone, "main").unwrap();
+
+        let blocked = fast_forward(&clone, "main").unwrap_err();
+
+        assert_eq!(blocked.text("main"), "cannot fast-forward main to origin/main");
+    }
+
+    #[test]
+    fn conflict_lists_the_conflicting_files() {
+        let (pusher, clone) = origin_and_clones("conflict");
+        git(&clone, &["switch", "-q", "-c", "b"]);
+        std::fs::write(clone.join("f"), "branch\n").unwrap();
+        git(&clone, &["commit", "-q", "-am", "branch"]);
+        git(&clone, &["switch", "-q", "-c", "c", "main"]);
+        std::fs::write(clone.join("g"), "other file\n").unwrap();
+        git(&clone, &["add", "g"]);
+        git(&clone, &["commit", "-q", "-m", "other file"]);
+        std::fs::write(pusher.join("f"), "main\n").unwrap();
+        git(&pusher, &["commit", "-q", "-am", "main"]);
+        git(&pusher, &["push", "-q", "origin", "main"]);
+        fetch(&clone, "main").unwrap();
+
+        assert_eq!(conflict(&clone, "main", "b"), Ok(vec!["f".to_string()]));
+        assert_eq!(conflict(&clone, "main", "c"), Ok(Vec::new()));
+    }
+
+    #[test]
+    fn fetch_reports_a_network_error() {
+        let (_, clone) = origin_and_clones("fetch-network");
+        git(
+            &clone,
+            &["remote", "set-url", "origin", "https://unreachable.invalid/x.git"],
+        );
+
+        let result = fetch(&clone, "main");
+
+        assert!(matches!(result, Err(FetchError::Network(_))), "{result:?}");
     }
 
     #[test]

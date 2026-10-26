@@ -28,7 +28,7 @@ fg=$(jq -c 'to_entries | map(.value.result.process_info as $i
 
 # A glyph table of ASCII letters, so a check reads as text.
 glyphs='{"mine":"M","review":"R","hub":"H","started":"s","watching":"w","done":"d","stopped":"x",
-  "failed":"F","reply":"C","stack":"S"}'
+  "failed":"F","reply":"C","stack":"S","conflict":"X"}'
 
 # run <state-json> [jq-filter-to-mutate-the-fixture] -> policy output as {rename, state}
 #
@@ -181,6 +181,10 @@ work() { jq -r --argjson glyphs "$glyphs" 'include "work" {search: "../"}; work_
 check "glyphs: stack after kind" "R S w" \
   "$(work '{"watch_kind": "review", "watch_stage": "watching", "watch_stack": "1"}')"
 check "glyphs: stack first for mine" "S" "$(work '{"watch_stack": "1"}')"
+check "glyphs: local conflict with no needs" "M X" \
+  "$(work '{"watch_kind": "mine", "watch_conflict": "1"}')"
+check "glyphs: needs win over local conflict" "M w F" \
+  "$(work '{"watch_kind": "mine", "watch_stage": "watching", "watch_needs": "failed", "watch_conflict": "1"}')"
 check "an agent keeps the kind of its space" "2 R s" "$(slot wC "$agent | $(watch \
   '{"watch_kind": "review"}')")"
 

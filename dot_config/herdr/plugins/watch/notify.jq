@@ -40,6 +40,7 @@ def texts:
     elif .kind | IN("title", "description", "labels") then by($a; "changed the \(.kind)") | [., .]
     elif .kind == "pushed" then ["New commits", "new commits"]
     elif .kind == "resolved" then by($a; "resolved your thread") | [., .]
+    elif .kind == "pull-blocked" then ["Pull blocked: \(.detail)", "pull blocked"]
     else by($a; .detail) | [., (. | lower)] end;
 
 def clean: gsub("'"; " ");

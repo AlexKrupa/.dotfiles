@@ -73,6 +73,10 @@ check "opened with route bump" 'New dependency bump. Bump agent started.' \
   "$(notify "$(opened 1000)" "$(route 61 bump)" | jq -r .body)"
 check "opened with route none: not in notify_opened" '' \
   "$(notify "$(opened 1000)" "$(route 61 none)")"
+check "pull blocked: the reason" '["main","Pull blocked: the checkout has changes in tracked files","request"]' \
+  "$(notify "$(line r1 pull-blocked '' 'the checkout has changes in tracked files' \
+    '.event += {iid: null, title: null, branch: "main"} | .sound = "request"')" \
+    | jq -c '[.title, .body, .sound]')"
 check "own-comment only: no notification" '' \
   "$(notify "$(line r1 own-comment me Done)" "$(line r1 unaddressed anna Nit)")"
 check "own merge: no notification" '' \
@@ -85,11 +89,11 @@ check "stopped" \
 # sidebar <input>: the output of sidebar.jq.
 sidebar() { jq -c -f ../sidebar.jq <<<"$1"; }
 check "sidebar: live review with no kind" \
-  '{"wR":{"watch_kind":"review","watch_stage":"watching","watch_needs":"reply","watch_stack":""}}' \
+  '{"wR":{"watch_kind":"review","watch_stage":"watching","watch_needs":"reply","watch_stack":"","watch_conflict":""}}' \
   "$(sidebar '{"workspaces": {}, "subs": [{"mode": "review", "herdr_workspace": "wR",
     "live": true, "needs": ["reply"]}]}')"
 check "sidebar: dead subscription uses the workspace file" \
-  '{"wR":{"watch_kind":"bump","watch_stage":"stopped","watch_needs":"","watch_stack":""}}' \
+  '{"wR":{"watch_kind":"bump","watch_stage":"stopped","watch_needs":"","watch_stack":"","watch_conflict":""}}' \
   "$(sidebar '{"workspaces": {"wR": {"kind": "bump", "stage": "stopped"}}, "subs": [
     {"mode": "review", "herdr_workspace": "wR", "live": false, "needs": ["reply"]}]}')"
 
@@ -108,6 +112,9 @@ check "sidebar: path prefix of a different folder does not match" '' \
   "$(stack '{"/r/a": {"stack": ["a", "b"]}}' /r/ab)"
 check "sidebar: stack of one branch gives no token" '' \
   "$(stack '{"/r/.wt/x": {"stack": ["a"]}}' /r/.wt/x)"
+check "sidebar: conflict token" 1 \
+  "$(sidebar '{"workspaces": {}, "subs": [], "folders": {"wS": "/r/.wt/x"},
+    "worktrees": {"/r/.wt/x": {"stack": ["a"], "conflict": ["f"]}}}' | jq -r '.wS.watch_conflict')"
 
 # The sweep, with a fake herdr and a test daemon. The live record of the test has no git repo: its
 # check fails before a glab call.
@@ -177,7 +184,7 @@ jq -n --argjson pid $$ --argjson now "$(date +%s)" --arg repo "$tmp" '{key: "app
 echo '{"needs": ["failed", "reply"]}' >"$tmp/state/watch-gitlab/app-x.json"
 sweep
 check "live stack subscription" \
-  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=watching --token watch_needs=failed,reply --clear-token watch_stack' \
+  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=watching --token watch_needs=failed,reply --clear-token watch_stack --clear-token watch_conflict' \
   "$(metadata)"
 sweep
 check "no change: no herdr call" '' "$(metadata)"
@@ -186,7 +193,7 @@ mv "$watchd/subs/app-x.json" "$tmp/app-x.json"
 echo '{"kind": "mine", "stage": "done"}' >"$watchd/workspaces/wT.json"
 sweep
 check "ended with done" \
-  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs --clear-token watch_stack' \
+  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs --clear-token watch_stack --clear-token watch_conflict' \
   "$(metadata)"
 
 : >"$tmp/lockf.log"
@@ -194,7 +201,7 @@ check "ended with done" \
 for _ in $(seq 20); do [ -s "$tmp/lockf.log" ] || sleep 0.1; done
 sweep
 check "startup writes all values" \
-  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs --clear-token watch_stack' \
+  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs --clear-token watch_stack --clear-token watch_conflict' \
   "$(metadata)"
 check "startup starts the watcher" "-s -k -t 0 $plugin/watch.lock $(cd .. && pwd)/watch.sh watch" \
   "$(cat "$tmp/lockf.log")"
@@ -209,7 +216,7 @@ echo '{"kind": "review"}' >"$watchd/workspaces/wBad.json"
 echo '{"kind": "bump"}' >"$watchd/workspaces/wU.json"
 sweep
 check "a herdr error does not stop the sweep" \
-  'workspace report-metadata wU --source watch --token watch_kind=bump --clear-token watch_stage --clear-token watch_needs --clear-token watch_stack' \
+  'workspace report-metadata wU --source watch --token watch_kind=bump --clear-token watch_stage --clear-token watch_needs --clear-token watch_stack --clear-token watch_conflict' \
   "$(metadata | grep -v wBad)"
 sweep
 check "a failed write: the next sweep tries again" 1 "$(metadata | grep -c wBad)"

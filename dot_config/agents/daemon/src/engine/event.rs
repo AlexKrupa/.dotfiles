@@ -25,6 +25,7 @@ pub enum EventKind {
     Unaddressed,
     Pushed,
     Resolved,
+    PullBlocked,
 }
 
 /// The field order is the order that readers expect. An `Option<Option<_>>` field is absent for

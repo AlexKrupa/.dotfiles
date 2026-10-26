@@ -11,6 +11,7 @@ use tokio::io::BufReader;
 use tokio::net::{UnixListener, UnixStream};
 
 use crate::core::eventlog::{LogLine, id_of, route_line};
+use crate::core::subs::Mode;
 use crate::core::workspaces::set_kind;
 use crate::daemon::{Daemon, Memory};
 use crate::local::repo_of;
@@ -187,6 +188,10 @@ async fn subscribe(
     mut reader: BufReader<tokio::net::unix::OwnedReadHalf>,
     mut write: tokio::net::unix::OwnedWriteHalf,
 ) {
+    let hub_repo = match args.mode {
+        Mode::Hub => repo_of(&args.repo),
+        Mode::Stack | Mode::Review => None,
+    };
     {
         let mut memory = daemon.lock().await;
         if args.fresh {
@@ -206,6 +211,10 @@ async fn subscribe(
         let ended_with_result = old.is_none() && daemon.store.ended_with_result(&args.key, args.session_pid);
         if !ended_with_result && daemon.store.subscribe(&args, old.as_ref(), now_seconds()) {
             daemon.poke(&mut memory, &args.key, &args.slug, &args.poke_token);
+            // A new hub gets the interval of a live hub at once.
+            if let Some(repo) = &hub_repo {
+                daemon.wake_managed(&memory, repo);
+            }
         }
         memory.clients.insert(args.key.clone(), args.client_pid);
         if !daemon.stopping() && process_alive(args.session_pid) {

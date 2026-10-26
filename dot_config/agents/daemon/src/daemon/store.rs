@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
-use crate::core::items::{Items, RoutedEvent, assign_rows, move_items, prune_items};
+use crate::core::items::{Item, Items, RoutedEvent, assign_rows, move_items, prune_items};
 use crate::core::subs::{Mode, Subscription, add_ended};
 use crate::core::workspaces::{Kind, Stage, Workspace};
 use crate::core::worktrees::{Repos, WorktreeState};
@@ -424,6 +424,45 @@ impl Store {
         self.append_lines(&self.dirs.inbox(&sub.key), &routed);
         self.log(&sub.slug, &sub.key, &format!("routed {count} event(s)"));
         routed
+    }
+
+    pub fn open_item(&self, key: &str, item: &str) -> Option<Item> {
+        let items: Items = self.read_json(&self.dirs.items(key)).ok().flatten()?;
+        items.items.into_iter().find(|open| open.item == item)
+    }
+
+    /// A blocked fast-forward of the main checkout: an item of the hub, and an inbox line only for
+    /// a live hub.
+    pub fn pull_blocked(&self, slug: &str, event: Event) {
+        let now = now_seconds();
+        let path = self.dirs.items(slug);
+        let Ok(items) = self.read_json::<Items>(&path) else {
+            self.log(slug, slug, "no pull item: the items file is not readable");
+            return;
+        };
+        let mut items = items.unwrap_or_default();
+        let routed = assign_rows(&mut items, vec![event], now);
+        let _ = save(&path, &items);
+        let lines = routed
+            .iter()
+            .map(|event| LogLine::Event(event_line(slug, slug, Mode::Hub, now, event.clone())))
+            .collect();
+        self.event_log(lines);
+        if self.live_subs(Some(slug)).iter().any(|sub| sub.mode == Mode::Hub) {
+            self.append_lines(&self.dirs.inbox(slug), &routed);
+        }
+    }
+
+    pub fn close_item(&self, key: &str, item: &str) {
+        let path = self.dirs.items(key);
+        let Ok(Some(mut items)) = self.read_json::<Items>(&path) else {
+            return;
+        };
+        let count = items.items.len();
+        items.items.retain(|open| open.item != item);
+        if items.items.len() < count {
+            let _ = save(&path, &items);
+        }
     }
 
     pub fn prune_items(&self, sub: &Subscription) {

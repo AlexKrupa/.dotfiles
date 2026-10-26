@@ -125,9 +125,12 @@ pub fn next_id(last: u64, now_millis: u64) -> u64 {
 pub fn sound(routed: &RoutedEvent) -> Sound {
     let event = &routed.event;
     match event.kind {
-        EventKind::Todo | EventKind::Note | EventKind::DefaultFailed | EventKind::Comment | EventKind::Conflict => {
-            Sound::Request
-        }
+        EventKind::Todo
+        | EventKind::Note
+        | EventKind::DefaultFailed
+        | EventKind::Comment
+        | EventKind::Conflict
+        | EventKind::PullBlocked => Sound::Request,
         EventKind::Pipeline if event.jobs.is_some() => Sound::Request,
         EventKind::Pipeline
         | EventKind::Opened

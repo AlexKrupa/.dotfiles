@@ -6,8 +6,8 @@
 #        needs: the needs-you values of the check engine state of the subscription
 #        worktrees: the local state of each worktree that the daemon knows
 #        folders: the folder of each herdr workspace
-#   out: {<id>: {watch_kind, watch_stage, watch_needs, watch_stack}}. An empty value clears the
-#        token.
+#   out: {<id>: {watch_kind, watch_stage, watch_needs, watch_stack, watch_conflict}}. An empty
+#        value clears the token.
 #
 # Pure: watch.sh does the reads and the herdr calls.
 
@@ -42,5 +42,6 @@ def worktree_of($worktrees):
 | ([$tokens | keys[]] + [$matched | to_entries[] | select(.value) | .key] | unique)
 | map(. as $id | {key: $id, value:
     (($tokens[$id] // {watch_kind: "", watch_stage: "", watch_needs: ""})
-      + {watch_stack: (if ($matched[$id].stack // [] | length) >= 2 then "1" else "" end)})})
+      + {watch_stack: (if ($matched[$id].stack // [] | length) >= 2 then "1" else "" end),
+         watch_conflict: (if ($matched[$id].conflict // [] | length) > 0 then "1" else "" end)})})
 | from_entries

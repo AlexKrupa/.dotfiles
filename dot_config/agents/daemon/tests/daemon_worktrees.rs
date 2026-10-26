@@ -243,3 +243,191 @@ fn daemon_start_adds_the_repo_of_each_subscription() {
     assert_eq!(repos(&w), json!([w.env.repo]).to_string());
     end(follow);
 }
+
+/// A bare origin with `main`, the managed clone `<dir>/work`, and the clone `<dir>/pusher`.
+fn origin(w: &Watchd) -> (PathBuf, PathBuf) {
+    let dir = &w.env.dir;
+    w.env.git(dir, &["init", "-q", "--bare", "-b", "main", "origin.git"]);
+    w.env.git(dir, &["clone", "-q", "origin.git", "pusher"]);
+    let pusher = dir.join("pusher");
+    std::fs::write(pusher.join("f"), "one\n").unwrap();
+    w.env.git(&pusher, &["add", "f"]);
+    push(w, &pusher, "one");
+    w.env.git(dir, &["clone", "-q", "origin.git", "work"]);
+    (pusher, dir.join("work"))
+}
+
+fn push(w: &Watchd, pusher: &Path, message: &str) {
+    w.env.commit(pusher, message);
+    w.env.git(pusher, &["push", "-q", "origin", "main"]);
+}
+
+fn head(w: &Watchd, folder: &Path) -> String {
+    w.env.git(folder, &["rev-parse", "HEAD"])
+}
+
+fn pull_lines(w: &Watchd) -> usize {
+    let text = std::fs::read_to_string(w.watchd.join("events.jsonl")).unwrap_or_default();
+    text.lines()
+        .filter(|line| line.contains(r#""kind":"pull-blocked""#))
+        .count()
+}
+
+fn items(w: &Watchd, key: &str) -> String {
+    let path = w.watchd.join(format!("items/{key}.json"));
+    match path.exists() {
+        true => {
+            let items = support::read_json(&path)["items"].clone();
+            let keys: Vec<String> = items
+                .as_array()
+                .unwrap_or(&Vec::new())
+                .iter()
+                .map(|item| support::raw(&item["item"]))
+                .collect();
+            keys.join(" ")
+        }
+        false => String::new(),
+    }
+}
+
+fn managed_loop() -> &'static Checks {
+    static CHECKS: OnceLock<Checks> = OnceLock::new();
+    CHECKS.get_or_init(|| {
+        let mut w = Watchd::new();
+        w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+        let mut c = Checks::default();
+        let (pusher, work) = origin(&w);
+        let follow = follower(&w, &w.env.dir);
+        w.client_in(&work, &["status"]);
+
+        push(&w, &pusher, "two");
+        wait_for(10, || head(&w, &work) == head(&w, &pusher));
+        c.check(
+            "managed loop: the main checkout gets the new commit of origin",
+            head(&w, &pusher),
+            head(&w, &work),
+        );
+
+        std::fs::write(work.join("f"), "local\n").unwrap();
+        push(&w, &pusher, "three");
+        wait_for(10, || pull_lines(&w) > 0);
+        sleep(4);
+        c.check(
+            "managed loop: a blocked fast-forward is one event and one item",
+            "1 pull:main",
+            format!("{} {}", pull_lines(&w), items(&w, "work")),
+        );
+
+        w.env.git(&work, &["checkout", "--", "f"]);
+        wait_for(10, || items(&w, "work").is_empty());
+        c.check(
+            "managed loop: the item closes after the fast-forward",
+            format!(" {}", head(&w, &pusher)),
+            format!("{} {}", items(&w, "work"), head(&w, &work)),
+        );
+        end(follow);
+        c
+    })
+}
+
+#[test]
+fn managed_loop_fetches_and_fast_forwards() {
+    for name in [
+        "managed loop: the main checkout gets the new commit of origin",
+        "managed loop: a blocked fast-forward is one event and one item",
+        "managed loop: the item closes after the fast-forward",
+    ] {
+        managed_loop().assert(name);
+    }
+}
+
+#[test]
+fn managed_loop_without_origin_head() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    let (_, work) = origin(&w);
+    w.env.git(&work, &["remote", "set-head", "origin", "-d"]);
+    w.env.git(&work, &["update-ref", "refs/spice/data", "HEAD"]);
+    w.env.fake_spice(&work, STACK);
+    let follow = follower(&w, &w.env.dir);
+    w.client_in(&work, &["status"]);
+
+    wait_for(5, || !w.worktree_state(&work).is_null());
+    sleep(4);
+
+    assert_eq!(
+        w.log_count("no default branch: origin/HEAD is not set"),
+        1,
+        "{}",
+        w.log()
+    );
+    assert!(!work.join(".git/FETCH_HEAD").exists(), "no fetch");
+    assert_eq!(items(&w, "work"), "");
+    assert_eq!(w.worktree_state(&work)["stack"], json!(["a", "b"]));
+    end(follow);
+}
+
+#[test]
+fn managed_loop_waits_for_the_network() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    let (_, work) = origin(&w);
+    w.env.git(
+        &work,
+        &["remote", "set-url", "origin", "https://unreachable.invalid/x.git"],
+    );
+    std::fs::write(w.env.dir.join("bin/nc"), "#!/bin/sh\nexit 1\n").unwrap();
+    let follow = follower(&w, &w.env.dir);
+    w.client_in(&work, &["status"]);
+
+    wait_for(10, || w.log_count("network down") > 0);
+    sleep(3);
+
+    assert_eq!(w.log_count("network down"), 1, "{}", w.log());
+    assert_eq!((items(&w, "work"), pull_lines(&w)), (String::new(), 0));
+    end(follow);
+}
+
+#[test]
+fn managed_loop_wakes_for_a_new_hub() {
+    let w = Watchd::new();
+    let (pusher, work) = origin(&w);
+    let follow = follower(&w, &w.env.dir);
+    w.client_in(&work, &["status"]);
+    wait_for(5, || w.log_count("managed loop start") > 0);
+    sleep(2);
+    push(&w, &pusher, "two");
+
+    let mut hub = w.watch_command(&["--once"]);
+    hub.current_dir(&work);
+    w.run(hub);
+    wait_for(5, || head(&w, &work) == head(&w, &pusher));
+
+    assert_eq!(head(&w, &work), head(&w, &pusher), "{}", w.log());
+    end(follow);
+}
+
+#[test]
+fn local_state_has_the_conflict_with_main() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    let (pusher, work) = origin(&w);
+    let wt = w.env.dir.join("wt");
+    w.env
+        .git(&work, &["worktree", "add", "-q", "-b", "b", wt.to_str().unwrap()]);
+    std::fs::write(wt.join("f"), "branch\n").unwrap();
+    w.env.git(&wt, &["commit", "-q", "-am", "branch"]);
+    let follow = follower(&w, &w.env.dir);
+    w.client_in(&wt, &["status"]);
+    wait_for(5, || !w.worktree_state(&wt).is_null());
+    let before = w.worktree_state(&wt)["conflict"].clone();
+
+    std::fs::write(pusher.join("f"), "main\n").unwrap();
+    w.env.git(&pusher, &["commit", "-q", "-am", "main"]);
+    w.env.git(&pusher, &["push", "-q", "origin", "main"]);
+    wait_for(10, || w.worktree_state(&wt)["conflict"] == json!(["f"]));
+
+    assert_eq!(before, json!([]));
+    assert_eq!(w.worktree_state(&wt)["conflict"], json!(["f"]), "{}", w.log());
+    end(follow);
+}

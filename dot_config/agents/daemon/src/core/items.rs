@@ -103,6 +103,8 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
         };
         match item.owner {
             Owner::Model => true,
+            // Only the managed loop of the repo closes them.
+            Owner::Daemon if item.item.starts_with("pull:") => true,
             Owner::Daemon if other_mode && is_hub_item(&item.item) => {
                 hub_present.is_none_or(|hub| hub.contains(&item.item))
             }
@@ -137,6 +139,24 @@ mod tests {
 
     fn rows(routed: &[RoutedEvent]) -> Vec<u64> {
         routed.iter().map(|event| event.row).collect()
+    }
+
+    #[test]
+    fn prune_items_keeps_pull_items() {
+        let mut items = Items::default();
+        assign_rows(
+            &mut items,
+            vec![
+                event(EventKind::PullBlocked, Some("pull:main")),
+                event(EventKind::Todo, Some("todo:1")),
+            ],
+            100,
+        );
+
+        prune_items(&mut items, &[], None, Mode::Hub);
+
+        let keys: Vec<&str> = items.items.iter().map(|item| item.item.as_str()).collect();
+        assert_eq!(keys, ["pull:main"]);
     }
 
     #[test]

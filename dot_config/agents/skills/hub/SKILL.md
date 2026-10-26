@@ -3,12 +3,11 @@ name: hub
 description: >-
   Use when the user runs /hub in a repo's main checkout to manage the herdr worktree agents of
   that repo, watch its GitLab review requests, mentions, dependency bump MRs, and default branch
-  pipelines, start review agents, bump agents, and debug agents, and keep the main checkout on the
-  newest commit, or asks the hub for the status of its agents.
+  pipelines, start review agents, bump agents, and debug agents, or asks the hub for the status of
+  its agents.
 disable-model-invocation: true
 allowed-tools:
   - Bash(~/.claude/skills/hub/hub-status.sh *)
-  - Bash(~/.claude/skills/hub/hub-pull.sh *)
   - Bash(watchd *)
 ---
 
@@ -17,11 +16,10 @@ allowed-tools:
 This session is the hub of the repo. The hub manages the Claude agents in the repo's herdr
 worktree workspaces, and tells the user about GitLab events for MRs of other people and the
 default branch. The draft-pr watch reports the user's own MRs. The session runs in the main
-checkout, which stays on the default branch. The pull task keeps the checkout on the newest commit
-of that branch.
-
-The pull task is a background Bash task (`run_in_background: true`). It does one round each 120
-seconds: give the script `--interval 120`.
+checkout, which stays on the default branch. The watch daemon `watchd` keeps the checkout on the
+newest commit of that branch. If it cannot fast-forward the checkout, the watch gives a
+`pull-blocked` item with the reason, for example changes in tracked files. The user fixes the
+cause.
 
 At the start, run `watchd kind hub`. It sets the kind of work of the herdr workspace for the
 sidebar. Outside herdr, it does nothing.
@@ -57,17 +55,3 @@ After the first status report, start the watch. Read
 `~/.config/agents/references/watch/common.md` and follow it, with the role file `hub.md`. The
 watch finds new MRs, review requests, comments, and failed default-branch pipelines, and starts
 the review, bump, and debug agents.
-
-## Pull
-
-The pull fetches the default branch and fast-forwards the main checkout to it. It skips a round
-while a different herdr agent runs in the main checkout. It gives no output.
-
-1. After the watch starts, start the pull: run `~/.claude/skills/hub/hub-pull.sh --interval 120`
-   as a background Bash task. Start it only if no pull task runs.
-2. When the task stops with exit `1`, report its stderr text and run
-   `herdr notification show 'Hub pull stopped' --body '<stderr text>' --sound request`. Do not
-   start the pull again. The user fixes the cause, for example changes in the main checkout.
-3. When the task stops with exit `0`, a new hub session started its own pull. Do not start the
-   pull again. Do not send a notification.
-4. If the user asks to stop the pull, stop the task. If the user asks to start it, start it.
