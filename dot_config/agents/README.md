@@ -6,7 +6,8 @@ these files changes the live behavior of Claude.
 ## Sync
 
 Start `./claude.sh` to create the symlinks, or to create them again. You can start it again with
-no risk. For each entry, it shows one of these statuses:
+no risk. If `claude.sh` changes, or if you add or remove a skill folder, `chezmoi apply` runs it.
+For each entry, it shows one of these statuses:
 
 - `linked`: the link is already correct.
 - `relinked`: the script moved a managed link to the current source.
