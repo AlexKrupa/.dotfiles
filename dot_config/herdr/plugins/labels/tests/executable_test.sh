@@ -28,7 +28,7 @@ fg=$(jq -c 'to_entries | map(.value.result.process_info as $i
 
 # A glyph table of ASCII letters, so a check reads as text.
 glyphs='{"mine":"M","review":"R","hub":"H","started":"s","watching":"w","done":"d","stopped":"x",
-  "failed":"F","reply":"C"}'
+  "failed":"F","reply":"C","stack":"S"}'
 
 # run <state-json> [jq-filter-to-mutate-the-fixture] -> policy output as {rename, state}
 #
@@ -176,6 +176,11 @@ check "a written idx is not written again" "" "$(slot wC "$(watch \
   '{"idx": "2 M", "watch_kind": "mine"}')")"
 agent='.result.snapshot.agents = [{pane_id: "wC:p1", workspace_id: "wC"}]'
 check "an agent with no kind is own work" "2 M" "$(slot wC "$agent")"
+# work <tokens-json>: the glyphs of work.jq for these tokens.
+work() { jq -r --argjson glyphs "$glyphs" 'include "work" {search: "../"}; work_glyphs($glyphs)' <<<"$1"; }
+check "glyphs: stack after kind" "R S w" \
+  "$(work '{"watch_kind": "review", "watch_stage": "watching", "watch_stack": "1"}')"
+check "glyphs: stack first for mine" "S" "$(work '{"watch_stack": "1"}')"
 check "an agent keeps the kind of its space" "2 R s" "$(slot wC "$agent | $(watch \
   '{"watch_kind": "review"}')")"
 

@@ -1,5 +1,5 @@
 # The watch state of a workspace, from the tokens that the herdr plugin `watch` reports:
-# watch_kind, watch_stage, and watch_needs.
+# watch_kind, watch_stage, watch_needs, and watch_stack.
 #
 #   in:  the tokens object of a workspace
 #   $glyphs: {value: glyph}, the glyph table of the plugin configuration
@@ -27,10 +27,12 @@ def work_words: {
   requested_changes: "changes requested", commits: "new commits", ready: "ready to merge",
   draft: "draft", todo: "to-do", "main-failed": "main failed" };
 
-# The glyph of the kind, of the stage, and of the first needs-you value. A value with no
-# glyph shows nothing. A space after a glyph lets the terminal draw it 2 cells wide.
+# The glyph of the kind, of a git-spice stack, of the stage, and of the first needs-you value. A
+# value with no glyph shows nothing. A space after a glyph lets the terminal draw it 2 cells wide.
 def work_glyphs($glyphs):
-  [.watch_kind // "", work_stage, (work_needs[0] // "")] | map($glyphs[.] // "")
+  [.watch_kind // "", (if .watch_stack == "1" then "stack" else "" end), work_stage,
+    (work_needs[0] // "")]
+  | map($glyphs[.] // "")
   | map(select(. != "")) | join(" ");
 
 def work_line($glyphs):

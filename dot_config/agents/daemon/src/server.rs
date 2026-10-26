@@ -13,8 +13,11 @@ use tokio::net::{UnixListener, UnixStream};
 use crate::core::eventlog::{LogLine, id_of, route_line};
 use crate::core::workspaces::set_kind;
 use crate::daemon::{Daemon, Memory};
+use crate::local::repo_of;
 use crate::platform::{now_seconds, process_alive};
-use crate::protocol::{DebugState, RepoPoll, RepoTimes, Request, Response, StatusReport, SubscribeArgs, receive, send};
+use crate::protocol::{
+    DebugState, Envelope, RepoPoll, RepoTimes, Request, Response, StatusReport, SubscribeArgs, receive, send,
+};
 
 pub async fn serve(daemon: Arc<Daemon>, listener: UnixListener) {
     loop {
@@ -33,8 +36,8 @@ pub async fn serve(daemon: Arc<Daemon>, listener: UnixListener) {
 async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
     let (read, mut write) = stream.into_split();
     let mut reader = BufReader::new(read);
-    let request: Request = match receive(&mut reader).await {
-        Ok(Some(request)) => request,
+    let Envelope { folder, request } = match receive(&mut reader).await {
+        Ok(Some(envelope)) => envelope,
         Ok(None) => return,
         Err(error) => {
             let text = format!("watchd: bad request: {error}\n");
@@ -42,6 +45,10 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
             return;
         }
     };
+    if let Some(repo) = folder.as_deref().and_then(repo_of) {
+        let _memory = daemon.lock().await;
+        daemon.store.add_repo(&repo);
+    }
     let response = match request {
         Request::Subscribe(args) => return subscribe(daemon, args, reader, write).await,
         Request::Follow { after } => return follow(daemon, after, reader, write).await,

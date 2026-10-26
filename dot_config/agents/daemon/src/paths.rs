@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use crate::platform::shasum12;
 
 #[derive(Clone)]
 pub struct StateDirs {
@@ -46,6 +48,15 @@ impl StateDirs {
 
     pub fn items(&self, key: &str) -> PathBuf {
         self.watchd.join(format!("items/{key}.json"))
+    }
+
+    pub fn repos(&self) -> PathBuf {
+        self.watchd.join("repos.json")
+    }
+
+    pub fn worktree(&self, path: &Path) -> Result<PathBuf, String> {
+        let hash = shasum12(&path.to_string_lossy())?;
+        Ok(self.watchd.join(format!("worktrees/{hash}.json")))
     }
 
     pub fn workspace(&self, id: &str) -> PathBuf {

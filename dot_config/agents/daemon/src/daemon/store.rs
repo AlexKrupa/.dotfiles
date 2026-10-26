@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -12,6 +12,7 @@ use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, st
 use crate::core::items::{Items, RoutedEvent, assign_rows, move_items, prune_items};
 use crate::core::subs::{Mode, Subscription, add_ended};
 use crate::core::workspaces::{Kind, Stage, Workspace};
+use crate::core::worktrees::{Repos, WorktreeState};
 use crate::engine::event::{Event, EventKind};
 use crate::paths::StateDirs;
 use crate::persist::{Load, load, save};
@@ -75,7 +76,7 @@ impl Store {
     }
 
     pub fn ensure_dirs(&self) -> std::io::Result<()> {
-        for dir in ["subs", "inbox", "items", "workspaces"] {
+        for dir in ["subs", "inbox", "items", "workspaces", "worktrees"] {
             std::fs::create_dir_all(self.dirs.watchd.join(dir))?;
         }
         Ok(())
@@ -153,6 +154,60 @@ impl Store {
     pub fn write_sub(&self, sub: &Subscription) {
         if let Err(error) = save(&self.dirs.sub(&sub.key), sub) {
             self.log(&sub.slug, &sub.key, &format!("record not written: {error}"));
+        }
+    }
+
+    pub fn repos(&self) -> Vec<PathBuf> {
+        let repos: Option<Repos> = self.read_json(&self.dirs.repos()).ok().flatten();
+        repos.unwrap_or_default().repos
+    }
+
+    fn write_repos(&self, repos: Vec<PathBuf>) {
+        if let Err(error) = save(&self.dirs.repos(), &Repos { repos }) {
+            self.log("", "", &format!("repos not written: {error}"));
+        }
+    }
+
+    /// Returns true if the repo is new in the managed set.
+    pub fn add_repo(&self, repo: &Path) -> bool {
+        let mut repos = self.repos();
+        if repos.iter().any(|known| known == repo) {
+            return false;
+        }
+        repos.push(repo.to_path_buf());
+        repos.sort();
+        self.write_repos(repos);
+        self.log("", "", &format!("repo added: {}", repo.display()));
+        true
+    }
+
+    /// Returns the repos whose folder is gone.
+    pub fn drop_gone_repos(&self) -> Vec<PathBuf> {
+        let (kept, gone): (Vec<PathBuf>, Vec<PathBuf>) = self.repos().into_iter().partition(|repo| repo.is_dir());
+        if !gone.is_empty() {
+            self.write_repos(kept);
+        }
+        gone
+    }
+
+    pub fn worktrees(&self) -> Vec<WorktreeState> {
+        let states: BTreeMap<String, WorktreeState> = self.json_files(&self.dirs.watchd.join("worktrees"), ".json");
+        states.into_values().collect()
+    }
+
+    pub fn write_worktree(&self, state: &WorktreeState) {
+        let written = self
+            .dirs
+            .worktree(&state.path)
+            .and_then(|path| save(&path, state).map_err(|error| error.to_string()));
+        if let Err(error) = written {
+            self.log("", "", &format!("{}: state not written: {error}", state.path.display()));
+        }
+    }
+
+    pub fn remove_worktree(&self, path: &Path) {
+        if let Ok(file) = self.dirs.worktree(path) {
+            remove(&file);
         }
     }
 
@@ -630,7 +685,18 @@ impl Store {
                 Some((key, if needs.is_null() { serde_json::json!([]) } else { needs }))
             })
             .collect();
-        serde_json::json!({"type": "sidebar", "workspaces": workspaces, "subs": subs, "engine_needs": engine_needs})
+        let worktrees: BTreeMap<String, WorktreeState> = self
+            .worktrees()
+            .into_iter()
+            .map(|state| (state.path.display().to_string(), state))
+            .collect();
+        serde_json::json!({
+            "type": "sidebar",
+            "workspaces": workspaces,
+            "subs": subs,
+            "engine_needs": engine_needs,
+            "worktrees": worktrees,
+        })
     }
 
     pub fn debug_disk(&self) -> DebugState {

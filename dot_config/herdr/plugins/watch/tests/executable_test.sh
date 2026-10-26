@@ -85,13 +85,29 @@ check "stopped" \
 # sidebar <input>: the output of sidebar.jq.
 sidebar() { jq -c -f ../sidebar.jq <<<"$1"; }
 check "sidebar: live review with no kind" \
-  '{"wR":{"watch_kind":"review","watch_stage":"watching","watch_needs":"reply"}}' \
+  '{"wR":{"watch_kind":"review","watch_stage":"watching","watch_needs":"reply","watch_stack":""}}' \
   "$(sidebar '{"workspaces": {}, "subs": [{"mode": "review", "herdr_workspace": "wR",
     "live": true, "needs": ["reply"]}]}')"
 check "sidebar: dead subscription uses the workspace file" \
-  '{"wR":{"watch_kind":"bump","watch_stage":"stopped","watch_needs":""}}' \
+  '{"wR":{"watch_kind":"bump","watch_stage":"stopped","watch_needs":"","watch_stack":""}}' \
   "$(sidebar '{"workspaces": {"wR": {"kind": "bump", "stage": "stopped"}}, "subs": [
     {"mode": "review", "herdr_workspace": "wR", "live": false, "needs": ["reply"]}]}')"
+
+# stack <worktrees> <folder>: the watch_stack token of workspace wS in that folder.
+stack() {
+  sidebar "{\"workspaces\": {}, \"subs\": [], \"worktrees\": $1, \"folders\": {\"wS\": \"$2\"}}" \
+    | jq -r '.wS.watch_stack // ""'
+}
+check "sidebar: stack token for a workspace in a stacked worktree" 1 \
+  "$(stack '{"/r/.wt/x": {"stack": ["a", "b"]}}' /r/.wt/x)"
+check "sidebar: pane folder below the worktree matches" 1 \
+  "$(stack '{"/r/.wt/x": {"stack": ["a", "b"]}}' /r/.wt/x/src)"
+check "sidebar: longest worktree path wins" 1 \
+  "$(stack '{"/r": {"stack": ["c"]}, "/r/.wt/x": {"stack": ["a", "b"]}}' /r/.wt/x)"
+check "sidebar: path prefix of a different folder does not match" '' \
+  "$(stack '{"/r/a": {"stack": ["a", "b"]}}' /r/ab)"
+check "sidebar: stack of one branch gives no token" '' \
+  "$(stack '{"/r/.wt/x": {"stack": ["a"]}}' /r/.wt/x)"
 
 # The sweep, with a fake herdr and a test daemon. The live record of the test has no git repo: its
 # check fails before a glab call.
@@ -161,7 +177,7 @@ jq -n --argjson pid $$ --argjson now "$(date +%s)" --arg repo "$tmp" '{key: "app
 echo '{"needs": ["failed", "reply"]}' >"$tmp/state/watch-gitlab/app-x.json"
 sweep
 check "live stack subscription" \
-  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=watching --token watch_needs=failed,reply' \
+  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=watching --token watch_needs=failed,reply --clear-token watch_stack' \
   "$(metadata)"
 sweep
 check "no change: no herdr call" '' "$(metadata)"
@@ -170,7 +186,7 @@ mv "$watchd/subs/app-x.json" "$tmp/app-x.json"
 echo '{"kind": "mine", "stage": "done"}' >"$watchd/workspaces/wT.json"
 sweep
 check "ended with done" \
-  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs' \
+  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs --clear-token watch_stack' \
   "$(metadata)"
 
 : >"$tmp/lockf.log"
@@ -178,7 +194,7 @@ check "ended with done" \
 for _ in $(seq 20); do [ -s "$tmp/lockf.log" ] || sleep 0.1; done
 sweep
 check "startup writes all values" \
-  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs' \
+  'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs --clear-token watch_stack' \
   "$(metadata)"
 check "startup starts the watcher" "-s -k -t 0 $plugin/watch.lock $(cd .. && pwd)/watch.sh watch" \
   "$(cat "$tmp/lockf.log")"
@@ -193,7 +209,7 @@ echo '{"kind": "review"}' >"$watchd/workspaces/wBad.json"
 echo '{"kind": "bump"}' >"$watchd/workspaces/wU.json"
 sweep
 check "a herdr error does not stop the sweep" \
-  'workspace report-metadata wU --source watch --token watch_kind=bump --clear-token watch_stage --clear-token watch_needs' \
+  'workspace report-metadata wU --source watch --token watch_kind=bump --clear-token watch_stage --clear-token watch_needs --clear-token watch_stack' \
   "$(metadata | grep -v wBad)"
 sweep
 check "a failed write: the next sweep tries again" 1 "$(metadata | grep -c wBad)"
@@ -220,5 +236,31 @@ for _ in $(seq 80); do grep -q Again "$tmp/herdr.log" || sleep 0.1; done
 kill "$watcher"
 check "state files removed while the watcher runs: the next line gives the notification" 1 \
   "$(grep -c Again "$tmp/herdr.log")"
+
+# A fake watchd: one sidebar line, then no more lines.
+cat >"$tmp/bin/fake-watchd" <<'EOF'
+#!/bin/sh
+echo '{"type": "sidebar", "last_id": 0, "workspaces": {}, "subs": [], "engine_needs": {}, "worktrees": {"/r/.wt/x": {"stack": ["a", "b"]}}}'
+exec sleep 20
+EOF
+chmod +x "$tmp/bin/fake-watchd"
+folder() { # folder <cwd of the focused pane of workspace wF>
+  jq -nc --arg cwd "$1" '{result: {snapshot: {
+    workspaces: [{workspace_id: "wF", active_tab_id: "wF:t1"}],
+    layouts: [{tab_id: "wF:t1", focused_pane_id: "wF:p1"}],
+    panes: [{pane_id: "wF:p1", tab_id: "wF:t1", cwd: $cwd}]}}}' >"$tmp/snapshot.json"
+}
+folder /elsewhere
+: >"$tmp/herdr.log"
+mkdir -p "$tmp/state4/watchd"
+XDG_STATE_HOME=$tmp/state4 WATCHD=$tmp/bin/fake-watchd ../watch.sh watch &
+watcher=$!
+for _ in $(seq 50); do grep -q '^api snapshot' "$tmp/herdr.log" || sleep 0.1; done
+sleep 1
+folder /r/.wt/x/src
+for _ in $(seq 150); do grep -q 'wF.*watch_stack=1' "$tmp/herdr.log" || sleep 0.1; done
+kill "$watcher"
+check "a cd into a stacked worktree shows with no new sidebar line" 1 \
+  "$(grep -c 'wF.*watch_stack=1' "$tmp/herdr.log")"
 
 exit "$fail"

@@ -4,6 +4,7 @@ pub mod daemon;
 pub mod engine;
 mod glab;
 mod key;
+mod local;
 mod nap;
 mod paths;
 mod persist;

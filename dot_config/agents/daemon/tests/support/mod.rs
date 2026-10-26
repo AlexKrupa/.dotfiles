@@ -74,6 +74,14 @@ esac
 const FAKE_PMSET: &str = "#!/bin/sh\necho \"Current System Capabilities are: CPU Graphics Audio Network\"\n";
 const FAKE_NC: &str = "#!/bin/sh\nexit 0\n";
 
+/// Prints `$MOCK_DIR/spice-<hash of the folder>.jsonl` if it exists.
+const FAKE_SPICE: &str = r#"#!/bin/sh
+perl -e 'syswrite STDOUT, "@ARGV\n"' -- git-spice "$@" @ "$(pwd -P)" >>"$MOCK_LOG"
+f="$MOCK_DIR/spice-$(printf %s "$(pwd -P)" | shasum | cut -c1-12).jsonl"
+[ -f "$f" ] && cat "$f"
+exit 0
+"#;
+
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
 pub struct TestEnv {
@@ -121,7 +129,12 @@ impl TestEnv {
         executable(&dir.join("bin/glab"), FAKE_GLAB);
         executable(&dir.join("bin/pmset"), FAKE_PMSET);
         executable(&dir.join("bin/nc"), FAKE_NC);
-        std::fs::write(dir.join("gitconfig"), "[init]\n\tdefaultBranch = main\n").unwrap();
+        executable(&dir.join("bin/git-spice"), FAKE_SPICE);
+        std::fs::write(
+            dir.join("gitconfig"),
+            "[init]\n\tdefaultBranch = main\n[user]\n\tname = T\n\temail = t@example.com\n",
+        )
+        .unwrap();
         let env = TestEnv {
             state: dir.join("state"),
             repo: dir.join("app"),
@@ -148,6 +161,32 @@ impl TestEnv {
                 .unwrap();
             assert!(status.success());
         }
+    }
+
+    pub fn git(&self, folder: &Path, args: &[&str]) -> String {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(folder)
+            .args(args)
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env("GIT_CONFIG_GLOBAL", self.dir.join("gitconfig"))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).trim_end().to_string()
+    }
+
+    pub fn commit(&self, folder: &Path, message: &str) {
+        self.git(folder, &["commit", "-q", "--allow-empty", "-m", message]);
+    }
+
+    pub fn fake_spice(&self, worktree: &Path, lines: &str) {
+        let name = format!("spice-{}.jsonl", hash12(&worktree.canonicalize().unwrap()));
+        std::fs::write(self.mock.join(name), lines).unwrap();
     }
 
     pub fn fixture(&self, name: &str, json: &str) {
@@ -240,14 +279,7 @@ impl TestEnv {
     }
 
     pub fn worktree_hash(&self) -> String {
-        let mut child = Command::new("shasum")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-        std::io::Write::write_all(child.stdin.as_mut().unwrap(), self.repo.to_str().unwrap().as_bytes()).unwrap();
-        let output = child.wait_with_output().unwrap();
-        String::from_utf8_lossy(&output.stdout)[..12].to_string()
+        hash12(&self.repo)
     }
 
     pub fn engine_state(&self, key: &str) -> PathBuf {
@@ -265,6 +297,18 @@ impl Drop for TestEnv {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.dir);
     }
+}
+
+/// The first 12 hex digits of the SHA-1 of the path, as in the state file names.
+pub fn hash12(path: &Path) -> String {
+    let mut child = Command::new("shasum")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    std::io::Write::write_all(child.stdin.as_mut().unwrap(), path.to_str().unwrap().as_bytes()).unwrap();
+    let output = child.wait_with_output().unwrap();
+    String::from_utf8_lossy(&output.stdout)[..12].to_string()
 }
 
 /// A scenario runs once, and each of its checks is one test.

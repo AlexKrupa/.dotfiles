@@ -69,10 +69,10 @@ notify() { # notify <log line>...
   done
 }
 
-# One call for each workspace, with its 3 tokens. An empty value clears the token.
-meta() { # meta <workspace id> <kind> <stage> <needs>
+# One call for each workspace, with its 4 tokens. An empty value clears the token.
+meta() { # meta <workspace id> <kind> <stage> <needs> <stack>
   local id=$1 pair args=()
-  for pair in "watch_kind=$2" "watch_stage=$3" "watch_needs=$4"; do
+  for pair in "watch_kind=$2" "watch_stage=$3" "watch_needs=$4" "watch_stack=$5"; do
     if [ -n "${pair#*=}" ]; then
       args+=(--token "$pair")
     else
@@ -82,28 +82,42 @@ meta() { # meta <workspace id> <kind> <stage> <needs>
   herdr workspace report-metadata "$id" --source watch "${args[@]}" >/dev/null 2>&1
 }
 
+# The folder of each workspace: its worktree checkout, else the folder of the focused pane of its
+# active tab.
+FOLDERS_PROGRAM='
+  .result.snapshot as $s
+  | [$s.workspaces[] | . as $w
+      | {key: .workspace_id, value: (.worktree.checkout_path // (
+          [$s.layouts[]? | select(.tab_id == $w.active_tab_id)][0].focused_pane_id as $pane
+          | [$s.panes[]? | select(.pane_id == $pane)][0].cwd))}]
+  | map(select(.value)) | from_entries'
+
 # Writes the tokens that changed since the last write, only for the workspaces that herdr has.
 sidebar() { # sidebar <sidebar line>
-  local ids id desired changes kind stage needs written=''
-  ids=$(herdr api snapshot 2>/dev/null | jq -c '[.result.snapshot.workspaces[].workspace_id]' \
-    2>/dev/null)
+  local snapshot ids folders id desired changes kind stage needs stack written=''
+  snapshot=$(herdr api snapshot 2>/dev/null)
+  ids=$(jq -c '[.result.snapshot.workspaces[].workspace_id]' <<<"$snapshot" 2>/dev/null)
   [ -n "$ids" ] || return 0
+  folders=$(jq -c "$FOLDERS_PROGRAM" <<<"$snapshot" 2>/dev/null) || folders='{}'
   for id in $(jq -r --argjson ids "$ids" '.workspaces | keys[] | select(IN($ids[]) | not)' <<<"$1"); do
     "$watchd" workspace forget "$id" >/dev/null 2>&1
   done
-  desired=$(jq -c '{workspaces, subs: [.engine_needs as $needs | .subs[]
-      | . + {needs: ($needs[.key] // [])}]}' <<<"$1" | jq -c -f "$root/sidebar.jq") || return 0
+  desired=$(jq -c --argjson folders "$folders" '{workspaces, worktrees, folders: $folders,
+      subs: [.engine_needs as $needs | .subs[] | . + {needs: ($needs[.key] // [])}]}' <<<"$1" \
+    | jq -c -f "$root/sidebar.jq") || return 0
   changes=$(jq -r --argjson ids "$ids" --slurpfile cache "$state_dir/tokens.json" '
     . as $desired | $cache[0] as $cache
     | ([$desired | keys[]] + [$cache | keys[]] | unique)[] | select(IN($ids[]))
-    | ($desired[.] // {watch_kind: "", watch_stage: "", watch_needs: ""}) as $value
+    | ($desired[.] // {watch_kind: "", watch_stage: "", watch_needs: "", watch_stack: ""}) as $value
     | select($value != $cache[.])
-    | [., $value.watch_kind, $value.watch_stage, $value.watch_needs] | join("|")' <<<"$desired")
-  while IFS='|' read -r id kind stage needs; do
+    | [., $value.watch_kind, $value.watch_stage, $value.watch_needs, $value.watch_stack]
+    | join("|")' <<<"$desired")
+  while IFS='|' read -r id kind stage needs stack; do
     [ -n "$id" ] || continue
-    if meta "$id" "$kind" "$stage" "$needs"; then
+    if meta "$id" "$kind" "$stage" "$needs" "$stack"; then
       written+=$(jq -nc --arg id "$id" --arg k "$kind" --arg s "$stage" --arg n "$needs" \
-        '{($id): {watch_kind: $k, watch_stage: $s, watch_needs: $n}}')$'\n'
+        --arg t "$stack" '{($id): {watch_kind: $k, watch_stage: $s, watch_needs: $n,
+          watch_stack: $t}}')$'\n'
     fi
   done <<<"$changes"
   printf '%s' "$written" | jq -sc --argjson ids "$ids" --slurpfile cache "$state_dir/tokens.json" \
@@ -132,8 +146,17 @@ handle() { # handle <line>...
     if ((id > $(last_id || echo 0))); then echo "$id" >"$state_dir/reader"; fi
     notify "${events[@]}"
   fi
-  if [ -n "$sidebar_line" ]; then sidebar "$sidebar_line"; fi
+  if [ -n "$sidebar_line" ]; then
+    last_sidebar=$sidebar_line
+    sidebar_at=$SECONDS
+    sidebar "$sidebar_line"
+  fi
 }
+
+# The last sidebar line and the time of its write. A new workspace or a `cd` changes the folders,
+# but the daemon sends no line for it.
+last_sidebar=''
+sidebar_at=0
 
 # With --once, the pass ends at the first pause after the first line, else when the daemon closes
 # the socket.
@@ -142,13 +165,18 @@ pass() { # pass [--once]
   if id=$(last_id); then args+=(--after "$id"); fi
   coproc FOLLOW { exec "$watchd" "${args[@]}" 2>/dev/null; }
   while :; do
-    if IFS= read -r -t 0.5 line <&"${FOLLOW[0]}"; then
+    IFS= read -r -t 0.5 line <&"${FOLLOW[0]}"
+    status=$?
+    if ((status == 0)); then
       batch+=("$line")
       got=1
       continue
     fi
-    status=$?
     if ((${#batch[@]})); then handle "${batch[@]}"; batch=(); fi
+    if [ -n "$last_sidebar" ] && ((SECONDS - sidebar_at >= 10)); then
+      sidebar_at=$SECONDS
+      sidebar "$last_sidebar"
+    fi
     if ((status <= 128)); then break; fi
     if [ "${1:-}" = --once ] && ((got)); then break; fi
   done

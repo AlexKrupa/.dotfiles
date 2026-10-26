@@ -215,6 +215,21 @@ impl Watchd {
         self.run(command)
     }
 
+    pub fn client_in(&self, folder: &Path, args: &[&str]) -> Run {
+        let mut command = self.command();
+        command.current_dir(folder).args(args);
+        self.run(command)
+    }
+
+    /// The local state of the worktree, or null.
+    pub fn worktree_state(&self, path: &Path) -> Value {
+        let file = self.watchd.join(format!("worktrees/{}.json", super::hash12(path)));
+        match file.exists() {
+            true => super::read_json(&file),
+            false => Value::Null,
+        }
+    }
+
     pub fn report(&self, json: &str, flags: &[&str]) -> Run {
         let input = self.env.dir.join("report.json");
         std::fs::write(&input, json).unwrap();

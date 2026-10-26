@@ -3,9 +3,10 @@
 
 pub mod store;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::os::fd::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::fs::MetadataExt;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -15,7 +16,9 @@ use tokio::task::JoinHandle;
 
 use self::store::{Store, first_line};
 use crate::core::subs::{Mode, Subscription};
+use crate::core::worktrees::WorktreeState;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
+use crate::local::{list_worktrees, repo_of, shared_refs, spice_log, worktree_key};
 use crate::nap::{NapEnd, nap};
 use crate::paths::StateDirs;
 use crate::platform::{full_wake, now_seconds, online};
@@ -209,6 +212,66 @@ impl Daemon {
     async fn live_subs(&self, slug: &str) -> Vec<Subscription> {
         let _memory = self.lock().await;
         self.store.live_subs(Some(slug))
+    }
+
+    /// Two git calls for each repo. Only a worktree with a new key gets a git-spice call, so that an
+    /// error of git-spice is in the log one time for each key.
+    pub async fn local_round(&self) {
+        let known: HashMap<PathBuf, WorktreeState> = self
+            .store
+            .worktrees()
+            .into_iter()
+            .map(|state| (state.path.clone(), state))
+            .collect();
+        let mut seen = HashSet::new();
+        let mut changed = Vec::new();
+        for repo in self.store.repos() {
+            let Ok(worktrees) = list_worktrees(&repo) else {
+                seen.extend(
+                    known
+                        .values()
+                        .filter(|state| state.repo == repo)
+                        .map(|state| state.path.clone()),
+                );
+                continue;
+            };
+            let refs = shared_refs(&repo);
+            for worktree in worktrees {
+                seen.insert(worktree.path.clone());
+                let key = worktree_key(&worktree, &refs);
+                if known.get(&worktree.path).is_some_and(|state| state.key == key) {
+                    continue;
+                }
+                let branches = match refs.spice {
+                    None => Vec::new(),
+                    Some(_) => spice_log(&worktree.path).unwrap_or_else(|text| {
+                        self.store
+                            .log("", "", &format!("{}: {}", worktree.path.display(), first_line(&text)));
+                        Vec::new()
+                    }),
+                };
+                changed.push(WorktreeState::new(
+                    worktree.path,
+                    repo.clone(),
+                    worktree.branch,
+                    key,
+                    &branches,
+                ));
+            }
+        }
+        let gone: Vec<&PathBuf> = known.keys().filter(|path| !seen.contains(*path)).collect();
+        if changed.is_empty() && gone.is_empty() {
+            return;
+        }
+        let memory = self.lock().await;
+        for state in &changed {
+            self.store.write_worktree(state);
+        }
+        for path in gone {
+            self.store.remove_worktree(path);
+        }
+        drop(memory);
+        self.changed.notify_waiters();
     }
 
     /// Returns false if the loop must stop.
@@ -453,6 +516,14 @@ async fn run(daemon: &Arc<Daemon>) -> End {
     let mut seen = start;
     let mut idle_since = now_seconds();
     let mut pruned_at = 0;
+    {
+        let _memory = daemon.lock().await;
+        for sub in daemon.store.subs() {
+            if let Some(repo) = repo_of(&sub.repo) {
+                daemon.store.add_repo(&repo);
+            }
+        }
+    }
     loop {
         // An install renames a new file over the binary: a new inode that stays for one tick is a
         // complete update.
@@ -474,6 +545,9 @@ async fn run(daemon: &Arc<Daemon>) -> End {
             }
         }
         daemon.store.sweep();
+        for repo in daemon.store.drop_gone_repos() {
+            daemon.store.log("", "", &format!("repo gone: {}", repo.display()));
+        }
         let mut slugs: Vec<String> = daemon.store.live_subs(None).into_iter().map(|sub| sub.slug).collect();
         slugs.sort();
         slugs.dedup();
@@ -487,6 +561,7 @@ async fn run(daemon: &Arc<Daemon>) -> End {
             daemon.ensure_repo(&mut memory, slug);
         }
         drop(memory);
+        daemon.local_round().await;
         daemon.changed.notify_waiters();
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_secs(daemon.tick)) => {}

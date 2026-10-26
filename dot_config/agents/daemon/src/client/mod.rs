@@ -15,7 +15,7 @@ use crate::engine::mr_number;
 use crate::key::{KeyMode, repo_slug, watch_key, worktree_top};
 use crate::paths::StateDirs;
 use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
-use crate::protocol::{Request, Response, StatusReport, SubscribeArgs, receive, send};
+use crate::protocol::{Envelope, Request, Response, StatusReport, SubscribeArgs, receive, send};
 
 fn die(message: &str) -> i32 {
     eprintln!("watchd: {message}");
@@ -128,10 +128,19 @@ async fn connect(dirs: &StateDirs, start: bool) -> Result<UnixStream, String> {
     Err(failed)
 }
 
+fn envelope(request: Request) -> Envelope {
+    Envelope {
+        folder: std::env::current_dir().ok(),
+        request,
+    }
+}
+
 async fn ask(dirs: &StateDirs, request: &Request, start: bool) -> Result<Response, String> {
     let stream = connect(dirs, start).await?;
     let (read, mut write) = stream.into_split();
-    send(&mut write, request).await.map_err(|error| error.to_string())?;
+    send(&mut write, &envelope(request.clone()))
+        .await
+        .map_err(|error| error.to_string())?;
     match receive(&mut BufReader::new(read)).await {
         Ok(Some(response)) => Ok(response),
         Ok(None) => Err("the daemon closed the socket".to_string()),
@@ -189,7 +198,10 @@ pub async fn watch(args: Vec<String>) -> i32 {
         };
         let (read, mut write) = stream.into_split();
         let mut reader = BufReader::new(read);
-        if send(&mut write, &Request::Subscribe(subscribe.clone())).await.is_ok() {
+        if send(&mut write, &envelope(Request::Subscribe(subscribe.clone())))
+            .await
+            .is_ok()
+        {
             loop {
                 tokio::select! {
                     response = receive::<_, Response>(&mut reader) => match response {
@@ -448,7 +460,7 @@ pub async fn follow(after: Option<u64>) -> i32 {
         Err(message) => return die(&message),
     };
     let (read, mut write) = stream.into_split();
-    if let Err(error) = send(&mut write, &Request::Follow { after }).await {
+    if let Err(error) = send(&mut write, &envelope(Request::Follow { after })).await {
         return die(&error.to_string());
     }
     let mut reader = BufReader::new(read);

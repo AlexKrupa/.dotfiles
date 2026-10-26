@@ -14,6 +14,16 @@ use crate::core::subs::{Mode, Subscription};
 use crate::core::workspaces::{Kind, Workspace};
 use crate::report::ReportInput;
 
+/// The line of a client: the folder of the caller and the request. A line of an older client has no
+/// folder.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Envelope {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<PathBuf>,
+    #[serde(flatten)]
+    pub request: Request,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Request {
