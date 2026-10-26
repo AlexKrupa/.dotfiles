@@ -87,4 +87,22 @@ check "a bad glyph table shows no glyphs" "workspace wA -> idx=1" "$(
   LABELS_SNAPSHOT="$tmp/watched.json" LABELS_GLYPHS="$tmp/glyphs.json" ../watch.sh sweep 2>&1 \
     | grep '^workspace wA')"
 
+# alive_after <seconds> <env argument>...: "alive" if the watcher still runs after the time.
+alive_after() {
+  local seconds=$1 pid result=gone
+  shift
+  env "$@" ../watch.sh watch >/dev/null 2>&1 &
+  pid=$!
+  sleep "$seconds"
+  kill -0 "$pid" 2>/dev/null && result=alive
+  pkill -P "$pid" 2>/dev/null
+  kill "$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  echo "$result"
+}
+check "the watcher outlives a socket that it cannot reach" \
+  alive "$(alive_after 3 HERDR_SOCKET_PATH="$tmp/none.sock")"
+check "the watcher outlives a start with no socket path" \
+  alive "$(alive_after 3 -u HERDR_SOCKET_PATH)"
+
 exit $fail

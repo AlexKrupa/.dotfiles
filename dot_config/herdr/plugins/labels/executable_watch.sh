@@ -21,6 +21,9 @@ root=${HERDR_PLUGIN_ROOT:-$(cd "$(dirname "$0")" && pwd)}
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/herdr-labels
 state=${LABELS_STATE:-$state_dir/state.json}
 glyphs_file=${LABELS_GLYPHS:-${HERDR_PLUGIN_CONFIG_DIR:-$HOME/.config/herdr/plugins/config/local.labels}/glyphs.json}
+# herdr sets the socket path for its commands. A watcher that a shell started gets the default
+# session.
+socket=${HERDR_SOCKET_PATH:-$HOME/.config/herdr/herdr.sock}
 
 # Only the directory in use. With LABELS_STATE set, a test does not touch the XDG one.
 mkdir -p "$(dirname "$state")"
@@ -120,7 +123,7 @@ view_req=$(jq -nc '{
             sort: [ { field: { token: "ord" }, order: "asc" } ] }
 }')
 
-set_view() { printf '%s\n' "$view_req" | nc -U "$HERDR_SOCKET_PATH" >/dev/null 2>&1; }
+set_view() { printf '%s\n' "$view_req" | nc -U "$socket" >/dev/null 2>&1; }
 
 # An agent status change fires no pane.updated. Only a subscription to the pane itself
 # reports it, so the list depends on the agents of the last sweep.
@@ -155,8 +158,12 @@ watch() {
   while :; do
     set_view
     subscribed=$agent_panes
-    coproc conn { nc -U "$HERDR_SOCKET_PATH"; }
-    local reader=${conn[0]} writer=${conn[1]}
+    coproc conn { nc -U "$socket"; }
+    # A connection that fails at once, for example during a server restart, is reaped before
+    # this line: bash unsets `conn` or closes its fds. Then the read loop does not run, and the
+    # EOF value of `rc` connects again.
+    local reader=${conn[0]:-} writer=${conn[1]:-}
+    rc=1
     # shellcheck disable=SC2086 # one argument per pane
     subscribe_req $subscribed >&"$writer"
     while :; do
