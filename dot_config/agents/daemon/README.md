@@ -135,3 +135,13 @@ key also has `-review-IID` at the end.
 - Restart: `build.sh` renames a new file over the binary. The daemon sees the new file, stops its
   repo loops, and sends the started deliveries. Then it calls `exec` on the new binary. The lock
   and the socket stay open. The clients connect again.
+
+## Compatibility
+
+Clients that are older than an upgrade stay in use: agent sessions keep the old skill text, and a
+waiting client keeps its old process. Keep these interfaces stable:
+
+- CLI: the subcommand names and flags. If you rename one, accept the old name for one release.
+- Socket protocol: the messages between the client and the daemon. Only add optional fields.
+- State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the
+  version and convert the version before it.
