@@ -28,7 +28,8 @@ instructions of an AI chat app.
 ## Third-party skills
 
 Start `./install-skills.sh` to install the third-party skills with the `skills` CLI. The script
-contains the list of these skills. On a new machine, start the script again.
+contains the list of these skills. If the script changes, `chezmoi apply` runs it. The first apply on
+a new machine also runs it.
 
 ## Layout
 
