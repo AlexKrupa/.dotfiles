@@ -44,9 +44,10 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
    2. Else: `subagent`.
 3. Effort, if `$ARGUMENTS` has no effort. The plan did the design, so the executor needs less
    reasoning:
-   - `medium`: each step is exact. It gives the full code, or a mechanical edit at a named
+   - `medium`: most steps are exact. They give the full code, or a mechanical edit at a named
      location, and the commands.
-   - `high`: some steps leave design choices open, or need investigation or debugging.
+   - `high`: most steps leave design choices open, or one step needs design work or an
+     investigation that the plan does not contain.
    - Do not pick `low`: a failing test needs reasoning. Do not pick `xhigh` or `max`: the plan
      already contains the design.
 4. Run `printenv NONO_CAP_FILE`. If it prints a path, this session runs in a `nono` sandbox.
