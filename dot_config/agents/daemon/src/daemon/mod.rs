@@ -415,6 +415,7 @@ impl Daemon {
                 self.store.move_items(slug, &target.key, target.mrs.first().copied());
             }
         }
+        self.store.prune_needs(repo, &targets);
         (targets, skip)
     }
 

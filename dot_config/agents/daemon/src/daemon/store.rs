@@ -436,6 +436,19 @@ impl Store {
         });
     }
 
+    /// No check clears the needs of a key that is no longer a target.
+    pub fn prune_needs(&self, repo: &Path, targets: &[Target]) {
+        for mut state in self.worktrees().into_iter().filter(|state| state.repo == repo) {
+            let count = state.needs.len();
+            state
+                .needs
+                .retain(|key, _| targets.iter().any(|target| target.key == *key));
+            if state.needs.len() < count {
+                self.write_worktree(&state);
+            }
+        }
+    }
+
     pub fn end_if_due(&self, sub: &Agent, now: i64, client_seconds: i64) -> bool {
         let reason = if !process_alive(sub.session_pid) {
             format!("session {} is gone", sub.session_pid)

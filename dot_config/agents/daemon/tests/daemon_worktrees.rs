@@ -692,6 +692,29 @@ fn worktree_with_no_agent_keeps_the_needs_of_its_check() {
 }
 
 #[test]
+fn worktree_whose_mrs_go_away_loses_their_needs() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    let wt = stacked_worktree(&w);
+    w.env.fake_spice(&wt, STACK);
+    let key = format!("app-{}", support::hash12(&wt));
+    w.fake(&key, "state", r#"{"needs": ["ready"], "present": []}"#);
+    let follow = w.follower(&w.env.dir);
+    w.client_in(&wt, &["status"]);
+    let found = wait_for(10, || !w.worktree_state(&wt)["needs"].is_null());
+
+    w.env
+        .fake_spice(&wt, &STACK.replace(r#","change":{"id":"!12","url":"u"}"#, ""));
+    w.env.commit(&w.env.repo, "two");
+    w.env.git(&w.env.repo, &["update-ref", "refs/spice/data", "HEAD"]);
+    let gone = wait_for(10, || w.worktree_state(&wt)["needs"].is_null());
+    end(follow);
+
+    assert!(found, "no needs at the start: {}", w.worktree_state(&wt));
+    assert!(gone, "{}", w.worktree_state(&wt));
+}
+
+#[test]
 fn watch_with_no_mr_in_the_main_checkout_on_a_feature_branch_is_a_stack_watch() {
     let w = Watchd::new();
     w.env.commit(&w.env.repo, "one");
