@@ -17,7 +17,7 @@ events.
 
 A `pull-blocked` event tells that the daemon cannot fast-forward the main checkout to the default
 branch. Its `detail` is the reason, for example changes in tracked files. Report it. The user
-fixes the cause.
+fixes the cause. Its item stays open until the daemon fast-forwards the main checkout.
 
 A `default-failed` event is a failed pipeline of the default branch. Its `iid` and `title` are
 null. Its `previous` is the status of the earlier default-branch pipeline. All other events are MR
@@ -50,8 +50,9 @@ row of the section `agent`. Run the report command with it, and output its stdou
 
 The watch daemon polls the MRs of each own worktree, also when no agent runs in the worktree, and
 the open MRs of the user that have no worktree. If no agent waits for an event of these MRs, its
-open item comes to the hub. Such an item is one row of the report, for example
-`!12: @anna commented`. Start no agent for it. The user starts work on it with `/work`.
+open item comes to the hub, and the hub watch gets the event. Such an item is one row of the
+report, for example `!12: @anna commented`. Start no agent for it. The user starts work on it
+with `/work`.
 
 ## Router
 
@@ -100,7 +101,7 @@ stays an open item.
    `--effort`.
 
    ```sh
-   ~/.claude/skills/work/work-start.sh <ticket-id> '<MR title>' --branch '<source_branch>' <<'PROMPT'
+   ~/.claude/skills/work/work-start.sh <ticket-id> '<MR title>' --branch '<source_branch>' --no-track <<'PROMPT'
    /review-pr <mr-url>
    PROMPT
    ```
@@ -126,7 +127,7 @@ which the router selected "Auto-bump". The row is the row of the `opened` event.
    `--effort`.
 
    ```sh
-   ~/.claude/skills/work/work-start.sh <ticket-id> '<MR title>' --branch '<source_branch>' <<'PROMPT'
+   ~/.claude/skills/work/work-start.sh <ticket-id> '<MR title>' --branch '<source_branch>' --no-track <<'PROMPT'
    /bump <mr-url>
    PROMPT
    ```

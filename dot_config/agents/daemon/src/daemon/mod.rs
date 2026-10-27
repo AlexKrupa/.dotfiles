@@ -22,7 +22,7 @@ use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
 use crate::key::repo_slug;
 use crate::local::{
-    FetchError, conflict, fast_forward, fetch, list_worktrees, repo_of, shared_refs, spice_log, worktree_key,
+    FETCH_TIMEOUT, FetchError, conflict, fast_forward, fetch, list_worktrees, repo_of, shared_refs, spice_log, worktree_key,
 };
 use crate::nap::{NapEnd, nap};
 use crate::paths::StateDirs;
@@ -276,12 +276,6 @@ impl Daemon {
                     }),
                 };
                 let mut state = WorktreeState::new(worktree.path, repo.clone(), worktree.branch, key, &branches);
-                if let Some(old) = known.get(&state.path) {
-                    state.ended.clone_from(&old.ended);
-                    state.lookup_branch.clone_from(&old.lookup_branch);
-                    state.kind = old.kind;
-                    state.stage = old.stage;
-                }
                 if let (Some(_), Some(default)) = (&refs.origin_default, &refs.default_branch) {
                     // The top branch has the commits of all branches below it.
                     let tops = match state.stack.is_empty() {
@@ -307,9 +301,10 @@ impl Daemon {
         if changed.is_empty() && gone.is_empty() {
             return;
         }
+        // The git calls ran with no lock: other writers can have changed the state since then.
         let memory = self.lock().await;
-        for state in &changed {
-            self.store.write_worktree(state);
+        for state in changed {
+            self.store.update_worktree(&state.path.clone(), |current| current.set_local(state));
         }
         for path in gone {
             self.store.remove_worktree(path);
@@ -523,7 +518,7 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Ar
             Some(default) => {
                 no_default_logged = false;
                 let (folder, branch) = (repo.clone(), default.clone());
-                let fetched = tokio::task::spawn_blocking(move || fetch(&folder, &branch))
+                let fetched = tokio::task::spawn_blocking(move || fetch(&folder, &branch, FETCH_TIMEOUT))
                     .await
                     .unwrap_or_else(|error| Err(FetchError::Other(error.to_string())));
                 match fetched {

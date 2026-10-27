@@ -130,8 +130,13 @@ pub fn move_items(source: &mut Items, target: &mut Items, iid: Option<u64>) -> u
     source.items = kept;
     let count = moved.len();
     for item in moved {
-        target.items.push(Item { n: target.next, ..item });
-        target.next += 1;
+        match target.items.iter_mut().find(|open| open.item == item.item) {
+            Some(open) => open.event = item.event.or(open.event.take()),
+            None => {
+                target.items.push(Item { n: target.next, ..item });
+                target.next += 1;
+            }
+        }
     }
     count
 }
@@ -323,5 +328,23 @@ mod tests {
         assert_eq!(move_items(&mut source, &mut target, None), 1);
         assert!(source.items.is_empty());
         assert_eq!(target.items[1].n, 8);
+    }
+
+    #[test]
+    fn move_items_updates_the_target_item_with_the_same_key() {
+        let mut target = Items::default();
+        assign_rows(&mut target, vec![event(EventKind::Comment, Some("thread:1"))], 1);
+        let mut source = Items::default();
+        let newer = Event {
+            detail: "newer".to_string(),
+            ..event(EventKind::Comment, Some("thread:1"))
+        };
+        assign_rows(&mut source, vec![newer], 2);
+
+        move_items(&mut source, &mut target, None);
+
+        assert_eq!((target.items.len(), target.next), (1, 2));
+        assert_eq!(target.items[0].n, 1);
+        assert_eq!(target.items[0].event.as_ref().map(|event| event.detail.as_str()), Some("newer"));
     }
 }

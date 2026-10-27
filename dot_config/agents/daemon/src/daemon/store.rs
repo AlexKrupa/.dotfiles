@@ -486,11 +486,16 @@ impl Store {
         }
     }
 
-    /// A live agent of the key gets the events in its inbox. With no live agent, the items of a
-    /// worktree key move to the hub, and the events go to the event log only.
+    /// A live agent of the key gets the events in its inbox. With no live agent, the events of a
+    /// worktree key are items of the hub, and only a live hub gets them in its inbox.
     pub fn route(&self, target: &Target, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
         let count = events.len();
-        let path = self.dirs.items(&target.key);
+        let live = self.live_agent(&target.key);
+        let owner = match (live, target.mode) {
+            (false, Mode::Stack | Mode::Review) => &target.slug,
+            _ => &target.key,
+        };
+        let path = self.dirs.items(owner);
         let routed = match self.read_json::<Items>(&path) {
             Ok(items) => {
                 let mut items = items.unwrap_or_default();
@@ -509,9 +514,15 @@ impl Store {
             .map(|event| LogLine::Event(event_line(&target.slug, &target.key, target.mode, now, event.clone())))
             .collect();
         self.event_log(lines);
-        match (self.live_agent(&target.key), target.mode) {
+        match (live, target.mode) {
             (true, _) => self.append_lines(&self.dirs.inbox(&target.key), &routed),
-            (false, Mode::Stack | Mode::Review) => self.move_items(&target.key, &target.slug, None),
+            (false, Mode::Stack | Mode::Review) => {
+                // The items that an ended agent left in the file of the key.
+                self.move_items(&target.key, &target.slug, None);
+                if self.live_hub(&target.slug) {
+                    self.append_lines(&self.dirs.inbox(&target.slug), &routed);
+                }
+            }
             (false, Mode::Hub) => {}
         }
         self.log(&target.slug, &target.key, &format!("routed {count} event(s)"));
@@ -540,9 +551,13 @@ impl Store {
             .map(|event| LogLine::Event(event_line(slug, slug, Mode::Hub, now, event.clone())))
             .collect();
         self.event_log(lines);
-        if self.live_subs(Some(slug)).iter().any(|sub| sub.mode == Mode::Hub) {
+        if self.live_hub(slug) {
             self.append_lines(&self.dirs.inbox(slug), &routed);
         }
+    }
+
+    fn live_hub(&self, slug: &str) -> bool {
+        self.live_subs(Some(slug)).iter().any(|sub| sub.mode == Mode::Hub)
     }
 
     pub fn close_item(&self, key: &str, item: &str) {

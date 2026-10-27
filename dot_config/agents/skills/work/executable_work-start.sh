@@ -5,7 +5,8 @@
 #          [--split [--continue SESSION-ID]] [-- <claude flags>...]
 #        work-start.sh <ticket-id> <slug-text> [--onto BRANCH] [--placeholder ID]
 #          [--continue SESSION-ID [--mr URL]]
-#        work-start.sh <ticket-id> [<title>] --branch NAME [--reset-local] [-- <claude flags>...]
+#        work-start.sh <ticket-id> [<title>] --branch NAME [--reset-local] [--no-track]
+#          [-- <claude flags>...]
 # Starts work on a ticket. Reads the first prompt on stdin. Branch: <ticket-id>/<slug>.
 # Session name: "[<ticket-id>] <slug-text>", only "<slug-text>" for the placeholder ID. In
 # existing mode: "[<ticket-id>] <title>", or NAME with no title.
@@ -25,8 +26,8 @@
 # (NONO_CAP_FILE is set), prints the JSON, then runs the helper in the foreground. Claude runs the
 # script as a background task there.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
-# creates it from origin. Then the same as "new" mode. A worktree of
-# NAME is used again. A workspace that is open already stops the script. --reset-local first moves
+# creates it from origin. Then the same as "new" mode. --no-track skips the git-spice tracking, for
+# the branch of another person. A worktree of NAME is used again. A workspace that is open already stops the script. --reset-local first moves
 # a local NAME to the origin tip, also in a worktree with no local changes. The local commits go.
 # New and next mode set the kind `mine` of the new worktree with `watchd kind`. Existing mode does
 # not: the skill in the first prompt sets the kind.
@@ -87,7 +88,7 @@ if [[ ${1:-} == tops && $# -eq 1 ]]; then
 fi
 
 ticket="" text="" base="" existing="" onto="" session="" mr="" placeholder="" split=""
-reset_local=""
+reset_local="" no_track=""
 claude_args=()
 while (($#)); do
   case "$1" in
@@ -99,6 +100,7 @@ while (($#)); do
     --placeholder) [[ $# -ge 2 ]] || die "--placeholder needs an id"; placeholder=$2; shift 2 ;;
     --split) split=1; shift ;;
     --reset-local) reset_local=1; shift ;;
+    --no-track) no_track=1; shift ;;
     --) shift; claude_args=("$@"); break ;;
     -*) die "unknown option: $1" ;;
     *)
@@ -111,12 +113,12 @@ done
 
 if [[ -n $existing ]]; then
   [[ -n $ticket && -z $base$split ]] \
-    || die "usage: work-start.sh <ticket-id> [<title>] --branch NAME [--reset-local]\
+    || die "usage: work-start.sh <ticket-id> [<title>] --branch NAME [--reset-local] [--no-track]\
  [-- <claude flags>...]"
   branch=$existing
   if [[ -n $text ]]; then title="[$ticket] $text"; else title=$branch; fi
 else
-  [[ -n $ticket && -n $text && -z $reset_local ]] \
+  [[ -n $ticket && -n $text && -z $reset_local$no_track ]] \
     || die "usage: work-start.sh <ticket-id> <slug-text> [--base REF] [-- <claude flags>...]"
   slug=$(short_slug "$text" 40)
   [[ -n $slug ]] || die "slug text has no letters or digits: $text"
@@ -259,7 +261,11 @@ if [[ -n $existing ]]; then
   elif ! git -C "$main" show-ref --verify --quiet "refs/heads/$branch"; then
     die "branch not found in the local repo or on origin: $branch"
   fi
-  track
+  tracked=false
+  if [[ -z $no_track ]]; then
+    track
+    tracked=true
+  fi
 
   opened=$("$here/herdr-worktree.sh" "$branch" --repo "$main" 2>&1) \
     || die "herdr-worktree.sh failed: $opened"
@@ -267,7 +273,7 @@ if [[ -n $existing ]]; then
   workspace=$(jq -r '.workspace_id' <<<"$opened")
   pane=$(jq -r '.root_pane_id' <<<"$opened")
   [[ -n $pane ]] || die "$branch is open in herdr workspace $workspace already"
-  mode=existing base="" tracked=true
+  mode=existing base=""
 else
   git -C "$main" fetch --quiet origin || die "git fetch origin failed"
 

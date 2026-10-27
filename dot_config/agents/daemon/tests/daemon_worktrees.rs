@@ -530,11 +530,41 @@ fn hub_items() -> &'static Checks {
             ),
         );
 
+        let routed = w.log_count("routed 1 event");
+        w.events(&key, &[comment(12, "comment:1")]);
+        wait_for(10, || w.log_count("routed 1 event") > routed);
+        sleep(1);
+        c.check(
+            "no agent: the same item again is one hub item",
+            "comment:1",
+            items(&w, "app"),
+        );
+
         let run = w.watch(&[]);
         c.check(
             "new hub: the open items come first",
             "0 comment:1",
             format!("{} {}", run.code, support::each(&run.out, "item")),
+        );
+
+        let hub = w.start(w.watch_command(&[]));
+        sleep(2);
+        w.events(&key, &[comment(12, "comment:2")]);
+        let run = hub.wait(10);
+        let rows: Vec<String> = w.items_of("app")["items"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .filter(|item| item["item"] == "comment:2")
+            .map(|item| item["n"].to_string())
+            .collect();
+        c.check(
+            "live hub: the event of a worktree with no agent wakes it, with the row of the hub item",
+            format!("0 comment:2 {}", rows.join(" ")),
+            run.map_or("still waits".to_string(), |run| {
+                format!("{} {} {}", run.code, support::each(&run.out, "item"), support::each(&run.out, "row"))
+            }),
         );
         end(follow);
         c
@@ -549,6 +579,16 @@ fn events_of_a_worktree_without_agent_become_hub_items() {
 #[test]
 fn new_hub_gets_the_open_items_first() {
     hub_items().assert("new hub: the open items come first");
+}
+
+#[test]
+fn same_item_of_a_worktree_without_agent_is_one_hub_item() {
+    hub_items().assert("no agent: the same item again is one hub item");
+}
+
+#[test]
+fn live_hub_gets_the_events_of_a_worktree_without_agent() {
+    hub_items().assert("live hub: the event of a worktree with no agent wakes it, with the row of the hub item");
 }
 
 const TWO_MRS: &str = r#"{"name":"main","ups":[{"name":"a"}]}
@@ -716,5 +756,26 @@ fn kind_is_kept_by_worktree_path() {
     let last = sidebar_lines(&w).last().cloned().unwrap_or(Value::Null);
     assert_eq!(last["worktrees"][wt.to_str().unwrap()]["kind"], "review");
     assert!(last.get("workspaces").is_none(), "{last}");
+    end(follow);
+}
+
+#[test]
+fn local_round_keeps_a_kind_set_during_the_round() {
+    let w = Watchd::new();
+    let wt = stacked_worktree(&w);
+    w.env.fake_spice(&wt, STACK);
+    let follow = follower(&w, &w.env.dir);
+    w.client_in(&wt, &["status"]);
+    wait_for(5, || !w.worktree_state(&wt)["key"].as_str().unwrap_or("").is_empty());
+    std::fs::write(w.env.mock.join("spice-sleep"), "3").unwrap();
+    let calls = spice_calls(&w);
+
+    w.env.commit(&wt, "two");
+    wait_for(5, || spice_calls(&w) > calls);
+    let run = w.client_in(&wt, &["kind", "review"]);
+    sleep(4);
+
+    assert_eq!(run.code, 0, "{}", run.err);
+    assert_eq!(w.worktree_state(&wt)["kind"], "review", "{}", w.worktree_state(&wt));
     end(follow);
 }

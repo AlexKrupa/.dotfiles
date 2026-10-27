@@ -583,6 +583,19 @@ check "existing: main not moved" "$before" "$(git -C "$work" rev-parse main)"
 check "existing: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
 check "existing: no kind" "" "$(grep '^watchd' "$MOCK_LOG")"
 
+# Existing mode with --no-track: the branch of another person.
+fresh
+push_branch ABC-5/review-me
+run p ABC-5 'Review me' --branch ABC-5/review-me --no-track
+check "existing no track: exit 0" 0 "$code"
+check "existing no track: no git-spice call, not tracked" " false" \
+  "$(grep '^git-spice' "$MOCK_LOG") $(jq -r .tracked <<<"$out")"
+
+# --no-track with no --branch.
+fresh
+run p ABC-0 'typo' --no-track
+check "new no track: exit 1" 1 "$code"
+
 # Existing mode, git-spice track fails.
 fresh
 push_branch ABC-5/review-me

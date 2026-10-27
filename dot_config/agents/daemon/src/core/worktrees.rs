@@ -171,6 +171,16 @@ impl WorktreeState {
             stage: None,
         }
     }
+
+    /// Takes the git fields of a local read. The other fields have other writers.
+    pub fn set_local(&mut self, read: WorktreeState) {
+        self.repo = read.repo;
+        self.branch = read.branch;
+        self.key = read.key;
+        self.stack = read.stack;
+        self.mrs = read.mrs;
+        self.conflict = read.conflict;
+    }
 }
 
 /// One branch of `git-spice log short --json`. `down` is false for the trunk.
