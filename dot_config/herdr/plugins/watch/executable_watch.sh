@@ -103,7 +103,7 @@ sidebar() { # sidebar <sidebar line>
   changes=$(jq -r --argjson ids "$ids" --argjson none "$NO_TOKENS" \
     --slurpfile cache "$state_dir/tokens.json" '
     . as $desired | $cache[0] as $cache
-    | ([$desired | keys[]] + [$cache | keys[]] | unique)[] | select(IN($ids[]))
+    | $ids[]
     | ($none + ($desired[.] // {})) as $value
     | select($value != $cache[.])
     | "\(.)\t\($value | tojson)"' <<<"$desired")
