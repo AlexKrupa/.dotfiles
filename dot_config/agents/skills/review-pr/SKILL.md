@@ -80,8 +80,8 @@ This is not an error.
 
 ## Workflow
 
-At the start, run `watchd kind review`. It sets the kind of work of the herdr workspace for the
-sidebar. Outside herdr, it does nothing.
+At the start, run `watchd kind review`. It sets the kind of work of the current worktree for
+the herdr sidebar. Outside a git repo, it does nothing.
 
 1. Run `"$FMR" preflight`. If the exit code is not `0`, show the line and stop.
 2. `"$FMR" resolve "<input>"` - get `iid`, `source_branch`, `target_branch`, `project_path`, and

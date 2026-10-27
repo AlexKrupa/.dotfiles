@@ -56,7 +56,7 @@ enum Commands {
         #[arg(long)]
         after: Option<u64>,
     },
-    /// The records of the herdr workspaces.
+    /// No records of herdr workspaces: `workspace forget ID` does nothing, for older callers.
     Workspace {
         #[command(subcommand)]
         command: WorkspaceCommand,
@@ -105,8 +105,8 @@ async fn main() {
         } => client::replace_clients(&repo).await,
         Commands::Follow { after } => client::follow(after).await,
         Commands::Workspace {
-            command: WorkspaceCommand::Forget { id },
-        } => client::forget_workspace(id).await,
+            command: WorkspaceCommand::Forget { .. },
+        } => client::forget_workspace(),
     };
     std::process::exit(code);
 }

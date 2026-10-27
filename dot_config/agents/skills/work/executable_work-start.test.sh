@@ -16,13 +16,14 @@ check() {
 
 # Fake herdr: answers the calls work-start.sh makes and logs each call. MOCK_START_FAIL is the
 # error text of a failed `agent start`. MOCK_WT_LIST is the output of `worktree list`.
-mkdir -p "$tmp/bin"
+# `worktree create` gives the folder $TMPDIR/wt-path.
+mkdir -p "$tmp/bin" "$tmp/wt-path"
 cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
 printf 'herdr %s\n' "$*" >>"$MOCK_LOG"
 case "$1 $2" in
   "worktree create")
-    echo '{"result":{"worktree":{"path":"/wt/path"},' \
+    echo '{"result":{"worktree":{"path":"'"$TMPDIR"'/wt-path"},' \
       '"workspace":{"workspace_id":"wT","label":"wt-label"},' \
       '"root_pane":{"pane_id":"wT:p1"}}}' ;;
   "worktree list")
@@ -77,9 +78,11 @@ printf 'herdr-start-claude'  >>"$MOCK_LOG"
 printf ' [%s]' "$@" >>"$MOCK_LOG"
 echo >>"$MOCK_LOG"
 EOF
+# Fake watchd: logs each call, and writes its folder to $MOCK_LOG.folder.
 cat >"$tmp/bin/watchd" <<'EOF'
 #!/bin/sh
 printf 'watchd %s\n' "$*" >>"$MOCK_LOG"
+pwd -P >"$MOCK_LOG.folder"
 EOF
 chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab" \
   "$tmp/bin/herdr-start-claude" "$tmp/bin/watchd"
@@ -177,11 +180,11 @@ check "new: prompt from stdin" "ABC-0 fix the typo" "$(cat "$MOCK_PROMPT")"
 check "new: prompt pasted with no typed line before it" \
   "herdr agent start abc-0-fix-readme-typo --kind claude --pane wT:p1 -- --name Fix README typo!
 herdr agent prompt wT:p1 ABC-0 fix the typo" "$(grep -B1 '^herdr agent prompt' "$MOCK_LOG")"
-check "new: output has pane, worktree, and agent" "wT:p1 /wt/path abc-0-fix-readme-typo" \
+check "new: output has pane, worktree, and agent" "wT:p1 $tmp/wt-path abc-0-fix-readme-typo" \
   "$(jq -r '"\(.pane_id) \(.worktree) \(.agent)"' <<<"$out")"
 check "new: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
-check "new: sets kind mine on the new workspace" "watchd kind mine --workspace wT" \
-  "$(grep '^watchd' "$MOCK_LOG")"
+check "new: sets kind mine in the new worktree" "watchd kind mine $tmp/wt-path" \
+  "$(grep '^watchd' "$MOCK_LOG") $(cat "$MOCK_LOG.folder")"
 
 # New mode, default base: a default branch that is not main.
 fresh dev/x
@@ -559,7 +562,7 @@ push_branch ABC-5/review-me
 before=$(git -C "$work" rev-parse main)
 run $'ABC-5\n\nReview it' ABC-5 'Review me' --branch ABC-5/review-me
 check "existing: exit 0" 0 "$code"
-check "existing: mode, branch, base, tracked" "existing ABC-5/review-me null false" \
+check "existing: mode, branch, base, tracked" "existing ABC-5/review-me null true" \
   "$(jq -r '"\(.mode) \(.branch) \(.base) \(.tracked)"' <<<"$out")"
 check "existing: local branch at the remote tip" \
   "$(remote_tip ABC-5/review-me)" "$(git -C "$work" rev-parse ABC-5/review-me)"
@@ -570,12 +573,24 @@ check "existing: agent started in the root pane, with the ticket title as sessio
   "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name [ABC-5] Review me" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "existing: prompt from stdin" $'ABC-5\n\nReview it' "$(cat "$MOCK_PROMPT")"
-check "existing: output has pane, worktree, and workspace" "wT:p1 /wt/path wT" \
+check "existing: output has pane, worktree, and workspace" "wT:p1 $tmp/wt-path wT" \
   "$(jq -r '"\(.pane_id) \(.worktree) \(.workspace_id)"' <<<"$out")"
-check "existing: no git-spice call" "" "$(grep '^git-spice' "$MOCK_LOG")"
+check "existing: git-spice tracks the branch on main before the worktree opens" \
+  "git-spice -C $work branch track ABC-5/review-me --base main
+herdr worktree create --cwd $work --branch ABC-5/review-me --no-focus" \
+  "$(grep -E '^(git-spice|herdr worktree create)' "$MOCK_LOG")"
 check "existing: main not moved" "$before" "$(git -C "$work" rev-parse main)"
 check "existing: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
 check "existing: no kind" "" "$(grep '^watchd' "$MOCK_LOG")"
+
+# Existing mode, git-spice track fails.
+fresh
+push_branch ABC-5/review-me
+MOCK_SPICE_FAIL=1 run p ABC-5 'Review me' --branch ABC-5/review-me
+check "existing track fails: exit 1" 1 "$code"
+check "existing track fails: message names the step" \
+  "work-start: git-spice branch track failed (branch ABC-5/review-me stays)" "$err"
+check "existing track fails: no herdr call" "" "$(grep '^herdr' "$MOCK_LOG")"
 
 # Existing local branch behind origin.
 fresh

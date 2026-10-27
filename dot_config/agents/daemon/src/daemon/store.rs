@@ -10,10 +10,11 @@ use serde::de::DeserializeOwned;
 
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
 use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
-use crate::core::subs::{Mode, Subscription, add_ended};
+use crate::core::subs::{Mode, Agent, add_ended};
 use crate::core::workspaces::{Kind, Stage, Workspace};
 use crate::core::worktrees::{Repos, ReviewLink, Reviews, Target, WorktreeState};
 use crate::engine::event::{Event, EventKind};
+use crate::local::repo_of;
 use crate::paths::StateDirs;
 use crate::persist::{Load, load, save};
 use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
@@ -76,7 +77,7 @@ impl Store {
     }
 
     pub fn ensure_dirs(&self) -> std::io::Result<()> {
-        for dir in ["subs", "inbox", "items", "workspaces", "worktrees"] {
+        for dir in ["subs", "inbox", "items", "worktrees"] {
             std::fs::create_dir_all(self.dirs.watchd.join(dir))?;
         }
         Ok(())
@@ -127,11 +128,11 @@ impl Store {
         }
     }
 
-    pub fn sub(&self, key: &str) -> Option<Subscription> {
+    pub fn sub(&self, key: &str) -> Option<Agent> {
         self.read_json(&self.dirs.sub(key)).ok().flatten()
     }
 
-    pub fn subs(&self) -> Vec<Subscription> {
+    pub fn subs(&self) -> Vec<Agent> {
         let Ok(entries) = std::fs::read_dir(self.dirs.watchd.join("subs")) else {
             return Vec::new();
         };
@@ -143,7 +144,7 @@ impl Store {
         keys.iter().filter_map(|key| self.sub(key)).collect()
     }
 
-    pub fn live_subs(&self, slug: Option<&str>) -> Vec<Subscription> {
+    pub fn live_subs(&self, slug: Option<&str>) -> Vec<Agent> {
         self.subs()
             .into_iter()
             .filter(|sub| slug.is_none_or(|slug| sub.slug == slug))
@@ -151,7 +152,7 @@ impl Store {
             .collect()
     }
 
-    pub fn write_sub(&self, sub: &Subscription) {
+    pub fn write_sub(&self, sub: &Agent) {
         if let Err(error) = save(&self.dirs.sub(&sub.key), sub) {
             self.log(&sub.slug, &sub.key, &format!("record not written: {error}"));
         }
@@ -346,15 +347,49 @@ impl Store {
         }
     }
 
-    pub fn workspace_update(&self, id: &str, change: impl FnOnce(&mut Workspace)) {
-        let path = self.dirs.workspace(id);
-        let Ok(workspace) = self.read_json::<Workspace>(&path) else {
+    /// A worktree with no state gets a state with no git key: the next local round fills it.
+    pub fn update_worktree(&self, path: &Path, change: impl FnOnce(&mut WorktreeState)) {
+        let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        let known = self.worktrees().into_iter().find(|state| state.path == path);
+        let mut state = known.unwrap_or_else(|| {
+            let repo = repo_of(&path).unwrap_or_else(|| path.clone());
+            WorktreeState::new(path.clone(), repo, None, String::new(), &[])
+        });
+        change(&mut state);
+        self.write_worktree(&state);
+    }
+
+    /// Format version 1 kept the kind and the stage in a record of each herdr workspace. A
+    /// subscription of the workspace gives its worktree. The other records go away.
+    pub fn convert_workspaces(&self) {
+        let mut used = Vec::new();
+        for mut sub in self.subs() {
+            let Some(id) = sub.herdr_workspace.take() else {
+                continue;
+            };
+            if let Ok(Some(record)) = self.read_json::<Workspace>(&self.dirs.workspace(&id)) {
+                self.update_worktree(&sub.repo, |state| {
+                    state.kind = record.kind.or(state.kind);
+                    state.stage = record.stage;
+                });
+            }
+            self.write_sub(&sub);
+            used.push(id);
+        }
+        let folder = self.dirs.watchd.join("workspaces");
+        let Ok(entries) = std::fs::read_dir(&folder) else {
             return;
         };
-        let mut workspace = workspace.unwrap_or_default();
-        change(&mut workspace);
-        let _ = std::fs::create_dir_all(self.dirs.watchd.join("workspaces"));
-        let _ = save(&path, &workspace);
+        for name in entries.filter_map(|entry| entry.ok()?.file_name().into_string().ok()) {
+            let Some(id) = name.strip_suffix(".json") else {
+                continue;
+            };
+            remove(&self.dirs.workspace(id));
+            if !used.iter().any(|known| known == id) {
+                self.log("", "", &format!("workspace record dropped: {id}"));
+            }
+        }
+        let _ = std::fs::remove_dir(&folder);
     }
 
     pub fn engine_value(&self, key: &str) -> Option<serde_json::Value> {
@@ -363,7 +398,7 @@ impl Store {
 
     /// Writes the error before it removes the record: the next client of the session must see the
     /// error first.
-    pub fn remove_record(&self, sub: &Subscription, reason: &str, error: Option<&str>) {
+    pub fn remove_record(&self, sub: &Agent, reason: &str, error: Option<&str>) {
         if let Some(text) = error {
             let _ = std::fs::write(self.dirs.error(&sub.key), text);
             let title = match sub.mode {
@@ -383,17 +418,15 @@ impl Store {
         }
         remove(&self.dirs.sub(&sub.key));
         self.log(&sub.slug, &sub.key, &format!("subscription removed: {reason}"));
-        if let Some(workspace) = &sub.herdr_workspace {
-            let stage = if reason == ALL_ENDED {
-                Stage::Done
-            } else {
-                Stage::Stopped
-            };
-            self.workspace_update(workspace, |workspace| workspace.stage = Some(stage));
-        }
+        let stage = if reason == ALL_ENDED {
+            Stage::Done
+        } else {
+            Stage::Stopped
+        };
+        self.update_worktree(&sub.repo, |state| state.stage = Some(stage));
     }
 
-    pub fn end_if_due(&self, sub: &Subscription, now: i64, client_seconds: i64) -> bool {
+    pub fn end_if_due(&self, sub: &Agent, now: i64, client_seconds: i64) -> bool {
         let reason = if !process_alive(sub.session_pid) {
             format!("session {} is gone", sub.session_pid)
         } else if !process_alive(sub.client_pid) && now - sub.client_at > client_seconds {
@@ -649,7 +682,7 @@ impl Store {
     }
 
     /// Returns true if the key needs a first check now.
-    pub fn subscribe(&self, args: &SubscribeArgs, old: Option<&Subscription>, now: i64) -> bool {
+    pub fn subscribe(&self, args: &SubscribeArgs, old: Option<&Agent>, now: i64) -> bool {
         let mut replaced: Vec<u32> = old.map(|old| old.replaced_sessions.clone()).unwrap_or_default();
         if let Some(old) = old
             && old.session_pid != args.session_pid
@@ -668,7 +701,7 @@ impl Store {
                     .collect()
             })
             .unwrap_or_default();
-        let sub = Subscription {
+        let sub = Agent {
             key: args.key.clone(),
             slug: args.slug.clone(),
             repo: args.repo.clone(),
@@ -680,16 +713,14 @@ impl Store {
             client_at: now,
             replaced_sessions: replaced,
             ended_mrs: ended,
-            herdr_workspace: args.herdr_workspace.clone(),
+            herdr_workspace: None,
         };
         self.write_sub(&sub);
         remove(&self.dirs.owner(&sub.key));
-        if let Some(workspace) = &sub.herdr_workspace {
-            let kind = kind_of(sub.mode);
-            self.workspace_update(workspace, |workspace| {
-                workspace.kind.get_or_insert(kind);
-            });
-        }
+        let kind = kind_of(sub.mode);
+        self.update_worktree(&sub.repo, |state| {
+            state.kind.get_or_insert(kind);
+        });
         let mrs: Vec<String> = sub.mrs.iter().map(u64::to_string).collect();
         self.log(
             &sub.slug,
@@ -744,8 +775,8 @@ impl Store {
         ] {
             remove(&path);
         }
-        if let Some(workspace) = sub.and_then(|sub| sub.herdr_workspace) {
-            self.workspace_update(&workspace, |workspace| workspace.stage = Some(Stage::Stopped));
+        if let Some(sub) = sub {
+            self.update_worktree(&sub.repo, |state| state.stage = Some(Stage::Stopped));
         }
         self.log(slug, key, "unsubscribed");
         Ok(())
@@ -797,8 +828,6 @@ impl Store {
     }
 
     pub fn sidebar(&self) -> serde_json::Value {
-        let workspaces: BTreeMap<String, serde_json::Value> =
-            self.json_files(&self.dirs.watchd.join("workspaces"), ".json");
         let subs: Vec<serde_json::Value> = self
             .subs()
             .into_iter()
@@ -826,7 +855,6 @@ impl Store {
             .collect();
         serde_json::json!({
             "type": "sidebar",
-            "workspaces": workspaces,
             "subs": subs,
             "engine_needs": engine_needs,
             "worktrees": worktrees,
@@ -860,7 +888,11 @@ impl Store {
             errors,
             items: self.json_files(&self.dirs.watchd.join("items"), ".json"),
             engine: self.json_files(&self.dirs.engine, ".json"),
-            workspaces: self.json_files(&self.dirs.watchd.join("workspaces"), ".json"),
+            worktrees: self
+                .worktrees()
+                .into_iter()
+                .map(|state| (state.path.display().to_string(), state))
+                .collect(),
             ..DebugState::default()
         }
     }
@@ -874,10 +906,6 @@ impl Store {
             count += 1;
         }
         count
-    }
-
-    pub fn forget_workspace(&self, id: &str) {
-        remove(&self.dirs.workspace(id));
     }
 
     pub fn sub_status(&self) -> Vec<SubStatus> {

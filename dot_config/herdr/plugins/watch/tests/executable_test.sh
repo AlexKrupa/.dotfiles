@@ -90,12 +90,14 @@ check "stopped" \
 sidebar() { jq -c -f ../sidebar.jq <<<"$1"; }
 check "sidebar: live review with no kind" \
   '{"wR":{"watch_kind":"review","watch_stage":"watching","watch_needs":"reply","watch_stack":"","watch_conflict":""}}' \
-  "$(sidebar '{"workspaces": {}, "subs": [{"mode": "review", "herdr_workspace": "wR",
-    "live": true, "needs": ["reply"]}]}')"
-check "sidebar: dead subscription uses the workspace file" \
+  "$(sidebar '{"worktrees": {"/r/w": {}}, "folders": {"wR": "/r/w"},
+    "subs": [{"mode": "review", "repo": "/r/w", "live": true, "needs": ["reply"]}]}')"
+check "sidebar: dead agent uses the worktree state" \
   '{"wR":{"watch_kind":"bump","watch_stage":"stopped","watch_needs":"","watch_stack":"","watch_conflict":""}}' \
-  "$(sidebar '{"workspaces": {"wR": {"kind": "bump", "stage": "stopped"}}, "subs": [
-    {"mode": "review", "herdr_workspace": "wR", "live": false, "needs": ["reply"]}]}')"
+  "$(sidebar '{"worktrees": {"/r/w": {"kind": "bump", "stage": "stopped"}}, "folders": {"wR": "/r/w"},
+    "subs": [{"mode": "review", "repo": "/r/w", "live": false, "needs": ["reply"]}]}')"
+check "sidebar: a workspace in no worktree gets no tokens" '{}' \
+  "$(sidebar '{"worktrees": {"/r/w": {"kind": "bump"}}, "folders": {"wO": "/other"}, "subs": []}')"
 
 # stack <worktrees> <folder>: the watch_stack token of workspace wS in that folder.
 stack() {
@@ -112,12 +114,16 @@ check "sidebar: path prefix of a different folder does not match" '' \
   "$(stack '{"/r/a": {"stack": ["a", "b"]}}' /r/ab)"
 check "sidebar: stack of one branch gives no token" '' \
   "$(stack '{"/r/.wt/x": {"stack": ["a"]}}' /r/.wt/x)"
+check "sidebar: kind from the matched worktree" '["review","done"]' \
+  "$(sidebar '{"subs": [], "folders": {"wS": "/r/.wt/x/src"},
+    "worktrees": {"/r/.wt/x": {"stack": [], "kind": "review", "stage": "done"}}}' \
+    | jq -c '[.wS.watch_kind, .wS.watch_stage]')"
 check "sidebar: conflict token" 1 \
   "$(sidebar '{"workspaces": {}, "subs": [], "folders": {"wS": "/r/.wt/x"},
     "worktrees": {"/r/.wt/x": {"stack": ["a"], "conflict": ["f"]}}}' | jq -r '.wS.watch_conflict')"
 
-# The sweep, with a fake herdr and a test daemon. The live record of the test has no git repo: its
-# check fails before a glab call.
+# The sweep, with a fake herdr and a test daemon. The repos of the test have no remote: each check
+# fails before a glab call.
 mkdir -p "$tmp/bin" "$tmp/config"
 cat >"$tmp/bin/herdr" <<EOF
 #!/bin/sh
@@ -135,16 +141,25 @@ export PATH="$tmp/bin:$PATH" XDG_STATE_HOME="$tmp/state" HERDR_PLUGIN_CONFIG_DIR
   WATCHD_TICK=1
 watchd=$tmp/state/watchd
 plugin=$tmp/state/herdr-watch
-mkdir -p "$watchd/subs" "$watchd/workspaces" "$tmp/state/watch-gitlab"
-snapshot() { # snapshot <workspace id>...
-  jq -nc '{result: {snapshot: {workspaces: [$ARGS.positional[] | {workspace_id: .}]}}}' \
+mkdir -p "$watchd/subs" "$tmp/state/watch-gitlab"
+# snapshot <workspace id>:<folder>...: each workspace has one tab with one pane in the folder.
+snapshot() {
+  jq -nc '[$ARGS.positional[] | split(":") | {id: .[0], cwd: .[1]}]
+    | {result: {snapshot: {
+        workspaces: map({workspace_id: .id, active_tab_id: "\(.id):t1"}),
+        layouts: map({tab_id: "\(.id):t1", focused_pane_id: "\(.id):p1"}),
+        panes: map({pane_id: "\(.id):p1", tab_id: "\(.id):t1", cwd: .cwd})}}}' \
     --args "$@" >"$tmp/snapshot.json"
 }
+# repo <name>: a git repo in $tmp, and the daemon manages it after a client call from it.
+repo() { git init -q "$tmp/$1"; }
+client() { (cd "$1" && shift && "${WATCHD:-$HOME/.local/bin/watchd}" "$@"); } # client <folder> <args>
 with_id() { jq -c --argjson id "$1" '{id: $id} + .'; } # stdin: one log line
 sweep() { : >"$tmp/herdr.log"; ../watch.sh sweep; }
 notes() { grep '^notification show' "$tmp/herdr.log"; }
 metadata() { grep '^workspace report-metadata' "$tmp/herdr.log"; }
-snapshot wT
+repo t
+snapshot "wT:$tmp/t"
 
 line r0 comment bob Old | with_id 1 >"$watchd/events.jsonl"
 sweep
@@ -177,9 +192,10 @@ check "opened: route in a later sweep gives the notification" \
   'notification show Update dependency foo --body New dependency bump. Bump agent started. --sound none 0' \
   "$(notes) $(jq length "$plugin/pending.json")"
 
-jq -n --argjson pid $$ --argjson now "$(date +%s)" --arg repo "$tmp" '{key: "app-x", slug: "app",
+client "$tmp/t" kind mine
+jq -n --argjson pid $$ --argjson now "$(date +%s)" --arg repo "$tmp/t" '{key: "app-x", slug: "app",
   repo: $repo, mode: "stack", mrs: [5], interval: 600, session_pid: $pid, client_pid: 0,
-  client_at: $now, replaced_sessions: [], ended_mrs: [], herdr_workspace: "wT"}' \
+  client_at: $now, replaced_sessions: [], ended_mrs: []}' \
   >"$watchd/subs/app-x.json"
 echo '{"needs": ["failed", "reply"]}' >"$tmp/state/watch-gitlab/app-x.json"
 sweep
@@ -190,7 +206,8 @@ sweep
 check "no change: no herdr call" '' "$(metadata)"
 
 mv "$watchd/subs/app-x.json" "$tmp/app-x.json"
-echo '{"kind": "mine", "stage": "done"}' >"$watchd/workspaces/wT.json"
+state=$(ls "$watchd"/worktrees/*.json)
+jq '.stage = "done"' "$state" >"$state.tmp" && mv "$state.tmp" "$state"
 sweep
 check "ended with done" \
   'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs --clear-token watch_stack --clear-token watch_conflict' \
@@ -206,14 +223,11 @@ check "startup writes all values" \
 check "startup starts the watcher" "-s -k -t 0 $plugin/watch.lock $(cd .. && pwd)/watch.sh watch" \
   "$(cat "$tmp/lockf.log")"
 
-echo '{"kind": "hub"}' >"$watchd/workspaces/wGone.json"
-sweep
-check "closed workspace: record forgotten, no call" "no " \
-  "$([ -e "$watchd/workspaces/wGone.json" ] && echo yes || echo no) $(metadata)"
-
-snapshot wBad wT wU
-echo '{"kind": "review"}' >"$watchd/workspaces/wBad.json"
-echo '{"kind": "bump"}' >"$watchd/workspaces/wU.json"
+repo bad
+repo u
+client "$tmp/bad" kind review
+client "$tmp/u" kind bump
+snapshot "wBad:$tmp/bad" "wT:$tmp/t" "wU:$tmp/u"
 sweep
 check "a herdr error does not stop the sweep" \
   'workspace report-metadata wU --source watch --token watch_kind=bump --clear-token watch_stage --clear-token watch_needs --clear-token watch_stack --clear-token watch_conflict' \
@@ -223,7 +237,7 @@ check "a failed write: the next sweep tries again" 1 "$(metadata | grep -c wBad)
 
 mv "$tmp/snapshot.json" "$tmp/snapshot.off"
 sweep
-check "no herdr: no record forgotten" yes "$([ -e "$watchd/workspaces/wU.json" ] && echo yes || echo no)"
+check "no herdr: the written tokens stay" true "$(jq 'has("wU")' "$plugin/tokens.json")"
 
 mv "$tmp/snapshot.off" "$tmp/snapshot.json"
 mkdir -p "$tmp/state2/watchd"

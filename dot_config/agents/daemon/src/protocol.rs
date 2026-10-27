@@ -10,8 +10,9 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::core::eventlog::RouteAction;
 use crate::core::items::{Items, RoutedEvent};
-use crate::core::subs::{Mode, Subscription};
-use crate::core::workspaces::{Kind, Workspace};
+use crate::core::subs::{Mode, Agent};
+use crate::core::workspaces::Kind;
+use crate::core::worktrees::WorktreeState;
 use crate::report::ReportInput;
 
 /// The line of a client: the folder of the caller and the request. A line of an older client has no
@@ -35,8 +36,10 @@ pub enum Request {
         session_pid: u32,
     },
     Status,
+    /// The worktree of the folder of the client gets the kind. An older client sends a workspace.
     Kind {
-        workspace: String,
+        #[serde(default)]
+        workspace: Option<String>,
         kind: Kind,
     },
     Route {
@@ -73,6 +76,8 @@ pub struct SubscribeArgs {
     pub interval: u64,
     pub session_pid: u32,
     pub client_pid: u32,
+    /// Only from a client of format version 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub herdr_workspace: Option<String>,
     pub once: bool,
     pub fresh: bool,
@@ -104,12 +109,12 @@ pub enum Response {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DebugState {
     pub pid: Option<u32>,
-    pub subs: BTreeMap<String, Subscription>,
+    pub subs: BTreeMap<String, Agent>,
     pub inbox: BTreeMap<String, Vec<RoutedEvent>>,
     pub errors: BTreeMap<String, String>,
     pub items: BTreeMap<String, Items>,
     pub engine: BTreeMap<String, serde_json::Value>,
-    pub workspaces: BTreeMap<String, Workspace>,
+    pub worktrees: BTreeMap<String, WorktreeState>,
     pub repos: Option<BTreeMap<String, RepoTimes>>,
     pub rounds: Option<BTreeMap<String, u64>>,
     pub clients: Option<BTreeMap<String, u32>>,
@@ -137,7 +142,7 @@ pub struct RepoPoll {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubStatus {
-    pub sub: Subscription,
+    pub sub: Agent,
     pub live: bool,
     pub inbox_lines: usize,
 }

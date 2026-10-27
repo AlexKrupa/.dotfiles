@@ -697,3 +697,24 @@ fn follow_client_from_a_repo_adds_no_repo() {
     assert_eq!(repos(&w), "[]");
     end(follow);
 }
+
+#[test]
+fn kind_is_kept_by_worktree_path() {
+    let w = Watchd::new();
+    let wt = stacked_worktree(&w);
+    let follow = follower(&w, &w.env.dir);
+
+    let run = w.client_in(&wt, &["kind", "review"]);
+    wait_for(5, || {
+        sidebar_lines(&w)
+            .last()
+            .is_some_and(|line| line["worktrees"][wt.to_str().unwrap()]["kind"] == "review")
+    });
+
+    assert_eq!(run.code, 0, "{}", run.err);
+    assert_eq!(w.worktree_state(&wt)["kind"], "review");
+    let last = sidebar_lines(&w).last().cloned().unwrap_or(Value::Null);
+    assert_eq!(last["worktrees"][wt.to_str().unwrap()]["kind"], "review");
+    assert!(last.get("workspaces").is_none(), "{last}");
+    end(follow);
+}

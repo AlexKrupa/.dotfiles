@@ -16,23 +16,15 @@ fn fields(value: &Value, keys: &[&str]) -> String {
     .to_string()
 }
 
-fn workspace_of(w: &Watchd, id: &str) -> Value {
-    w.state()["workspaces"][id].clone()
+/// The kind and the stage of the worktree of the test repo.
+fn work_of(w: &Watchd) -> Value {
+    let state = w.worktree_state(&w.env.repo);
+    json!({"kind": state["kind"], "stage": state["stage"]})
 }
 
-fn with_workspace(w: &Watchd, args: &[&str]) -> std::process::Command {
-    let mut command = w.watch_command(args);
-    command.env("HERDR_WORKSPACE_ID", "wT");
-    command
-}
-
-/// `kind` runs in the test folder because it needs no git repo.
-fn kind(w: &Watchd, args: &[&str], workspace: Option<&str>) -> support::Run {
+fn kind(w: &Watchd, folder: &std::path::Path, args: &[&str]) -> support::Run {
     let mut command = w.command();
-    command.current_dir(&w.env.dir).arg("kind").args(args);
-    if let Some(id) = workspace {
-        command.env("HERDR_WORKSPACE_ID", id);
-    }
+    command.current_dir(folder).arg("kind").args(args);
     let run = w.run(command);
     support::Run {
         out: [run.out, run.err].concat(),
@@ -41,12 +33,26 @@ fn kind(w: &Watchd, args: &[&str], workspace: Option<&str>) -> support::Run {
     }
 }
 
-fn write_workspace(w: &Watchd, json: &str) {
-    std::fs::create_dir_all(w.watchd.join("workspaces")).unwrap();
-    std::fs::write(w.watchd.join("workspaces/wT.json"), format!("{json}\n")).unwrap();
+/// A state with no git key in a managed repo: the daemon keeps the kind and the stage, and fills
+/// the rest.
+fn write_work(w: &Watchd, work: Value) {
+    let repo = &w.env.repo;
+    std::fs::create_dir_all(&w.watchd).unwrap();
+    let repos = json!({"version": 2, "repos": [repo]});
+    std::fs::write(w.watchd.join("repos.json"), repos.to_string()).unwrap();
+    let mut state = json!({"version": 2, "path": repo, "repo": repo, "branch": null, "key": "",
+        "stack": [], "mrs": []});
+    state.as_object_mut().unwrap().extend(work.as_object().unwrap().clone());
+    let folder = w.watchd.join("worktrees");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join(format!("{}.json", support::hash12(repo))),
+        state.to_string(),
+    )
+    .unwrap();
 }
 
-fn log_and_workspaces() -> &'static Checks {
+fn log_and_worktrees() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let mut c = Checks::default();
@@ -71,31 +77,31 @@ fn log_and_workspaces() -> &'static Checks {
         let w = Watchd::new();
         let stack = w.stack_key();
         w.events(&stack, &[ev("pipeline", 5)]);
-        w.run(with_workspace(&w, &["--interval", "600", "--mr", "5"]));
+        w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
         c.check(
-            "record has the herdr workspace",
-            "wT",
+            "a new record has no herdr workspace",
+            "null",
             support::raw(&w.sub_of(&stack)["herdr_workspace"]),
         );
         w.events(&stack, &[ev("merged", 5)]);
-        w.run(with_workspace(&w, &["--interval", "600", "--once", "--mr", "5"]));
+        w.run(w.watch_command(&["--interval", "600", "--once", "--mr", "5"]));
         wait_for(5, || !w.has_sub(&stack));
         c.check(
-            "all MRs merged: workspace stage done",
+            "all MRs merged: worktree stage done",
             "done",
-            support::raw(&workspace_of(&w, "wT")["stage"]),
+            support::raw(&work_of(&w)["stage"]),
         );
         herdr |= w.herdr_called();
         drop(w);
 
         let w = Watchd::new();
         w.events(&w.stack_key(), &[ev("pipeline", 5)]);
-        w.run(with_workspace(&w, &["--interval", "600", "--mr", "5"]));
+        w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
         w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
         c.check(
-            "unsubscribe: workspace stage stopped",
+            "unsubscribe: worktree stage stopped",
             "stopped",
-            support::raw(&workspace_of(&w, "wT")["stage"]),
+            support::raw(&work_of(&w)["stage"]),
         );
         herdr |= w.herdr_called();
         drop(w);
@@ -127,22 +133,22 @@ fn log_and_workspaces() -> &'static Checks {
         drop(w);
 
         let w = Watchd::new();
-        let run = kind(&w, &["mine"], None);
-        let workspaces = w.state()["workspaces"]
+        let run = kind(&w, &w.env.dir, &["mine"]);
+        let worktrees = w.state()["worktrees"]
             .as_object()
             .map_or(String::new(), |map| map.keys().cloned().collect::<Vec<_>>().join(" "));
         c.check(
-            "kind with no workspace does nothing",
+            "kind outside a git repo does nothing",
             "0 ",
-            format!("{} {workspaces}", run.code),
+            format!("{} {worktrees}", run.code),
         );
-        let run = kind(&w, &["review", "--workspace", "wT"], None);
+        let run = kind(&w, &w.env.repo, &["review", "--workspace", "wT"]);
         c.check(
-            "kind: writes the workspace file",
+            "kind: writes the worktree state",
             format!("0 {}", norm(r#"{"kind":"review","stage":null}"#)),
-            format!("{} {}", run.code, workspace_of(&w, "wT")),
+            format!("{} {}", run.code, work_of(&w)),
         );
-        let run = kind(&w, &["foo", "--workspace", "wT"], None);
+        let run = kind(&w, &w.env.repo, &["foo"]);
         c.check(
             "unknown kind",
             "1 watchd: unknown kind: foo",
@@ -152,16 +158,14 @@ fn log_and_workspaces() -> &'static Checks {
         drop(w);
 
         let w = Watchd::new();
-        write_workspace(&w, r#"{"kind": "mine", "stage": "done"}"#);
+        write_work(&w, json!({"kind": "mine", "stage": "done"}));
         w.events(&w.stack_key(), &[ev("pipeline", 5)]);
-        w.run(with_workspace(&w, &["--interval", "600", "--mr", "5"]));
-        let mut command = w.command();
-        command.arg("kind").arg("review").env("HERDR_WORKSPACE_ID", "wT");
-        let run = w.run(command);
+        w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
+        let run = kind(&w, &w.env.repo, &["review"]);
         c.check(
             "kind during a live watch keeps the stage",
             format!("0 {}", norm(r#"{"kind":"review","stage":"done"}"#)),
-            format!("{} {}", run.code, workspace_of(&w, "wT")),
+            format!("{} {}", run.code, work_of(&w)),
         );
         w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
         herdr |= w.herdr_called();
@@ -181,11 +185,11 @@ fn log_and_workspaces() -> &'static Checks {
             w.events(&key, &[ev("comment", 5)]);
             let mut watch_args = vec!["--interval", "600"];
             watch_args.extend(args);
-            w.run(with_workspace(&w, &watch_args));
+            w.run(w.watch_command(&watch_args));
             c.check(
                 &format!("subscribe with no kind sets the kind of the mode: {name}"),
                 expected,
-                support::raw(&workspace_of(&w, "wT")["kind"]),
+                support::raw(&work_of(&w)["kind"]),
             );
             let mut unsubscribe = vec!["unsubscribe", "--repo"];
             let repo = repo_of(&w);
@@ -196,13 +200,13 @@ fn log_and_workspaces() -> &'static Checks {
         }
 
         let w = Watchd::new();
-        write_workspace(&w, r#"{"kind": "bump"}"#);
+        write_work(&w, json!({"kind": "bump"}));
         w.events(&w.stack_key(), &[ev("pipeline", 5)]);
-        w.run(with_workspace(&w, &["--interval", "600", "--mr", "5"]));
+        w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
         c.check(
             "subscribe keeps an existing kind",
             "bump",
-            support::raw(&workspace_of(&w, "wT")["kind"]),
+            support::raw(&work_of(&w)["kind"]),
         );
         w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
         herdr |= w.herdr_called();
@@ -398,92 +402,92 @@ fn replace_clients() -> &'static Checks {
 
 #[test]
 fn routed_event_log_line() {
-    log_and_workspaces().assert("routed event: log line");
+    log_and_worktrees().assert("routed event: log line");
 }
 
 #[test]
 fn reaction_sound_none() {
-    log_and_workspaces().assert("reaction: sound none");
+    log_and_worktrees().assert("reaction: sound none");
 }
 
 #[test]
-fn record_has_the_herdr_workspace() {
-    log_and_workspaces().assert("record has the herdr workspace");
+fn a_new_record_has_no_herdr_workspace() {
+    log_and_worktrees().assert("a new record has no herdr workspace");
 }
 
 #[test]
-fn all_mrs_merged_workspace_stage_done() {
-    log_and_workspaces().assert("all MRs merged: workspace stage done");
+fn all_mrs_merged_worktree_stage_done() {
+    log_and_worktrees().assert("all MRs merged: worktree stage done");
 }
 
 #[test]
-fn unsubscribe_workspace_stage_stopped() {
-    log_and_workspaces().assert("unsubscribe: workspace stage stopped");
+fn unsubscribe_worktree_stage_stopped() {
+    log_and_worktrees().assert("unsubscribe: worktree stage stopped");
 }
 
 #[test]
 fn permanent_error_stopped_line() {
-    log_and_workspaces().assert("permanent error: stopped line");
+    log_and_worktrees().assert("permanent error: stopped line");
 }
 
 #[test]
 fn permanent_error_of_a_stack_stopped_line_has_the_mr_title() {
-    log_and_workspaces().assert("permanent error of a stack: stopped line has the MR title");
+    log_and_worktrees().assert("permanent error of a stack: stopped line has the MR title");
 }
 
 #[test]
-fn kind_with_no_workspace_does_nothing() {
-    log_and_workspaces().assert("kind with no workspace does nothing");
+fn kind_outside_a_git_repo_does_nothing() {
+    log_and_worktrees().assert("kind outside a git repo does nothing");
 }
 
 #[test]
-fn kind_writes_the_workspace_file() {
-    log_and_workspaces().assert("kind: writes the workspace file");
+fn kind_writes_the_worktree_state() {
+    log_and_worktrees().assert("kind: writes the worktree state");
 }
 
 #[test]
 fn unknown_kind() {
-    log_and_workspaces().assert("unknown kind");
+    log_and_worktrees().assert("unknown kind");
 }
 
 #[test]
 fn kind_during_a_live_watch_keeps_the_stage() {
-    log_and_workspaces().assert("kind during a live watch keeps the stage");
+    log_and_worktrees().assert("kind during a live watch keeps the stage");
 }
 
 #[test]
 fn subscribe_with_no_kind_sets_the_kind_of_the_mode_stack() {
-    log_and_workspaces().assert("subscribe with no kind sets the kind of the mode: stack");
+    log_and_worktrees().assert("subscribe with no kind sets the kind of the mode: stack");
 }
 
 #[test]
 fn subscribe_with_no_kind_sets_the_kind_of_the_mode_review() {
-    log_and_workspaces().assert("subscribe with no kind sets the kind of the mode: review");
+    log_and_worktrees().assert("subscribe with no kind sets the kind of the mode: review");
 }
 
 #[test]
 fn subscribe_with_no_kind_sets_the_kind_of_the_mode_hub() {
-    log_and_workspaces().assert("subscribe with no kind sets the kind of the mode: hub");
+    log_and_worktrees().assert("subscribe with no kind sets the kind of the mode: hub");
 }
 
 #[test]
 fn subscribe_keeps_an_existing_kind() {
-    log_and_workspaces().assert("subscribe keeps an existing kind");
+    log_and_worktrees().assert("subscribe keeps an existing kind");
 }
 
 #[test]
 fn route_log_line() {
-    log_and_workspaces().assert("route: log line");
+    log_and_worktrees().assert("route: log line");
 }
 
 #[test]
 fn route_unknown_action() {
-    log_and_workspaces().assert("route: unknown action");
+    log_and_worktrees().assert("route: unknown action");
 }
 
 #[test]
 fn no_herdr_call() {
-    log_and_workspaces().assert("no herdr call");
+    log_and_worktrees().assert("no herdr call");
 }
 
 #[test]

@@ -8,8 +8,8 @@
 #        watch.sh ensure    start a detached watcher unless one runs
 #        watch.sh startup   forget the written tokens, then ensure
 #
-# `watchd follow` sends the sidebar state first: the workspace records, the subscriptions with
-# their live state, and the needs of each subscription. Then one line for each new event log line
+# `watchd follow` sends the sidebar state first: the agent records with their live state, the needs
+# of each agent, and the state of each worktree by path. Then one line for each new event log line
 # and each sidebar change. Each event log line has an id.
 # State of the plugin, in ${XDG_STATE_HOME:-~/.local/state}/herdr-watch/:
 #   reader         the id of the last event log line read
@@ -100,10 +100,7 @@ sidebar() { # sidebar <sidebar line>
   ids=$(jq -c '[.result.snapshot.workspaces[].workspace_id]' <<<"$snapshot" 2>/dev/null)
   [ -n "$ids" ] || return 0
   folders=$(jq -c "$FOLDERS_PROGRAM" <<<"$snapshot" 2>/dev/null) || folders='{}'
-  for id in $(jq -r --argjson ids "$ids" '.workspaces | keys[] | select(IN($ids[]) | not)' <<<"$1"); do
-    "$watchd" workspace forget "$id" >/dev/null 2>&1
-  done
-  desired=$(jq -c --argjson folders "$folders" '{workspaces, worktrees, folders: $folders,
+  desired=$(jq -c --argjson folders "$folders" '{worktrees, folders: $folders,
       subs: [.engine_needs as $needs | .subs[] | . + {needs: ($needs[.key] // [])}]}' <<<"$1" \
     | jq -c -f "$root/sidebar.jq") || return 0
   changes=$(jq -r --argjson ids "$ids" --slurpfile cache "$state_dir/tokens.json" '

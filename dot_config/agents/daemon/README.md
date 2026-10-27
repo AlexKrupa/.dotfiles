@@ -1,19 +1,22 @@
 # watchd
 
-`watchd` watches GitLab for agent sessions. `watchd watch` waits, then prints the new GitLab events
-(comments, failed pipelines, approvals) as JSON lines. The build, the tests, and the exit codes are
-in the [main README](../README.md).
+`watchd` keeps the local git state and the GitLab state of each managed repo and worktree, with or
+without an agent session. `watchd watch` waits, then prints the new GitLab events (comments, failed
+pipelines, approvals) as JSON lines. The build, the tests, and the exit codes are in the
+[main README](../README.md).
 
 ## Overview
 
 ```mermaid
 flowchart LR
-  agent["Agent session<br/>(Claude Code + skill)"] -->|"runs"| client["watchd watch<br/>(client)"]
+  agent["Agent session<br/>(Claude Code + skill)"] -->|"runs"| client["watchd watch<br/>(agent client)"]
   client <-->|"Unix socket<br/>JSON lines"| daemon["watchd daemon<br/>(one process)"]
+  daemon -->|"runs"| git["git, git-spice<br/>(child processes)"]
+  git --> repos[("Repos and<br/>worktrees")]
   daemon -->|"runs, max 8 at a time"| glab["glab api<br/>(child processes)"]
   glab -->|"HTTPS"| gitlab[("GitLab")]
   daemon -->|"only writer"| files[("State files<br/>~/.local/state/watchd")]
-  herdr["herdr plugin<br/>watch.sh"] -->|"runs"| follow["watchd follow"]
+  herdr["herdr plugin<br/>watch.sh"] -->|"runs"| follow["watchd follow<br/>(follower)"]
   follow <-->|"Unix socket"| daemon
 ```
 
@@ -21,19 +24,41 @@ One binary has three roles:
 
 - Client: each `watchd watch`, `status`, `kind`, `route`, `report`, or `follow` call is a short
   process. It sends one JSON line to the daemon on `daemon.sock` and prints the answer
-  (`src/protocol.rs`).
-- Daemon: `watchd daemon` is one process for each user. It polls GitLab, writes all state files,
-  and answers the clients. If no daemon runs, the first client starts it.
+  (`src/protocol.rs`). Each request has the folder of the client.
+- Daemon: `watchd daemon` is one process for each user. It reads git and git-spice, polls GitLab,
+  writes all state files, and answers the clients. If no daemon runs, the first client starts it.
 - Engine: the daemon calls the engine through the `Engine` trait for each check. The engine runs
   `glab api` child processes. `watchd engine` runs one check, for debugging.
+
+Two types of client stay connected:
+
+- Agent: an agent session runs `watchd watch`. The client writes an agent record for the key of its
+  folder and mode, and gets the events of that key. An agent record only selects events. The
+  polling of a managed repo continues with no agent.
+- Follower: `watchd follow` gets the sidebar state, then each new event log line and each sidebar
+  change. The herdr plugin `watch.sh` is a follower.
 
 Callers:
 
 - The skills run `watchd watch`, `unsubscribe`, `status`, `route`, and `report`, as
   `references/watch/gitlab.md` tells them.
-- `bump`, `hub`, `review-pr`, `debug-gitlab`, and `skills/work/work-start.sh` run `watchd kind`.
-- The herdr plugin `watch.sh` reads the stdout of `watchd follow`: the sidebar state, then each new
-  event log line and each sidebar change. It does not read the state files.
+- `bump`, `hub`, `review-pr`, `debug-gitlab`, and `skills/work/work-start.sh` run `watchd kind`. It
+  sets the kind of work of the worktree of the current folder.
+- The herdr plugin `watch.sh` reads the stdout of `watchd follow`. It joins the worktree paths of
+  the sidebar state with the folders of the herdr workspaces, then writes the sidebar tokens. It
+  does not read the state files.
+
+## Managed repos
+
+The managed set (`repos.json`) has the repos that the daemon watches:
+
+- A client request from a folder in a git repo adds the repo. A `follow` request adds no repo.
+  `watchd watch --repo PATH` adds the repo of `PATH`.
+- At start, the daemon adds the repo of each agent record.
+- If the folder of a repo is gone, the main loop removes the repo, with the log line `repo gone`.
+
+The daemon makes no herdr calls. It keys all worktree state by the canonical worktree path, also
+the kind and the stage of the work.
 
 ## One watch
 
@@ -44,14 +69,14 @@ sequenceDiagram
   participant A as Agent
   participant C as watchd watch
   participant S as Server task
-  participant R as Repo loop task
+  participant R as Managed loop task
   participant E as Engine + glab
   participant F as State files
-  A->>C: watchd watch --mr 12
+  A->>C: watchd watch
   C->>S: connect (start the daemon if needed), send subscribe
   S->>F: write subs/KEY.json
-  S->>R: poke: start a check now
-  R->>E: check(subscription)
+  S->>R: poke: start a round now
+  R->>E: check(target)
   E-->>R: new events
   R->>F: write items, inbox, and events.jsonl
   R-->>S: notify "changed"
@@ -71,27 +96,44 @@ The daemon is one process with many tokio tasks. All tasks share one `Daemon` ob
 ```mermaid
 flowchart TB
   main["main loop: run()<br/>every 5 s"]
+  local["local round: local_round()<br/>git, git-spice"]
   serve["server: serve()<br/>accepts connections"]
   handle["one task per connection: handle()"]
-  repo["one task per repo: repo_loop()"]
-  check["one task per subscription: check()"]
+  managed["one task per managed repo: managed_loop()"]
+  check["one task per target: check()"]
   glab["glab child processes<br/>max 8"]
-  main -->|"starts"| repo
+  main -->|"runs"| local
+  main -->|"starts"| managed
   serve -->|"starts"| handle
-  handle -->|"poke"| repo
-  repo -->|"starts"| check
+  handle -->|"poke"| managed
+  managed -->|"starts"| check
   check --> glab
 ```
 
-- Main loop: if the Claude session of a subscription is gone, or if the subscription had no client
-  for 30 minutes, the loop ends the subscription. Restarts on a new binary. Stops after 10 minutes with no work.
-- Connection: a `subscribe` waits until it has a delivery. A `follow` sends lines until the client
-  goes away.
-- Repo loop: one round is a check for each live subscription of the repo, in parallel. Then the
-  loop waits for the shortest interval of the subscriptions (default 120 seconds). A poke ends the
-  wait early. After a network error or a system sleep, the loop waits for the network.
-- Check: after a permanent error, or after 5 other errors in a row, the check ends the
-  subscription.
+- Main loop: each tick (`WATCHD_TICK`, default 5 s), the loop ends the agent records with no Claude
+  session, and the agent records with no client for 30 minutes. It removes the gone repos, starts a
+  managed loop for each managed repo, and runs the local round. It restarts on a new binary. It
+  stops after 10 minutes with no live agent and no follower.
+- Local round: for each managed repo, one `git worktree list` and one read of the shared refs
+  (`refs/spice/data` and `origin/HEAD`). The key of a worktree is its HEAD, its branch, and the
+  shared refs. When the key changes, the round reads the git-spice stack
+  (`git-spice log short --json`). Then it runs the conflict test: `git merge-tree` of the top
+  branch and `origin/<default>`. The round does not read the files of a checkout.
+- Managed loop: one round is the fetch of origin, the fast-forward of the main checkout, the MR
+  lookup of new branches, and one check for each target, in parallel. A blocked fast-forward is one
+  open `pull-blocked` item. With no `origin/HEAD`, the fetch and the fast-forward are off. Then the
+  loop waits: 120 seconds with a live hub agent of the repo, 900 seconds with none. A live agent
+  with a shorter `--interval` makes the wait shorter. A poke ends the wait early. After a network
+  error or a system sleep, the loop waits for the network.
+- Targets: the hub (the project), each review link, the stack of each worktree and of each live
+  stack agent, and the own open MRs with no worktree (key `<slug>-own`). An MR is in one stack or
+  own target only.
+- MR lookup: for a branch with no git-spice MR, the loop asks GitLab for the open MR of the branch
+  one time. A result is a review link.
+- Check: after a permanent error, or after 5 other errors in a row, the check ends the agent record
+  of its key.
+- Events: the events of a key with a live agent go to its inbox. The events of a key with no live
+  agent go to the hub as open items only.
 
 Each task takes the `memory` lock before it changes the state in memory or the state files. After
 each change, the task sends the `changed` signal, and the waiting connections read the files again.
@@ -104,28 +146,31 @@ each change, the task sends the `changed` signal, and the waiting connections re
 | `src/client/` | The client commands: flags, key, connection, start of the daemon, output, exit code |
 | `src/protocol.rs` | The requests and responses on the socket |
 | `src/server.rs` | The socket server, the waiting `subscribe`, the `follow` stream |
-| `src/daemon/` | The main loop, the repo loops, the checks, the lock, the restart. `store.rs` writes the state files. |
+| `src/daemon/` | The main loop, the local round, the managed loops, the checks, the lock, the restart. `store.rs` writes the state files. |
+| `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
-| `src/core/` | Logic with no input or output: subscriptions, open items, event log lines, herdr workspaces |
-| `src/engine/` | The GitLab checks. `hub.rs` watches the project. `stack.rs` watches the MRs of a stack or a review. The module doc of `mod.rs` has the table of events. |
+| `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets, version 1 herdr workspace records |
+| `src/engine/` | The GitLab checks. `hub.rs` watches the project. `stack.rs` watches the MRs of a stack or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
-| `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`) |
+| `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
 
 ## State files
 
-The base folder is `$XDG_STATE_HOME`, or `~/.local/state`. Each subscription has a key. A hub key
-is the repo slug (the short name of the repo). A stack key also has a hash of the worktree. A review
-key also has `-review-IID` at the end.
+The base folder is `$XDG_STATE_HOME`, or `~/.local/state`. Each agent record and each target has a
+key. A hub key is the repo slug (the short name of the repo). A stack key also has a hash of the
+worktree. A review key also has `-review-IID` at the end.
 
 | Path | Content |
 | --- | --- |
 | `watchd/daemon.sock`, `daemon.lock`, `daemon.pid` | The socket, the lock for one daemon, the PID |
 | `watchd/watchd.log` | The text log |
 | `watchd/events.jsonl` | The event log, which `follow` reads |
-| `watchd/subs/KEY.json` | One subscription |
+| `watchd/repos.json` | The managed set |
+| `watchd/worktrees/HASH.json` | The state of one worktree: branch, key, stack, MRs, conflict, kind, stage. `HASH` is the first 12 characters of the SHA-1 of the path. |
+| `watchd/reviews.json` | The review links: a worktree and the MR that it reviews |
+| `watchd/subs/KEY.json` | One agent record |
 | `watchd/inbox/KEY.jsonl` | Events that no client took yet |
 | `watchd/items/KEY.json` | The open items of the key |
-| `watchd/workspaces/ID.json` | The record of one herdr workspace |
 | `watch-gitlab/KEY.json` | The engine state: what GitLab showed at the last check |
 
 ## Single instance and restart
@@ -133,15 +178,28 @@ key also has `-review-IID` at the end.
 - One daemon: the daemon holds a `flock` on `daemon.lock`. The operating system frees the lock when
   the process ends, also after `kill -9`.
 - Restart: `build.sh` renames a new file over the binary. The daemon sees the new file, stops its
-  repo loops, and sends the started deliveries. Then it calls `exec` on the new binary. The lock
+  managed loops, and sends the started deliveries. Then it calls `exec` on the new binary. The lock
   and the socket stay open. The clients connect again.
 
-## Compatibility
+## Migration
 
 Clients that are older than an upgrade stay in use: agent sessions keep the old skill text, and a
-waiting client keeps its old process. Keep these interfaces stable:
+waiting client keeps its old process. An upgrade converts the old state at the first start of the
+new daemon. It keeps no second code path for the old format.
 
-- CLI: the subcommand names and flags. If you rename one, accept the old name for one release.
-- Socket protocol: the messages between the client and the daemon. Only add optional fields.
-- State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the
-  version and convert the version before it.
+- CLI: keep the subcommand names and flags. `kind --workspace ID` is the flag of format version 1:
+  the daemon ignores it. `watchd workspace forget` exits 0 and does nothing.
+- Socket protocol: only add optional fields. The daemon reads the `subscribe` message of a version
+  1 client.
+- State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the version
+  and convert the version before it at start.
+
+Format version 2 converts version 1 like this:
+
+1. An agent record keeps its fields. The daemon adds its repo to the managed set, so the polling
+   has no stop.
+2. A herdr workspace record (`workspaces/ID.json`) whose ID is the `herdr_workspace` of an agent
+   record gives its kind and stage to the worktree state of the agent folder. Then the agent record
+   loses `herdr_workspace`.
+3. The daemon removes all workspace records. A record with no agent gives the log line
+   `workspace record dropped: ID`. Its kind comes back at the next `watchd kind`.

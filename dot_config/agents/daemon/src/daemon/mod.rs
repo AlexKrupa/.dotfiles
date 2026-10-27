@@ -15,7 +15,7 @@ use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
 use tokio::task::JoinHandle;
 
 use self::store::{Store, first_line};
-use crate::core::subs::{Mode, Subscription};
+use crate::core::subs::{Mode, Agent};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, lookup_branch, targets, top_branches};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::state::OwnMr;
@@ -234,7 +234,7 @@ impl Daemon {
         self.stopping() || self.lock().await.pokes.values().any(|(poked, _)| poked == slug)
     }
 
-    async fn live_subs(&self, slug: &str) -> Vec<Subscription> {
+    async fn live_subs(&self, slug: &str) -> Vec<Agent> {
         let _memory = self.lock().await;
         self.store.live_subs(Some(slug))
     }
@@ -279,6 +279,8 @@ impl Daemon {
                 if let Some(old) = known.get(&state.path) {
                     state.ended.clone_from(&old.ended);
                     state.lookup_branch.clone_from(&old.lookup_branch);
+                    state.kind = old.kind;
+                    state.stage = old.stage;
                 }
                 if let (Some(_), Some(default)) = (&refs.origin_default, &refs.default_branch) {
                     // The top branch has the commits of all branches below it.
@@ -747,6 +749,7 @@ async fn run(daemon: &Arc<Daemon>) -> End {
     let mut pruned_at = 0;
     {
         let _memory = daemon.lock().await;
+        daemon.store.convert_workspaces();
         for sub in daemon.store.subs() {
             if let Some(repo) = repo_of(&sub.repo) {
                 daemon.store.add_repo(&repo);

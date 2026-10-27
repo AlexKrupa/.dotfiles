@@ -3,9 +3,9 @@ use std::path::Path;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// The format of the state files: files with no `version` field still load, because they are the
-/// format before version 1, with the same fields.
-pub const FORMAT_VERSION: u32 = 1;
+/// The format of the state files. Files with no `version` field and version 1 files still load: their
+/// fields are the same. The daemon start converts the herdr workspace records of version 1.
+pub const FORMAT_VERSION: u32 = 2;
 
 #[derive(Serialize, Deserialize)]
 pub struct Versioned<T> {
@@ -32,6 +32,10 @@ pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, String>
     let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| error.to_string())?;
     let loaded = match value.get("version") {
         None => Load::Converted(serde_json::from_value(value).map_err(|error| error.to_string())?),
+        Some(version) if *version == 1 => {
+            let versioned: Versioned<T> = serde_json::from_value(value).map_err(|error| error.to_string())?;
+            Load::Converted(versioned.data)
+        }
         Some(version) if *version == FORMAT_VERSION => {
             let versioned: Versioned<T> = serde_json::from_value(value).map_err(|error| error.to_string())?;
             Load::Current(versioned.data)
@@ -64,7 +68,7 @@ pub fn write_json<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::subs::Subscription;
+    use crate::core::subs::Agent;
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("watchd-persist-{}-{name}", std::process::id()));
@@ -80,22 +84,34 @@ mod tests {
         let path = scratch("bash").join("app.json");
         std::fs::write(&path, BASH_SUB).unwrap();
 
-        let loaded = load::<Subscription>(&path).unwrap();
+        let loaded = load::<Agent>(&path).unwrap();
 
-        let expected: Subscription = serde_json::from_str(BASH_SUB).unwrap();
+        let expected: Agent = serde_json::from_str(BASH_SUB).unwrap();
         assert!(matches!(loaded, Some(Load::Converted(sub)) if sub == expected));
     }
 
     #[test]
     fn saved_record_loads_as_current() {
         let path = scratch("current").join("app.json");
-        let sub: Subscription = serde_json::from_str(BASH_SUB).unwrap();
+        let sub: Agent = serde_json::from_str(BASH_SUB).unwrap();
 
         save(&path, &sub).unwrap();
 
         let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.starts_with("{\n  \"version\": 1,\n"), "{text}");
-        assert!(matches!(load::<Subscription>(&path).unwrap(), Some(Load::Current(loaded)) if loaded == sub));
+        assert!(text.starts_with("{\n  \"version\": 2,\n"), "{text}");
+        assert!(matches!(load::<Agent>(&path).unwrap(), Some(Load::Current(loaded)) if loaded == sub));
+    }
+
+    #[test]
+    fn version_1_record_loads_as_converted() {
+        let path = scratch("version-1").join("app.json");
+        let versioned = BASH_SUB.replacen('{', r#"{"version": 1, "#, 1);
+        std::fs::write(&path, &versioned).unwrap();
+
+        let loaded = load::<Agent>(&path).unwrap();
+
+        let expected: Agent = serde_json::from_str(BASH_SUB).unwrap();
+        assert!(matches!(loaded, Some(Load::Converted(sub)) if sub == expected));
     }
 
     #[test]
@@ -103,7 +119,7 @@ mod tests {
         let path = scratch("unknown").join("app.json");
         std::fs::write(&path, r#"{"version": 7, "key": "app"}"#).unwrap();
 
-        let loaded = load::<Subscription>(&path).unwrap();
+        let loaded = load::<Agent>(&path).unwrap();
 
         assert!(matches!(loaded, Some(Load::Dropped(reason)) if reason == "format 7 not supported"));
     }
@@ -114,9 +130,9 @@ mod tests {
         std::fs::write(dir.join("empty.json"), "\n").unwrap();
         std::fs::write(dir.join("bad.json"), "not json").unwrap();
 
-        assert!(load::<Subscription>(&dir.join("none.json")).unwrap().is_none());
-        assert!(load::<Subscription>(&dir.join("empty.json")).unwrap().is_none());
-        assert!(load::<Subscription>(&dir.join("bad.json")).is_err());
+        assert!(load::<Agent>(&dir.join("none.json")).unwrap().is_none());
+        assert!(load::<Agent>(&dir.join("empty.json")).unwrap().is_none());
+        assert!(load::<Agent>(&dir.join("bad.json")).is_err());
     }
 
     #[test]

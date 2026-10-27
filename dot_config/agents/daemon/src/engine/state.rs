@@ -150,7 +150,7 @@ mod tests {
         save(&path, &state).unwrap();
 
         let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved["version"], 1);
+        assert_eq!(saved["version"], 2);
         assert_eq!(saved["todos"], serde_json::json!([4]));
         assert_eq!(saved["default_pipeline"], serde_json::Value::Null);
         let again: HubState = load(&path).unwrap().unwrap();

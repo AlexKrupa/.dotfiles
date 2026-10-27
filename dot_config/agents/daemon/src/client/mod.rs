@@ -188,7 +188,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
         interval: args.interval,
         session_pid,
         client_pid,
-        herdr_workspace: std::env::var("HERDR_WORKSPACE_ID").ok().filter(|id| !id.is_empty()),
+        herdr_workspace: None,
         once: args.once,
         fresh: args.fresh,
         again: false,
@@ -298,12 +298,14 @@ async fn ask_ok(request: &Request) -> i32 {
     }
 }
 
+/// The kind of work of the worktree of the current folder. `--workspace ID` is the flag of the
+/// herdr workspace of format version 1: the daemon ignores it.
 pub async fn kind(args: Vec<String>) -> i32 {
     let mut args = args.into_iter();
     let Some(kind) = args.next() else {
         return die("kind needs a kind");
     };
-    let mut workspace = std::env::var("HERDR_WORKSPACE_ID").ok().filter(|id| !id.is_empty());
+    let mut workspace = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--workspace" => match args.next() {
@@ -315,9 +317,6 @@ pub async fn kind(args: Vec<String>) -> i32 {
     }
     let Some(kind) = Kind::parse(&kind) else {
         return die(&format!("unknown kind: {kind}"));
-    };
-    let Some(workspace) = workspace.filter(|id| !id.is_empty()) else {
-        return 0;
     };
     ask_ok(&Request::Kind { workspace, kind }).await
 }
@@ -456,8 +455,9 @@ pub async fn replace_clients(repo: &Path) -> i32 {
     ask_ok(&Request::ReplaceClients { repo: top }).await
 }
 
-pub async fn forget_workspace(id: String) -> i32 {
-    ask_ok(&Request::WorkspaceForget { id }).await
+/// The daemon keeps no herdr workspace records: the command of format version 1 does nothing.
+pub fn forget_workspace() -> i32 {
+    0
 }
 
 pub async fn follow(after: Option<u64>) -> i32 {

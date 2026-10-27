@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::core::worktrees::WorktreeState;
+
+/// The record of a herdr workspace of format version 1, which the daemon start converts.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Workspace {
     #[serde(default)]
@@ -26,10 +29,10 @@ pub enum Stage {
 }
 
 /// With no live watch, a new task starts, and the end stage of an earlier watch does not apply to it.
-pub fn set_kind(workspace: &mut Workspace, kind: Kind, live_watch: bool) {
-    workspace.kind = Some(kind);
+pub fn set_kind(state: &mut WorktreeState, kind: Kind, live_watch: bool) {
+    state.kind = Some(kind);
     if !live_watch {
-        workspace.stage = None;
+        state.stage = None;
     }
 }
 
@@ -52,29 +55,14 @@ mod tests {
 
     #[test]
     fn kind_without_live_subscription_clears_the_stage() {
-        let mut workspace = Workspace {
+        let mut state = WorktreeState {
             kind: Some(Kind::Mine),
             stage: Some(Stage::Done),
+            ..WorktreeState::new("/r".into(), "/r".into(), None, String::new(), &[])
         };
-        set_kind(&mut workspace, Kind::Review, true);
-        assert_eq!(
-            workspace,
-            Workspace {
-                kind: Some(Kind::Review),
-                stage: Some(Stage::Done)
-            }
-        );
-        set_kind(&mut workspace, Kind::Bump, false);
-        assert_eq!(
-            workspace,
-            Workspace {
-                kind: Some(Kind::Bump),
-                stage: None
-            }
-        );
-        assert_eq!(
-            serde_json::to_string(&workspace).unwrap(),
-            r#"{"kind":"bump","stage":null}"#
-        );
+        set_kind(&mut state, Kind::Review, true);
+        assert_eq!((state.kind, state.stage), (Some(Kind::Review), Some(Stage::Done)));
+        set_kind(&mut state, Kind::Bump, false);
+        assert_eq!((state.kind, state.stage), (Some(Kind::Bump), None));
     }
 }

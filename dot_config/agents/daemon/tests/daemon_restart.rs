@@ -324,3 +324,74 @@ fn once_waits_for_a_round_that_starts_after_the_poke() {
 fn network_down_no_client_error_subscription_stays() {
     network_down().assert("network down: no client error, subscription stays");
 }
+
+/// A `follow` client from the folder of the test keeps the daemon up.
+fn start_daemon(w: &Watchd) -> std::process::Child {
+    let mut command = w.command();
+    command.current_dir(&w.env.dir).arg("follow");
+    let (child, output) = w.spawn_logged(command, "follow.out");
+    wait_for(10, || std::fs::metadata(&output).is_ok_and(|meta| meta.len() > 0));
+    child
+}
+
+#[test]
+fn version_1_state_converts_on_start() {
+    let w = Watchd::new();
+    for dir in ["subs", "workspaces"] {
+        std::fs::create_dir_all(w.watchd.join(dir)).unwrap();
+    }
+    let sub = serde_json::json!({
+        "version": 1, "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub", "mrs": [],
+        "interval": 600, "session_pid": w.session_pid(), "client_pid": 1, "client_at": 0,
+        "herdr_workspace": "w1",
+    });
+    std::fs::write(w.watchd.join("subs/app.json"), sub.to_string()).unwrap();
+    std::fs::write(
+        w.watchd.join("workspaces/w1.json"),
+        r#"{"version": 1, "kind": "mine", "stage": null}"#,
+    )
+    .unwrap();
+    std::fs::write(w.watchd.join("workspaces/w2.json"), r#"{"version": 1, "kind": "hub"}"#).unwrap();
+
+    let follow = start_daemon(&w);
+    wait_for(10, || w.worktree_state(&w.env.repo)["kind"] == "mine");
+
+    assert_eq!(w.worktree_state(&w.env.repo)["kind"], "mine", "{}", w.log());
+    let left: Vec<_> = std::fs::read_dir(w.watchd.join("workspaces")).map_or(Vec::new(), |dir| dir.collect());
+    assert_eq!(left.len(), 0, "the workspace records are gone");
+    assert_eq!(w.log_count("workspace record dropped: w2"), 1, "{}", w.log());
+    let saved = support::read_json(&w.watchd.join("subs/app.json"));
+    assert_eq!(
+        (saved["version"].clone(), saved["herdr_workspace"].clone()),
+        (serde_json::json!(2), serde_json::Value::Null)
+    );
+    support::daemon::end(follow);
+}
+
+#[test]
+fn old_subscribe_message_is_read() {
+    use std::io::{BufRead, Write};
+    let w = Watchd::new();
+    w.events("app", &[ev("todo", 5)]);
+    let follow = start_daemon(&w);
+    let line = serde_json::json!({
+        "type": "subscribe", "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub",
+        "mrs": [], "interval": 1, "session_pid": w.session_pid(), "client_pid": std::process::id(),
+        "herdr_workspace": "w1", "once": false, "fresh": false, "again": false, "poke_token": "t",
+    });
+
+    let mut stream = std::os::unix::net::UnixStream::connect(w.watchd.join("daemon.sock")).unwrap();
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(15)))
+        .unwrap();
+    stream.write_all(format!("{line}\n").as_bytes()).unwrap();
+    let mut answer = String::new();
+    std::io::BufReader::new(&stream).read_line(&mut answer).unwrap();
+
+    let answer: serde_json::Value = serde_json::from_str(&answer).unwrap();
+    assert_eq!(
+        (answer["type"].clone(), answer["events"][0]["kind"].clone()),
+        (serde_json::json!("events"), serde_json::json!("todo"))
+    );
+    support::daemon::end(follow);
+}

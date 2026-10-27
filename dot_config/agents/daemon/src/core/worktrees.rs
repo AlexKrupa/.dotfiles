@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::subs::{Mode, Subscription};
+use crate::core::subs::{Mode, Agent};
+use crate::core::workspaces::{Kind, Stage};
 use crate::engine::state::OwnMr;
 
 /// The main worktree of each repo that a client used, as a canonical path.
@@ -30,6 +31,12 @@ pub struct WorktreeState {
     /// The branch of the last MR lookup by branch name.
     #[serde(default)]
     pub lookup_branch: Option<String>,
+    /// The kind of work, from `watchd kind` or the first agent, for the sidebar.
+    #[serde(default)]
+    pub kind: Option<Kind>,
+    /// The end of the last agent.
+    #[serde(default)]
+    pub stage: Option<Stage>,
 }
 
 /// One GitLab check of a round. `repo` is the folder of the check: the main checkout for the hub
@@ -76,7 +83,7 @@ pub fn targets(
     worktrees: &[WorktreeState],
     own_mrs: &[OwnMr],
     reviews: &[ReviewLink],
-    agents: &[Subscription],
+    agents: &[Agent],
     key_of: &dyn Fn(&Path) -> String,
 ) -> Vec<Target> {
     let target = |key: String, mode: Mode, folder: &Path, mrs: Vec<u64>| Target {
@@ -160,6 +167,8 @@ impl WorktreeState {
             conflict: Vec::new(),
             ended: Vec::new(),
             lookup_branch: None,
+            kind: None,
+            stage: None,
         }
     }
 }
@@ -209,11 +218,6 @@ pub fn parse_spice_log(text: &str) -> Vec<SpiceBranch> {
         .collect()
 }
 
-/// The branches above the trunk.
-pub fn stack_size(branches: &[SpiceBranch]) -> usize {
-    branches.iter().filter(|branch| branch.down).count()
-}
-
 /// A top branch has the commits of all branches below it.
 pub fn top_branches(branches: &[SpiceBranch]) -> Vec<String> {
     branches
@@ -226,7 +230,7 @@ pub fn top_branches(branches: &[SpiceBranch]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::subs::{Mode, Subscription};
+    use crate::core::subs::{Mode, Agent};
     use crate::engine::state::OwnMr;
 
     fn worktree(path: &str, mrs: &[u64], ended: &[u64]) -> WorktreeState {
@@ -393,8 +397,8 @@ mod tests {
         assert_eq!(lookup_branch(&detached, None, &[]), None, "no branch");
     }
 
-    fn agent(key: &str, mode: Mode, repo: &str, mrs: &[u64]) -> Subscription {
-        Subscription {
+    fn agent(key: &str, mode: Mode, repo: &str, mrs: &[u64]) -> Agent {
+        Agent {
             key: key.to_string(),
             slug: "app".to_string(),
             repo: repo.into(),
@@ -442,7 +446,6 @@ mod tests {
     fn parse_spice_log_reads_stack_and_change() {
         let branches = parse_spice_log(STACK);
 
-        assert_eq!(stack_size(&branches), 2);
         assert_eq!(top_branches(&branches), ["b"]);
         let mrs: Vec<Option<u64>> = branches.iter().map(|branch| branch.mr).collect();
         assert_eq!(mrs, [None, Some(12), None]);
@@ -450,12 +453,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_spice_log_with_one_branch_is_a_stack_of_one() {
+    fn parse_spice_log_with_one_branch_has_one_top_branch() {
         let branches = parse_spice_log(
             "{\"name\":\"main\",\"ups\":[{\"name\":\"a\"}]}\n{\"name\":\"a\",\"current\":true,\"down\":{\"name\":\"main\"}}\n",
         );
 
-        assert_eq!(stack_size(&branches), 1);
         assert_eq!(top_branches(&branches), ["a"]);
     }
 

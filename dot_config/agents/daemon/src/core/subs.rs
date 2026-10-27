@@ -26,7 +26,7 @@ impl Mode {
 
 /// The newest session owns the key: `replaced_sessions` has the live sessions that it replaced.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Subscription {
+pub struct Agent {
     pub key: String,
     pub slug: String,
     pub repo: PathBuf,
@@ -40,13 +40,14 @@ pub struct Subscription {
     pub replaced_sessions: Vec<u32>,
     #[serde(default)]
     pub ended_mrs: Vec<u64>,
+    /// Only in records of format version 1: the daemon start converts it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub herdr_workspace: Option<String>,
 }
 
-/// Returns true if this made all MRs of the subscription end. With no `--mr` list, the MRs of the
-/// subscription are the polled MRs.
-pub fn add_ended(sub: &mut Subscription, events: &[RoutedEvent], polled: &[u64]) -> bool {
+/// Returns true if this made all MRs of the agent end. With no `--mr` list, the MRs of the
+/// agent are the polled MRs.
+pub fn add_ended(sub: &mut Agent, events: &[RoutedEvent], polled: &[u64]) -> bool {
     let ended: Vec<u64> = events
         .iter()
         .filter(|routed| matches!(routed.event.kind, EventKind::Merged | EventKind::Closed))
@@ -67,8 +68,8 @@ mod tests {
     use super::*;
     use crate::engine::event::Event;
 
-    fn subscription(mrs: Vec<u64>) -> Subscription {
-        Subscription {
+    fn agent(mrs: Vec<u64>) -> Agent {
+        Agent {
             key: "app-1-review-5".to_string(),
             slug: "app".to_string(),
             repo: "/r".into(),
@@ -92,8 +93,8 @@ mod tests {
     }
 
     #[test]
-    fn add_ended_ignores_mrs_outside_the_subscription() {
-        let mut sub = subscription(vec![5, 6]);
+    fn add_ended_ignores_mrs_outside_the_agent() {
+        let mut sub = agent(vec![5, 6]);
         assert!(!add_ended(&mut sub, &[merged(7)], &[]));
         assert!(!add_ended(&mut sub, &[merged(5)], &[]));
         assert_eq!(sub.ended_mrs, vec![5, 7]);
@@ -102,16 +103,16 @@ mod tests {
 
     #[test]
     fn add_ended_with_no_mr_list_uses_the_polled_mrs() {
-        let mut sub = subscription(Vec::new());
+        let mut sub = agent(Vec::new());
 
         assert!(!add_ended(&mut sub, &[merged(5)], &[5, 6]));
         assert!(add_ended(&mut sub, &[merged(6)], &[6]));
     }
 
     #[test]
-    fn subscription_record_has_the_fields_of_the_bash_client() {
+    fn agent_record_has_the_fields_of_the_bash_client() {
         let line = r#"{"key":"app-1-review-5","slug":"app","repo":"/r","mode":"stack","mrs":[5],"interval":120,"session_pid":1,"client_pid":2,"client_at":0,"replaced_sessions":[],"ended_mrs":[]}"#;
-        let sub: Subscription = serde_json::from_str(line).unwrap();
+        let sub: Agent = serde_json::from_str(line).unwrap();
         assert_eq!(serde_json::to_string(&sub).unwrap(), line);
     }
 }

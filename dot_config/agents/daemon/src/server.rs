@@ -15,8 +15,9 @@ use crate::core::subs::Mode;
 use crate::core::workspaces::set_kind;
 use crate::core::worktrees::ReviewLink;
 use crate::daemon::{Daemon, Memory};
+use crate::key::worktree_top;
 use crate::local::repo_of;
-use crate::platform::{now_seconds, process_alive};
+use crate::platform::now_seconds;
 use crate::protocol::{
     DebugState, Envelope, RepoPoll, RepoTimes, Request, Response, StatusReport, SubscribeArgs, receive, send,
 };
@@ -81,12 +82,8 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
                 ..daemon.store.debug_disk()
             }))
         }
-        Request::WorkspaceForget { id } => {
-            let _memory = daemon.lock().await;
-            daemon.store.forget_workspace(&id);
-            daemon.changed.notify_waiters();
-            Response::Ok
-        }
+        // The record of format version 1 is gone already.
+        Request::WorkspaceForget { .. } => Response::Ok,
         Request::ReplaceClients { repo } => {
             let memory = daemon.lock().await;
             let count = daemon.store.replace_clients(&repo);
@@ -115,15 +112,19 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
                 Err(text) => Response::Error { text },
             }
         }
-        Request::Kind { workspace, kind } => {
-            let _memory = daemon.lock().await;
-            let live = daemon.store.subs().iter().any(|sub| {
-                sub.herdr_workspace.as_deref() == Some(workspace.as_str()) && process_alive(sub.session_pid)
-            });
-            daemon
-                .store
-                .workspace_update(&workspace, |state| set_kind(state, kind, live));
-            daemon.changed.notify_waiters();
+        // A client of format version 1 sends no folder: its workspace has no worktree path.
+        Request::Kind { kind, .. } => {
+            let top = folder.as_deref().and_then(|folder| worktree_top(folder).ok());
+            if let Some(top) = top.and_then(|top| top.canonicalize().ok()) {
+                let _memory = daemon.lock().await;
+                let live = daemon
+                    .store
+                    .live_subs(None)
+                    .iter()
+                    .any(|sub| sub.repo.canonicalize().is_ok_and(|repo| repo == top));
+                daemon.store.update_worktree(&top, |state| set_kind(state, kind, live));
+                daemon.changed.notify_waiters();
+            }
             Response::Ok
         }
         Request::Route { key, iid, action } => {

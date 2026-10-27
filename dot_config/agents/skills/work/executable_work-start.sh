@@ -25,11 +25,11 @@
 # (NONO_CAP_FILE is set), prints the JSON, then runs the helper in the foreground. Claude runs the
 # script as a background task there.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
-# creates it from origin. Then the same as "new" mode, with no git-spice tracking. A worktree of
+# creates it from origin. Then the same as "new" mode. A worktree of
 # NAME is used again. A workspace that is open already stops the script. --reset-local first moves
 # a local NAME to the origin tip, also in a worktree with no local changes. The local commits go.
-# New and next mode set the kind `mine` of the herdr workspace with `watchd kind`, for the
-# sidebar. Existing mode does not: the skill in the first prompt sets the kind.
+# New and next mode set the kind `mine` of the new worktree with `watchd kind`. Existing mode does
+# not: the skill in the first prompt sets the kind.
 # In a nono sandbox, new and existing mode start the agent with bin/herdr-start-claude, and the
 # only claude flag is --effort.
 # Prints JSON: mode, branch, base, tracked, worktree, pane_id, and in new and existing mode
@@ -232,6 +232,15 @@ default=${ref#origin/}
 main=$(worktree_of "$default")
 [[ -n $main ]] || die "no worktree has $default checked out"
 
+# git-spice tracks the branch on the default branch, so that watchd finds its stack.
+track() {
+  git show-ref --verify --quiet "$spice_ref" \
+    || git-spice -C "$main" repo init --trunk "$default" --remote origin --no-prompt >/dev/null 2>&1 \
+    || fail "git-spice repo init failed"
+  git-spice -C "$main" branch track "$branch" --base "$default" >/dev/null 2>&1 \
+    || fail "git-spice branch track failed"
+}
+
 if [[ -n $existing ]]; then
   if git -C "$main" ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
     if [[ -n $reset_local ]]; then
@@ -250,6 +259,7 @@ if [[ -n $existing ]]; then
   elif ! git -C "$main" show-ref --verify --quiet "refs/heads/$branch"; then
     die "branch not found in the local repo or on origin: $branch"
   fi
+  track
 
   opened=$("$here/herdr-worktree.sh" "$branch" --repo "$main" 2>&1) \
     || die "herdr-worktree.sh failed: $opened"
@@ -257,7 +267,7 @@ if [[ -n $existing ]]; then
   workspace=$(jq -r '.workspace_id' <<<"$opened")
   pane=$(jq -r '.root_pane_id' <<<"$opened")
   [[ -n $pane ]] || die "$branch is open in herdr workspace $workspace already"
-  mode=existing base="" tracked=false
+  mode=existing base="" tracked=true
 else
   git -C "$main" fetch --quiet origin || die "git fetch origin failed"
 
@@ -280,11 +290,7 @@ else
   # git-spice needs a local base branch, so a remote base gets no tracking.
   tracked=false
   if [[ $base == "$default" ]]; then
-    git show-ref --verify --quiet "$spice_ref" \
-      || git-spice -C "$main" repo init --trunk "$default" --remote origin --no-prompt >/dev/null 2>&1 \
-      || fail "git-spice repo init failed"
-    git-spice -C "$main" branch track "$branch" --base "$default" >/dev/null 2>&1 \
-      || fail "git-spice branch track failed"
+    track
     tracked=true
   fi
 
@@ -294,7 +300,7 @@ else
   workspace=$(jq -r '.result.workspace.workspace_id' <<<"$made")
   pane=$(jq -r '.result.root_pane.pane_id' <<<"$made")
   mode=new
-  "$watch_client" kind mine --workspace "$workspace" >/dev/null 2>&1 || true
+  (cd "$worktree" && "$watch_client" kind mine) >/dev/null 2>&1 || true
 fi
 
 # herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max.

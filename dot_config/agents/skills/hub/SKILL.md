@@ -21,8 +21,8 @@ newest commit of that branch. If it cannot fast-forward the checkout, the watch 
 `pull-blocked` item with the reason, for example changes in tracked files. The user fixes the
 cause.
 
-At the start, run `watchd kind hub`. It sets the kind of work of the herdr workspace for the
-sidebar. Outside herdr, it does nothing.
+At the start, run `watchd kind hub`. It sets the kind of work of the current worktree for
+the herdr sidebar. Outside a git repo, it does nothing.
 
 ## Role
 
