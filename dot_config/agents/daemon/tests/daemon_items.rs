@@ -221,9 +221,9 @@ fn stack_rows() -> &'static Checks {
         );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
         c.check(
-            "unsubscribe of a stack: items removed",
-            "yes",
-            gone(&w.items_of(&stack)),
+            "unsubscribe of a stack: items go to the hub",
+            r#"["thread:d1"] yes"#,
+            format!("{} {}", item_keys(&w.items_of("app")), gone(&w.items_of(&stack))),
         );
         c
     })
@@ -244,9 +244,9 @@ fn stack_end() -> &'static Checks {
         end(other);
         wait_for(10, || w.items_of(&stack).is_null());
         c.check(
-            "ended stack: items go away with the results",
-            "yes",
-            gone(&w.items_of(&stack)),
+            "ended stack: items go to the hub",
+            r#"["thread:d1"] yes"#,
+            format!("{} {}", item_keys(&w.items_of("app")), gone(&w.items_of(&stack))),
         );
         c
     })
@@ -584,13 +584,13 @@ fn open_item_keeps_its_row_in_a_second_delivery() {
 }
 
 #[test]
-fn unsubscribe_of_a_stack_items_removed() {
-    stack_rows().assert("unsubscribe of a stack: items removed");
+fn unsubscribe_of_a_stack_items_go_to_the_hub() {
+    stack_rows().assert("unsubscribe of a stack: items go to the hub");
 }
 
 #[test]
-fn ended_stack_items_go_away_with_the_results() {
-    stack_end().assert("ended stack: items go away with the results");
+fn ended_stack_items_go_to_the_hub() {
+    stack_end().assert("ended stack: items go to the hub");
 }
 
 #[test]

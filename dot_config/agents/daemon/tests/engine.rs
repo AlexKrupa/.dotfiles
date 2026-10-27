@@ -1393,9 +1393,6 @@ fn note_on_an_own_mr_no_events() {
 }
 
 #[test]
-fn own_mrs_no_own_mrs_call() {}
-
-#[test]
 fn to_do_item_on_an_own_mr_no_events() {
     hub_notes().assert("to-do item on an own MR: no events");
 }
@@ -1977,7 +1974,7 @@ fn hub_check_saves_the_own_open_mrs() {
     assert_eq!(run.code, 0, "{}", run.err);
     assert_eq!(
         read_json(&env.engine_state("app"))["own_mrs"],
-        json!([{"iid": 12, "source_branch": "ABC-1/foo"}, {"iid": 14, "source_branch": "ABC-2/bar"}])
+        json!([{"iid": 12}, {"iid": 14}])
     );
 }
 

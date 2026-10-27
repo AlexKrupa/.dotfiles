@@ -89,6 +89,11 @@ pub fn assign_rows(items: &mut Items, events: Vec<Event>, now: i64) -> Vec<Route
     routed
 }
 
+/// Only the managed loop of the repo opens and closes a pull item.
+pub fn is_pull_item(key: &str) -> bool {
+    key.starts_with("pull:")
+}
+
 fn is_hub_item(key: &str) -> bool {
     ["todo:", "note:", "main-failed:"]
         .iter()
@@ -103,8 +108,7 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
         };
         match item.owner {
             Owner::Model => true,
-            // Only the managed loop of the repo closes them.
-            Owner::Daemon if item.item.starts_with("pull:") => true,
+            Owner::Daemon if is_pull_item(&item.item) => true,
             // An item of a worktree with no agent: the check of the worktree closes it.
             Owner::Daemon if !other_mode && !is_hub_item(&item.item) => true,
             Owner::Daemon if other_mode && is_hub_item(&item.item) => {
@@ -118,7 +122,7 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
 /// Closes the daemon items of the MRs that the check of a worktree no longer has.
 pub fn prune_moved(items: &mut Items, mrs: &[u64], present: &[String]) {
     items.items.retain(|item| {
-        let moved = item.owner == Owner::Daemon && !is_hub_item(&item.item) && !item.item.starts_with("pull:");
+        let moved = item.owner == Owner::Daemon && !is_hub_item(&item.item) && !is_pull_item(&item.item);
         !(moved && item.iid.is_some_and(|iid| mrs.contains(&iid))) || present.contains(&item.item)
     });
 }
@@ -345,6 +349,9 @@ mod tests {
 
         assert_eq!((target.items.len(), target.next), (1, 2));
         assert_eq!(target.items[0].n, 1);
-        assert_eq!(target.items[0].event.as_ref().map(|event| event.detail.as_str()), Some("newer"));
+        assert_eq!(
+            target.items[0].event.as_ref().map(|event| event.detail.as_str()),
+            Some("newer")
+        );
     }
 }

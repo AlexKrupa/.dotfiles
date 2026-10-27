@@ -20,8 +20,8 @@ If the session is not idle, do not do an auto-fix.
 2. If there is no MR, tell it in one line and stop.
 3. Run the stack mode watch command. It gets the events of all MRs of the worktree.
 
-After you handle the events, do "Start" again with the current list, not the restart command. A
-sync can delete a merged branch, and the user can add a branch.
+After you handle the events, do "Start" again, not the restart command. A sync can delete a merged
+branch, so the worktree can have no MR now.
 
 ## Events
 

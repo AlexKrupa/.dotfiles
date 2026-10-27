@@ -362,6 +362,15 @@ impl Watchd {
             .map_or(Value::Null, |line| serde_json::from_str(line).unwrap())
     }
 
+    /// A `follow` client from the folder keeps the daemon up until the end of the test.
+    pub fn follower(&self, folder: &Path) -> Child {
+        let mut command = self.command();
+        command.current_dir(folder).arg("follow");
+        let (child, output) = self.spawn_logged(command, "follow.out");
+        wait_for(10, || std::fs::metadata(&output).is_ok_and(|meta| meta.len() > 0));
+        child
+    }
+
     pub fn spawn_logged(&self, mut command: Command, name: &str) -> (Child, PathBuf) {
         let path = self.env.dir.join(name);
         let file = std::fs::File::create(&path).unwrap();

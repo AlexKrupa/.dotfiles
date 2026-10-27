@@ -10,10 +10,11 @@ use serde::de::DeserializeOwned;
 
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
 use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
-use crate::core::subs::{Mode, Agent, add_ended};
+use crate::core::subs::{Agent, Mode, add_ended};
 use crate::core::workspaces::{Kind, Stage, Workspace};
 use crate::core::worktrees::{Repos, ReviewLink, Reviews, Target, WorktreeState};
 use crate::engine::event::{Event, EventKind};
+use crate::engine::state::Need;
 use crate::local::repo_of;
 use crate::paths::StateDirs;
 use crate::persist::{Load, load, save};
@@ -169,17 +170,15 @@ impl Store {
         }
     }
 
-    /// Returns true if the repo is new in the managed set.
-    pub fn add_repo(&self, repo: &Path) -> bool {
+    pub fn add_repo(&self, repo: &Path) {
         let mut repos = self.repos();
         if repos.iter().any(|known| known == repo) {
-            return false;
+            return;
         }
         repos.push(repo.to_path_buf());
         repos.sort();
         self.write_repos(repos);
         self.log("", "", &format!("repo added: {}", repo.display()));
-        true
     }
 
     /// Returns the repos whose folder is gone.
@@ -359,8 +358,8 @@ impl Store {
         self.write_worktree(&state);
     }
 
-    /// Format version 1 kept the kind and the stage in a record of each herdr workspace. A
-    /// subscription of the workspace gives its worktree. The other records go away.
+    /// Format version 1 kept the kind and the stage in a record of each herdr workspace. An
+    /// agent record of the workspace gives its worktree. The other records go away.
     pub fn convert_workspaces(&self) {
         let mut used = Vec::new();
         for mut sub in self.subs() {
@@ -413,8 +412,8 @@ impl Store {
         }
         let _ = std::fs::write(self.dirs.owner(&sub.key), format!("{}\n", sub.session_pid));
         match sub.mode {
-            Mode::Review => self.move_items(&sub.key, &sub.slug, None),
-            Mode::Hub | Mode::Stack => {}
+            Mode::Stack | Mode::Review => self.move_items(&sub.key, &sub.slug, None),
+            Mode::Hub => {}
         }
         remove(&self.dirs.sub(&sub.key));
         self.log(&sub.slug, &sub.key, &format!("subscription removed: {reason}"));
@@ -424,6 +423,21 @@ impl Store {
             Stage::Stopped
         };
         self.update_worktree(&sub.repo, |state| state.stage = Some(stage));
+    }
+
+    pub fn write_needs(&self, target: &Target) {
+        let needs: Vec<Need> = self
+            .engine_value(&target.key)
+            .and_then(|engine| serde_json::from_value(engine["needs"].clone()).ok())
+            .unwrap_or_default();
+        self.update_worktree(&target.repo, |state| match needs.is_empty() {
+            true => {
+                state.needs.remove(&target.key);
+            }
+            false => {
+                state.needs.insert(target.key.clone(), needs);
+            }
+        });
     }
 
     pub fn end_if_due(&self, sub: &Agent, now: i64, client_seconds: i64) -> bool {
@@ -487,12 +501,16 @@ impl Store {
     }
 
     /// A live agent of the key gets the events in its inbox. With no live agent, the events of a
-    /// worktree key are items of the hub, and only a live hub gets them in its inbox.
+    /// worktree key are items of the hub, and a live hub gets the events that have an item.
     pub fn route(&self, target: &Target, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
         let count = events.len();
         let live = self.live_agent(&target.key);
         let owner = match (live, target.mode) {
-            (false, Mode::Stack | Mode::Review) => &target.slug,
+            (false, Mode::Stack | Mode::Review) => {
+                // The items that an ended agent left in the file of the key.
+                self.move_items(&target.key, &target.slug, None);
+                &target.slug
+            }
             _ => &target.key,
         };
         let path = self.dirs.items(owner);
@@ -516,14 +534,15 @@ impl Store {
         self.event_log(lines);
         match (live, target.mode) {
             (true, _) => self.append_lines(&self.dirs.inbox(&target.key), &routed),
-            (false, Mode::Stack | Mode::Review) => {
-                // The items that an ended agent left in the file of the key.
-                self.move_items(&target.key, &target.slug, None);
-                if self.live_hub(&target.slug) {
-                    self.append_lines(&self.dirs.inbox(&target.slug), &routed);
-                }
+            (false, Mode::Stack | Mode::Review) if self.live_hub(&target.slug) => {
+                let items: Vec<RoutedEvent> = routed
+                    .iter()
+                    .filter(|event| event.event.item.is_some())
+                    .cloned()
+                    .collect();
+                self.append_lines(&self.dirs.inbox(&target.slug), &items);
             }
-            (false, Mode::Hub) => {}
+            (false, _) => {}
         }
         self.log(&target.slug, &target.key, &format!("routed {count} event(s)"));
         routed
@@ -534,30 +553,8 @@ impl Store {
         items.items.into_iter().find(|open| open.item == item)
     }
 
-    /// A blocked fast-forward of the main checkout: an item of the hub, and an inbox line only for
-    /// a live hub.
-    pub fn pull_blocked(&self, slug: &str, event: Event) {
-        let now = now_seconds();
-        let path = self.dirs.items(slug);
-        let Ok(items) = self.read_json::<Items>(&path) else {
-            self.log(slug, slug, "no pull item: the items file is not readable");
-            return;
-        };
-        let mut items = items.unwrap_or_default();
-        let routed = assign_rows(&mut items, vec![event], now);
-        let _ = save(&path, &items);
-        let lines = routed
-            .iter()
-            .map(|event| LogLine::Event(event_line(slug, slug, Mode::Hub, now, event.clone())))
-            .collect();
-        self.event_log(lines);
-        if self.live_hub(slug) {
-            self.append_lines(&self.dirs.inbox(slug), &routed);
-        }
-    }
-
     fn live_hub(&self, slug: &str) -> bool {
-        self.live_subs(Some(slug)).iter().any(|sub| sub.mode == Mode::Hub)
+        self.live_subs(Some(slug)).iter().any(|agent| agent.mode == Mode::Hub)
     }
 
     pub fn close_item(&self, key: &str, item: &str) {
@@ -777,8 +774,7 @@ impl Store {
             return Err(format!("the subscription {key} is of session {}", sub.session_pid));
         }
         match mode {
-            Mode::Review => self.move_items(key, slug, None),
-            Mode::Stack => remove(&self.dirs.items(key)),
+            Mode::Stack | Mode::Review => self.move_items(key, slug, None),
             Mode::Hub => {}
         }
         for path in [

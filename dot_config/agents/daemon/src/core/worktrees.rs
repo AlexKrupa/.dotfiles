@@ -1,12 +1,14 @@
 //! The managed repos and the state of their worktrees, with no input or output.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::subs::{Mode, Agent};
+use crate::core::subs::{Agent, Mode};
 use crate::core::workspaces::{Kind, Stage};
-use crate::engine::state::OwnMr;
+use crate::engine::state::{Need, OwnMr};
+use crate::key::review_key;
 
 /// The main worktree of each repo that a client used, as a canonical path.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -37,6 +39,10 @@ pub struct WorktreeState {
     /// The end of the last agent.
     #[serde(default)]
     pub stage: Option<Stage>,
+    /// The needs-you values of the last check of each stack or review key of the worktree. The
+    /// sidebar shows them also with no live agent.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub needs: BTreeMap<String, Vec<Need>>,
 }
 
 /// One GitLab check of a round. `repo` is the folder of the check: the main checkout for the hub
@@ -102,7 +108,7 @@ pub fn targets(
     let links = reviews.iter().map(|link| (link.worktree.clone(), link.iid));
     // Two worktrees can review the same MR: the MR cache gives it one fetch in a round.
     for (worktree, iid) in links.chain(agent_reviews) {
-        let key = format!("{}-review-{iid}", key_of(&worktree));
+        let key = review_key(&key_of(&worktree), iid);
         if list.iter().any(|known| known.key == key) {
             continue;
         }
@@ -169,6 +175,7 @@ impl WorktreeState {
             lookup_branch: None,
             kind: None,
             stage: None,
+            needs: BTreeMap::new(),
         }
     }
 
@@ -240,7 +247,7 @@ pub fn top_branches(branches: &[SpiceBranch]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::subs::{Mode, Agent};
+    use crate::core::subs::{Agent, Mode};
     use crate::engine::state::OwnMr;
 
     fn worktree(path: &str, mrs: &[u64], ended: &[u64]) -> WorktreeState {
@@ -252,12 +259,7 @@ mod tests {
     }
 
     fn own(iids: &[u64]) -> Vec<OwnMr> {
-        iids.iter()
-            .map(|iid| OwnMr {
-                iid: *iid,
-                source_branch: format!("b{iid}"),
-            })
-            .collect()
+        iids.iter().map(|iid| OwnMr { iid: *iid }).collect()
     }
 
     fn key_of(path: &Path) -> String {

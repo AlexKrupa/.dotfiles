@@ -96,12 +96,17 @@ check "sidebar: dead agent uses the worktree state" \
   '{"wR":{"watch_kind":"bump","watch_stage":"stopped","watch_needs":"","watch_stack":"","watch_conflict":""}}' \
   "$(sidebar '{"worktrees": {"/r/w": {"kind": "bump", "stage": "stopped"}}, "folders": {"wR": "/r/w"},
     "subs": [{"mode": "review", "repo": "/r/w", "live": false, "needs": ["reply"]}]}')"
+check "sidebar: no live agent shows the needs of the worktree checks" \
+  '{"wR":{"watch_kind":"mine","watch_stage":"done","watch_needs":"failed,reply","watch_stack":"","watch_conflict":""}}' \
+  "$(sidebar '{"worktrees": {"/r/w": {"kind": "mine", "stage": "done",
+    "needs": {"app-1": ["failed"], "app-1-review-5": ["reply", "failed"]}}}, "folders": {"wR": "/r/w"},
+    "subs": []}')"
 check "sidebar: a workspace in no worktree gets no tokens" '{}' \
   "$(sidebar '{"worktrees": {"/r/w": {"kind": "bump"}}, "folders": {"wO": "/other"}, "subs": []}')"
 
 # stack <worktrees> <folder>: the watch_stack token of workspace wS in that folder.
 stack() {
-  sidebar "{\"workspaces\": {}, \"subs\": [], \"worktrees\": $1, \"folders\": {\"wS\": \"$2\"}}" \
+  sidebar "{\"subs\": [], \"worktrees\": $1, \"folders\": {\"wS\": \"$2\"}}" \
     | jq -r '.wS.watch_stack // ""'
 }
 check "sidebar: stack token for a workspace in a stacked worktree" 1 \
@@ -119,7 +124,7 @@ check "sidebar: kind from the matched worktree" '["review","done"]' \
     "worktrees": {"/r/.wt/x": {"stack": [], "kind": "review", "stage": "done"}}}' \
     | jq -c '[.wS.watch_kind, .wS.watch_stage]')"
 check "sidebar: conflict token" 1 \
-  "$(sidebar '{"workspaces": {}, "subs": [], "folders": {"wS": "/r/.wt/x"},
+  "$(sidebar '{"subs": [], "folders": {"wS": "/r/.wt/x"},
     "worktrees": {"/r/.wt/x": {"stack": ["a"], "conflict": ["f"]}}}' | jq -r '.wS.watch_conflict')"
 
 # The sweep, with a fake herdr and a test daemon. The repos of the test have no remote: each check
@@ -261,7 +266,7 @@ check "state files removed while the watcher runs: the next line gives the notif
 # A fake watchd: one sidebar line, then no more lines.
 cat >"$tmp/bin/fake-watchd" <<'EOF'
 #!/bin/sh
-echo '{"type": "sidebar", "last_id": 0, "workspaces": {}, "subs": [], "engine_needs": {}, "worktrees": {"/r/.wt/x": {"stack": ["a", "b"]}}}'
+echo '{"type": "sidebar", "last_id": 0, "subs": [], "engine_needs": {}, "worktrees": {"/r/.wt/x": {"stack": ["a", "b"]}}}'
 exec sleep 20
 EOF
 chmod +x "$tmp/bin/fake-watchd"

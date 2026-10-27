@@ -163,7 +163,7 @@ check "own work with no watch: no stage" "2 M" "$(slot wC "$(watch '{"watch_kind
 check "hub with no watch: no stage" "2 H" "$(slot wC "$(watch '{"watch_kind": "hub"}')")"
 check "watching with needs: first needs glyph" "2 M w F" "$(slot wC "$(watch \
   '{"watch_kind": "mine", "watch_stage": "watching", "watch_needs": "failed,reply"}')")"
-check "done: no needs glyph" "2 M d" "$(slot wC "$(watch \
+check "done with needs: first needs glyph" "2 M d F" "$(slot wC "$(watch \
   '{"watch_kind": "mine", "watch_stage": "done", "watch_needs": "failed"}')")"
 check "kind set again during a watch keeps the stage" "2 R w" "$(slot wC "$(watch \
   '{"watch_kind": "review", "watch_stage": "watching"}')")"

@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::core::eventlog::RouteAction;
 use crate::core::items::{Items, RoutedEvent};
-use crate::core::subs::{Mode, Agent};
+use crate::core::subs::{Agent, Mode};
 use crate::core::workspaces::Kind;
 use crate::core::worktrees::WorktreeState;
 use crate::report::ReportInput;
@@ -76,9 +76,6 @@ pub struct SubscribeArgs {
     pub interval: u64,
     pub session_pid: u32,
     pub client_pid: u32,
-    /// Only from a client of format version 1.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub herdr_workspace: Option<String>,
     pub once: bool,
     pub fresh: bool,
     pub again: bool,

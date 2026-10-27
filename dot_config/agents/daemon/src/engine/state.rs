@@ -53,7 +53,6 @@ pub struct HubState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OwnMr {
     pub iid: u64,
-    pub source_branch: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

@@ -13,13 +13,13 @@ allowed-tools:
 
 # hub
 
-This session is the hub of the repo. The hub manages the Claude agents in the repo's herdr
-worktree workspaces, and tells the user about GitLab events for MRs of other people and the
-default branch. The draft-pr watch reports the user's own MRs. The session runs in the main
-checkout, which stays on the default branch. The watch daemon `watchd` keeps the checkout on the
-newest commit of that branch. If it cannot fast-forward the checkout, the watch gives a
-`pull-blocked` item with the reason, for example changes in tracked files. The user fixes the
-cause.
+This session is the hub of the repo. The hub manages the Claude agents in the repo's herdr worktree
+workspaces, and tells the user about GitLab events for MRs of other people and the default branch.
+The draft-pr watch reports the user's own MRs. The hub reports the open items of own worktrees with
+no agent. The session runs in the main checkout, which stays on the default branch. The watch daemon
+`watchd` keeps the checkout on the newest commit of that branch. If it cannot fast-forward the
+checkout, the watch gives a `pull-blocked` item with the reason, for example changes in tracked
+files. The user fixes the cause.
 
 At the start, run `watchd kind hub`. It sets the kind of work of the current worktree for
 the herdr sidebar. Outside a git repo, it does nothing.

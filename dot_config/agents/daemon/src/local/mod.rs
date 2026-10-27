@@ -1,8 +1,8 @@
 //! The local git state of the managed repos: thin `git` and `git-spice` calls and pure parsers.
 
-use std::path::{Path, PathBuf};
 use std::io::Read;
 use std::os::unix::process::CommandExt;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -25,7 +25,7 @@ pub struct SharedRefs {
     pub origin_default: Option<String>,
 }
 
-fn git(folder: &Path, args: &[&str]) -> Result<String, String> {
+pub fn git(folder: &Path, args: &[&str]) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(folder)
@@ -81,7 +81,7 @@ pub fn repo_of(folder: &Path) -> Option<PathBuf> {
     worktrees.into_iter().next().map(|worktree| worktree.path)
 }
 
-/// A change of the key is a change of the stack, of the branch, or of the default branch.
+/// A new HEAD, branch, git-spice data, or `origin/HEAD` changes the key.
 pub fn worktree_key(worktree: &Worktree, refs: &SharedRefs) -> String {
     let text = |value: &Option<String>| value.clone().unwrap_or_default();
     format!(
@@ -153,7 +153,10 @@ pub fn fetch(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchEr
             Ok(None) => {
                 unsafe { libc::kill(-(child.id() as i32), libc::SIGKILL) };
                 let _ = child.wait();
-                return Err(FetchError::Network(format!("git fetch: timed out after {} s", timeout.as_secs())));
+                return Err(FetchError::Network(format!(
+                    "git fetch: timed out after {} s",
+                    timeout.as_secs()
+                )));
             }
             Err(error) => return Err(FetchError::Other(format!("git fetch: {error}"))),
         }
@@ -425,7 +428,10 @@ mod tests {
         let result = fetch(&clone, "main", Duration::from_secs(1));
 
         assert!(start.elapsed() < Duration::from_secs(5), "{:?}", start.elapsed());
-        assert!(matches!(&result, Err(FetchError::Network(text)) if text.contains("timed out")), "{result:?}");
+        assert!(
+            matches!(&result, Err(FetchError::Network(text)) if text.contains("timed out")),
+            "{result:?}"
+        );
     }
 
     #[test]

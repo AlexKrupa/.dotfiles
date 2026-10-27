@@ -33,7 +33,7 @@ enum Commands {
     },
     /// The daemon, the last poll of each repo, and the subscriptions.
     Status,
-    /// The kind of work of a herdr workspace: KIND [--workspace ID].
+    /// The kind of work of the worktree of the current folder: KIND.
     #[command(disable_help_flag = true)]
     Kind {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]

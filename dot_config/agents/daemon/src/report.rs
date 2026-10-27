@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use crate::core::items::{Item, Items, Owner, RoutedEvent};
+use crate::core::items::{Item, Items, Owner, RoutedEvent, is_pull_item};
 use crate::core::subs::Mode;
 use crate::engine::event::{Event, EventKind};
 use crate::platform::local_time;
@@ -171,14 +171,13 @@ pub fn build_report(
     let agent_items: Vec<Item> = updated
         .items
         .iter()
-        .filter(|item| agent.contains(&item.n.to_string()))
+        .filter(|item| agent.contains(&item.n.to_string()) && !is_pull_item(&item.item))
         .cloned()
         .collect();
     let mut state = updated.clone();
-    // Only a fast-forward of the managed loop closes a pull item.
     state.items.retain(|item| {
         let n = item.n.to_string();
-        item.item.starts_with("pull:") || (!agent.contains(&n) && !close.contains(&n))
+        is_pull_item(&item.item) || (!agent.contains(&n) && !close.contains(&n))
     });
     let mut new_items: Vec<u64> = Vec::new();
     let mut added_rows: Vec<Row> = Vec::new();
@@ -659,9 +658,29 @@ Add bar (!6)"
         };
         assign_rows(&mut items, vec![blocked], 100);
 
-        let (items, _) = build_report(&input(r#"{"close": ["1"], "agent": ["1"]}"#), &items, &[], &BTreeMap::new(), 200);
+        let (items, _) = build_report(
+            &input(r#"{"close": ["1"], "agent": ["1"]}"#),
+            &items,
+            &[],
+            &BTreeMap::new(),
+            200,
+        );
 
         assert_eq!(items.items.len(), 1, "only a fast-forward closes it");
+    }
+
+    #[test]
+    fn report_shows_a_pull_item_in_agent_one_time() {
+        let mut items = Items::default();
+        let blocked = Event {
+            item: Some("pull:main".to_string()),
+            ..Event::new(EventKind::PullBlocked, None, None, "", "", "changes", "main")
+        };
+        assign_rows(&mut items, vec![blocked], 100);
+
+        let (_, data) = build_report(&input(r#"{"agent": ["1"]}"#), &items, &[], &BTreeMap::new(), 200);
+
+        assert_eq!(data.rows.iter().filter(|row| row.n == 1).count(), 1);
     }
 
     #[test]

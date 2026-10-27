@@ -1,9 +1,11 @@
 //! Usage: watchd engine [--repo PATH] [--fresh] [--review] [--mr IID]... [--skip-mr IID]...
+//!        watchd engine --lookup BRANCH [--repo PATH]
 //! One check of the watch daemon. It prints one JSON line for each new event: kind, iid, title,
 //! url, actor, detail, branch. With no state file, the check only saves the state. A value that the
 //! saved state does not have gives no event at its first check.
 //! --fresh: delete the state file before the check.
 //! --skip-mr: hub mode, an MR with a review watch.
+//! --lookup: print the open MR of BRANCH, with no check.
 //! WATCH_MR_CACHE=DIR: a fetched MR goes to DIR/<project>-<iid>.json, and a later fetch of the MR
 //! reads it. Two clones with the same directory name share one DIR.
 //!
@@ -75,7 +77,6 @@ pub mod stack;
 pub mod state;
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
@@ -308,18 +309,9 @@ fn on_path(program: &str) -> bool {
 }
 
 fn git(repo: &Path, args: &[&str]) -> Option<String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(repo)
-        .args(args)
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .ok()?;
-    match output.status.success() {
-        true => Some(String::from_utf8_lossy(&output.stdout).trim_end().to_string()),
-        false => None,
-    }
+    crate::local::git(repo, args)
+        .ok()
+        .map(|text| text.trim_end().to_string())
 }
 
 fn git_ok(repo: &Path, args: &[&str]) -> bool {

@@ -1,5 +1,4 @@
-//! The watch daemon: one process for each machine, with one poll loop for each repo that has a live
-//! subscription.
+//! The watch daemon: one process for each machine, with one managed loop for each managed repo.
 
 pub mod store;
 
@@ -14,19 +13,20 @@ use std::time::Duration;
 use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
 use tokio::task::JoinHandle;
 
-use self::store::{Store, first_line};
-use crate::core::subs::{Mode, Agent};
+use self::store::{Store, first_line, is_worktree_key};
+use crate::core::subs::{Agent, Mode};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, lookup_branch, targets, top_branches};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
-use crate::key::repo_slug;
+use crate::key::{repo_slug, stack_key};
 use crate::local::{
-    FETCH_TIMEOUT, FetchError, conflict, fast_forward, fetch, list_worktrees, repo_of, shared_refs, spice_log, worktree_key,
+    FETCH_TIMEOUT, FetchError, conflict, fast_forward, fetch, list_worktrees, repo_of, shared_refs, spice_log,
+    worktree_key,
 };
 use crate::nap::{NapEnd, nap};
 use crate::paths::StateDirs;
-use crate::platform::{full_wake, now_seconds, online, shasum12};
+use crate::platform::{full_wake, now_seconds, online};
 
 const LOCK_FD: &str = "WATCHD_LOCK_FD";
 const SOCKET_FD: &str = "WATCHD_SOCKET_FD";
@@ -158,7 +158,8 @@ impl Daemon {
         }
     }
 
-    /// Returns true for a network error. An error ends the agent record of the key, if any.
+    /// Returns true for a network error. A permanent error, or 5 other errors in a row, ends the agent
+    /// record of the key, if any.
     async fn check(self: &Arc<Self>, target: Target, skip: Vec<u64>, cache: Arc<MrCache>) -> bool {
         let poke = self.lock().await.pokes.remove(&target.key).map(|(_, token)| token);
         let args = EngineArgs {
@@ -167,8 +168,7 @@ impl Daemon {
             review: target.mode == Mode::Review,
             mrs: match target.mode {
                 Mode::Hub => Vec::new(),
-                Mode::Stack => target.mrs.clone(),
-                Mode::Review => target.mrs.iter().take(1).copied().collect(),
+                Mode::Stack | Mode::Review => target.mrs.clone(),
             },
             skip_mrs: match target.mode {
                 Mode::Hub => skip,
@@ -189,6 +189,9 @@ impl Daemon {
                     false => self.store.route(&target, events, now_seconds()),
                 };
                 self.store.prune_items(&target);
+                if is_worktree_key(key) {
+                    self.store.write_needs(&target);
+                }
                 if self.store.end_mrs(&target, &routed) {
                     self.forget(&mut memory, key);
                 }
@@ -239,8 +242,8 @@ impl Daemon {
         self.store.live_subs(Some(slug))
     }
 
-    /// Two git calls for each repo. Only a worktree with a new key gets a git-spice call, so that an
-    /// error of git-spice is in the log one time for each key.
+    /// Two git calls for each repo. Only a worktree with a new key gets a git-spice call and the
+    /// conflict test, so that an error of these calls is in the log one time for each key.
     pub async fn local_round(&self) {
         let known: HashMap<PathBuf, WorktreeState> = self
             .store
@@ -276,7 +279,7 @@ impl Daemon {
                     }),
                 };
                 let mut state = WorktreeState::new(worktree.path, repo.clone(), worktree.branch, key, &branches);
-                if let (Some(_), Some(default)) = (&refs.origin_default, &refs.default_branch) {
+                if let Some(default) = &refs.default_branch {
                     // The top branch has the commits of all branches below it.
                     let tops = match state.stack.is_empty() {
                         true => state.branch.clone().into_iter().collect(),
@@ -304,7 +307,8 @@ impl Daemon {
         // The git calls ran with no lock: other writers can have changed the state since then.
         let memory = self.lock().await;
         for state in changed {
-            self.store.update_worktree(&state.path.clone(), |current| current.set_local(state));
+            self.store
+                .update_worktree(&state.path.clone(), |current| current.set_local(state));
         }
         for path in gone {
             self.store.remove_worktree(path);
@@ -319,11 +323,11 @@ impl Daemon {
     }
 
     /// 120 seconds while a hub of the repo is live, else 900.
-    async fn managed_interval(&self, slug: &str) -> u64 {
+    fn managed_interval(&self, agents: &[Agent]) -> u64 {
         if let Some(seconds) = self.managed_seconds {
             return seconds;
         }
-        let hub = self.live_subs(slug).await.iter().any(|sub| sub.mode == Mode::Hub);
+        let hub = agents.iter().any(|agent| agent.mode == Mode::Hub);
         if hub { 120 } else { 900 }
     }
 
@@ -364,7 +368,14 @@ impl Daemon {
                     item: Some(item),
                     ..Event::new(EventKind::PullBlocked, None, None, "", "", &text, default)
                 };
-                self.store.pull_blocked(slug, event);
+                let hub = Target {
+                    key: slug.to_string(),
+                    slug: slug.to_string(),
+                    mode: Mode::Hub,
+                    repo: repo.to_path_buf(),
+                    mrs: Vec::new(),
+                };
+                self.store.route(&hub, vec![event], now_seconds());
             }
         }
         drop(memory);
@@ -397,7 +408,7 @@ impl Daemon {
             .into_iter()
             .filter(|link| worktrees.iter().any(|state| state.path == link.worktree))
             .collect();
-        let key_of = |path: &Path| format!("{slug}-{}", shasum12(&path.to_string_lossy()).unwrap_or_default());
+        let key_of = |path: &Path| stack_key(slug, path).unwrap_or_default();
         let targets = targets(repo, slug, &worktrees, &own, &reviews, &agents, &key_of);
         let mut skip = Vec::new();
         for target in targets.iter().filter(|target| target.mode == Mode::Review) {
@@ -554,10 +565,8 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Ar
         let agents = daemon.live_subs(&slug).await;
         let interval = agents
             .iter()
-            .map(|sub| sub.interval)
-            .chain([daemon.managed_interval(&slug).await])
-            .min()
-            .unwrap_or(900);
+            .map(|agent| agent.interval)
+            .fold(daemon.managed_interval(&agents), u64::min);
         daemon
             .lock()
             .await

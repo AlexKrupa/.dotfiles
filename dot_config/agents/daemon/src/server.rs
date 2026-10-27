@@ -121,7 +121,7 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
                     .store
                     .live_subs(None)
                     .iter()
-                    .any(|sub| sub.repo.canonicalize().is_ok_and(|repo| repo == top));
+                    .any(|agent| agent.repo.canonicalize().is_ok_and(|repo| repo == top));
                 daemon.store.update_worktree(&top, |state| set_kind(state, kind, live));
                 daemon.changed.notify_waiters();
             }

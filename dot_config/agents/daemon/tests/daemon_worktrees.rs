@@ -16,15 +16,6 @@ fn repos(w: &Watchd) -> String {
     }
 }
 
-/// A `follow` client from the folder keeps the daemon up until the end of the test.
-fn follower(w: &Watchd, folder: &Path) -> Child {
-    let mut command = w.command();
-    command.current_dir(folder).arg("follow");
-    let (child, output) = w.spawn_logged(command, "follow.out");
-    wait_for(10, || std::fs::metadata(&output).is_ok_and(|meta| meta.len() > 0));
-    child
-}
-
 fn sidebar_lines(w: &Watchd) -> Vec<Value> {
     let text = std::fs::read_to_string(w.env.dir.join("follow.out")).unwrap_or_default();
     text.lines()
@@ -59,7 +50,7 @@ fn local_state() -> &'static Checks {
         let mut c = Checks::default();
         let wt = stacked_worktree(&w);
         w.env.fake_spice(&wt, STACK);
-        let follow = follower(&w, &w.env.dir);
+        let follow = w.follower(&w.env.dir);
         w.client_in(&wt, &["status"]);
 
         wait_for(5, || !w.worktree_state(&wt).is_null());
@@ -151,7 +142,7 @@ fn local_state_without_git_spice_data() {
         .git(&w.env.repo, &["worktree", "add", "-q", "-b", "b", wt.to_str().unwrap()]);
     let path = path_without_spice(&w);
     w.env.set_env("PATH", &path);
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&wt, &["status"]);
 
     wait_for(5, || !w.worktree_state(&wt).is_null());
@@ -178,7 +169,7 @@ fn local_state_uses_canonical_paths() {
         &w.env.repo,
         &["worktree", "add", "-q", "-b", "b", symlinked.to_str().unwrap()],
     );
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&symlinked, &["status"]);
 
     wait_for(5, || !w.worktree_state(&canonical).is_null());
@@ -192,7 +183,7 @@ fn client_folder() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let follow = follower(&w, &w.env.dir);
+        let follow = w.follower(&w.env.dir);
         c.check("client folder: a folder outside git adds nothing", "[]", repos(&w));
 
         w.client(&["status"]);
@@ -238,7 +229,7 @@ fn daemon_start_adds_the_repo_of_each_subscription() {
     });
     std::fs::write(w.watchd.join("subs/app.json"), sub.to_string()).unwrap();
 
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
 
     assert_eq!(repos(&w), json!([w.env.repo]).to_string());
     end(follow);
@@ -297,7 +288,7 @@ fn managed_loop() -> &'static Checks {
         w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
         let mut c = Checks::default();
         let (pusher, work) = origin(&w);
-        let follow = follower(&w, &w.env.dir);
+        let follow = w.follower(&w.env.dir);
         w.client_in(&work, &["status"]);
 
         push(&w, &pusher, "two");
@@ -349,7 +340,7 @@ fn managed_loop_without_origin_head() {
     w.env.git(&work, &["remote", "set-head", "origin", "-d"]);
     w.env.git(&work, &["update-ref", "refs/spice/data", "HEAD"]);
     w.env.fake_spice(&work, STACK);
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&work, &["status"]);
 
     wait_for(5, || !w.worktree_state(&work).is_null());
@@ -377,7 +368,7 @@ fn managed_loop_waits_for_the_network() {
         &["remote", "set-url", "origin", "https://unreachable.invalid/x.git"],
     );
     std::fs::write(w.env.dir.join("bin/nc"), "#!/bin/sh\nexit 1\n").unwrap();
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&work, &["status"]);
 
     wait_for(10, || w.log_count("network down") > 0);
@@ -392,7 +383,7 @@ fn managed_loop_waits_for_the_network() {
 fn managed_loop_wakes_for_a_new_hub() {
     let w = Watchd::new();
     let (pusher, work) = origin(&w);
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&work, &["status"]);
     wait_for(5, || w.log_count("managed loop start") > 0);
     sleep(2);
@@ -417,7 +408,7 @@ fn local_state_has_the_conflict_with_main() {
         .git(&work, &["worktree", "add", "-q", "-b", "b", wt.to_str().unwrap()]);
     std::fs::write(wt.join("f"), "branch\n").unwrap();
     w.env.git(&wt, &["commit", "-q", "-am", "branch"]);
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&wt, &["status"]);
     wait_for(5, || !w.worktree_state(&wt).is_null());
     let before = w.worktree_state(&wt)["conflict"].clone();
@@ -442,7 +433,7 @@ fn polled_worktree(w: &mut Watchd) -> (PathBuf, Child) {
     w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
     let wt = stacked_worktree(w);
     w.env.fake_spice(&wt, STACK);
-    let follow = follower(w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&wt, &["status"]);
     (wt, follow)
 }
@@ -489,7 +480,7 @@ fn poke_of_a_key_with_no_target_ends_with_the_round() {
     let w = Watchd::new();
     let wt = stacked_worktree(&w);
     w.env.fake_spice(&wt, STACK);
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&wt, &["status"]);
     wait_for(5, || !w.worktree_state(&wt).is_null());
 
@@ -563,8 +554,31 @@ fn hub_items() -> &'static Checks {
             "live hub: the event of a worktree with no agent wakes it, with the row of the hub item",
             format!("0 comment:2 {}", rows.join(" ")),
             run.map_or("still waits".to_string(), |run| {
-                format!("{} {} {}", run.code, support::each(&run.out, "item"), support::each(&run.out, "row"))
+                format!(
+                    "{} {} {}",
+                    run.code,
+                    support::each(&run.out, "item"),
+                    support::each(&run.out, "row")
+                )
             }),
+        );
+
+        let hub = w.start(w.watch_command(&[]));
+        sleep(2);
+        w.events(&key, &[support::daemon::ev("approved", 12)]);
+        sleep(4);
+        let waits = hub.running();
+        w.events(&key, &[comment(12, "comment:3")]);
+        let run = hub.wait(10);
+        c.check(
+            "live hub: an event of a worktree with no agent and no item does not wake it",
+            "true approved:0 comment:3",
+            format!(
+                "{waits} approved:{} {}",
+                run.as_ref()
+                    .map_or(0, |run| run.out.matches(r#""kind":"approved""#).count()),
+                run.map_or(String::new(), |run| support::each(&run.out, "item"))
+            ),
         );
         end(follow);
         c
@@ -584,6 +598,11 @@ fn new_hub_gets_the_open_items_first() {
 #[test]
 fn same_item_of_a_worktree_without_agent_is_one_hub_item() {
     hub_items().assert("no agent: the same item again is one hub item");
+}
+
+#[test]
+fn live_hub_gets_no_event_of_a_worktree_without_agent_and_item() {
+    hub_items().assert("live hub: an event of a worktree with no agent and no item does not wake it");
 }
 
 #[test]
@@ -608,7 +627,7 @@ fn worktree_agents() -> &'static Checks {
         w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
         let wt = stacked_worktree(&w);
         w.env.fake_spice(&wt, TWO_MRS);
-        let follow = follower(&w, &w.env.dir);
+        let follow = w.follower(&w.env.dir);
         w.client_in(&wt, &["status"]);
         let key = format!("app-{}", support::hash12(&wt));
         let in_wt = |args: &[&str]| {
@@ -656,6 +675,45 @@ fn old_watch_command_with_mr_still_works() {
     worktree_agents().assert("old watch command: --interval 1 --mr 12 gets the MR 12 event");
 }
 
+#[test]
+fn worktree_with_no_agent_keeps_the_needs_of_its_check() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    let wt = stacked_worktree(&w);
+    w.env.fake_spice(&wt, STACK);
+    let key = format!("app-{}", support::hash12(&wt));
+    w.fake(&key, "state", r#"{"needs": ["failed"], "present": []}"#);
+    let follow = w.follower(&w.env.dir);
+    w.client_in(&wt, &["status"]);
+
+    let expected = json!({key.as_str(): ["failed"]});
+    let found = wait_for(10, || w.worktree_state(&wt)["needs"] == expected);
+    end(follow);
+
+    assert!(found, "{}", w.worktree_state(&wt));
+    let sidebar = sidebar_lines(&w).pop().unwrap_or_default();
+    assert_eq!(sidebar["worktrees"][wt.to_str().unwrap()]["needs"], expected);
+}
+
+#[test]
+fn watch_with_no_mr_in_the_main_checkout_on_a_feature_branch_is_a_stack_watch() {
+    let w = Watchd::new();
+    w.env.commit(&w.env.repo, "one");
+    w.env
+        .git(&w.env.repo, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    w.env.git(
+        &w.env.repo,
+        &["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+    );
+    w.env.git(&w.env.repo, &["switch", "-q", "-c", "feature"]);
+
+    let _agent = w.start(w.watch_command(&[]));
+    let stack = wait_for(10, || w.has_sub(&w.stack_key()));
+
+    assert!(stack, "no stack record of the main checkout: {}", w.log());
+    assert!(!w.has_sub("app"), "a hub record of the main checkout");
+}
+
 fn reviews(w: &Watchd) -> Value {
     let path = w.watchd.join("reviews.json");
     match path.exists() {
@@ -680,7 +738,7 @@ fn review_link_stays_after_the_agent_ends() {
     let mut w = Watchd::new();
     w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
     let wr = review_worktree(&w, "r");
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     let key = format!("app-{}-review-20", support::hash12(&wr));
     let other = support::daemon::session();
     let mut agent = w.watch_command(&["--review", "--mr", "20", "--once"]);
@@ -709,7 +767,7 @@ fn lookup_links_a_worktree_with_no_mr() {
     w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
     let wb = review_worktree(&w, "b");
     std::fs::write(w.events.join("lookup-b"), "20\n").unwrap();
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&wb, &["status"]);
 
     wait_for(10, || reviews(&w) != json!([]));
@@ -731,7 +789,7 @@ fn lookup_links_a_worktree_with_no_mr() {
 fn follow_client_from_a_repo_adds_no_repo() {
     let w = Watchd::new();
 
-    let follow = follower(&w, &w.env.repo);
+    let follow = w.follower(&w.env.repo);
     sleep(2);
 
     assert_eq!(repos(&w), "[]");
@@ -742,7 +800,7 @@ fn follow_client_from_a_repo_adds_no_repo() {
 fn kind_is_kept_by_worktree_path() {
     let w = Watchd::new();
     let wt = stacked_worktree(&w);
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
 
     let run = w.client_in(&wt, &["kind", "review"]);
     wait_for(5, || {
@@ -764,7 +822,7 @@ fn local_round_keeps_a_kind_set_during_the_round() {
     let w = Watchd::new();
     let wt = stacked_worktree(&w);
     w.env.fake_spice(&wt, STACK);
-    let follow = follower(&w, &w.env.dir);
+    let follow = w.follower(&w.env.dir);
     w.client_in(&wt, &["status"]);
     wait_for(5, || !w.worktree_state(&wt)["key"].as_str().unwrap_or("").is_empty());
     std::fs::write(w.env.mock.join("spice-sleep"), "3").unwrap();

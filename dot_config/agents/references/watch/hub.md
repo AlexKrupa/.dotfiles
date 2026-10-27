@@ -2,8 +2,8 @@
 
 The role file of `hub`: the hub mode for the project of the repo. The watch finds to-do items, new
 MRs of other people, comments on MRs of other people, reactions on your comments in these MRs, and
-failed pipelines of the default branch. The hub has its own report, so the "MR events" part of
-`common.md` does not apply.
+failed pipelines of the default branch. It also gets the open items of own worktrees with no agent.
+The hub has its own report, so the "MR events" part of `common.md` does not apply.
 
 ## Start
 

@@ -27,8 +27,9 @@
 # script as a background task there.
 # Mode "existing" (--branch, from any worktree): fast-forwards the local branch NAME to origin, or
 # creates it from origin. Then the same as "new" mode. --no-track skips the git-spice tracking, for
-# the branch of another person. A worktree of NAME is used again. A workspace that is open already stops the script. --reset-local first moves
-# a local NAME to the origin tip, also in a worktree with no local changes. The local commits go.
+# the branch of another person. A worktree of NAME is used again. A workspace that is open already
+# stops the script. --reset-local first moves a local NAME to the origin tip, also in a worktree
+# with no local changes. The local commits go.
 # New and next mode set the kind `mine` of the new worktree with `watchd kind`. Existing mode does
 # not: the skill in the first prompt sets the kind.
 # In a nono sandbox, new and existing mode start the agent with bin/herdr-start-claude, and the

@@ -325,15 +325,6 @@ fn network_down_no_client_error_subscription_stays() {
     network_down().assert("network down: no client error, subscription stays");
 }
 
-/// A `follow` client from the folder of the test keeps the daemon up.
-fn start_daemon(w: &Watchd) -> std::process::Child {
-    let mut command = w.command();
-    command.current_dir(&w.env.dir).arg("follow");
-    let (child, output) = w.spawn_logged(command, "follow.out");
-    wait_for(10, || std::fs::metadata(&output).is_ok_and(|meta| meta.len() > 0));
-    child
-}
-
 #[test]
 fn version_1_state_converts_on_start() {
     let w = Watchd::new();
@@ -353,7 +344,7 @@ fn version_1_state_converts_on_start() {
     .unwrap();
     std::fs::write(w.watchd.join("workspaces/w2.json"), r#"{"version": 1, "kind": "hub"}"#).unwrap();
 
-    let follow = start_daemon(&w);
+    let follow = w.follower(&w.env.dir);
     wait_for(10, || w.worktree_state(&w.env.repo)["kind"] == "mine");
 
     assert_eq!(w.worktree_state(&w.env.repo)["kind"], "mine", "{}", w.log());
@@ -373,7 +364,7 @@ fn old_subscribe_message_is_read() {
     use std::io::{BufRead, Write};
     let w = Watchd::new();
     w.events("app", &[ev("todo", 5)]);
-    let follow = start_daemon(&w);
+    let follow = w.follower(&w.env.dir);
     let line = serde_json::json!({
         "type": "subscribe", "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub",
         "mrs": [], "interval": 1, "session_pid": w.session_pid(), "client_pid": std::process::id(),

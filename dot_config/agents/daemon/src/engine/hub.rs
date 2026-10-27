@@ -361,14 +361,7 @@ pub fn hub_compare(input: &HubInput, old: Option<&HubState>, reviewed: &[u64]) -
         default_pipeline: Some(default_pipeline),
         needs,
         present,
-        own_mrs: input
-            .own
-            .iter()
-            .map(|mr| OwnMr {
-                iid: mr.iid,
-                source_branch: mr.source_branch.clone(),
-            })
-            .collect(),
+        own_mrs: input.own.iter().map(|mr| OwnMr { iid: mr.iid }).collect(),
     };
     let events = match old {
         Some(old) => hub_events(input, old, &by, &notes_by, &reactions_by, &opened)

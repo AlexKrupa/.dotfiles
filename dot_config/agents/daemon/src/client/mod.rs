@@ -13,7 +13,7 @@ use crate::core::workspaces::Kind;
 use crate::daemon::store::Store;
 use crate::engine::mr_number;
 use crate::key::{KeyMode, repo_slug, watch_key, worktree_top};
-use crate::local::repo_of;
+use crate::local::{git, repo_of, shared_refs};
 use crate::paths::StateDirs;
 use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
 use crate::protocol::{Envelope, Request, Response, StatusReport, SubscribeArgs, receive, send};
@@ -76,10 +76,17 @@ struct Target {
     mode: Mode,
 }
 
-/// A linked worktree is not the first entry of the worktree list.
-fn is_linked_worktree(top: &Path) -> bool {
+/// A linked worktree is not the first entry of the worktree list. The main checkout has a stack on
+/// a branch that is not the default branch.
+fn has_stack(top: &Path) -> bool {
     let main = repo_of(top);
-    main.is_some() && main != top.canonicalize().ok()
+    if main.is_some() && main != top.canonicalize().ok() {
+        return true;
+    }
+    let branch = git(top, &["symbolic-ref", "--short", "-q", "HEAD"]).ok();
+    let branch = branch.as_deref().map(str::trim_end);
+    let default = shared_refs(top).default_branch;
+    branch.is_some() && default.is_some() && branch != default.as_deref()
 }
 
 fn target(args: &WatchArgs) -> Result<Target, String> {
@@ -99,11 +106,11 @@ fn target(args: &WatchArgs) -> Result<Target, String> {
     }
     let top = worktree_top(&repo)?;
     let slug = repo_slug(&repo)?;
-    // In a linked worktree, a watch with no `--mr` waits for the events of all MRs of the worktree.
+    // A stack watch with no `--mr` waits for the events of all MRs of the worktree.
     let mode = match (args.review, args.mrs.is_empty()) {
         (true, _) => Mode::Review,
         (false, false) => Mode::Stack,
-        (false, true) if is_linked_worktree(&top) => Mode::Stack,
+        (false, true) if has_stack(&top) => Mode::Stack,
         (false, true) => Mode::Hub,
     };
     let key_mode = match mode {
@@ -188,7 +195,6 @@ pub async fn watch(args: Vec<String>) -> i32 {
         interval: args.interval,
         session_pid,
         client_pid,
-        herdr_workspace: None,
         once: args.once,
         fresh: args.fresh,
         again: false,

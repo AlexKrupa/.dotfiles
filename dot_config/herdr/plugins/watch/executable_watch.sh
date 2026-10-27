@@ -69,17 +69,17 @@ notify() { # notify <log line>...
   done
 }
 
-# One call for each workspace, with its 5 tokens. An empty value clears the token.
-meta() { # meta <workspace id> <kind> <stage> <needs> <stack> <conflict>
-  local id=$1 pair args=()
-  for pair in "watch_kind=$2" "watch_stage=$3" "watch_needs=$4" "watch_stack=$5" \
-    "watch_conflict=$6"; do
-    if [ -n "${pair#*=}" ]; then
-      args+=(--token "$pair")
-    else
-      args+=(--clear-token "${pair%%=*}")
-    fi
-  done
+# The tokens of a workspace, all empty. An empty value clears the token.
+NO_TOKENS='{"watch_kind": "", "watch_stage": "", "watch_needs": "", "watch_stack": "",
+  "watch_conflict": ""}'
+
+# One call for each workspace, with all tokens of its value object.
+meta() { # meta <workspace id> <tokens json>
+  local id=$1 arg args=()
+  while IFS= read -r arg; do
+    args+=("$arg")
+  done < <(jq -r 'to_entries[]
+    | if .value != "" then "--token", "\(.key)=\(.value)" else "--clear-token", .key end' <<<"$2")
   herdr workspace report-metadata "$id" --source watch "${args[@]}" >/dev/null 2>&1
 }
 
@@ -95,7 +95,7 @@ FOLDERS_PROGRAM='
 
 # Writes the tokens that changed since the last write, only for the workspaces that herdr has.
 sidebar() { # sidebar <sidebar line>
-  local snapshot ids folders id desired changes kind stage needs stack conflict written=''
+  local snapshot ids folders id desired changes value written=''
   snapshot=$(herdr api snapshot 2>/dev/null)
   ids=$(jq -c '[.result.snapshot.workspaces[].workspace_id]' <<<"$snapshot" 2>/dev/null)
   [ -n "$ids" ] || return 0
@@ -103,21 +103,17 @@ sidebar() { # sidebar <sidebar line>
   desired=$(jq -c --argjson folders "$folders" '{worktrees, folders: $folders,
       subs: [.engine_needs as $needs | .subs[] | . + {needs: ($needs[.key] // [])}]}' <<<"$1" \
     | jq -c -f "$root/sidebar.jq") || return 0
-  changes=$(jq -r --argjson ids "$ids" --slurpfile cache "$state_dir/tokens.json" '
+  changes=$(jq -r --argjson ids "$ids" --argjson none "$NO_TOKENS" \
+    --slurpfile cache "$state_dir/tokens.json" '
     . as $desired | $cache[0] as $cache
     | ([$desired | keys[]] + [$cache | keys[]] | unique)[] | select(IN($ids[]))
-    | ($desired[.] // {watch_kind: "", watch_stage: "", watch_needs: "", watch_stack: "",
-        watch_conflict: ""}) as $value
+    | ($none + ($desired[.] // {})) as $value
     | select($value != $cache[.])
-    | [., $value.watch_kind, $value.watch_stage, $value.watch_needs, $value.watch_stack,
-        $value.watch_conflict]
-    | join("|")' <<<"$desired")
-  while IFS='|' read -r id kind stage needs stack conflict; do
+    | "\(.)\t\($value | tojson)"' <<<"$desired")
+  while IFS=$'\t' read -r id value; do
     [ -n "$id" ] || continue
-    if meta "$id" "$kind" "$stage" "$needs" "$stack" "$conflict"; then
-      written+=$(jq -nc --arg id "$id" --arg k "$kind" --arg s "$stage" --arg n "$needs" \
-        --arg t "$stack" --arg c "$conflict" '{($id): {watch_kind: $k, watch_stage: $s,
-          watch_needs: $n, watch_stack: $t, watch_conflict: $c}}')$'\n'
+    if meta "$id" "$value"; then
+      written+=$(jq -nc --arg id "$id" --argjson value "$value" '{($id): $value}')$'\n'
     fi
   done <<<"$changes"
   printf '%s' "$written" | jq -sc --argjson ids "$ids" --slurpfile cache "$state_dir/tokens.json" \

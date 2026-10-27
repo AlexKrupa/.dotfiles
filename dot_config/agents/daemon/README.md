@@ -2,7 +2,8 @@
 
 `watchd` keeps the local git state and the GitLab state of each managed repo and worktree, with or
 without an agent session. `watchd watch` waits, then prints the new GitLab events (comments, failed
-pipelines, approvals) as JSON lines. The build, the tests, and the exit codes are in the
+pipelines, approvals) as JSON lines. The conflict test needs git 2.38 or later
+(`git merge-tree --write-tree`). The build, the tests, and the exit codes are in the
 [main README](../README.md).
 
 ## Overview
@@ -133,7 +134,7 @@ flowchart TB
 - Check: after a permanent error, or after 5 other errors in a row, the check ends the agent record
   of its key.
 - Events: the events of a key with a live agent go to its inbox. The events of a key with no live
-  agent go to the hub as open items only.
+  agent go to the hub as open items. A live hub agent also gets the events that have an item.
 
 Each task takes the `memory` lock before it changes the state in memory or the state files. After
 each change, the task sends the `changed` signal, and the waiting connections read the files again.

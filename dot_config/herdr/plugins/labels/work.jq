@@ -17,10 +17,8 @@ def work_stage:
   elif .watch_kind and .watch_kind != "hub" and .watch_kind != "mine" then "started"
   else "" end;
 
-# The needs-you values, in priority order. Only a live watch knows them.
-def work_needs:
-  if work_stage == "watching" then .watch_needs // "" | split(",") | map(select(. != ""))
-  else [] end;
+# The needs-you values, in priority order.
+def work_needs: .watch_needs // "" | split(",") | map(select(. != ""));
 
 def work_words: {
   failed: "pipeline failed", conflict: "conflict", reply: "reply",

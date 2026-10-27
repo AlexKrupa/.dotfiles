@@ -38,16 +38,20 @@ pub fn worktree_top(repo: &Path) -> Result<PathBuf, String> {
 }
 
 /// The worktree hash keeps the key of a stack watch apart from the hub watch of the same repo.
+pub fn stack_key(slug: &str, top: &Path) -> Result<String, String> {
+    Ok(format!("{slug}-{}", shasum12(&top.to_string_lossy())?))
+}
+
+pub fn review_key(stack_key: &str, iid: u64) -> String {
+    format!("{stack_key}-review-{iid}")
+}
+
 pub fn watch_key(repo: &Path, mode: &KeyMode) -> Result<String, String> {
     let slug = repo_slug(repo)?;
-    let worktree = |slug: &str| -> Result<String, String> {
-        let top = worktree_top(repo)?;
-        Ok(format!("{slug}-{}", shasum12(&top.to_string_lossy())?))
-    };
     match mode {
         KeyMode::Hub => Ok(slug),
-        KeyMode::Stack => worktree(&slug),
-        KeyMode::Review { iid } => Ok(format!("{}-review-{iid}", worktree(&slug)?)),
+        KeyMode::Stack => stack_key(&slug, &worktree_top(repo)?),
+        KeyMode::Review { iid } => Ok(review_key(&stack_key(&slug, &worktree_top(repo)?)?, *iid)),
     }
 }
 
