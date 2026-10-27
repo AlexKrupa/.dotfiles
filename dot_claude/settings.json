@@ -203,15 +203,16 @@
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
+    "md-prompt@nogu66": false,
+    "nono@nolabs-ai": false,
     "skins@hellosverre-mods": true,
     "pyright-lsp@claude-plugins-official": false,
+    "rust-analyzer-lsp@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": false,
     "simple-english@simple-english": true,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false,
-    "md-prompt@nogu66": false,
-    "nono@nolabs-ai": false
+    "typescript-lsp@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "respawn-tools": {
