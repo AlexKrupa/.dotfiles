@@ -431,3 +431,269 @@ fn local_state_has_the_conflict_with_main() {
     assert_eq!(w.worktree_state(&wt)["conflict"], json!(["f"]), "{}", w.log());
     end(follow);
 }
+
+fn mr_lines(w: &Watchd, iid: u64) -> usize {
+    let flag = format!("--mr {iid}");
+    w.args().lines().filter(|line| line.contains(&flag)).count()
+}
+
+/// A worktree with the git-spice MR 12, a managed loop round each second, and no agent.
+fn polled_worktree(w: &mut Watchd) -> (PathBuf, Child) {
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    let wt = stacked_worktree(w);
+    w.env.fake_spice(&wt, STACK);
+    let follow = follower(w, &w.env.dir);
+    w.client_in(&wt, &["status"]);
+    (wt, follow)
+}
+
+#[test]
+fn polls_without_an_agent() {
+    let mut w = Watchd::new();
+    let (wt, follow) = polled_worktree(&mut w);
+
+    wait_for(10, || mr_lines(&w, 12) > 0);
+
+    let line = format!("--repo {} --mr 12", wt.display());
+    assert!(w.args().lines().any(|args| args == line), "{}", w.args());
+    end(follow);
+}
+
+#[test]
+fn polling_of_a_worktree_stops_after_merge() {
+    let mut w = Watchd::new();
+    let (wt, follow) = polled_worktree(&mut w);
+    let key = format!("app-{}", support::hash12(&wt));
+    wait_for(10, || mr_lines(&w, 12) > 0);
+
+    w.events(&key, &[support::daemon::ev("merged", 12)]);
+    wait_for(10, || w.worktree_state(&wt)["ended"] == json!([12]));
+    sleep(1);
+    w.clear_args();
+    sleep(3);
+
+    assert_eq!(mr_lines(&w, 12), 0, "{}", w.args());
+    let key = w.worktree_state(&wt)["key"].clone();
+    w.env.commit(&wt, "two");
+    wait_for(5, || w.worktree_state(&wt)["key"] != key);
+    assert_eq!(
+        w.worktree_state(&wt)["ended"],
+        json!([12]),
+        "a new key keeps the ended MRs"
+    );
+    end(follow);
+}
+
+#[test]
+fn poke_of_a_key_with_no_target_ends_with_the_round() {
+    let w = Watchd::new();
+    let wt = stacked_worktree(&w);
+    w.env.fake_spice(&wt, STACK);
+    let follow = follower(&w, &w.env.dir);
+    w.client_in(&wt, &["status"]);
+    wait_for(5, || !w.worktree_state(&wt).is_null());
+
+    let run = w.watch(&["--interval", "600", "--once", "--mr", "12"]);
+    let rounds = w.log_count("round done");
+    sleep(3);
+
+    assert_eq!(run.code, 0, "{}", run.err);
+    assert!(w.log_count("round done") <= rounds + 1, "{}", w.log_count("round done"));
+    end(follow);
+}
+
+fn comment(iid: u64, item: &str) -> String {
+    let line = support::daemon::ev("comment", iid);
+    format!("{},\"item\":\"{item}\"}}", &line[..line.len() - 1])
+}
+
+fn hub_items() -> &'static Checks {
+    static CHECKS: OnceLock<Checks> = OnceLock::new();
+    CHECKS.get_or_init(|| {
+        let mut w = Watchd::new();
+        let mut c = Checks::default();
+        let (wt, follow) = polled_worktree(&mut w);
+        let key = format!("app-{}", support::hash12(&wt));
+        wait_for(10, || mr_lines(&w, 12) > 0);
+
+        w.events(&key, &[comment(12, "comment:1")]);
+        wait_for(10, || items(&w, "app") == "comment:1");
+        let logged = std::fs::read_to_string(w.watchd.join("events.jsonl")).unwrap_or_default();
+        c.check(
+            "no agent: the event of a worktree is a hub item, not a hub inbox line",
+            format!("comment:1 [] 1"),
+            format!(
+                "{} [{}] {}",
+                items(&w, "app"),
+                w.inbox_of("app"),
+                logged.lines().filter(|line| line.contains(&key)).count()
+            ),
+        );
+
+        let run = w.watch(&[]);
+        c.check(
+            "new hub: the open items come first",
+            "0 comment:1",
+            format!("{} {}", run.code, support::each(&run.out, "item")),
+        );
+        end(follow);
+        c
+    })
+}
+
+#[test]
+fn events_of_a_worktree_without_agent_become_hub_items() {
+    hub_items().assert("no agent: the event of a worktree is a hub item, not a hub inbox line");
+}
+
+#[test]
+fn new_hub_gets_the_open_items_first() {
+    hub_items().assert("new hub: the open items come first");
+}
+
+const TWO_MRS: &str = r#"{"name":"main","ups":[{"name":"a"}]}
+{"name":"a","down":{"name":"main"},"ups":[{"name":"b"}],"change":{"id":"!12","url":"u"}}
+{"name":"b","current":true,"down":{"name":"a"},"change":{"id":"!13","url":"u"}}
+"#;
+
+fn pipeline(iid: u64) -> String {
+    support::daemon::ev("pipeline", iid)
+}
+
+fn worktree_agents() -> &'static Checks {
+    static CHECKS: OnceLock<Checks> = OnceLock::new();
+    CHECKS.get_or_init(|| {
+        let mut w = Watchd::new();
+        let mut c = Checks::default();
+        w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+        let wt = stacked_worktree(&w);
+        w.env.fake_spice(&wt, TWO_MRS);
+        let follow = follower(&w, &w.env.dir);
+        w.client_in(&wt, &["status"]);
+        let key = format!("app-{}", support::hash12(&wt));
+        let in_wt = |args: &[&str]| {
+            let mut command = w.watch_command(args);
+            command.current_dir(&wt);
+            command
+        };
+        let after_record = |args: &[&str], lines: &[String]| {
+            let agent = w.start(in_wt(args));
+            wait_for(10, || w.has_sub(&key));
+            w.events(&key, lines);
+            agent.wait(15).map_or("timeout".to_string(), |run| {
+                format!("{} {}", run.code, support::each(&run.out, "iid"))
+            })
+        };
+
+        c.check(
+            "linked worktree: a watch with no --mr gets the events of all its MRs",
+            "0 12 13",
+            after_record(&[], &[pipeline(12), pipeline(13)]),
+        );
+        c.check(
+            "linked worktree: --mr is a filter on the events",
+            "0 13",
+            after_record(&["--mr", "13"], &[pipeline(12), pipeline(13)]),
+        );
+        c.check(
+            "old watch command: --interval 1 --mr 12 gets the MR 12 event",
+            "0 12",
+            after_record(&["--mr", "12"], &[pipeline(12)]),
+        );
+        end(follow);
+        c
+    })
+}
+
+#[test]
+fn watch_in_a_linked_worktree_waits_for_its_mrs() {
+    worktree_agents().assert("linked worktree: a watch with no --mr gets the events of all its MRs");
+    worktree_agents().assert("linked worktree: --mr is a filter on the events");
+}
+
+#[test]
+fn old_watch_command_with_mr_still_works() {
+    worktree_agents().assert("old watch command: --interval 1 --mr 12 gets the MR 12 event");
+}
+
+fn reviews(w: &Watchd) -> Value {
+    let path = w.watchd.join("reviews.json");
+    match path.exists() {
+        true => support::read_json(&path)["reviews"].clone(),
+        false => json!([]),
+    }
+}
+
+/// A linked worktree `<dir>/<name>` on its own branch, with no git-spice data.
+fn review_worktree(w: &Watchd, name: &str) -> PathBuf {
+    let folder = w.env.dir.join(name);
+    w.env.commit(&w.env.repo, "one");
+    w.env.git(
+        &w.env.repo,
+        &["worktree", "add", "-q", "-b", name, folder.to_str().unwrap()],
+    );
+    folder
+}
+
+#[test]
+fn review_link_stays_after_the_agent_ends() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    let wr = review_worktree(&w, "r");
+    let follow = follower(&w, &w.env.dir);
+    let key = format!("app-{}-review-20", support::hash12(&wr));
+    let other = support::daemon::session();
+    let mut agent = w.watch_command(&["--review", "--mr", "20", "--once"]);
+    agent.current_dir(&wr).env("WATCH_SESSION_PID", other.id().to_string());
+    w.run(agent);
+    let linked = reviews(&w);
+
+    end(other);
+    wait_for(10, || !w.has_sub(&key));
+    w.clear_args();
+    sleep(3);
+    let line = format!("--repo {} --review --mr 20", wr.display());
+    let polled = w.args().lines().any(|args| args == line);
+    w.events(&key, &[support::daemon::ev("merged", 20)]);
+    wait_for(10, || reviews(&w) == json!([]));
+
+    assert_eq!(linked, json!([{"worktree": wr, "iid": 20}]));
+    assert!(polled, "{}", w.args());
+    assert_eq!(reviews(&w), json!([]), "a merged MR ends its link");
+    end(follow);
+}
+
+#[test]
+fn lookup_links_a_worktree_with_no_mr() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    let wb = review_worktree(&w, "b");
+    std::fs::write(w.events.join("lookup-b"), "20\n").unwrap();
+    let follow = follower(&w, &w.env.dir);
+    w.client_in(&wb, &["status"]);
+
+    wait_for(10, || reviews(&w) != json!([]));
+    sleep(3);
+
+    assert_eq!(reviews(&w), json!([{"worktree": wb, "iid": 20}]));
+    let line = format!("--repo {} --review --mr 20", wb.display());
+    assert!(w.args().lines().any(|args| args == line), "{}", w.args());
+    assert_eq!(
+        w.args().lines().filter(|args| *args == "lookup b").count(),
+        1,
+        "{}",
+        w.args()
+    );
+    end(follow);
+}
+
+#[test]
+fn follow_client_from_a_repo_adds_no_repo() {
+    let w = Watchd::new();
+
+    let follow = follower(&w, &w.env.repo);
+    sleep(2);
+
+    assert_eq!(repos(&w), "[]");
+    end(follow);
+}

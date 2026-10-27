@@ -9,10 +9,10 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
-use crate::core::items::{Item, Items, RoutedEvent, assign_rows, move_items, prune_items};
+use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
 use crate::core::subs::{Mode, Subscription, add_ended};
 use crate::core::workspaces::{Kind, Stage, Workspace};
-use crate::core::worktrees::{Repos, WorktreeState};
+use crate::core::worktrees::{Repos, ReviewLink, Reviews, Target, WorktreeState};
 use crate::engine::event::{Event, EventKind};
 use crate::paths::StateDirs;
 use crate::persist::{Load, load, save};
@@ -190,6 +190,30 @@ impl Store {
         gone
     }
 
+    pub fn reviews(&self) -> Vec<ReviewLink> {
+        let reviews: Option<Reviews> = self.read_json(&self.dirs.reviews()).ok().flatten();
+        reviews.unwrap_or_default().reviews
+    }
+
+    pub fn write_reviews(&self, reviews: Vec<ReviewLink>) {
+        if let Err(error) = save(&self.dirs.reviews(), &Reviews { reviews }) {
+            self.log("", "", &format!("reviews not written: {error}"));
+        }
+    }
+
+    pub fn add_review(&self, link: ReviewLink) {
+        let mut reviews = self.reviews();
+        if !reviews.contains(&link) {
+            self.log(
+                "",
+                "",
+                &format!("review link: {} !{}", link.worktree.display(), link.iid),
+            );
+            reviews.push(link);
+            self.write_reviews(reviews);
+        }
+    }
+
     pub fn worktrees(&self) -> Vec<WorktreeState> {
         let states: BTreeMap<String, WorktreeState> = self.json_files(&self.dirs.watchd.join("worktrees"), ".json");
         states.into_values().collect()
@@ -217,6 +241,35 @@ impl Store {
 
     fn inbox_has_events(&self, key: &str) -> bool {
         std::fs::metadata(self.dirs.inbox(key)).is_ok_and(|meta| meta.len() > 0)
+    }
+
+    /// The events of the MRs in `mrs`, or all events for an empty list. The other events stay.
+    pub fn take_inbox_of(&self, key: &str, mrs: &[u64]) -> Vec<RoutedEvent> {
+        let events = self.take_inbox(key);
+        if mrs.is_empty() {
+            return events;
+        }
+        let (taken, kept): (Vec<RoutedEvent>, Vec<RoutedEvent>) = events
+            .into_iter()
+            .partition(|event| event.event.iid.is_some_and(|iid| mrs.contains(&iid)));
+        self.put_back_inbox(key, &kept);
+        taken
+    }
+
+    /// The saved event of each open daemon item, for the first delivery of a new hub.
+    pub fn open_events(&self, key: &str) -> Vec<RoutedEvent> {
+        let items: Items = self.read_json(&self.dirs.items(key)).ok().flatten().unwrap_or_default();
+        items
+            .items
+            .into_iter()
+            .filter(|item| item.owner == Owner::Daemon)
+            .filter_map(|item| {
+                Some(RoutedEvent {
+                    event: item.event?,
+                    row: item.n,
+                })
+            })
+            .collect()
     }
 
     pub fn take_inbox(&self, key: &str) -> Vec<RoutedEvent> {
@@ -304,7 +357,7 @@ impl Store {
         let _ = save(&path, &workspace);
     }
 
-    fn engine_value(&self, key: &str) -> Option<serde_json::Value> {
+    pub fn engine_value(&self, key: &str) -> Option<serde_json::Value> {
         self.read_json(&self.dirs.engine_state(key)).ok().flatten()
     }
 
@@ -400,9 +453,11 @@ impl Store {
         }
     }
 
-    pub fn route(&self, sub: &Subscription, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
+    /// A live agent of the key gets the events in its inbox. With no live agent, the items of a
+    /// worktree key move to the hub, and the events go to the event log only.
+    pub fn route(&self, target: &Target, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
         let count = events.len();
-        let path = self.dirs.items(&sub.key);
+        let path = self.dirs.items(&target.key);
         let routed = match self.read_json::<Items>(&path) {
             Ok(items) => {
                 let mut items = items.unwrap_or_default();
@@ -412,17 +467,21 @@ impl Store {
             }
             // The engine saved its state already: events that do not go out now are lost.
             Err(_) => {
-                self.log(&sub.slug, &sub.key, "no rows: the items file is not readable");
+                self.log(&target.slug, &target.key, "no rows: the items file is not readable");
                 assign_rows(&mut Items::default(), events, now)
             }
         };
         let lines = routed
             .iter()
-            .map(|event| LogLine::Event(event_line(&sub.slug, &sub.key, sub.mode, now, event.clone())))
+            .map(|event| LogLine::Event(event_line(&target.slug, &target.key, target.mode, now, event.clone())))
             .collect();
         self.event_log(lines);
-        self.append_lines(&self.dirs.inbox(&sub.key), &routed);
-        self.log(&sub.slug, &sub.key, &format!("routed {count} event(s)"));
+        match (self.live_agent(&target.key), target.mode) {
+            (true, _) => self.append_lines(&self.dirs.inbox(&target.key), &routed),
+            (false, Mode::Stack | Mode::Review) => self.move_items(&target.key, &target.slug, None),
+            (false, Mode::Hub) => {}
+        }
+        self.log(&target.slug, &target.key, &format!("routed {count} event(s)"));
         routed
     }
 
@@ -465,40 +524,76 @@ impl Store {
         }
     }
 
-    pub fn prune_items(&self, sub: &Subscription) {
-        let path = self.dirs.items(&sub.key);
-        let Ok(Some(mut items)) = self.read_json::<Items>(&path) else {
-            return;
-        };
+    pub fn prune_items(&self, target: &Target) {
         let strings = |value: &serde_json::Value| -> Option<Vec<String>> {
             value
                 .as_array()
                 .map(|list| list.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
         };
         let Some(present) = self
-            .engine_value(&sub.key)
+            .engine_value(&target.key)
             .and_then(|engine| strings(&engine["present"]))
         else {
             return;
         };
-        let hub = match sub.mode {
-            Mode::Hub => None,
-            Mode::Stack | Mode::Review => self
-                .engine_value(&sub.slug)
-                .and_then(|engine| strings(&engine["present"])),
-        };
-        prune_items(&mut items, &present, hub.as_deref(), sub.mode);
-        let _ = save(&path, &items);
+        let path = self.dirs.items(&target.key);
+        if let Ok(Some(mut items)) = self.read_json::<Items>(&path) {
+            let hub = match target.mode {
+                Mode::Hub => None,
+                Mode::Stack | Mode::Review => self
+                    .engine_value(&target.slug)
+                    .and_then(|engine| strings(&engine["present"])),
+            };
+            prune_items(&mut items, &present, hub.as_deref(), target.mode);
+            let _ = save(&path, &items);
+        }
+        if target.mode == Mode::Hub {
+            return;
+        }
+        let hub_path = self.dirs.items(&target.slug);
+        if let Ok(Some(mut hub_items)) = self.read_json::<Items>(&hub_path) {
+            prune_moved(&mut hub_items, &target.mrs, &present);
+            let _ = save(&hub_path, &hub_items);
+        }
     }
 
-    pub fn end_mrs(&self, key: &str, routed: &[RoutedEvent]) -> bool {
-        let ended = routed
+    pub fn live_agent(&self, key: &str) -> bool {
+        self.sub(key).is_some_and(|sub| process_alive(sub.session_pid))
+    }
+
+    /// The merged and closed MRs leave the polling of the worktree. Returns true if this ended
+    /// the agent record of the key.
+    pub fn end_mrs(&self, target: &Target, routed: &[RoutedEvent]) -> bool {
+        let ended: Vec<u64> = routed
             .iter()
-            .any(|event| matches!(event.event.kind, EventKind::Merged | EventKind::Closed));
-        let Some(mut sub) = self.sub(key).filter(|_| ended) else {
+            .filter(|event| matches!(event.event.kind, EventKind::Merged | EventKind::Closed))
+            .filter_map(|event| event.event.iid)
+            .collect();
+        if ended.is_empty() {
+            return false;
+        }
+        if target.mode == Mode::Review {
+            let reviews = self.reviews();
+            let kept: Vec<ReviewLink> = reviews
+                .iter()
+                .filter(|link| link.worktree != target.repo || !ended.contains(&link.iid))
+                .cloned()
+                .collect();
+            if kept.len() < reviews.len() {
+                self.write_reviews(kept);
+            }
+        }
+        let worktree = self.worktrees().into_iter().find(|state| state.path == target.repo);
+        if let Some(mut state) = worktree.filter(|_| target.mode == Mode::Stack) {
+            state.ended.extend(&ended);
+            state.ended.sort_unstable();
+            state.ended.dedup();
+            self.write_worktree(&state);
+        }
+        let Some(mut sub) = self.sub(&target.key) else {
             return false;
         };
-        let all = add_ended(&mut sub, routed);
+        let all = add_ended(&mut sub, routed, &target.mrs);
         self.write_sub(&sub);
         if all {
             self.remove_record(&sub, ALL_ENDED, None);

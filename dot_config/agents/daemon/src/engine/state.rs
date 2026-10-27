@@ -45,6 +45,15 @@ pub struct HubState {
     pub needs: Vec<Need>,
     #[serde(default)]
     pub present: Vec<String>,
+    /// The open MRs of the user, for the polling of an MR with no worktree.
+    #[serde(default)]
+    pub own_mrs: Vec<OwnMr>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct OwnMr {
+    pub iid: u64,
+    pub source_branch: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

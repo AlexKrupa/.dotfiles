@@ -70,6 +70,7 @@ pub mod event;
 #[cfg(feature = "test-support")]
 pub mod fake;
 pub mod hub;
+pub mod lookup;
 pub mod stack;
 pub mod state;
 
@@ -91,6 +92,10 @@ pub struct EngineArgs {
     pub review: bool,
     pub mrs: Vec<u64>,
     pub skip_mrs: Vec<u64>,
+    /// The key of the engine state, from the daemon. With no key, the repo and the mode give it.
+    pub key: Option<String>,
+    /// A branch: the run prints the number of its open MR, and makes no check.
+    pub lookup: Option<String>,
 }
 
 impl EngineArgs {
@@ -110,6 +115,7 @@ impl EngineArgs {
                     .skip_mrs
                     .push(mr_number(args.next()).ok_or("--skip-mr needs an MR number")?),
                 "--review" => parsed.review = true,
+                "--lookup" => parsed.lookup = Some(args.next().ok_or("--lookup needs a branch")?),
                 "--fresh" => parsed.fresh = true,
                 _ => return Err(format!("unexpected argument: {arg}")),
             }
@@ -183,8 +189,13 @@ pub struct CheckContext {
 
 pub type EngineFuture<'a> = std::pin::Pin<Box<dyn Future<Output = Result<Vec<Event>, EngineError>> + Send + 'a>>;
 
+pub type LookupFuture<'a> = std::pin::Pin<Box<dyn Future<Output = Result<Option<u64>, EngineError>> + Send + 'a>>;
+
 pub trait Engine: Send + Sync {
     fn check(&self, args: EngineArgs, cache: Arc<MrCache>) -> EngineFuture<'_>;
+
+    /// The open MR of the branch.
+    fn lookup(&self, repo: PathBuf, branch: String) -> LookupFuture<'_>;
 }
 
 pub struct GitlabEngine {
@@ -207,6 +218,10 @@ impl Engine for GitlabEngine {
                 }
             })
         })
+    }
+
+    fn lookup(&self, repo: PathBuf, branch: String) -> LookupFuture<'_> {
+        Box::pin(async move { lookup::lookup_mr(&repo, &branch).await })
     }
 }
 
@@ -252,7 +267,10 @@ pub async fn preflight(
     if !git_ok(&repo, &["rev-parse", "--git-dir"]) {
         return Err(other(format!("not a git repo: {}", shown.display())));
     }
-    let key = watch_key(&repo, &args.key_mode()).map_err(other)?;
+    let key = match &args.key {
+        Some(key) => key.clone(),
+        None => watch_key(&repo, &args.key_mode()).map_err(other)?,
+    };
     let state = dirs.engine_state(&key);
     std::fs::create_dir_all(&dirs.engine).map_err(|error| other(format!("{}: {error}", dirs.engine.display())))?;
     let authenticated = glab::run(&repo, &["auth", "status"])
@@ -441,6 +459,26 @@ pub async fn run_check(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
 
 pub async fn main(args: Vec<String>) -> i32 {
     let result = match EngineArgs::parse(args) {
+        Ok(EngineArgs {
+            lookup: Some(branch),
+            repo,
+            ..
+        }) => {
+            let current = std::env::current_dir().unwrap_or_default();
+            let repo = repo.map_or(current.clone(), |repo| current.join(repo));
+            return match lookup::lookup_mr(&repo, &branch).await {
+                Ok(iid) => {
+                    if let Some(iid) = iid {
+                        println!("{iid}");
+                    }
+                    0
+                }
+                Err(error) => {
+                    eprintln!("watchd: {}", error.message());
+                    error.exit_code()
+                }
+            };
+        }
         Ok(args) => {
             let cache = std::env::var_os("WATCH_MR_CACHE").filter(|dir| !dir.is_empty());
             let cache = cache.map(|dir| Arc::new(MrCache::new(PathBuf::from(dir))));

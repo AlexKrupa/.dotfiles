@@ -13,6 +13,7 @@ use tokio::net::{UnixListener, UnixStream};
 use crate::core::eventlog::{LogLine, id_of, route_line};
 use crate::core::subs::Mode;
 use crate::core::workspaces::set_kind;
+use crate::core::worktrees::ReviewLink;
 use crate::daemon::{Daemon, Memory};
 use crate::local::repo_of;
 use crate::platform::{now_seconds, process_alive};
@@ -46,6 +47,8 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
             return;
         }
     };
+    // A follower reads all state and uses no repo.
+    let folder = folder.filter(|_| !matches!(request, Request::Follow { .. }));
     if let Some(repo) = folder.as_deref().and_then(repo_of) {
         let _memory = daemon.lock().await;
         daemon.store.add_repo(&repo);
@@ -157,8 +160,9 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
     let _ = send(&mut write, &response).await;
 }
 
-/// Returns `None` while the client waits.
-fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs) -> Option<Response> {
+/// Returns `None` while the client waits. `new` is a hub with no record before this client: it gets
+/// the open items of the hub when its inbox is empty.
+fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs, new: bool) -> Option<Response> {
     let key = args.key.as_str();
     let sub = daemon.store.sub(key);
     if let Some(text) = daemon.store.take_error(key) {
@@ -173,7 +177,14 @@ fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs) -> Option<Re
     // With `--once`, a check that started before the poke of the client does not count.
     let own_round = memory.poked.get(key) == Some(&args.poke_token);
     if !args.once || ended || own_round {
-        let events = daemon.store.take_inbox(key);
+        let filter = match args.mode {
+            Mode::Stack => args.mrs.as_slice(),
+            Mode::Hub | Mode::Review => &[],
+        };
+        let mut events = daemon.store.take_inbox_of(key, filter);
+        if events.is_empty() && new && args.mode == Mode::Hub {
+            events = daemon.store.open_events(key);
+        }
         if !events.is_empty() || (args.once && own_round) {
             daemon.store.write_last(key, &events);
             return Some(Response::Events { events });
@@ -188,11 +199,9 @@ async fn subscribe(
     mut reader: BufReader<tokio::net::unix::OwnedReadHalf>,
     mut write: tokio::net::unix::OwnedWriteHalf,
 ) {
-    let hub_repo = match args.mode {
-        Mode::Hub => repo_of(&args.repo),
-        Mode::Stack | Mode::Review => None,
-    };
-    {
+    // `--repo` can name a repo other than the folder of the client.
+    let repo = repo_of(&args.repo);
+    let new = {
         let mut memory = daemon.lock().await;
         if args.fresh {
             let _ = std::fs::remove_file(daemon.store.dirs.engine_state(&args.key));
@@ -211,16 +220,18 @@ async fn subscribe(
         let ended_with_result = old.is_none() && daemon.store.ended_with_result(&args.key, args.session_pid);
         if !ended_with_result && daemon.store.subscribe(&args, old.as_ref(), now_seconds()) {
             daemon.poke(&mut memory, &args.key, &args.slug, &args.poke_token);
-            // A new hub gets the interval of a live hub at once.
-            if let Some(repo) = &hub_repo {
-                daemon.wake_managed(&memory, repo);
-            }
         }
         memory.clients.insert(args.key.clone(), args.client_pid);
-        if !daemon.stopping() && process_alive(args.session_pid) {
-            daemon.ensure_repo(&mut memory, &args.slug);
+        if let Some(repo) = repo.filter(|_| !daemon.stopping()) {
+            daemon.store.add_repo(&repo);
+            daemon.ensure_managed(&mut memory, &repo);
         }
-    }
+        // The polling of a reviewed MR goes on after the agent ends.
+        if let (Mode::Review, Some(iid), Ok(worktree)) = (args.mode, args.mrs.first(), args.repo.canonicalize()) {
+            daemon.store.add_review(ReviewLink { worktree, iid: *iid });
+        }
+        old.is_none()
+    };
     daemon.changed.notify_waiters();
     let mut line = String::new();
     let (response, delivering) = loop {
@@ -230,7 +241,7 @@ async fn subscribe(
         let delivering = daemon.delivering.read().await;
         let answer = {
             let memory = daemon.lock().await;
-            delivery(&daemon, &memory, &args)
+            delivery(&daemon, &memory, &args, new)
         };
         if let Some(answer) = answer {
             break (Some(answer), Some(delivering));

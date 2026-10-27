@@ -16,8 +16,9 @@ use tokio::task::JoinHandle;
 
 use self::store::{Store, first_line};
 use crate::core::subs::{Mode, Subscription};
-use crate::core::worktrees::{WorktreeState, top_branches};
+use crate::core::worktrees::{ReviewLink, Target, WorktreeState, lookup_branch, targets, top_branches};
 use crate::engine::event::{Event, EventKind};
+use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
 use crate::key::repo_slug;
 use crate::local::{
@@ -25,7 +26,7 @@ use crate::local::{
 };
 use crate::nap::{NapEnd, nap};
 use crate::paths::StateDirs;
-use crate::platform::{full_wake, now_seconds, online};
+use crate::platform::{full_wake, now_seconds, online, shasum12};
 
 const LOCK_FD: &str = "WATCHD_LOCK_FD";
 const SOCKET_FD: &str = "WATCHD_SOCKET_FD";
@@ -80,14 +81,14 @@ pub struct Memory {
     pub next_round: BTreeMap<String, i64>,
     /// The daemon does not exit while a `follow` client is connected.
     pub followers: usize,
-    repos: HashMap<String, RepoTask>,
-    managed: HashMap<PathBuf, RepoTask>,
+    managed: HashMap<PathBuf, ManagedTask>,
     pub clients: HashMap<String, u32>,
 }
 
-struct RepoTask {
+struct ManagedTask {
     handle: JoinHandle<()>,
     wake: Arc<Notify>,
+    slug: String,
 }
 
 impl Daemon {
@@ -103,8 +104,8 @@ impl Daemon {
         memory
             .pokes
             .insert(key.to_string(), (slug.to_string(), token.to_string()));
-        if let Some(task) = memory.repos.get(slug) {
-            task.wake.notify_waiters();
+        for task in memory.managed.values().filter(|task| task.slug == slug) {
+            task.wake.notify_one();
         }
     }
 
@@ -115,29 +116,28 @@ impl Daemon {
         memory.fails.remove(key);
     }
 
-    pub fn ensure_repo(self: &Arc<Self>, memory: &mut Memory, slug: &str) {
-        if self.stopping() || memory.repos.get(slug).is_some_and(|task| !task.handle.is_finished()) {
-            return;
-        }
-        let wake = Arc::new(Notify::new());
-        let handle = tokio::spawn(repo_loop(self.clone(), slug.to_string(), wake.clone()));
-        memory.repos.insert(slug.to_string(), RepoTask { handle, wake });
-    }
-
     pub fn ensure_managed(self: &Arc<Self>, memory: &mut Memory, repo: &Path) {
         if self.stopping() || memory.managed.get(repo).is_some_and(|task| !task.handle.is_finished()) {
             return;
         }
+        let slug = match repo_slug(repo) {
+            Ok(slug) => slug,
+            Err(text) => {
+                self.store
+                    .log("", "", &format!("no managed loop for {}: {text}", repo.display()));
+                return;
+            }
+        };
         let wake = Arc::new(Notify::new());
-        let handle = tokio::spawn(managed_loop(self.clone(), repo.to_path_buf(), wake.clone()));
-        memory.managed.insert(repo.to_path_buf(), RepoTask { handle, wake });
-    }
-
-    /// A wake that comes during a round starts the next round at once.
-    pub fn wake_managed(&self, memory: &Memory, repo: &Path) {
-        if let Some(task) = memory.managed.get(repo) {
-            task.wake.notify_one();
-        }
+        let handle = tokio::spawn(managed_loop(
+            self.clone(),
+            repo.to_path_buf(),
+            slug.clone(),
+            wake.clone(),
+        ));
+        memory
+            .managed
+            .insert(repo.to_path_buf(), ManagedTask { handle, wake, slug });
     }
 
     fn begin_stop(&self) {
@@ -158,36 +158,38 @@ impl Daemon {
         }
     }
 
-    /// Returns true for a network error.
-    async fn check(self: &Arc<Self>, sub: Subscription, skip: Vec<u64>, cache: Arc<MrCache>) -> bool {
-        let poke = self.lock().await.pokes.remove(&sub.key).map(|(_, token)| token);
+    /// Returns true for a network error. An error ends the agent record of the key, if any.
+    async fn check(self: &Arc<Self>, target: Target, skip: Vec<u64>, cache: Arc<MrCache>) -> bool {
+        let poke = self.lock().await.pokes.remove(&target.key).map(|(_, token)| token);
         let args = EngineArgs {
-            repo: Some(sub.repo.clone()),
+            repo: Some(target.repo.clone()),
             fresh: false,
-            review: sub.mode == Mode::Review,
-            mrs: match sub.mode {
+            review: target.mode == Mode::Review,
+            mrs: match target.mode {
                 Mode::Hub => Vec::new(),
-                Mode::Stack => sub.mrs.clone(),
-                Mode::Review => sub.mrs.iter().take(1).copied().collect(),
+                Mode::Stack => target.mrs.clone(),
+                Mode::Review => target.mrs.iter().take(1).copied().collect(),
             },
-            skip_mrs: match sub.mode {
+            skip_mrs: match target.mode {
                 Mode::Hub => skip,
                 Mode::Stack | Mode::Review => Vec::new(),
             },
+            key: Some(target.key.clone()),
+            lookup: None,
         };
         let result = self.engine.check(args, cache).await;
         let mut memory = self.lock().await;
-        let (slug, key) = (sub.slug.as_str(), sub.key.as_str());
+        let (slug, key) = (target.slug.as_str(), target.key.as_str());
         let mut network = false;
         match result {
             Ok(events) => {
                 memory.fails.remove(key);
                 let routed = match events.is_empty() {
                     true => Vec::new(),
-                    false => self.store.route(&sub, events, now_seconds()),
+                    false => self.store.route(&target, events, now_seconds()),
                 };
-                self.store.prune_items(&sub);
-                if self.store.end_mrs(key, &routed) {
+                self.store.prune_items(&target);
+                if self.store.end_mrs(&target, &routed) {
                     self.forget(&mut memory, key);
                 }
             }
@@ -274,6 +276,10 @@ impl Daemon {
                     }),
                 };
                 let mut state = WorktreeState::new(worktree.path, repo.clone(), worktree.branch, key, &branches);
+                if let Some(old) = known.get(&state.path) {
+                    state.ended.clone_from(&old.ended);
+                    state.lookup_branch.clone_from(&old.lookup_branch);
+                }
                 if let (Some(_), Some(default)) = (&refs.origin_default, &refs.default_branch) {
                     // The top branch has the commits of all branches below it.
                     let tops = match state.stack.is_empty() {
@@ -368,123 +374,131 @@ impl Daemon {
         self.changed.notify_waiters();
     }
 
-    /// Returns false if the loop must stop.
-    async fn wait_online(&self, slug: &str, host: Option<&str>) -> bool {
-        while !online(host).await {
-            self.sleep_or_stop(10).await;
-            if self.stopping() || self.live_subs(slug).await.is_empty() {
-                return false;
-            }
+    /// The targets of one round, and the review MRs that the hub check skips. The items of a review
+    /// MR move from the hub to the review key of a live agent.
+    async fn round_targets(&self, repo: &Path, slug: &str) -> (Vec<Target>, Vec<u64>) {
+        let _memory = self.lock().await;
+        let worktrees: Vec<WorktreeState> = self
+            .store
+            .worktrees()
+            .into_iter()
+            .filter(|state| state.repo == repo)
+            .collect();
+        let own: Vec<OwnMr> = self
+            .store
+            .engine_value(slug)
+            .and_then(|engine| serde_json::from_value(engine["own_mrs"].clone()).ok())
+            .unwrap_or_default();
+        let agents = self.store.live_subs(Some(slug));
+        let all_reviews = self.store.reviews();
+        let (kept, gone): (Vec<ReviewLink>, Vec<ReviewLink>) =
+            all_reviews.into_iter().partition(|link| link.worktree.is_dir());
+        if !gone.is_empty() {
+            self.store.write_reviews(kept.clone());
         }
-        true
-    }
-}
-
-async fn repo_loop(daemon: Arc<Daemon>, slug: String, wake: Arc<Notify>) {
-    daemon.store.log(&slug, "", "repo loop start");
-    loop {
-        if daemon.stopping() {
-            break;
-        }
-        let subs = daemon.live_subs(&slug).await;
-        if subs.is_empty() {
-            break;
-        }
+        let reviews: Vec<ReviewLink> = kept
+            .into_iter()
+            .filter(|link| worktrees.iter().any(|state| state.path == link.worktree))
+            .collect();
+        let key_of = |path: &Path| format!("{slug}-{}", shasum12(&path.to_string_lossy()).unwrap_or_default());
+        let targets = targets(repo, slug, &worktrees, &own, &reviews, &agents, &key_of);
         let mut skip = Vec::new();
-        {
-            let _memory = daemon.lock().await;
-            for sub in subs.iter().filter(|sub| sub.mode == Mode::Review) {
-                if let Some(iid) = sub.mrs.first() {
-                    skip.push(*iid);
-                    daemon.store.move_items(&slug, &sub.key, Some(*iid));
-                }
+        for target in targets.iter().filter(|target| target.mode == Mode::Review) {
+            skip.extend(&target.mrs);
+            if self.store.live_agent(&target.key) {
+                self.store.move_items(slug, &target.key, target.mrs.first().copied());
             }
         }
+        (targets, skip)
+    }
+
+    /// One read-only GitLab call for each new branch of a worktree with no MR. A found MR becomes a
+    /// review link.
+    async fn lookups(&self, repo: &Path, slug: &str, default: Option<&str>) {
+        let (states, reviews) = {
+            let _memory = self.lock().await;
+            let states: Vec<WorktreeState> = self
+                .store
+                .worktrees()
+                .into_iter()
+                .filter(|state| state.repo == repo)
+                .collect();
+            (states, self.store.reviews())
+        };
+        for state in &states {
+            let Some(branch) = lookup_branch(state, default, &reviews) else {
+                continue;
+            };
+            let result = self.engine.lookup(state.path.clone(), branch.to_string()).await;
+            let _memory = self.lock().await;
+            let iid = match result {
+                Ok(iid) => iid,
+                Err(error) => {
+                    self.store.log(
+                        slug,
+                        "",
+                        &format!("lookup of {branch}: {}", first_line(&error.message())),
+                    );
+                    continue;
+                }
+            };
+            let current = self
+                .store
+                .worktrees()
+                .into_iter()
+                .find(|known| known.path == state.path);
+            if let Some(mut current) = current {
+                current.lookup_branch = Some(branch.to_string());
+                self.store.write_worktree(&current);
+            }
+            if let Some(iid) = iid {
+                self.store.add_review(ReviewLink {
+                    worktree: state.path.clone(),
+                    iid,
+                });
+            }
+        }
+    }
+
+    /// The checks of all targets, in parallel. Returns true for a network error.
+    async fn gitlab_round(self: &Arc<Self>, repo: &Path, slug: &str) -> bool {
+        let (targets, skip) = self.round_targets(repo, slug).await;
         let round = std::env::temp_dir().join(format!("watchd-round-{}-{slug}-{}", std::process::id(), now_seconds()));
         let _ = std::fs::create_dir_all(&round);
         let cache = Arc::new(MrCache::new(round.clone()));
         let mut checks = tokio::task::JoinSet::new();
-        for sub in subs.clone() {
-            let (daemon, skip, cache) = (daemon.clone(), skip.clone(), cache.clone());
-            checks.spawn(async move { daemon.check(sub, skip, cache).await });
+        for target in targets.iter().cloned() {
+            let (daemon, skip, cache) = (self.clone(), skip.clone(), cache.clone());
+            checks.spawn(async move { daemon.check(target, skip, cache).await });
         }
         let mut network = false;
         while let Some(result) = checks.join_next().await {
             network |= result.unwrap_or(false);
         }
         let _ = std::fs::remove_dir_all(&round);
-        {
-            let mut memory = daemon.lock().await;
-            memory.last_poll.insert(slug.clone(), now_seconds());
-            daemon
-                .store
-                .log(&slug, "", &format!("round done: {} subscription(s)", subs.len()));
-        }
-        if daemon.stopping() {
-            break;
-        }
-        let remote = remote_url(&subs[0].repo);
-        let host = remote
-            .as_deref()
-            .and_then(split_remote)
-            .map(|(host, _)| host.to_string());
-        // A network error with the network up, as for HTTP 502, gets the normal wait.
-        if network && !online(host.as_deref()).await {
-            match daemon.wait_online(&slug, host.as_deref()).await {
-                true => continue,
-                false => break,
+        let mut memory = self.lock().await;
+        // No check takes the poke of a key with no target: the round is its answer.
+        let orphans: Vec<String> = memory
+            .pokes
+            .iter()
+            .filter(|(key, (poked, _))| poked == slug && targets.iter().all(|target| target.key != **key))
+            .map(|(key, _)| key.clone())
+            .collect();
+        for key in orphans {
+            if let Some((_, token)) = memory.pokes.remove(&key) {
+                memory.poked.insert(key, token);
             }
         }
-        let interval = subs.iter().map(|sub| sub.interval).min().unwrap_or(120);
-        daemon
-            .lock()
-            .await
-            .next_round
-            .insert(slug.clone(), now_seconds() + interval as i64);
-        let sleep = |step: u64| {
-            let (daemon, wake, slug) = (daemon.clone(), wake.clone(), slug.clone());
-            async move {
-                let woken = wake.notified();
-                let stop = daemon.stop.notified();
-                tokio::pin!(woken, stop);
-                woken.as_mut().enable();
-                stop.as_mut().enable();
-                if daemon.interrupted(&slug).await {
-                    return true;
-                }
-                tokio::select! {
-                    _ = tokio::time::sleep(Duration::from_secs(step)) => false,
-                    _ = woken => true,
-                    _ = stop => true,
-                }
-            }
-        };
-        let end = nap(interval, NAP_STEP, now_seconds, |step| {
-            let sleep = sleep(step);
-            async move { (sleep.await, full_wake().await) }
-        })
-        .await;
-        if end == NapEnd::Asleep && !daemon.wait_online(&slug, host.as_deref()).await {
-            break;
-        }
+        memory.last_poll.insert(slug.to_string(), now_seconds());
+        self.store
+            .log(slug, "", &format!("round done: {} target(s)", targets.len()));
+        network
     }
-    let mut memory = daemon.lock().await;
-    memory.last_poll.remove(&slug);
-    memory.next_round.remove(&slug);
-    daemon.store.log(&slug, "", "repo loop stop");
 }
 
-/// The fetch of the default branch and the fast-forward of the main checkout.
-async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, wake: Arc<Notify>) {
-    let slug = match repo_slug(&repo) {
-        Ok(slug) => slug,
-        Err(text) => {
-            daemon
-                .store
-                .log("", "", &format!("no managed loop for {}: {text}", repo.display()));
-            return;
-        }
-    };
+/// Each round: the fetch of the default branch, the fast-forward of the main checkout, and the
+/// GitLab checks of the repo.
+async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Arc<Notify>) {
     daemon
         .store
         .log(&slug, "", &format!("managed loop start: {}", repo.display()));
@@ -497,7 +511,8 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, wake: Arc<Notify>) {
         if daemon.stopping() || !daemon.is_managed(&repo).await {
             break;
         }
-        match shared_refs(&repo).default_branch {
+        let default = shared_refs(&repo).default_branch;
+        match default.clone() {
             None if no_default_logged => {}
             None => {
                 daemon.store.log(&slug, "", "no default branch: origin/HEAD is not set");
@@ -526,15 +541,39 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, wake: Arc<Notify>) {
                 }
             }
         }
-        let interval = daemon.managed_interval(&slug).await;
+        daemon.lookups(&repo, &slug, default.as_deref()).await;
+        let network = daemon.gitlab_round(&repo, &slug).await;
+        if daemon.stopping() {
+            break;
+        }
+        // A network error with the network up, as for HTTP 502, gets the normal wait.
+        if network && !online(host.as_deref()).await {
+            match daemon.wait_network(&repo, host.as_deref()).await {
+                true => continue,
+                false => break,
+            }
+        }
+        // A live agent can ask for a shorter interval.
+        let agents = daemon.live_subs(&slug).await;
+        let interval = agents
+            .iter()
+            .map(|sub| sub.interval)
+            .chain([daemon.managed_interval(&slug).await])
+            .min()
+            .unwrap_or(900);
+        daemon
+            .lock()
+            .await
+            .next_round
+            .insert(slug.clone(), now_seconds() + interval as i64);
         let sleep = |step: u64| {
-            let (daemon, wake) = (daemon.clone(), wake.clone());
+            let (daemon, wake, slug) = (daemon.clone(), wake.clone(), slug.clone());
             async move {
                 let woken = wake.notified();
                 let stop = daemon.stop.notified();
                 tokio::pin!(woken, stop);
                 stop.as_mut().enable();
-                if daemon.stopping() {
+                if daemon.interrupted(&slug).await {
                     return true;
                 }
                 tokio::select! {
@@ -553,6 +592,9 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, wake: Arc<Notify>) {
             break;
         }
     }
+    let mut memory = daemon.lock().await;
+    memory.last_poll.remove(&slug);
+    memory.next_round.remove(&slug);
     daemon
         .store
         .log(&slug, "", &format!("managed loop stop: {}", repo.display()));
@@ -651,14 +693,13 @@ pub async fn main() -> i32 {
     tokio::spawn(crate::server::serve(daemon.clone(), listener));
     let end = run(&daemon).await;
     daemon.begin_stop();
-    let tasks: Vec<JoinHandle<()>> = {
-        let mut memory = daemon.lock().await;
-        let repos = memory.repos.drain().map(|(_, task)| task.handle).collect::<Vec<_>>();
-        repos
-            .into_iter()
-            .chain(memory.managed.drain().map(|(_, task)| task.handle))
-            .collect()
-    };
+    let tasks: Vec<JoinHandle<()>> = daemon
+        .lock()
+        .await
+        .managed
+        .drain()
+        .map(|(_, task)| task.handle)
+        .collect();
     for task in tasks {
         let _ = task.await;
     }
@@ -736,17 +777,11 @@ async fn run(daemon: &Arc<Daemon>) -> End {
         for repo in daemon.store.drop_gone_repos() {
             daemon.store.log("", "", &format!("repo gone: {}", repo.display()));
         }
-        let mut slugs: Vec<String> = daemon.store.live_subs(None).into_iter().map(|sub| sub.slug).collect();
-        slugs.sort();
-        slugs.dedup();
-        if !slugs.is_empty() || memory.followers > 0 {
+        if !daemon.store.live_subs(None).is_empty() || memory.followers > 0 {
             idle_since = now;
         } else if now - idle_since >= daemon.idle_seconds as i64 {
             daemon.store.log("", "", "idle stop");
             return End::Stop;
-        }
-        for slug in &slugs {
-            daemon.ensure_repo(&mut memory, slug);
         }
         for repo in daemon.store.repos() {
             daemon.ensure_managed(&mut memory, &repo);

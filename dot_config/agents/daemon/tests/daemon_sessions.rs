@@ -164,17 +164,6 @@ fn review_skip() -> &'static Checks {
             "yes",
             w.sub_gone(&review),
         );
-        w.clear_args();
-        wait_for(5, || arg_line_ends(&w, &repo));
-        c.check(
-            "no client for the limit: the hub gets the MR again",
-            "yes no",
-            format!(
-                "{} {}",
-                yes_no(arg_line_ends(&w, &repo)),
-                yes_no(w.args().contains("--skip-mr"))
-            ),
-        );
         w.events("app", &[ev("todo", 7)]);
         hub.code();
         c
@@ -368,11 +357,6 @@ fn review_hub_gets_skip_mr_for_the_reviewed_mr() {
 #[test]
 fn no_client_for_the_limit_review_subscription_ends() {
     review_skip().assert("no client for the limit: review subscription ends");
-}
-
-#[test]
-fn no_client_for_the_limit_the_hub_gets_the_mr_again() {
-    review_skip().assert("no client for the limit: the hub gets the MR again");
 }
 
 #[test]

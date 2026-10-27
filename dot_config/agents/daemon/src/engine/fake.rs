@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::event::Event;
-use super::{Engine, EngineArgs, EngineError, EngineFuture, MrCache};
+use super::{Engine, EngineArgs, EngineError, EngineFuture, LookupFuture, MrCache};
 use crate::key::watch_key;
 
 pub struct FakeEngine {
@@ -58,7 +58,10 @@ impl FakeEngine {
             let _ = std::io::Write::write_all(&mut log, line.as_bytes());
         }
         let repo = args.repo.clone().unwrap_or_else(|| PathBuf::from("."));
-        let key = watch_key(&repo, &args.key_mode()).map_err(EngineError::Other)?;
+        let key = match &args.key {
+            Some(key) => key.clone(),
+            None => watch_key(&repo, &args.key_mode()).map_err(EngineError::Other)?,
+        };
         let file = |suffix: &str| self.dir.join(format!("{key}.{suffix}"));
         if file("state").exists() {
             let _ = std::fs::create_dir_all(&self.engine_dir);
@@ -91,6 +94,22 @@ impl FakeEngine {
 impl Engine for FakeEngine {
     fn check(&self, args: EngineArgs, _cache: Arc<MrCache>) -> EngineFuture<'_> {
         Box::pin(self.run(args))
+    }
+
+    /// The file `lookup-<branch>` gives the MR number. The call adds `lookup <branch>` to `args`.
+    fn lookup(&self, _repo: PathBuf, branch: String) -> LookupFuture<'_> {
+        Box::pin(async move {
+            let log = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(self.dir.join("args"));
+            if let Ok(mut log) = log {
+                let _ = std::io::Write::write_all(&mut log, format!("lookup {branch}\n").as_bytes());
+            }
+            let file = self.dir.join(format!("lookup-{}", branch.replace('/', "%2F")));
+            let text = std::fs::read_to_string(file).unwrap_or_default();
+            Ok(text.trim().parse().ok())
+        })
     }
 }
 

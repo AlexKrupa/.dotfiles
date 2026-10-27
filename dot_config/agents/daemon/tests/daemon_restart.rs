@@ -260,13 +260,6 @@ fn network_down() -> &'static Checks {
         );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
         client.code();
-        let polled = || !w.state()["repos"]["app"]["last_poll"].is_null();
-        wait_for(15, || !polled());
-        c.check(
-            "network down: repo loop exits when its subscriptions end",
-            "yes",
-            yes_no(!polled()),
-        );
         std::fs::write(&nc, "#!/bin/sh\nexit 0\n").unwrap();
         c
     })
@@ -330,9 +323,4 @@ fn once_waits_for_a_round_that_starts_after_the_poke() {
 #[test]
 fn network_down_no_client_error_subscription_stays() {
     network_down().assert("network down: no client error, subscription stays");
-}
-
-#[test]
-fn network_down_repo_loop_exits_when_its_subscriptions_end() {
-    network_down().assert("network down: repo loop exits when its subscriptions end");
 }

@@ -18,7 +18,7 @@ If the session is not idle, do not do an auto-fix.
 1. Run `git-spice log short --all=false --json --no-prompt`. For each branch object with `change`,
    take `change.id`. A branch with no `change` has no MR yet.
 2. If there is no MR, tell it in one line and stop.
-3. Run the stack mode watch command with each MR.
+3. Run the stack mode watch command. It gets the events of all MRs of the worktree.
 
 After you handle the events, do "Start" again with the current list, not the restart command. A
 sync can delete a merged branch, and the user can add a branch.

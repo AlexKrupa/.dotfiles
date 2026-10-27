@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use super::event::{Event, EventKind, short};
 use super::stack::{GqlEmoji, Username};
-use super::state::{self, HubMrState, HubState, Need, PipelineState};
+use super::state::{self, HubMrState, HubState, Need, OwnMr, PipelineState};
 use super::{CheckContext, EngineError, add_jobs, all_ok, api_json, api_pages, uri_encode};
 use crate::glab::{self, Task};
 use crate::platform::{now_seconds, utc_date};
@@ -73,6 +73,8 @@ pub struct HubInput {
     pub reactions: Vec<NoteReactions>,
     /// The newest finished pipeline of the default branch.
     pub default: Option<RestPipeline>,
+    /// The open MRs of the user.
+    pub own: Vec<RestMr>,
 }
 
 struct Reaction {
@@ -141,7 +143,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     let pid = project.id;
     let old: Option<HubState> = state::load(&ctx.state)?;
     let since = utc_date(now_seconds() - 14 * 86400);
-    let (todos, opened, events, default) = tokio::join!(
+    let (todos, opened, events, default, own) = tokio::join!(
         api_pages::<Todo>(ctx.call(&[&format!(
             "todos?project_id={pid}&type=MergeRequest&state=pending&per_page=100"
         )])),
@@ -157,8 +159,12 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
             "projects/{pid}/pipelines?ref={}&scope=finished&per_page=1",
             uri_encode(&project.default_branch)
         )])),
+        api_pages::<RestMr>(ctx.call(&[&format!(
+            "projects/{pid}/merge_requests?author_username={}&state=opened&per_page=100",
+            uri_encode(&me)
+        )])),
     );
-    let (todos, opened, events) = (todos?, opened?, events?);
+    let (todos, opened, events, own) = (todos?, opened?, events?, own?);
 
     let mut iids: Vec<u64> = events
         .iter()
@@ -237,6 +243,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         notes,
         reactions,
         default: default?.into_iter().next(),
+        own,
     };
     let (new_state, events) = hub_compare(&input, old.as_ref(), &ctx.args.skip_mrs);
     let events = add_jobs(ctx, &pid.to_string(), events).await?;
@@ -354,6 +361,14 @@ pub fn hub_compare(input: &HubInput, old: Option<&HubState>, reviewed: &[u64]) -
         default_pipeline: Some(default_pipeline),
         needs,
         present,
+        own_mrs: input
+            .own
+            .iter()
+            .map(|mr| OwnMr {
+                iid: mr.iid,
+                source_branch: mr.source_branch.clone(),
+            })
+            .collect(),
     };
     let events = match old {
         Some(old) => hub_events(input, old, &by, &notes_by, &reactions_by, &opened)

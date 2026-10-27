@@ -95,10 +95,12 @@ fn errors() -> &'static Checks {
             "no daemon",
             w.client(&["status"]).out.lines().next().unwrap_or_default().to_string(),
         );
-        w.events("app", &[ev("todo", 5)]);
         w.events(&w.stack_key(), &[ev("pipeline", 5)]);
         let one = w.start(w.watch_command(&[]));
         let two = w.start(w.watch_command(&["--mr", "5"]));
+        // A hub check with no hub record keeps no events: the event comes after the record.
+        wait_for(10, || w.has_sub("app"));
+        w.events("app", &[ev("todo", 5)]);
         let (one, two) = (one.wait(20).unwrap(), two.wait(20).unwrap());
         let combined = |run: &support::Run| norow(&[run.out.as_str(), run.err.as_str()].concat());
         c.check(

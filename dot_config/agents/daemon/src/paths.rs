@@ -54,6 +54,10 @@ impl StateDirs {
         self.watchd.join("repos.json")
     }
 
+    pub fn reviews(&self) -> PathBuf {
+        self.watchd.join("reviews.json")
+    }
+
     pub fn worktree(&self, path: &Path) -> Result<PathBuf, String> {
         let hash = shasum12(&path.to_string_lossy())?;
         Ok(self.watchd.join(format!("worktrees/{hash}.json")))

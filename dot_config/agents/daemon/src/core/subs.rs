@@ -44,8 +44,9 @@ pub struct Subscription {
     pub herdr_workspace: Option<String>,
 }
 
-/// Returns true if this made all MRs of the subscription end.
-pub fn add_ended(sub: &mut Subscription, events: &[RoutedEvent]) -> bool {
+/// Returns true if this made all MRs of the subscription end. With no `--mr` list, the MRs of the
+/// subscription are the polled MRs.
+pub fn add_ended(sub: &mut Subscription, events: &[RoutedEvent], polled: &[u64]) -> bool {
     let ended: Vec<u64> = events
         .iter()
         .filter(|routed| matches!(routed.event.kind, EventKind::Merged | EventKind::Closed))
@@ -57,7 +58,8 @@ pub fn add_ended(sub: &mut Subscription, events: &[RoutedEvent]) -> bool {
     sub.ended_mrs.extend(ended);
     sub.ended_mrs.sort_unstable();
     sub.ended_mrs.dedup();
-    sub.mrs.iter().all(|mr| sub.ended_mrs.contains(mr))
+    let mrs = if sub.mrs.is_empty() { polled } else { &sub.mrs };
+    mrs.iter().all(|mr| sub.ended_mrs.contains(mr))
 }
 
 #[cfg(test)]
@@ -92,10 +94,18 @@ mod tests {
     #[test]
     fn add_ended_ignores_mrs_outside_the_subscription() {
         let mut sub = subscription(vec![5, 6]);
-        assert!(!add_ended(&mut sub, &[merged(7)]));
-        assert!(!add_ended(&mut sub, &[merged(5)]));
+        assert!(!add_ended(&mut sub, &[merged(7)], &[]));
+        assert!(!add_ended(&mut sub, &[merged(5)], &[]));
         assert_eq!(sub.ended_mrs, vec![5, 7]);
-        assert!(add_ended(&mut sub, &[merged(6)]));
+        assert!(add_ended(&mut sub, &[merged(6)], &[]));
+    }
+
+    #[test]
+    fn add_ended_with_no_mr_list_uses_the_polled_mrs() {
+        let mut sub = subscription(Vec::new());
+
+        assert!(!add_ended(&mut sub, &[merged(5)], &[5, 6]));
+        assert!(add_ended(&mut sub, &[merged(6)], &[6]));
     }
 
     #[test]

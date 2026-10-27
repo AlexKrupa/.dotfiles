@@ -105,11 +105,21 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
             Owner::Model => true,
             // Only the managed loop of the repo closes them.
             Owner::Daemon if item.item.starts_with("pull:") => true,
+            // An item of a worktree with no agent: the check of the worktree closes it.
+            Owner::Daemon if !other_mode && !is_hub_item(&item.item) => true,
             Owner::Daemon if other_mode && is_hub_item(&item.item) => {
                 hub_present.is_none_or(|hub| hub.contains(&item.item))
             }
             Owner::Daemon => present.contains(&item.item),
         }
+    });
+}
+
+/// Closes the daemon items of the MRs that the check of a worktree no longer has.
+pub fn prune_moved(items: &mut Items, mrs: &[u64], present: &[String]) {
+    items.items.retain(|item| {
+        let moved = item.owner == Owner::Daemon && !is_hub_item(&item.item) && !item.item.starts_with("pull:");
+        !(moved && item.iid.is_some_and(|iid| mrs.contains(&iid))) || present.contains(&item.item)
     });
 }
 
@@ -139,6 +149,48 @@ mod tests {
 
     fn rows(routed: &[RoutedEvent]) -> Vec<u64> {
         routed.iter().map(|event| event.row).collect()
+    }
+
+    #[test]
+    fn prune_of_the_hub_keeps_the_items_of_a_worktree() {
+        let mut items = Items::default();
+        assign_rows(
+            &mut items,
+            vec![
+                event(EventKind::Comment, Some("comment:1")),
+                event(EventKind::Todo, Some("todo:1")),
+            ],
+            100,
+        );
+
+        prune_items(&mut items, &[], None, Mode::Hub);
+
+        let keys: Vec<&str> = items.items.iter().map(|item| item.item.as_str()).collect();
+        assert_eq!(keys, ["comment:1"]);
+    }
+
+    #[test]
+    fn prune_moved_closes_the_items_that_the_worktree_check_does_not_have() {
+        let mut items = Items::default();
+        let other_mr = Event {
+            iid: Some(6),
+            ..event(EventKind::Comment, Some("comment:3"))
+        };
+        assign_rows(
+            &mut items,
+            vec![
+                event(EventKind::Comment, Some("comment:1")),
+                event(EventKind::Comment, Some("comment:2")),
+                event(EventKind::Todo, Some("todo:1")),
+                other_mr,
+            ],
+            100,
+        );
+
+        prune_moved(&mut items, &[5], &["comment:2".to_string()]);
+
+        let keys: Vec<&str> = items.items.iter().map(|item| item.item.as_str()).collect();
+        assert_eq!(keys, ["comment:2", "todo:1", "comment:3"]);
     }
 
     #[test]

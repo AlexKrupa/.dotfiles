@@ -102,7 +102,8 @@ Do not rewrite the full comment. The user edits it on the code host.
 ### Report
 
 Run the host command "Report" with the JSON of your actions. Output its stdout word for word. It
-prints one table for each MR, in the order of the `--mr` flags. The JSON fields, all optional:
+prints one table for each MR, in the order of the `--mr` flags. With no `--mr` flags, it prints one
+table for each MR of the watch, in the order of the MR numbers. The JSON fields, all optional:
 
 - `cells`: your text for each row, for example `{"2": "Valid. Fix: replace the field"}`. An open
   item keeps its text for the next reports.

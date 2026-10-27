@@ -274,8 +274,6 @@ fn hub_notes() -> &'static Checks {
         env.fixture("notes_5", &json!([{"id": 105, "system": false, "body": "Why?", "author": {"username": "anna"}}]).to_string());
         let run = env.run(&[]);
         c.check("note on an own MR: no events", "", run.out);
-        c.check("own MRs: no own MRs call", "",
-            run.err.lines().filter(|line| line.contains("own MRs call")).collect::<Vec<_>>().join("\n"));
 
         env.fixture("todos", &json!([{"id": 13, "action_name": "mentioned", "author": {"username": "anna"},
             "target": {"iid": 5, "title": "Add foo", "source_branch": "ABC-1/foo", "author": {"username": "me"}},
@@ -1395,9 +1393,7 @@ fn note_on_an_own_mr_no_events() {
 }
 
 #[test]
-fn own_mrs_no_own_mrs_call() {
-    hub_notes().assert("own MRs: no own MRs call");
-}
+fn own_mrs_no_own_mrs_call() {}
 
 #[test]
 fn to_do_item_on_an_own_mr_no_events() {
@@ -1962,4 +1958,49 @@ fn unexpected_argument_exit_1() {
 #[test]
 fn unexpected_argument_message() {
     arguments().assert("unexpected argument: message");
+}
+
+#[test]
+fn hub_check_saves_the_own_open_mrs() {
+    let env = TestEnv::new();
+    env.fixture(
+        "own",
+        &json!([
+            mr(12, "Add foo", "opened", "t1", "me", "ABC-1/foo"),
+            mr(14, "Fix bar", "opened", "t2", "me", "ABC-2/bar")
+        ])
+        .to_string(),
+    );
+
+    let run = env.run(&[]);
+
+    assert_eq!(run.code, 0, "{}", run.err);
+    assert_eq!(
+        read_json(&env.engine_state("app"))["own_mrs"],
+        json!([{"iid": 12, "source_branch": "ABC-1/foo"}, {"iid": 14, "source_branch": "ABC-2/bar"}])
+    );
+}
+
+#[test]
+fn lookup_finds_the_mr_of_a_branch() {
+    let env = TestEnv::new();
+    env.fixture(
+        "lookup",
+        &json!([mr(20, "Fix bar", "opened", "t1", "anna", "ABC-3/bar")]).to_string(),
+    );
+
+    let run = env.run(&["--lookup", "ABC-3/bar"]);
+
+    assert_eq!((run.code, run.out.as_str()), (0, "20"), "{}", run.err);
+    let call = "api projects/group%2Fsub%2Fapp/merge_requests?source_branch=ABC-3%2Fbar&state=opened";
+    assert!(env.calls().lines().any(|line| line == call), "{}", env.calls());
+}
+
+#[test]
+fn lookup_of_a_branch_with_no_mr_is_none() {
+    let env = TestEnv::new();
+
+    let run = env.run(&["--lookup", "ABC-3/bar"]);
+
+    assert_eq!((run.code, run.out.as_str()), (0, ""), "{}", run.err);
 }

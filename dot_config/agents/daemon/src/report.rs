@@ -486,6 +486,10 @@ pub fn render(mode: Mode, time: &str, mrs: &[u64], data: &ReportData) -> String 
             }
         }
         Mode::Stack | Mode::Review => {
+            // A watch with no `--mr` list reports each MR that the check knows.
+            let mut known: Vec<u64> = data.known.keys().filter_map(|iid| iid.parse().ok()).collect();
+            known.sort_unstable();
+            let mrs = if mrs.is_empty() { known.as_slice() } else { mrs };
             for iid in mrs {
                 let mr_rows: Vec<&Row> = data.rows.iter().filter(|row| row.iid == Some(*iid)).collect();
                 let mr = data.known.get(&iid.to_string()).cloned().unwrap_or_default();
@@ -627,6 +631,22 @@ Add foo (!5) u
 
 Add bar (!6)"
         );
+    }
+
+    #[test]
+    fn report_stack_mode_with_no_mr_list_has_a_table_for_each_known_mr() {
+        let delivery = vec![RoutedEvent {
+            event: mr_event(EventKind::Approved, 5, "anna", "approved", "u"),
+            row: 1,
+        }];
+        let titles = BTreeMap::from([(10, "Add bar".to_string()), (5, "Add foo".to_string())]);
+        let (_, data) = build_report(&input("{}"), &Items::default(), &delivery, &titles, 200);
+
+        assert_eq!(
+            render(Mode::Stack, "10:00", &[], &data),
+            render(Mode::Stack, "10:00", &[5, 10], &data)
+        );
+        assert_ne!(render(Mode::Stack, "10:00", &[], &data), "10:00");
     }
 
     #[test]

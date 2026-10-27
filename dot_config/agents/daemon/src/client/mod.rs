@@ -13,6 +13,7 @@ use crate::core::workspaces::Kind;
 use crate::daemon::store::Store;
 use crate::engine::mr_number;
 use crate::key::{KeyMode, repo_slug, watch_key, worktree_top};
+use crate::local::repo_of;
 use crate::paths::StateDirs;
 use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
 use crate::protocol::{Envelope, Request, Response, StatusReport, SubscribeArgs, receive, send};
@@ -62,14 +63,6 @@ impl WatchArgs {
         }
         Ok(parsed)
     }
-
-    fn mode(&self) -> Mode {
-        match (self.review, self.mrs.is_empty()) {
-            (true, _) => Mode::Review,
-            (false, false) => Mode::Stack,
-            (false, true) => Mode::Hub,
-        }
-    }
 }
 
 fn digits(value: &str) -> bool {
@@ -80,6 +73,13 @@ struct Target {
     top: PathBuf,
     slug: String,
     key: String,
+    mode: Mode,
+}
+
+/// A linked worktree is not the first entry of the worktree list.
+fn is_linked_worktree(top: &Path) -> bool {
+    let main = repo_of(top);
+    main.is_some() && main != top.canonicalize().ok()
 }
 
 fn target(args: &WatchArgs) -> Result<Target, String> {
@@ -99,13 +99,20 @@ fn target(args: &WatchArgs) -> Result<Target, String> {
     }
     let top = worktree_top(&repo)?;
     let slug = repo_slug(&repo)?;
-    let mode = match args.mode() {
+    // In a linked worktree, a watch with no `--mr` waits for the events of all MRs of the worktree.
+    let mode = match (args.review, args.mrs.is_empty()) {
+        (true, _) => Mode::Review,
+        (false, false) => Mode::Stack,
+        (false, true) if is_linked_worktree(&top) => Mode::Stack,
+        (false, true) => Mode::Hub,
+    };
+    let key_mode = match mode {
         Mode::Hub => KeyMode::Hub,
         Mode::Stack => KeyMode::Stack,
         Mode::Review => KeyMode::Review { iid: args.mrs[0] },
     };
-    let key = watch_key(&top, &mode)?;
-    Ok(Target { top, slug, key })
+    let key = watch_key(&top, &key_mode)?;
+    Ok(Target { top, slug, key, mode })
 }
 
 async fn connect(dirs: &StateDirs, start: bool) -> Result<UnixStream, String> {
@@ -176,7 +183,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
         key: target.key.clone(),
         slug: target.slug.clone(),
         repo: target.top.clone(),
-        mode: args.mode(),
+        mode: target.mode,
         mrs: args.mrs.clone(),
         interval: args.interval,
         session_pid,
@@ -276,7 +283,7 @@ pub async fn unsubscribe(args: Vec<String>) -> i32 {
     ask_ok(&Request::Unsubscribe {
         key: target.key,
         slug: target.slug,
-        mode: args.mode(),
+        mode: target.mode,
         session_pid,
     })
     .await
@@ -382,7 +389,7 @@ pub async fn report(args: Vec<String>) -> i32 {
     };
     let request = Request::Report {
         key: target.key,
-        mode: args.mode(),
+        mode: target.mode,
         mrs: args.mrs.clone(),
         input,
     };

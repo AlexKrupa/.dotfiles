@@ -44,11 +44,12 @@ case "$2" in
   projects/group%2Fsub%2Fapp) f=project ;;
   todos\?*) f=todos ;;
   users/1/events\?*) f=events ;;
-  projects/7/merge_requests\?author_username=*) echo "own MRs call: $2" >&2; exit 2 ;;
+  projects/7/merge_requests\?author_username=*) f=own ;;
   projects/7/merge_requests\?state=opened\&*) f=opened ;;
   projects/7/merge_requests\?*) f=commented ;;
   projects/*/merge_requests/*/notes/*/award_emoji\?*) f=award_note_$(echo "$2" | cut -d/ -f6) ;;
   projects/*/merge_requests/*/award_emoji\?*) f=award_mr_$iid ;;
+  projects/group%2Fsub%2Fapp/merge_requests\?source_branch=*) f=lookup ;;
   projects/group%2Fsub%2Fapp/merge_requests/*/discussions\?*) f=discussions_$iid ;;
   projects/group%2Fsub%2Fapp/merge_requests/*) f=mr_$iid ;;
   projects/7/merge_requests/*/approvals) f=approvals_$iid ;;

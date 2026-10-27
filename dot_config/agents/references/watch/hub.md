@@ -15,6 +15,10 @@ An MR can have a live review subscription, for example of a review agent or a bu
 MR, the watch gives only the review request and the `opened` event. That agent reports the other
 events.
 
+A `pull-blocked` event tells that the daemon cannot fast-forward the main checkout to the default
+branch. Its `detail` is the reason, for example changes in tracked files. Report it. The user
+fixes the cause.
+
 A `default-failed` event is a failed pipeline of the default branch. Its `iid` and `title` are
 null. Its `previous` is the status of the earlier default-branch pipeline. All other events are MR
 events. The `actor` of an `opened` event is the MR author.
@@ -41,6 +45,13 @@ For each result with exit `0`, do these steps:
 
 A result of an action that comes after the report, for example of a background task, is an `add`
 row of the section `agent`. Run the report command with it, and output its stdout word for word.
+
+## Items of own worktrees
+
+The watch daemon polls the MRs of each own worktree, also when no agent runs in the worktree, and
+the open MRs of the user that have no worktree. If no agent waits for an event of these MRs, its
+open item comes to the hub. Such an item is one row of the report, for example
+`!12: @anna commented`. Start no agent for it. The user starts work on it with `/work`.
 
 ## Router
 
