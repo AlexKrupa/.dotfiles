@@ -235,7 +235,7 @@ default=${ref#origin/}
 main=$(worktree_of "$default")
 [[ -n $main ]] || die "no worktree has $default checked out"
 
-# git-spice tracks the branch on the default branch, so that watchd finds its stack.
+# watchd finds the stack of a branch from its git-spice tracking on the default branch.
 track() {
   git show-ref --verify --quiet "$spice_ref" \
     || git-spice -C "$main" repo init --trunk "$default" --remote origin --no-prompt >/dev/null 2>&1 \

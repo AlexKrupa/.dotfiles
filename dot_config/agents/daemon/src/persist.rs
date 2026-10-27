@@ -3,8 +3,8 @@ use std::path::Path;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// The format of the state files. Files with no `version` field and version 1 files still load: their
-/// fields are the same. The daemon start converts the herdr workspace records of version 1.
+/// Files with no `version` field and version 1 files still load: their fields are the same. The
+/// daemon start converts the herdr workspace records of version 1.
 pub const FORMAT_VERSION: u32 = 2;
 
 #[derive(Serialize, Deserialize)]

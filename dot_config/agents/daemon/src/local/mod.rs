@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use crate::core::worktrees::{SpiceBranch, parse_spice_log};
 use crate::nap::is_network_error;
 
-/// `branch` has no `refs/heads/` prefix. A detached or bare entry has no branch.
+/// A detached or bare entry has no branch.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Worktree {
     pub path: PathBuf,
@@ -17,7 +17,6 @@ pub struct Worktree {
     pub branch: Option<String>,
 }
 
-/// The refs that all worktrees of a repo share.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SharedRefs {
     pub spice: Option<String>,
@@ -63,7 +62,6 @@ pub fn parse_worktree_list(text: &str) -> Vec<Worktree> {
     worktrees
 }
 
-/// Canonical paths. A worktree whose folder is gone is not in the list.
 pub fn list_worktrees(repo: &Path) -> Result<Vec<Worktree>, String> {
     let text = git(repo, &["worktree", "list", "--porcelain"])?;
     Ok(parse_worktree_list(&text)
@@ -93,7 +91,6 @@ pub fn worktree_key(worktree: &Worktree, refs: &SharedRefs) -> String {
     )
 }
 
-/// One call: the target of `origin/HEAD` gives the default branch.
 pub fn shared_refs(repo: &Path) -> SharedRefs {
     let format = "--format=%(refname) %(objectname) %(symref)";
     let text = git(
@@ -128,7 +125,7 @@ pub enum FetchError {
     Other(String),
 }
 
-/// The longest fetch: a connection that a system sleep broke can hang for hours.
+/// A connection that a system sleep broke can hang for hours.
 pub const FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// No prompt for credentials: the daemon has no terminal. At the timeout, the fetch and its child
@@ -218,7 +215,6 @@ pub fn fast_forward(main: &Path, branch: &str) -> Result<bool, Blocked> {
     }
 }
 
-/// The files of the conflict of a merge of `top` into `origin/<default>`, empty for a clean merge.
 pub fn conflict(worktree: &Path, default: &str, top: &str) -> Result<Vec<String>, String> {
     let base = format!("origin/{default}");
     let output = Command::new("git")
@@ -310,7 +306,6 @@ mod tests {
         repo
     }
 
-    /// A bare origin with one commit on `main`, a clone that pushes, and the clone under test.
     fn origin_and_clones(name: &str) -> (PathBuf, PathBuf) {
         let dir = scratch(name);
         git(&dir, &["init", "-q", "--bare", "-b", "main", "origin.git"]);

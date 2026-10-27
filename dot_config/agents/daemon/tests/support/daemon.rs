@@ -221,7 +221,6 @@ impl Watchd {
         self.run(command)
     }
 
-    /// The local state of the worktree, or null.
     pub fn worktree_state(&self, path: &Path) -> Value {
         let file = self.watchd.join(format!("worktrees/{}.json", super::hash12(path)));
         match file.exists() {

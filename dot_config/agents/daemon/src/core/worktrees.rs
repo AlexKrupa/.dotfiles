@@ -10,14 +10,14 @@ use crate::core::workspaces::{Kind, Stage};
 use crate::engine::state::{Need, OwnMr};
 use crate::key::review_key;
 
-/// The main worktree of each repo that a client used, as a canonical path.
+/// The main worktree of each repo that a client used, with no symlinks in the path.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Repos {
     pub repos: Vec<PathBuf>,
 }
 
-/// The local state of one worktree. `key` is the git state at the last read of git-spice. `stack` has
-/// the branches above the trunk, and `mrs` their MRs. `ended` has the merged or closed MRs.
+/// `key` is the git state at the last read of git-spice. `stack` has the branches above the trunk.
+/// `ended` has the merged or closed MRs.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WorktreeState {
     pub path: PathBuf,
@@ -30,23 +30,22 @@ pub struct WorktreeState {
     pub conflict: Vec<String>,
     #[serde(default)]
     pub ended: Vec<u64>,
-    /// The branch of the last MR lookup by branch name.
     #[serde(default)]
     pub lookup_branch: Option<String>,
-    /// The kind of work, from `watchd kind` or the first agent, for the sidebar.
+    /// From `watchd kind` or the first agent.
     #[serde(default)]
     pub kind: Option<Kind>,
     /// The end of the last agent.
     #[serde(default)]
     pub stage: Option<Stage>,
-    /// The needs-you values of the last check of each stack or review key of the worktree. The
-    /// sidebar shows them also with no live agent.
+    /// The needs-you values of the last check of each stack or review key, for the sidebar with no
+    /// live agent.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub needs: BTreeMap<String, Vec<Need>>,
 }
 
-/// One GitLab check of a round. `repo` is the folder of the check: the main checkout for the hub
-/// and the own MRs, else the worktree.
+/// `repo` is the folder of the check: the main checkout for the hub and the own MRs, else the
+/// worktree.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Target {
     pub key: String,
@@ -56,7 +55,6 @@ pub struct Target {
     pub mrs: Vec<u64>,
 }
 
-/// The MR of another person that a worktree reviews.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ReviewLink {
     pub worktree: PathBuf,
@@ -68,8 +66,6 @@ pub struct Reviews {
     pub reviews: Vec<ReviewLink>,
 }
 
-/// The branch to look up on GitLab: a branch with no git-spice MR and no review link, not the
-/// default branch, and not looked up before.
 pub fn lookup_branch<'a>(state: &'a WorktreeState, default: Option<&str>, reviews: &[ReviewLink]) -> Option<&'a str> {
     let branch = state.branch.as_deref()?;
     let linked = reviews.iter().any(|link| link.worktree == state.path);
@@ -80,9 +76,7 @@ pub fn lookup_branch<'a>(state: &'a WorktreeState, default: Option<&str>, review
     }
 }
 
-/// The hub, then the reviews, the stacks of the worktrees and of the live agents, and the own MRs
-/// with no worktree. A stack or own MR is in no other target. `key_of` gives the stack key of a
-/// worktree.
+/// An MR of a stack or own target is in no other target.
 pub fn targets(
     repo: &Path,
     slug: &str,
@@ -179,7 +173,7 @@ impl WorktreeState {
         }
     }
 
-    /// Takes the git fields of a local read. The other fields have other writers.
+    /// The other fields have other writers.
     pub fn set_local(&mut self, read: WorktreeState) {
         self.repo = read.repo;
         self.branch = read.branch;
@@ -190,7 +184,7 @@ impl WorktreeState {
     }
 }
 
-/// One branch of `git-spice log short --json`. `down` is false for the trunk.
+/// `down` is false for the trunk.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SpiceBranch {
     pub name: String,
@@ -221,7 +215,6 @@ struct SpiceLine {
     change: Option<Change>,
 }
 
-/// One JSON object for each line. The `id` of a GitLab change is `!IID`.
 pub fn parse_spice_log(text: &str) -> Vec<SpiceBranch> {
     text.lines()
         .filter_map(|line| serde_json::from_str::<SpiceLine>(line).ok())
@@ -235,7 +228,6 @@ pub fn parse_spice_log(text: &str) -> Vec<SpiceBranch> {
         .collect()
 }
 
-/// A top branch has the commits of all branches below it.
 pub fn top_branches(branches: &[SpiceBranch]) -> Vec<String> {
     branches
         .iter()
@@ -266,7 +258,6 @@ mod tests {
         format!("app-{}", path.display())
     }
 
-    /// `(key, mode, repo, mrs)` of each target.
     fn summary(targets: &[Target]) -> Vec<(String, Mode, String, Vec<u64>)> {
         targets
             .iter()

@@ -21,8 +21,8 @@ no agent. The session runs in the main checkout, which stays on the default bran
 checkout, the watch gives a `pull-blocked` item with the reason, for example changes in tracked
 files. The user fixes the cause.
 
-At the start, run `watchd kind hub`. It sets the kind of work of the current worktree for
-the herdr sidebar. Outside a git repo, it does nothing.
+At the start, run `watchd kind hub`. It sets the kind of work of the current worktree for the herdr
+sidebar. Outside a git repo, it does nothing.
 
 ## Role
 

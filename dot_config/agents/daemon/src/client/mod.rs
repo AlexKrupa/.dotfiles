@@ -76,8 +76,7 @@ struct Target {
     mode: Mode,
 }
 
-/// A linked worktree is not the first entry of the worktree list. The main checkout has a stack on
-/// a branch that is not the default branch.
+/// A linked worktree, or the main checkout on a branch that is not the default branch.
 fn has_stack(top: &Path) -> bool {
     let main = repo_of(top);
     if main.is_some() && main != top.canonicalize().ok() {
@@ -304,8 +303,7 @@ async fn ask_ok(request: &Request) -> i32 {
     }
 }
 
-/// The kind of work of the worktree of the current folder. `--workspace ID` is the flag of the
-/// herdr workspace of format version 1: the daemon ignores it.
+/// `--workspace ID` is the flag of the herdr workspace of format version 1: the daemon ignores it.
 pub async fn kind(args: Vec<String>) -> i32 {
     let mut args = args.into_iter();
     let Some(kind) = args.next() else {

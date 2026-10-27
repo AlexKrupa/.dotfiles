@@ -58,8 +58,8 @@ The managed set (`repos.json`) has the repos that the daemon watches:
 - At start, the daemon adds the repo of each agent record.
 - If the folder of a repo is gone, the main loop removes the repo, with the log line `repo gone`.
 
-The daemon makes no herdr calls. It keys all worktree state by the canonical worktree path, also
-the kind and the stage of the work.
+The daemon makes no herdr calls. It keys all worktree state, also the kind and the stage of the
+work, by the worktree path with no symlinks.
 
 ## One watch
 
@@ -195,7 +195,7 @@ new daemon. It keeps no second code path for the old format.
 - State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the version
   and convert the version before it at start.
 
-Format version 2 converts version 1 like this:
+The daemon converts format version 1 to version 2 in these steps:
 
 1. An agent record keeps its fields. The daemon adds its repo to the managed set, so the polling
    has no stop.

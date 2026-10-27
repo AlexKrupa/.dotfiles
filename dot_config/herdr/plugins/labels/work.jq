@@ -25,9 +25,8 @@ def work_words: {
   requested_changes: "changes requested", commits: "new commits", ready: "ready to merge",
   draft: "draft", todo: "to-do", "main-failed": "main failed" };
 
-# The glyph of the kind, of a git-spice stack, of the stage, and of the first needs-you value, else
-# of a local conflict with the default branch. A value with no glyph shows nothing. A space after
-# a glyph lets the terminal draw it 2 cells wide.
+# The first needs-you value wins over a local conflict. The space after a glyph lets the terminal
+# draw it 2 cells wide.
 def work_glyphs($glyphs):
   [.watch_kind // "", (if .watch_stack == "1" then "stack" else "" end), work_stage,
     (work_needs[0] // (if .watch_conflict == "1" then "conflict" else "" end))]

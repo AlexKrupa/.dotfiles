@@ -69,11 +69,10 @@ notify() { # notify <log line>...
   done
 }
 
-# The tokens of a workspace, all empty. An empty value clears the token.
+# An empty value clears the token.
 NO_TOKENS='{"watch_kind": "", "watch_stage": "", "watch_needs": "", "watch_stack": "",
   "watch_conflict": ""}'
 
-# One call for each workspace, with all tokens of its value object.
 meta() { # meta <workspace id> <tokens json>
   local id=$1 arg args=()
   while IFS= read -r arg; do
@@ -83,8 +82,6 @@ meta() { # meta <workspace id> <tokens json>
   herdr workspace report-metadata "$id" --source watch "${args[@]}" >/dev/null 2>&1
 }
 
-# The folder of each workspace: its worktree checkout, else the folder of the focused pane of its
-# active tab.
 FOLDERS_PROGRAM='
   .result.snapshot as $s
   | [$s.workspaces[] | . as $w
@@ -149,8 +146,7 @@ handle() { # handle <line>...
   fi
 }
 
-# The last sidebar line and the time of its write. A new workspace or a `cd` changes the folders,
-# but the daemon sends no line for it.
+# The daemon sends no line for a new workspace or a `cd`: `pass` writes the last line again.
 last_sidebar=''
 sidebar_at=0
 

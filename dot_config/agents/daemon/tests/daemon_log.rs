@@ -16,7 +16,6 @@ fn fields(value: &Value, keys: &[&str]) -> String {
     .to_string()
 }
 
-/// The kind and the stage of the worktree of the test repo.
 fn work_of(w: &Watchd) -> Value {
     let state = w.worktree_state(&w.env.repo);
     json!({"kind": state["kind"], "stage": state["stage"]})
@@ -33,8 +32,6 @@ fn kind(w: &Watchd, folder: &std::path::Path, args: &[&str]) -> support::Run {
     }
 }
 
-/// A state with no git key in a managed repo: the daemon keeps the kind and the stage, and fills
-/// the rest.
 fn write_work(w: &Watchd, work: Value) {
     let repo = &w.env.repo;
     std::fs::create_dir_all(&w.watchd).unwrap();

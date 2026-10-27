@@ -104,7 +104,6 @@ check "sidebar: no live agent shows the needs of the worktree checks" \
 check "sidebar: a workspace in no worktree gets no tokens" '{}' \
   "$(sidebar '{"worktrees": {"/r/w": {"kind": "bump"}}, "folders": {"wO": "/other"}, "subs": []}')"
 
-# stack <worktrees> <folder>: the watch_stack token of workspace wS in that folder.
 stack() {
   sidebar "{\"subs\": [], \"worktrees\": $1, \"folders\": {\"wS\": \"$2\"}}" \
     | jq -r '.wS.watch_stack // ""'
@@ -127,8 +126,7 @@ check "sidebar: conflict token" 1 \
   "$(sidebar '{"subs": [], "folders": {"wS": "/r/.wt/x"},
     "worktrees": {"/r/.wt/x": {"stack": ["a"], "conflict": ["f"]}}}' | jq -r '.wS.watch_conflict')"
 
-# The sweep, with a fake herdr and a test daemon. The repos of the test have no remote: each check
-# fails before a glab call.
+# The test repos have no remote: each check fails before a glab call.
 mkdir -p "$tmp/bin" "$tmp/config"
 cat >"$tmp/bin/herdr" <<EOF
 #!/bin/sh
@@ -147,7 +145,6 @@ export PATH="$tmp/bin:$PATH" XDG_STATE_HOME="$tmp/state" HERDR_PLUGIN_CONFIG_DIR
 watchd=$tmp/state/watchd
 plugin=$tmp/state/herdr-watch
 mkdir -p "$watchd/subs" "$tmp/state/watch-gitlab"
-# snapshot <workspace id>:<folder>...: each workspace has one tab with one pane in the folder.
 snapshot() {
   jq -nc '[$ARGS.positional[] | split(":") | {id: .[0], cwd: .[1]}]
     | {result: {snapshot: {
@@ -156,7 +153,6 @@ snapshot() {
         panes: map({pane_id: "\(.id):p1", tab_id: "\(.id):t1", cwd: .cwd})}}}' \
     --args "$@" >"$tmp/snapshot.json"
 }
-# repo <name>: a git repo in $tmp, and the daemon manages it after a client call from it.
 repo() { git init -q "$tmp/$1"; }
 client() { (cd "$1" && shift && "${WATCHD:-$HOME/.local/bin/watchd}" "$@"); } # client <folder> <args>
 with_id() { jq -c --argjson id "$1" '{id: $id} + .'; } # stdin: one log line
@@ -263,7 +259,6 @@ kill "$watcher"
 check "state files removed while the watcher runs: the next line gives the notification" 1 \
   "$(grep -c Again "$tmp/herdr.log")"
 
-# A fake watchd: one sidebar line, then no more lines.
 cat >"$tmp/bin/fake-watchd" <<'EOF'
 #!/bin/sh
 echo '{"type": "sidebar", "last_id": 0, "subs": [], "engine_needs": {}, "worktrees": {"/r/.wt/x": {"stack": ["a", "b"]}}}'

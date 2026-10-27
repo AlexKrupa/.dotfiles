@@ -13,13 +13,10 @@
 #
 # Pure: watch.sh does the reads and the herdr calls.
 
-# A live agent in a worktree with no kind has the kind of its mode.
 def mode_kind: {stack: "mine", review: "review", hub: "hub"}[.mode] // "";
 
-# The values in the order of their first position, with no repeated value.
 def ordered_unique: reduce .[] as $value ([]; if any(.[]; . == $value) then . else . + [$value] end);
 
-# The path of the worktree with the longest path that is the folder or a parent of it.
 def worktree_path($worktrees):
   . as $folder
   | [$worktrees | keys[] | . as $path

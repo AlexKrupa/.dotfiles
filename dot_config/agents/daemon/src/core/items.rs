@@ -89,7 +89,6 @@ pub fn assign_rows(items: &mut Items, events: Vec<Event>, now: i64) -> Vec<Route
     routed
 }
 
-/// Only the managed loop of the repo opens and closes a pull item.
 pub fn is_pull_item(key: &str) -> bool {
     key.starts_with("pull:")
 }
@@ -119,7 +118,6 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
     });
 }
 
-/// Closes the daemon items of the MRs that the check of a worktree no longer has.
 pub fn prune_moved(items: &mut Items, mrs: &[u64], present: &[String]) {
     items.items.retain(|item| {
         let moved = item.owner == Owner::Daemon && !is_hub_item(&item.item) && !is_pull_item(&item.item);

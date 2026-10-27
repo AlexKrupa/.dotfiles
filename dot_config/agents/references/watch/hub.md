@@ -15,7 +15,7 @@ An MR can have a live review subscription, for example of a review agent or a bu
 MR, the watch gives only the review request and the `opened` event. That agent reports the other
 events.
 
-A `pull-blocked` event tells that the daemon cannot fast-forward the main checkout to the default
+A `pull-blocked` event shows that the daemon cannot fast-forward the main checkout to the default
 branch. Its `detail` is the reason, for example changes in tracked files. Report it. The user
 fixes the cause. Its item stays open until the daemon fast-forwards the main checkout.
 

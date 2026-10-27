@@ -176,7 +176,6 @@ check "a written idx is not written again" "" "$(slot wC "$(watch \
   '{"idx": "2 M", "watch_kind": "mine"}')")"
 agent='.result.snapshot.agents = [{pane_id: "wC:p1", workspace_id: "wC"}]'
 check "an agent with no kind is own work" "2 M" "$(slot wC "$agent")"
-# work <tokens-json>: the glyphs of work.jq for these tokens.
 work() { jq -r --argjson glyphs "$glyphs" 'include "work" {search: "../"}; work_glyphs($glyphs)' <<<"$1"; }
 check "glyphs: stack after kind" "R S w" \
   "$(work '{"watch_kind": "review", "watch_stage": "watching", "watch_stack": "1"}')"

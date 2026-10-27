@@ -181,7 +181,6 @@ impl Store {
         self.log("", "", &format!("repo added: {}", repo.display()));
     }
 
-    /// Returns the repos whose folder is gone.
     pub fn drop_gone_repos(&self) -> Vec<PathBuf> {
         let (kept, gone): (Vec<PathBuf>, Vec<PathBuf>) = self.repos().into_iter().partition(|repo| repo.is_dir());
         if !gone.is_empty() {
@@ -243,7 +242,6 @@ impl Store {
         std::fs::metadata(self.dirs.inbox(key)).is_ok_and(|meta| meta.len() > 0)
     }
 
-    /// The events of the MRs in `mrs`, or all events for an empty list. The other events stay.
     pub fn take_inbox_of(&self, key: &str, mrs: &[u64]) -> Vec<RoutedEvent> {
         let events = self.take_inbox(key);
         if mrs.is_empty() {
@@ -256,7 +254,6 @@ impl Store {
         taken
     }
 
-    /// The saved event of each open daemon item, for the first delivery of a new hub.
     pub fn open_events(&self, key: &str) -> Vec<RoutedEvent> {
         let items: Items = self.read_json(&self.dirs.items(key)).ok().flatten().unwrap_or_default();
         items
@@ -358,8 +355,7 @@ impl Store {
         self.write_worktree(&state);
     }
 
-    /// Format version 1 kept the kind and the stage in a record of each herdr workspace. An
-    /// agent record of the workspace gives its worktree. The other records go away.
+    /// Format version 1 kept the kind and the stage in a record of each herdr workspace.
     pub fn convert_workspaces(&self) {
         let mut used = Vec::new();
         for mut sub in self.subs() {

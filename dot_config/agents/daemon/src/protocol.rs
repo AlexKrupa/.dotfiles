@@ -15,8 +15,7 @@ use crate::core::workspaces::Kind;
 use crate::core::worktrees::WorktreeState;
 use crate::report::ReportInput;
 
-/// The line of a client: the folder of the caller and the request. A line of an older client has no
-/// folder.
+/// A line of an older client has no folder.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Envelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -36,7 +35,7 @@ pub enum Request {
         session_pid: u32,
     },
     Status,
-    /// The worktree of the folder of the client gets the kind. An older client sends a workspace.
+    /// An older client sends a workspace.
     Kind {
         #[serde(default)]
         workspace: Option<String>,

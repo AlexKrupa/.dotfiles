@@ -29,7 +29,6 @@ const STACK: &str = r#"{"name":"main","ups":[{"name":"a"}]}
 {"name":"b","current":true,"down":{"name":"a"}}
 "#;
 
-/// The repo has one commit and git-spice data. The linked worktree is `<dir>/wt` on branch `b`.
 fn stacked_worktree(w: &Watchd) -> PathBuf {
     let wt = w.env.dir.join("wt");
     w.env.commit(&w.env.repo, "one");
@@ -118,7 +117,6 @@ fn local_state_follows_git_spice() {
     }
 }
 
-/// `PATH` with the fake programs, `git`, and the system folders, but no `git-spice`.
 fn path_without_spice(w: &Watchd) -> String {
     std::fs::remove_file(w.env.dir.join("bin/git-spice")).unwrap();
     let git = Command::new("which").arg("git").output().unwrap();
@@ -235,7 +233,6 @@ fn daemon_start_adds_the_repo_of_each_subscription() {
     end(follow);
 }
 
-/// A bare origin with `main`, the managed clone `<dir>/work`, and the clone `<dir>/pusher`.
 fn origin(w: &Watchd) -> (PathBuf, PathBuf) {
     let dir = &w.env.dir;
     w.env.git(dir, &["init", "-q", "--bare", "-b", "main", "origin.git"]);
@@ -428,7 +425,6 @@ fn mr_lines(w: &Watchd, iid: u64) -> usize {
     w.args().lines().filter(|line| line.contains(&flag)).count()
 }
 
-/// A worktree with the git-spice MR 12, a managed loop round each second, and no agent.
 fn polled_worktree(w: &mut Watchd) -> (PathBuf, Child) {
     w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
     let wt = stacked_worktree(w);
@@ -722,7 +718,6 @@ fn reviews(w: &Watchd) -> Value {
     }
 }
 
-/// A linked worktree `<dir>/<name>` on its own branch, with no git-spice data.
 fn review_worktree(w: &Watchd, name: &str) -> PathBuf {
     let folder = w.env.dir.join(name);
     w.env.commit(&w.env.repo, "one");

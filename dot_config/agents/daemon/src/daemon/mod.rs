@@ -242,8 +242,8 @@ impl Daemon {
         self.store.live_subs(Some(slug))
     }
 
-    /// Two git calls for each repo. Only a worktree with a new key gets a git-spice call and the
-    /// conflict test, so that an error of these calls is in the log one time for each key.
+    /// Only a worktree with a new key gets a git-spice call and the conflict test: an error of these
+    /// calls is in the log one time for each key.
     pub async fn local_round(&self) {
         let known: HashMap<PathBuf, WorktreeState> = self
             .store
@@ -322,7 +322,6 @@ impl Daemon {
         self.store.repos().iter().any(|known| known == repo)
     }
 
-    /// 120 seconds while a hub of the repo is live, else 900.
     fn managed_interval(&self, agents: &[Agent]) -> u64 {
         if let Some(seconds) = self.managed_seconds {
             return seconds;
@@ -382,8 +381,7 @@ impl Daemon {
         self.changed.notify_waiters();
     }
 
-    /// The targets of one round, and the review MRs that the hub check skips. The items of a review
-    /// MR move from the hub to the review key of a live agent.
+    /// The targets of one round, and the review MRs that the hub check skips.
     async fn round_targets(&self, repo: &Path, slug: &str) -> (Vec<Target>, Vec<u64>) {
         let _memory = self.lock().await;
         let worktrees: Vec<WorktreeState> = self
@@ -420,8 +418,6 @@ impl Daemon {
         (targets, skip)
     }
 
-    /// One read-only GitLab call for each new branch of a worktree with no MR. A found MR becomes a
-    /// review link.
     async fn lookups(&self, repo: &Path, slug: &str, default: Option<&str>) {
         let (states, reviews) = {
             let _memory = self.lock().await;
@@ -468,7 +464,6 @@ impl Daemon {
         }
     }
 
-    /// The checks of all targets, in parallel. Returns true for a network error.
     async fn gitlab_round(self: &Arc<Self>, repo: &Path, slug: &str) -> bool {
         let (targets, skip) = self.round_targets(repo, slug).await;
         let round = std::env::temp_dir().join(format!("watchd-round-{}-{slug}-{}", std::process::id(), now_seconds()));
@@ -504,8 +499,6 @@ impl Daemon {
     }
 }
 
-/// Each round: the fetch of the default branch, the fast-forward of the main checkout, and the
-/// GitLab checks of the repo.
 async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Arc<Notify>) {
     daemon
         .store
@@ -561,7 +554,6 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Ar
                 false => break,
             }
         }
-        // A live agent can ask for a shorter interval.
         let agents = daemon.live_subs(&slug).await;
         let interval = agents
             .iter()

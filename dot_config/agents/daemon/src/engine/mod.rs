@@ -93,9 +93,8 @@ pub struct EngineArgs {
     pub review: bool,
     pub mrs: Vec<u64>,
     pub skip_mrs: Vec<u64>,
-    /// The key of the engine state, from the daemon. With no key, the repo and the mode give it.
+    /// With no key, the repo and the mode give the key of the engine state.
     pub key: Option<String>,
-    /// A branch: the run prints the number of its open MR, and makes no check.
     pub lookup: Option<String>,
 }
 
@@ -195,7 +194,6 @@ pub type LookupFuture<'a> = std::pin::Pin<Box<dyn Future<Output = Result<Option<
 pub trait Engine: Send + Sync {
     fn check(&self, args: EngineArgs, cache: Arc<MrCache>) -> EngineFuture<'_>;
 
-    /// The open MR of the branch.
     fn lookup(&self, repo: PathBuf, branch: String) -> LookupFuture<'_>;
 }
 
