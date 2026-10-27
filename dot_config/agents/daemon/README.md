@@ -24,7 +24,7 @@ One binary has three roles:
 
 - Client: each `watchd watch`, `status`, `kind`, `route`, `report`, or `follow` call is a short
   process. It sends one JSON line to the daemon on `daemon.sock` and prints the answer
-  (`src/protocol.rs`). Each request has the folder of the client.
+  (`src/protocol.rs`).
 - Daemon: `watchd daemon` is one process for each user. It reads git and git-spice, polls GitLab,
   writes all state files, and answers the clients. If no daemon runs, the first client starts it.
 - Engine: the daemon calls the engine through the `Engine` trait for each check. The engine runs
@@ -44,9 +44,7 @@ Callers:
   `references/watch/gitlab.md` tells them.
 - `bump`, `hub`, `review-pr`, `debug-gitlab`, and `skills/work/work-start.sh` run `watchd kind`. It
   sets the kind of work of the worktree of the current folder.
-- The herdr plugin `watch.sh` reads the stdout of `watchd follow`. It joins the worktree paths of
-  the sidebar state with the folders of the herdr workspaces, then writes the sidebar tokens. It
-  does not read the state files.
+- The herdr plugin `watch.sh` reads the stdout of `watchd follow`. It does not read the state files.
 
 ## Managed repos
 
@@ -55,10 +53,9 @@ The managed set (`repos.json`) has the repos that the daemon watches:
 - A client request from a folder in a git repo adds the repo. A `follow` request adds no repo.
   `watchd watch --repo PATH` adds the repo of `PATH`.
 - At start, the daemon adds the repo of each agent record.
-- If the folder of a repo is gone, the main loop removes the repo, with the log line `repo gone`.
+- If the folder of a repo is gone, the main loop removes the repo.
 
-The daemon makes no herdr calls. It keys all worktree state, also the kind and the stage of the
-work, by the worktree path with no symlinks.
+The daemon makes no herdr calls.
 
 ## One watch
 
@@ -118,7 +115,7 @@ flowchart TB
   (`refs/spice/data` and `origin/HEAD`). The key of a worktree is its HEAD, its branch, and the
   shared refs. When the key changes, the round reads the git-spice stack
   (`git-spice log short --json`). Then it runs the conflict test: `git merge-tree` of the top
-  branch and `origin/<default>`. The round does not read the files of a checkout.
+  branch and `origin/<default>`.
 - Managed loop: one round is the fetch of origin, the fast-forward of the main checkout, the MR
   lookup of new branches, and one check for each target, in parallel. A blocked fast-forward is one
   open `pull-blocked` item. With no `origin/HEAD`, the fetch and the fast-forward are off. Then the
@@ -193,13 +190,3 @@ new daemon. It keeps no second code path for the old format.
   1 client.
 - State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the version
   and convert the version before it at start.
-
-The daemon converts format version 1 to version 2 in these steps:
-
-1. An agent record keeps its fields. The daemon adds its repo to the managed set, so the polling
-   has no stop.
-2. A herdr workspace record (`workspaces/ID.json`) whose ID is the `herdr_workspace` of an agent
-   record gives its kind and stage to the worktree state of the agent folder. Then the agent record
-   loses `herdr_workspace`.
-3. The daemon removes all workspace records. A record with no agent gives the log line
-   `workspace record dropped: ID`. Its kind comes back at the next `watchd kind`.
