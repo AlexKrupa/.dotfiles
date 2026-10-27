@@ -103,7 +103,7 @@ cask "android-platform-tools" # adb, fastboot
 brew "JakeWharton/repo/diffuse" # APK diff
 brew "gradle"
 brew "gradle-completion"
-brew "mobile-dev-inc/tap/maestro" # UI automation
+# brew "mobile-dev-inc/tap/maestro" # UI automation
 brew "rogcat" # logcat viewer
 brew "scrcpy" # screen mirroring
 
