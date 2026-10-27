@@ -2,8 +2,7 @@
 
 `watchd` keeps the local git state and the GitLab state of each managed repo and worktree, with or
 without an agent session. `watchd watch` waits, then prints the new GitLab events (comments, failed
-pipelines, approvals) as JSON lines. The conflict test needs git 2.38 or later
-(`git merge-tree --write-tree`). The build, the tests, and the exit codes are in the
+pipelines, approvals) as JSON lines. The build, the tests, and the exit codes are in the
 [main README](../README.md).
 
 ## Overview
@@ -118,8 +117,9 @@ flowchart TB
 - Local round: for each managed repo, one `git worktree list` and one read of the shared refs
   (`refs/spice/data` and `origin/HEAD`). The key of a worktree is its HEAD, its branch, and the
   shared refs. When the key changes, the round reads the git-spice stack
-  (`git-spice log short --json`). Then it runs the conflict test: `git merge-tree` of the top
-  branch and `origin/<default>`. The round does not read the files of a checkout.
+  (`git-spice log short --json`). Then it runs the conflict test: `git merge-tree --write-tree` of
+  the top branch and `origin/<default>`, which needs git 2.38 or later. The round does not read the
+  files of a checkout.
 - Managed loop: one round is the fetch of origin, the fast-forward of the main checkout, the MR
   lookup of new branches, and one check for each target, in parallel. A blocked fast-forward is one
   open `pull-blocked` item. With no `origin/HEAD`, the fetch and the fast-forward are off. Then the
