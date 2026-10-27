@@ -153,10 +153,7 @@ impl WorktreeState {
         key: String,
         branches: &[SpiceBranch],
     ) -> WorktreeState {
-        // From the trunk, git-spice lists all tracked branches: none of them is the stack of the
-        // worktree.
-        let on_trunk = branches.iter().any(|branch| branch.current && !branch.down);
-        let stack = branches.iter().filter(|branch| branch.down && !on_trunk);
+        let stack = branches.iter().filter(|branch| branch.down.is_some());
         WorktreeState {
             path,
             repo,
@@ -184,12 +181,12 @@ impl WorktreeState {
     }
 }
 
-/// `down` is false for the trunk.
+/// `down` is the branch below, none for the trunk.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SpiceBranch {
     pub name: String,
     pub current: bool,
-    pub down: bool,
+    pub down: Option<String>,
     pub ups: Vec<String>,
     pub mr: Option<u64>,
 }
@@ -221,17 +218,45 @@ pub fn parse_spice_log(text: &str) -> Vec<SpiceBranch> {
         .map(|line| SpiceBranch {
             name: line.name,
             current: line.current,
-            down: line.down.is_some(),
+            down: line.down.map(|down| down.name),
             ups: line.ups.into_iter().map(|up| up.name).collect(),
             mr: line.change.and_then(|change| change.id.strip_prefix('!')?.parse().ok()),
         })
         .collect()
 }
 
+/// git-spice lists all branches on the trunk, also the other stacks. The stack of the current
+/// branch is the branches below it down to the trunk, and all branches above it. On the trunk, it is
+/// empty.
+pub fn current_stack(branches: &[SpiceBranch]) -> Vec<SpiceBranch> {
+    let named = |name: &str| branches.iter().find(|branch| branch.name == name);
+    let Some(current) = branches.iter().find(|branch| branch.current && branch.down.is_some()) else {
+        return Vec::new();
+    };
+    let mut names = vec![current.name.clone()];
+    let mut below = current.down.as_deref().and_then(named);
+    while let Some(branch) = below.filter(|branch| branch.down.is_some()) {
+        names.push(branch.name.clone());
+        below = branch.down.as_deref().and_then(named);
+    }
+    let mut above = current.ups.clone();
+    while let Some(name) = above.pop() {
+        if let Some(branch) = named(&name) {
+            above.extend(branch.ups.iter().cloned());
+        }
+        names.push(name);
+    }
+    branches
+        .iter()
+        .filter(|branch| names.contains(&branch.name))
+        .cloned()
+        .collect()
+}
+
 pub fn top_branches(branches: &[SpiceBranch]) -> Vec<String> {
     branches
         .iter()
-        .filter(|branch| branch.down && branch.ups.is_empty())
+        .filter(|branch| branch.down.is_some() && branch.ups.is_empty())
         .map(|branch| branch.name.clone())
         .collect()
 }
@@ -464,6 +489,36 @@ mod tests {
         assert_eq!(top_branches(&branches), ["a"]);
     }
 
+    fn names(branches: &[SpiceBranch]) -> Vec<String> {
+        branches.iter().map(|branch| branch.name.clone()).collect()
+    }
+
+    #[test]
+    fn current_stack_leaves_out_the_other_stacks_of_the_trunk() {
+        let log = r#"{"name":"a","current":true,"down":{"name":"main"}}
+{"name":"b","down":{"name":"main"},"ups":[{"name":"c"}]}
+{"name":"c","down":{"name":"b"}}
+{"name":"main","ups":[{"name":"a"},{"name":"b"}]}
+"#;
+
+        let stack = current_stack(&parse_spice_log(log));
+
+        assert_eq!(names(&stack), ["a"]);
+        assert_eq!(top_branches(&stack), ["a"]);
+    }
+
+    #[test]
+    fn current_stack_has_the_branches_below_and_above_the_current_branch() {
+        let log = r#"{"name":"main","ups":[{"name":"a"},{"name":"x"}]}
+{"name":"a","down":{"name":"main"},"ups":[{"name":"b"}]}
+{"name":"b","current":true,"down":{"name":"a"},"ups":[{"name":"c"}]}
+{"name":"c","down":{"name":"b"}}
+{"name":"x","down":{"name":"main"}}
+"#;
+
+        assert_eq!(names(&current_stack(&parse_spice_log(log))), ["a", "b", "c"]);
+    }
+
     #[test]
     fn worktree_on_the_trunk_has_no_stack() {
         let trunk = STACK
@@ -475,7 +530,7 @@ mod tests {
             "/r".into(),
             Some("main".into()),
             "k".into(),
-            &parse_spice_log(&trunk),
+            &current_stack(&parse_spice_log(&trunk)),
         );
 
         assert_eq!((state.stack, state.mrs), (Vec::<String>::new(), Vec::<u64>::new()));

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use crate::core::worktrees::{SpiceBranch, parse_spice_log};
+use crate::core::worktrees::{SpiceBranch, current_stack, parse_spice_log};
 use crate::nap::is_network_error;
 
 /// A detached or bare entry has no branch.
@@ -255,7 +255,9 @@ pub fn spice_log(worktree: &Path) -> Result<Vec<SpiceBranch>, String> {
         Err(error) => return Err(format!("git-spice: {error}")),
     };
     match output.status.success() {
-        true => Ok(parse_spice_log(&String::from_utf8_lossy(&output.stdout))),
+        true => Ok(current_stack(&parse_spice_log(&String::from_utf8_lossy(
+            &output.stdout,
+        )))),
         false => Err(format!(
             "git-spice log: {}",
             String::from_utf8_lossy(&output.stderr).trim_end()
