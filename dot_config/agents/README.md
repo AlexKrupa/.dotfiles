@@ -92,9 +92,8 @@ support the macOS `/bin/bash` 3.2.
 - After a change, do only the tests of the changed scripts. Use the default bash.
 - Each test file uses its own temporary folder. Start independent test files at the same time.
 - The tests of `watchd` are `cargo` tests: the unit tests in `daemon/src/`, the engine and daemon
-  tests in `daemon/tests/`. Start them with
-  `cargo test --manifest-path ~/.config/agents/daemon/Cargo.toml`. The daemon tests start one test
-  daemon at a time, and all tests take about 3 minutes.
+  tests in `daemon/tests/`. Start them with `daemon/test.sh`, which starts all test binaries at the
+  same time and takes about 45 seconds. A test binary starts one test daemon at a time.
 
 ## Editing conventions
 

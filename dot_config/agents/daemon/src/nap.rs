@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 const NETWORK_ERRORS: &[&str] = &[
     "no such host",
     "dial tcp",
@@ -30,18 +32,18 @@ pub enum NapEnd {
 }
 
 /// `sleep` gives `(woken, awake)`: true for a wake-up, and false for no full wake after the step.
-pub async fn nap<Now, Sleep, SleepFuture>(seconds: u64, max_step: u64, now: Now, mut sleep: Sleep) -> NapEnd
+pub async fn nap<Now, Sleep, SleepFuture>(interval: Duration, max_step: Duration, now: Now, mut sleep: Sleep) -> NapEnd
 where
     Now: Fn() -> i64,
-    Sleep: FnMut(u64) -> SleepFuture,
+    Sleep: FnMut(Duration) -> SleepFuture,
     SleepFuture: std::future::Future<Output = (bool, bool)>,
 {
-    let mut left = seconds;
-    while left > 0 {
+    let mut left = interval;
+    while !left.is_zero() {
         let step = left.min(max_step);
         let start = now();
         let (woken, awake) = sleep(step).await;
-        if now() - start > step as i64 + 30 || !awake {
+        if now() - start > step.as_secs() as i64 + 30 || !awake {
             return NapEnd::Asleep;
         }
         left -= step;
@@ -67,11 +69,11 @@ mod tests {
     fn clock_jump_longer_than_step_plus_30_seconds_is_a_sleep() {
         let clock = Cell::new(0_i64);
         let end = run(nap(
-            60,
-            10,
+            Duration::from_secs(60),
+            Duration::from_secs(10),
             || clock.get(),
             |step| {
-                clock.set(clock.get() + step as i64 + 31);
+                clock.set(clock.get() + step.as_secs() as i64 + 31);
                 async { (false, true) }
             },
         ));
@@ -84,19 +86,29 @@ mod tests {
         let clock = Cell::new(0_i64);
         let steps = Cell::new(0);
         let end = run(nap(
-            25,
-            10,
+            Duration::from_secs(25),
+            Duration::from_secs(10),
             || clock.get(),
             |step| {
-                clock.set(clock.get() + step as i64);
+                clock.set(clock.get() + step.as_secs() as i64);
                 steps.set(steps.get() + 1);
                 async { (false, true) }
             },
         ));
         assert_eq!((end, clock.get(), steps.get()), (NapEnd::Done, 25, 3));
-        let woken = run(nap(25, 10, || 0, |_| async { (true, true) }));
+        let woken = run(nap(
+            Duration::from_secs(25),
+            Duration::from_secs(10),
+            || 0,
+            |_| async { (true, true) },
+        ));
         assert_eq!(woken, NapEnd::Interrupted);
-        let dark = run(nap(25, 10, || 0, |_| async { (false, false) }));
+        let dark = run(nap(
+            Duration::from_secs(25),
+            Duration::from_secs(10),
+            || 0,
+            |_| async { (false, false) },
+        ));
         assert_eq!(dark, NapEnd::Asleep);
     }
 

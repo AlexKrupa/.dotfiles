@@ -40,8 +40,9 @@ fn kill(pid: Option<u32>, signal: i32) {
     unsafe { libc::kill(pid.unwrap_or(0) as i32, signal) };
 }
 
-fn args_written(w: &Watchd) -> bool {
-    !w.args().is_empty()
+/// The fake engine writes `args` before it takes the events.
+fn events_taken(w: &Watchd) -> bool {
+    std::fs::read_to_string(w.events.join("app.jsonl")).is_ok_and(|text| text.is_empty())
 }
 
 fn new_binary() -> &'static Checks {
@@ -134,9 +135,8 @@ fn slow_check(w: &Watchd) -> support::daemon::Background {
     w.watch(&["--interval", "600"]);
     w.fake("app", "sleep", "3\n");
     w.events("app", &[ev("todo", 6)]);
-    w.clear_args();
     let client = w.start(w.watch_command(&["--interval", "600", "--once"]));
-    wait_for(5, || args_written(w));
+    wait_for(5, || events_taken(w));
     client
 }
 

@@ -331,7 +331,7 @@ async fn follow(
         }
         tokio::select! {
             _ = &mut changed => {}
-            _ = tokio::time::sleep(Duration::from_secs(daemon.tick)) => {}
+            _ = tokio::time::sleep(daemon.tick) => {}
             _ = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut closed) => break,
         }
     }

@@ -63,11 +63,11 @@ pub fn is_daemon(pid: Option<u32>) -> bool {
 }
 
 pub fn wait_for(seconds: u64, mut condition: impl FnMut() -> bool) -> bool {
-    for _ in 0..seconds * 4 {
+    for _ in 0..seconds * 20 {
         if condition() {
             return true;
         }
-        std::thread::sleep(Duration::from_millis(250));
+        std::thread::sleep(Duration::from_millis(50));
     }
     false
 }
@@ -189,7 +189,7 @@ impl Watchd {
             command.env("WATCHD_FAKE_ENGINE", &self.events);
         }
         command
-            .env("WATCHD_TICK", "1")
+            .env("WATCHD_TICK", "0.2")
             .env("WATCH_CLIENT_TICK", "1")
             .env("WATCH_SESSION_PID", self.session_pid().to_string());
         command
@@ -289,6 +289,22 @@ impl Watchd {
         self.log().lines().filter(|line| line.contains(text)).count()
     }
 
+    /// A round that runs during the call counts. To see the effect of an action, ask for 2.
+    pub fn local_rounds(&self, count: usize) {
+        self.rounds("local round end", count);
+    }
+
+    /// Only for a loop that polls each second: a loop with a long wait does not end a round.
+    pub fn managed_rounds(&self, count: usize) {
+        self.rounds("round done:", count);
+    }
+
+    fn rounds(&self, line: &str, count: usize) {
+        let target = self.log_count(line) + count;
+        let done = wait_for(5 + 2 * count as u64, || self.log_count(line) >= target);
+        assert!(done, "no {count} more lines `{line}`: {}", self.log());
+    }
+
     pub fn daemon_pid(&self) -> Option<u32> {
         std::fs::read_to_string(self.watchd.join("daemon.pid"))
             .ok()?
@@ -382,7 +398,8 @@ impl Watchd {
         if is_daemon(pid) {
             let pid = pid.unwrap();
             unsafe { libc::kill(pid as i32, libc::SIGTERM) };
-            wait_for(10, || !alive(pid));
+            // A client that started the daemon keeps it as a zombie, which `alive` still sees.
+            wait_for(10, || !is_daemon(Some(pid)));
         }
     }
 }

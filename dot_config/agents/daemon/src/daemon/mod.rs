@@ -31,13 +31,19 @@ use crate::platform::{full_wake, now_seconds, online};
 const LOCK_FD: &str = "WATCHD_LOCK_FD";
 const SOCKET_FD: &str = "WATCHD_SOCKET_FD";
 /// Short, so that a poke or a stop gets an answer in seconds.
-const NAP_STEP: u64 = 2;
+const NAP_STEP: Duration = Duration::from_secs(2);
 
 fn env_seconds(name: &str, default: u64) -> u64 {
     std::env::var(name)
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(default)
+}
+
+/// Fractional seconds, as `0.2`, for the short rounds of the tests.
+fn env_duration(name: &str) -> Option<Duration> {
+    let seconds: f64 = std::env::var(name).ok()?.parse().ok()?;
+    Duration::try_from_secs_f64(seconds).ok()
 }
 
 fn engine_of(dirs: &StateDirs) -> Box<dyn Engine> {
@@ -61,11 +67,11 @@ pub struct Daemon {
     pub delivering: RwLock<()>,
     stopping: AtomicBool,
     stop: Notify,
-    pub tick: u64,
+    pub tick: Duration,
     idle_seconds: u64,
     pub client_seconds: u64,
     /// The test value of both intervals of the managed loops.
-    managed_seconds: Option<u64>,
+    test_interval: Option<Duration>,
     engine: Box<dyn Engine>,
 }
 
@@ -322,12 +328,12 @@ impl Daemon {
         self.store.repos().iter().any(|known| known == repo)
     }
 
-    fn managed_interval(&self, agents: &[Agent]) -> u64 {
-        if let Some(seconds) = self.managed_seconds {
-            return seconds;
+    fn managed_interval(&self, agents: &[Agent]) -> Duration {
+        if let Some(interval) = self.test_interval {
+            return interval;
         }
         let hub = agents.iter().any(|agent| agent.mode == Mode::Hub);
-        if hub { 120 } else { 900 }
+        Duration::from_secs(if hub { 120 } else { 900 })
     }
 
     /// Returns false if the loop must stop.
@@ -558,14 +564,14 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Ar
         let agents = daemon.live_subs(&slug).await;
         let interval = agents
             .iter()
-            .map(|agent| agent.interval)
-            .fold(daemon.managed_interval(&agents), u64::min);
+            .map(|agent| Duration::from_secs(agent.interval))
+            .fold(daemon.managed_interval(&agents), Duration::min);
         daemon
             .lock()
             .await
             .next_round
-            .insert(slug.clone(), now_seconds() + interval as i64);
-        let sleep = |step: u64| {
+            .insert(slug.clone(), now_seconds() + interval.as_secs() as i64);
+        let sleep = |step: Duration| {
             let (daemon, wake, slug) = (daemon.clone(), wake.clone(), slug.clone());
             async move {
                 let woken = wake.notified();
@@ -576,7 +582,7 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Ar
                     return true;
                 }
                 tokio::select! {
-                    _ = tokio::time::sleep(Duration::from_secs(step)) => false,
+                    _ = tokio::time::sleep(step) => false,
                     _ = woken => true,
                     _ = stop => true,
                 }
@@ -678,12 +684,10 @@ pub async fn main() -> i32 {
         delivering: RwLock::new(()),
         stopping: AtomicBool::new(false),
         stop: Notify::new(),
-        tick: env_seconds("WATCHD_TICK", 5),
+        tick: env_duration("WATCHD_TICK").unwrap_or(Duration::from_secs(5)),
         idle_seconds: env_seconds("WATCHD_IDLE_SECONDS", 600),
         client_seconds: env_seconds("WATCHD_CLIENT_SECONDS", 1800),
-        managed_seconds: std::env::var("WATCHD_MANAGED_SECONDS")
-            .ok()
-            .and_then(|value| value.parse().ok()),
+        test_interval: env_duration("WATCHD_MANAGED_SECONDS"),
         engine: engine_of(&dirs),
     });
     let socket_fd = listener.as_raw_fd();
@@ -787,9 +791,12 @@ async fn run(daemon: &Arc<Daemon>) -> End {
         }
         drop(memory);
         daemon.local_round().await;
+        // The tests count rounds to know that an action had its effect.
+        #[cfg(feature = "test-support")]
+        daemon.store.log("", "", "local round end");
         daemon.changed.notify_waiters();
         tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(daemon.tick)) => {}
+            _ = tokio::time::sleep(daemon.tick) => {}
             _ = terminate.recv() => return End::Stop,
             _ = interrupt.recv() => return End::Stop,
         }

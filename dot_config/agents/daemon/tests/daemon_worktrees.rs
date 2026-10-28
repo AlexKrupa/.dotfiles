@@ -74,7 +74,7 @@ fn local_state() -> &'static Checks {
         );
 
         let calls = spice_calls(&w);
-        sleep(3);
+        w.local_rounds(2);
         c.check(
             "local state: no git-spice call with the same key",
             calls,
@@ -83,7 +83,7 @@ fn local_state() -> &'static Checks {
 
         w.env.commit(&wt, "two");
         wait_for(5, || spice_calls(&w) > calls);
-        sleep(2);
+        w.local_rounds(2);
         c.check(
             "local state: a commit gives one git-spice call",
             calls + 1,
@@ -144,10 +144,10 @@ fn local_state_without_git_spice_data() {
     w.client_in(&wt, &["status"]);
 
     wait_for(5, || !w.worktree_state(&wt).is_null());
-    sleep(2);
+    w.local_rounds(2);
     let no_data = (w.worktree_state(&wt)["stack"].to_string(), w.log_count("git-spice"));
     w.env.git(&w.env.repo, &["update-ref", "refs/spice/data", "HEAD"]);
-    sleep(5);
+    w.local_rounds(2);
 
     assert_eq!(no_data, ("[]".to_string(), 0), "no spice data: no git-spice call");
     assert_eq!(w.worktree_state(&wt)["stack"].to_string(), "[]");
@@ -193,7 +193,7 @@ fn client_folder() -> &'static Checks {
 
         std::fs::remove_dir_all(&w.env.repo).unwrap();
         wait_for(5, || repos(&w) == "[]");
-        sleep(1);
+        w.local_rounds(2);
         c.check("client folder: a gone repo leaves the managed set", "[]", repos(&w));
         c.check(
             "client folder: a gone repo is logged one time",
@@ -282,7 +282,7 @@ fn managed_loop() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let mut w = Watchd::new();
-        w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+        w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
         let mut c = Checks::default();
         let (pusher, work) = origin(&w);
         let follow = w.follower(&w.env.dir);
@@ -299,7 +299,7 @@ fn managed_loop() -> &'static Checks {
         std::fs::write(work.join("f"), "local\n").unwrap();
         push(&w, &pusher, "three");
         wait_for(10, || pull_lines(&w) > 0);
-        sleep(4);
+        w.managed_rounds(2);
         c.check(
             "managed loop: a blocked fast-forward is one event and one item",
             "1 pull:main",
@@ -332,7 +332,7 @@ fn managed_loop_fetches_and_fast_forwards() {
 #[test]
 fn managed_loop_without_origin_head() {
     let mut w = Watchd::new();
-    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
     let (_, work) = origin(&w);
     w.env.git(&work, &["remote", "set-head", "origin", "-d"]);
     w.env.git(&work, &["update-ref", "refs/spice/data", "HEAD"]);
@@ -341,7 +341,7 @@ fn managed_loop_without_origin_head() {
     w.client_in(&work, &["status"]);
 
     wait_for(5, || !w.worktree_state(&work).is_null());
-    sleep(4);
+    w.managed_rounds(2);
 
     assert_eq!(
         w.log_count("no default branch: origin/HEAD is not set"),
@@ -358,7 +358,7 @@ fn managed_loop_without_origin_head() {
 #[test]
 fn managed_loop_waits_for_the_network() {
     let mut w = Watchd::new();
-    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
     let (_, work) = origin(&w);
     w.env.git(
         &work,
@@ -382,8 +382,7 @@ fn managed_loop_wakes_for_a_new_hub() {
     let (pusher, work) = origin(&w);
     let follow = w.follower(&w.env.dir);
     w.client_in(&work, &["status"]);
-    wait_for(5, || w.log_count("managed loop start") > 0);
-    sleep(2);
+    wait_for(5, || w.log_count("round done:") > 0);
     push(&w, &pusher, "two");
 
     let mut hub = w.watch_command(&["--once"]);
@@ -398,7 +397,7 @@ fn managed_loop_wakes_for_a_new_hub() {
 #[test]
 fn local_state_has_the_conflict_with_main() {
     let mut w = Watchd::new();
-    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
     let (pusher, work) = origin(&w);
     let wt = w.env.dir.join("wt");
     w.env
@@ -426,7 +425,7 @@ fn mr_lines(w: &Watchd, iid: u64) -> usize {
 }
 
 fn polled_worktree(w: &mut Watchd) -> (PathBuf, Child) {
-    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
     let wt = stacked_worktree(w);
     w.env.fake_spice(&wt, STACK);
     let follow = w.follower(&w.env.dir);
@@ -455,9 +454,9 @@ fn polling_of_a_worktree_stops_after_merge() {
 
     w.events(&key, &[support::daemon::ev("merged", 12)]);
     wait_for(10, || w.worktree_state(&wt)["ended"] == json!([12]));
-    sleep(1);
+    w.managed_rounds(1);
     w.clear_args();
-    sleep(3);
+    w.managed_rounds(1);
 
     assert_eq!(mr_lines(&w, 12), 0, "{}", w.args());
     let key = w.worktree_state(&wt)["key"].clone();
@@ -482,7 +481,7 @@ fn poke_of_a_key_with_no_target_ends_with_the_round() {
 
     let run = w.watch(&["--interval", "600", "--once", "--mr", "12"]);
     let rounds = w.log_count("round done");
-    sleep(3);
+    w.local_rounds(3);
 
     assert_eq!(run.code, 0, "{}", run.err);
     assert!(w.log_count("round done") <= rounds + 1, "{}", w.log_count("round done"));
@@ -520,7 +519,7 @@ fn hub_items() -> &'static Checks {
         let routed = w.log_count("routed 1 event");
         w.events(&key, &[comment(12, "comment:1")]);
         wait_for(10, || w.log_count("routed 1 event") > routed);
-        sleep(1);
+        w.managed_rounds(1);
         c.check(
             "no agent: the same item again is one hub item",
             "comment:1",
@@ -534,8 +533,9 @@ fn hub_items() -> &'static Checks {
             format!("{} {}", run.code, support::each(&run.out, "item")),
         );
 
+        let client = w.client_is();
         let hub = w.start(w.watch_command(&[]));
-        sleep(2);
+        wait_for(5, || w.client_is() != client);
         w.events(&key, &[comment(12, "comment:2")]);
         let run = hub.wait(10);
         let rows: Vec<String> = w.items_of("app")["items"]
@@ -559,10 +559,11 @@ fn hub_items() -> &'static Checks {
             }),
         );
 
+        let client = w.client_is();
         let hub = w.start(w.watch_command(&[]));
-        sleep(2);
+        wait_for(5, || w.client_is() != client);
         w.events(&key, &[support::daemon::ev("approved", 12)]);
-        sleep(4);
+        w.managed_rounds(2);
         let waits = hub.running();
         w.events(&key, &[comment(12, "comment:3")]);
         let run = hub.wait(10);
@@ -620,7 +621,7 @@ fn worktree_agents() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let mut w = Watchd::new();
         let mut c = Checks::default();
-        w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+        w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
         let wt = stacked_worktree(&w);
         w.env.fake_spice(&wt, TWO_MRS);
         let follow = w.follower(&w.env.dir);
@@ -674,7 +675,7 @@ fn old_watch_command_with_mr_still_works() {
 #[test]
 fn worktree_with_no_agent_keeps_the_needs_of_its_check() {
     let mut w = Watchd::new();
-    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
     let wt = stacked_worktree(&w);
     w.env.fake_spice(&wt, STACK);
     let key = format!("app-{}", support::hash12(&wt));
@@ -694,7 +695,7 @@ fn worktree_with_no_agent_keeps_the_needs_of_its_check() {
 #[test]
 fn worktree_whose_mrs_go_away_loses_their_needs() {
     let mut w = Watchd::new();
-    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
     let wt = stacked_worktree(&w);
     w.env.fake_spice(&wt, STACK);
     let key = format!("app-{}", support::hash12(&wt));
@@ -754,7 +755,7 @@ fn review_worktree(w: &Watchd, name: &str) -> PathBuf {
 #[test]
 fn review_link_stays_after_the_agent_ends() {
     let mut w = Watchd::new();
-    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
     let wr = review_worktree(&w, "r");
     let follow = w.follower(&w.env.dir);
     let key = format!("app-{}-review-20", support::hash12(&wr));
@@ -767,9 +768,8 @@ fn review_link_stays_after_the_agent_ends() {
     end(other);
     wait_for(10, || !w.has_sub(&key));
     w.clear_args();
-    sleep(3);
     let line = format!("--repo {} --review --mr 20", wr.display());
-    let polled = w.args().lines().any(|args| args == line);
+    let polled = wait_for(10, || w.args().lines().any(|args| args == line));
     w.events(&key, &[support::daemon::ev("merged", 20)]);
     wait_for(10, || reviews(&w) == json!([]));
 
@@ -782,14 +782,14 @@ fn review_link_stays_after_the_agent_ends() {
 #[test]
 fn lookup_links_a_worktree_with_no_mr() {
     let mut w = Watchd::new();
-    w.env.set_env("WATCHD_MANAGED_SECONDS", "1");
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
     let wb = review_worktree(&w, "b");
     std::fs::write(w.events.join("lookup-b"), "20\n").unwrap();
     let follow = w.follower(&w.env.dir);
     w.client_in(&wb, &["status"]);
 
     wait_for(10, || reviews(&w) != json!([]));
-    sleep(3);
+    w.managed_rounds(2);
 
     assert_eq!(reviews(&w), json!([{"worktree": wb, "iid": 20}]));
     let line = format!("--repo {} --review --mr 20", wb.display());
@@ -808,7 +808,7 @@ fn follow_client_from_a_repo_adds_no_repo() {
     let w = Watchd::new();
 
     let follow = w.follower(&w.env.repo);
-    sleep(2);
+    w.local_rounds(2);
 
     assert_eq!(repos(&w), "[]");
     end(follow);
@@ -849,7 +849,7 @@ fn local_round_keeps_a_kind_set_during_the_round() {
     w.env.commit(&wt, "two");
     wait_for(5, || spice_calls(&w) > calls);
     let run = w.client_in(&wt, &["kind", "review"]);
-    sleep(4);
+    w.local_rounds(1);
 
     assert_eq!(run.code, 0, "{}", run.err);
     assert_eq!(w.worktree_state(&wt)["kind"], "review", "{}", w.worktree_state(&wt));
