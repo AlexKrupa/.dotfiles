@@ -134,16 +134,16 @@ order() {
       + if .[2] then {worktree: {repo_key: .[2], is_linked_worktree: (.[3] != "parent")}}
         else {} end]}' --args "${@:2}" | jq -c -f ../order.jq
 }
-check "order: mine, then review, then the rest, each alphabetical" \
-  '[{"workspace_ids":["wB","wA","wD","wC","wE"],"before_workspace_id":"wO"}]' \
-  "$(order '{"wA": {"watch_kind": "mine"}, "wB": {"watch_kind": "mine"},
-    "wC": {"watch_kind": "review"}, "wD": {"watch_kind": "review"}}' \
-    wP:app:r:parent wE:extra:r wC:zed:r wA:Beta:r wD:also:r wB:alpha:r wO:other)"
-check "order: workspace with no tokens is last" \
+check "order: no kind, mine, bump, review, other kinds, each alphabetical" \
+  '[{"workspace_ids":["wV","wU","wN","wM","wB","wR","wH"],"before_workspace_id":"wO"}]' \
+  "$(order '{"wM": {"watch_kind": "mine"}, "wN": {"watch_kind": "mine"},
+    "wR": {"watch_kind": "review"}, "wB": {"watch_kind": "bump"}, "wH": {"watch_kind": "hub"}}' \
+    wP:app:r:parent wM:x:r wR:a:r wU:b:r wB:c:r wV:A:r wN:Beta:r wH:a:r wO:other)"
+check "order: workspace with no tokens is first" \
   '[{"workspace_ids":["wB","wA"]}]' \
-  "$(order '{"wB": {"watch_kind": "review"}}' wP:app:r:parent wA:a:r wB:b:r)"
+  "$(order '{"wA": {"watch_kind": "review"}}' wP:app:r:parent wA:a:r wB:b:r)"
 check "order: sorted group gives no move" '[]' \
-  "$(order '{"wA": {"watch_kind": "mine"}}' wP:app:r:parent wA:z:r wB:a:r)"
+  "$(order '{"wB": {"watch_kind": "mine"}}' wP:app:r:parent wA:z:r wB:a:r)"
 check "order: each group moves alone, parents stay" \
   '[{"workspace_ids":["wA","wB"],"before_workspace_id":"wQ"}]' \
   "$(order '{}' wP:app:r:parent wB:b:r wA:a:r wQ:lib:s:parent wC:a:s wD:b:s)"
@@ -242,14 +242,14 @@ check "ended with done" \
 
 jq -nc --arg t "$tmp/t" '{result: {snapshot: {workspaces: [
     {workspace_id: "wP", label: "app", worktree: {repo_key: "k", is_linked_worktree: false}},
-    {workspace_id: "wZ", label: "alpha", worktree: {repo_key: "k", is_linked_worktree: true}},
-    {workspace_id: "wT", label: "zeta",
-     worktree: {repo_key: "k", is_linked_worktree: true, checkout_path: $t}}]}}}' \
+    {workspace_id: "wT", label: "alpha",
+     worktree: {repo_key: "k", is_linked_worktree: true, checkout_path: $t}},
+    {workspace_id: "wZ", label: "zeta", worktree: {repo_key: "k", is_linked_worktree: true}}]}}}' \
   >"$tmp/snapshot.json"
 : >"$tmp/nc.log"
 sweep
-check "my worktree moves before the worktree with no kind" \
-  '{"id":"watch:order","method":"workspace.move_block","params":{"workspace_ids":["wT","wZ"]}}' \
+check "the worktree with no kind moves before my watched worktree" \
+  '{"id":"watch:order","method":"workspace.move_block","params":{"workspace_ids":["wZ","wT"]}}' \
   "$(cat "$tmp/nc.log")"
 snapshot "wT:$tmp/t"
 

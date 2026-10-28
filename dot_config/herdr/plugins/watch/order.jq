@@ -1,5 +1,6 @@
-# The order of the worktree workspaces in each herdr worktree group: my work first, then code
-# reviews, then the rest. Alphabetical by label in each kind. The parent rows stay in place.
+# The order of the worktree workspaces in each herdr worktree group: my work with no watcher, my
+# watched work, bumps, code reviews, then other kinds. Alphabetical by label in each kind. The parent
+# rows stay in place.
 #
 #   in:  {workspaces: [<herdr workspace>], tokens: {<id>: {watch_kind}}}
 #        workspaces: in sidebar order, from `herdr api snapshot`
@@ -8,7 +9,7 @@
 #
 # Pure: watch.sh does the reads and the herdr calls.
 
-def kind_rank: {mine: 0, review: 1}[. // ""] // 2;
+def kind_rank: {"": 0, mine: 1, bump: 2, review: 3}[. // ""] // 4;
 
 .tokens as $tokens
 | .workspaces as $workspaces
