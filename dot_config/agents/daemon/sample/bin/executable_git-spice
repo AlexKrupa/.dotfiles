@@ -1,0 +1,8 @@
+#!/bin/sh
+# Prints `$MOCK_DIR/spice-<hash of the folder>.jsonl` if it exists. Waits first for the seconds in
+# `$MOCK_DIR/spice-sleep` if it exists.
+perl -e 'syswrite STDOUT, "@ARGV\n"' -- git-spice "$@" @ "$(pwd -P)" >>"$MOCK_LOG"
+[ -f "$MOCK_DIR/spice-sleep" ] && sleep "$(cat "$MOCK_DIR/spice-sleep")"
+f="$MOCK_DIR/spice-$(printf %s "$(pwd -P)" | shasum | cut -c1-12).jsonl"
+[ -f "$f" ] && cat "$f"
+exit 0
