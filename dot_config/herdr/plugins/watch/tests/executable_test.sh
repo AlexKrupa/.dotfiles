@@ -126,6 +126,30 @@ check "sidebar: conflict token" 1 \
   "$(sidebar '{"subs": [], "folders": {"wS": "/r/.wt/x"},
     "worktrees": {"/r/.wt/x": {"stack": ["a"], "conflict": ["f"]}}}' | jq -r '.wS.watch_conflict')"
 
+# order <workspaces> <tokens>: the output of order.jq. A workspace is "id:label:repo" for a linked
+# worktree, "id:label:repo:parent" for a parent row, and "id:label" for a workspace in no repo.
+order() {
+  jq -nc --argjson tokens "$1" '{tokens: $tokens, workspaces: [$ARGS.positional[] | split(":")
+    | {workspace_id: .[0], label: .[1]}
+      + if .[2] then {worktree: {repo_key: .[2], is_linked_worktree: (.[3] != "parent")}}
+        else {} end]}' --args "${@:2}" | jq -c -f ../order.jq
+}
+check "order: mine, then review, then the rest, each alphabetical" \
+  '[{"workspace_ids":["wB","wA","wD","wC","wE"],"before_workspace_id":"wO"}]' \
+  "$(order '{"wA": {"watch_kind": "mine"}, "wB": {"watch_kind": "mine"},
+    "wC": {"watch_kind": "review"}, "wD": {"watch_kind": "review"}}' \
+    wP:app:r:parent wE:extra:r wC:zed:r wA:Beta:r wD:also:r wB:alpha:r wO:other)"
+check "order: workspace with no tokens is last" \
+  '[{"workspace_ids":["wB","wA"]}]' \
+  "$(order '{"wB": {"watch_kind": "review"}}' wP:app:r:parent wA:a:r wB:b:r)"
+check "order: sorted group gives no move" '[]' \
+  "$(order '{"wA": {"watch_kind": "mine"}}' wP:app:r:parent wA:z:r wB:a:r)"
+check "order: each group moves alone, parents stay" \
+  '[{"workspace_ids":["wA","wB"],"before_workspace_id":"wQ"}]' \
+  "$(order '{}' wP:app:r:parent wB:b:r wA:a:r wQ:lib:s:parent wC:a:s wD:b:s)"
+check "order: worktrees with no open parent stay" '[]' \
+  "$(order '{}' wB:b:r wA:a:r)"
+
 # The test repos have no remote: each check fails before a glab call.
 mkdir -p "$tmp/bin" "$tmp/config"
 cat >"$tmp/bin/herdr" <<EOF
@@ -138,7 +162,9 @@ esac
 EOF
 # Fake lockf: logs its arguments and starts nothing.
 printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>"%s/lockf.log"\n' "$tmp" >"$tmp/bin/lockf"
-chmod +x "$tmp/bin/herdr" "$tmp/bin/lockf"
+# Fake nc: logs the request and sends no reply.
+printf '#!/bin/sh\ncat >>"%s/nc.log"\n' "$tmp" >"$tmp/bin/nc"
+chmod +x "$tmp/bin/herdr" "$tmp/bin/lockf" "$tmp/bin/nc"
 echo '{"notify_opened": ["bump"]}' >"$tmp/config/config.json"
 export PATH="$tmp/bin:$PATH" XDG_STATE_HOME="$tmp/state" HERDR_PLUGIN_CONFIG_DIR="$tmp/config" \
   WATCHD_TICK=1
@@ -213,6 +239,19 @@ sweep
 check "ended with done" \
   'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=done --clear-token watch_needs --clear-token watch_stack --clear-token watch_conflict' \
   "$(metadata)"
+
+jq -nc --arg t "$tmp/t" '{result: {snapshot: {workspaces: [
+    {workspace_id: "wP", label: "app", worktree: {repo_key: "k", is_linked_worktree: false}},
+    {workspace_id: "wZ", label: "alpha", worktree: {repo_key: "k", is_linked_worktree: true}},
+    {workspace_id: "wT", label: "zeta",
+     worktree: {repo_key: "k", is_linked_worktree: true, checkout_path: $t}}]}}}' \
+  >"$tmp/snapshot.json"
+: >"$tmp/nc.log"
+sweep
+check "my worktree moves before the worktree with no kind" \
+  '{"id":"watch:order","method":"workspace.move_block","params":{"workspace_ids":["wT","wZ"]}}' \
+  "$(cat "$tmp/nc.log")"
+snapshot "wT:$tmp/t"
 
 : >"$tmp/lockf.log"
 ../watch.sh startup

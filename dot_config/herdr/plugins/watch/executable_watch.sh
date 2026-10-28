@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# The notifications and the sidebar values of the watch daemon `watchd`. This file is transport
-# only: it reads the lines of `watchd follow` and makes the herdr calls. The decisions are in
-# notify.jq and sidebar.jq, which are pure.
+# The notifications, the sidebar values, and the worktree order of the watch daemon `watchd`. This
+# file is transport only: it reads the lines of `watchd follow` and makes the herdr calls. The
+# decisions are in notify.jq, sidebar.jq, and order.jq, which are pure.
 #
 # Usage: watch.sh sweep     one pass: the lines after the last id, then exit
 #        watch.sh watch     follow the daemon, and connect again when it closes the socket
@@ -82,6 +82,12 @@ meta() { # meta <workspace id> <tokens json>
   herdr workspace report-metadata "$id" --source watch "${args[@]}" >/dev/null 2>&1
 }
 
+# The herdr CLI has no command for workspace.move_block.
+move_block() { # move_block <params json>
+  jq -nc --argjson params "$1" '{id: "watch:order", method: "workspace.move_block", params: $params}' \
+    | nc -U -w 2 "${HERDR_SOCKET_PATH:-$HOME/.config/herdr/herdr.sock}" >/dev/null 2>&1
+}
+
 FOLDERS_PROGRAM='
   .result.snapshot as $s
   | [$s.workspaces[] | . as $w
@@ -116,6 +122,10 @@ sidebar() { # sidebar <sidebar line>
   printf '%s' "$written" | jq -sc --argjson ids "$ids" --slurpfile cache "$state_dir/tokens.json" \
     '($cache[0] | with_entries(select(.key | IN($ids[])))) + (add // {})' \
     >"$state_dir/tokens.tmp" && mv "$state_dir/tokens.tmp" "$state_dir/tokens.json"
+  jq -c --argjson tokens "$desired" '{workspaces: .result.snapshot.workspaces, tokens: $tokens}' \
+    <<<"$snapshot" | jq -c -f "$root/order.jq" | jq -c '.[]' | while IFS= read -r params; do
+    move_block "$params"
+  done
 }
 
 # The first run starts at the end of the log, at the id of the first sidebar line. The id is saved
