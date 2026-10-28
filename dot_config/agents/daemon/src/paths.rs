@@ -50,6 +50,11 @@ impl StateDirs {
         self.watchd.join(format!("items/{key}.json"))
     }
 
+    /// The text of the newest report of the key, for `watchd board`.
+    pub fn board(&self, key: &str) -> PathBuf {
+        self.watchd.join(format!("items/{key}.board"))
+    }
+
     pub fn repos(&self) -> PathBuf {
         self.watchd.join("repos.json")
     }

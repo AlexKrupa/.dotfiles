@@ -22,7 +22,8 @@ checkout, the watch gives a `pull-blocked` item with the reason, for example cha
 files. The user fixes the cause.
 
 At the start, run `watchd kind hub`. It sets the kind of work of the current worktree for the herdr
-sidebar. Outside a git repo, it does nothing.
+sidebar. It also opens the board pane next to the hub. The board shows the newest report. Outside a
+git repo, it does nothing.
 
 ## Role
 

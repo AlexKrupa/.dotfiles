@@ -56,6 +56,12 @@ enum Commands {
         #[arg(long)]
         after: Option<u64>,
     },
+    /// The newest hub report of the repo, drawn again after each change: [--repo PATH].
+    #[command(disable_help_flag = true)]
+    Board {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// The Markdown report of the last delivery: [--repo PATH] [--review] [--mr IID]... <JSON.
     #[command(disable_help_flag = true)]
     Report {
@@ -86,6 +92,7 @@ async fn main() {
         Commands::Kind { args } => client::kind(args).await,
         Commands::Route { args } => client::route(args).await,
         Commands::Report { args } => client::report(args).await,
+        Commands::Board { args } => client::board(args).await,
         Commands::Debug {
             command: DebugCommand::State,
         } => client::debug_state().await,

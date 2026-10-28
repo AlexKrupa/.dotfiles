@@ -801,7 +801,22 @@ impl Store {
         let (items, data) = build_report(input, &items, &delivery, &titles, now_seconds());
         save(&path, &items).map_err(|error| format!("report: {}: {error}", path.display()))?;
         let (hour, minute, _) = local_time(now_seconds());
-        Ok(render(mode, &format!("{hour:02}:{minute:02}"), mrs, &data))
+        let text = render(mode, &format!("{hour:02}:{minute:02}"), mrs, &data);
+        if mode == Mode::Hub {
+            self.write_board(key, &text);
+        }
+        Ok(text)
+    }
+
+    pub fn write_board(&self, key: &str, text: &str) {
+        let path = self.dirs.board(key);
+        let mut temp = path.clone().into_os_string();
+        temp.push(".tmp");
+        // The rename keeps a `watchd board` reader from seeing a half-written file.
+        let written = std::fs::write(&temp, text).and_then(|()| std::fs::rename(&temp, &path));
+        if let Err(error) = written {
+            self.log("", key, &format!("board not written: {error}"));
+        }
     }
 
     fn json_files<T: DeserializeOwned>(&self, dir: &Path, suffix: &str) -> BTreeMap<String, T> {
@@ -960,5 +975,20 @@ mod tests {
 
         let rows: Vec<u64> = store.take_inbox("app").iter().map(|event| event.row).collect();
         assert_eq!(rows, [1, 2, 3]);
+    }
+
+    #[test]
+    fn report_writes_the_board_file() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-board", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
+        store.ensure_dirs().unwrap();
+
+        let text = store.report("app", Mode::Hub, &[], &ReportInput::default()).unwrap();
+
+        assert_eq!(std::fs::read_to_string(store.dirs.board("app")).unwrap(), text);
     }
 }

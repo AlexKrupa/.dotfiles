@@ -155,6 +155,7 @@ impl Watchd {
             env.dir.join("herdr.log").display()
         );
         super::executable(&env.dir.join("bin/herdr"), &herdr);
+        std::fs::create_dir_all(env.dir.join("workspaces")).unwrap();
         let watchd = env.state.join("watchd");
         Watchd {
             session: session(),
@@ -191,8 +192,14 @@ impl Watchd {
         command
             .env("WATCHD_TICK", "0.2")
             .env("WATCH_CLIENT_TICK", "1")
+            .env("WATCHD_FAKE_WORKSPACES", self.workspaces())
             .env("WATCH_SESSION_PID", self.session_pid().to_string());
         command
+    }
+
+    /// The folder of the fake workspaces, with the file `calls`.
+    pub fn workspaces(&self) -> PathBuf {
+        self.env.dir.join("workspaces")
     }
 
     pub fn watch_command(&self, args: &[&str]) -> Command {

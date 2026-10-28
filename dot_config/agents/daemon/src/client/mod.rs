@@ -17,6 +17,7 @@ use crate::local::{git, repo_of, shared_refs};
 use crate::paths::StateDirs;
 use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
 use crate::protocol::{Envelope, Request, Response, StatusReport, SubscribeArgs, receive, send};
+use crate::workspaces::workspaces_of;
 
 fn die(message: &str) -> i32 {
     eprintln!("watchd: {message}");
@@ -310,7 +311,18 @@ pub async fn kind(args: Vec<String>) -> i32 {
     let Some(kind) = Kind::parse(&kind) else {
         return die(&format!("unknown kind: {kind}"));
     };
-    ask_ok(&Request::Kind { kind }).await
+    let code = ask_ok(&Request::Kind { kind }).await;
+    if code == 0 && kind == Kind::Hub {
+        // The board is display only: its error does not fail the command.
+        let opened = std::env::current_dir()
+            .map_err(|error| error.to_string())
+            .and_then(|folder| worktree_top(&folder))
+            .and_then(|top| workspaces_of().open_board(&top));
+        if let Err(text) = opened {
+            eprintln!("watchd: board pane: {text}");
+        }
+    }
+    code
 }
 
 pub async fn route(args: Vec<String>) -> i32 {
@@ -393,6 +405,67 @@ pub async fn report(args: Vec<String>) -> i32 {
         Ok(_) => die("unexpected answer of the daemon"),
         Err(message) => die(&message),
     }
+}
+
+/// Draws the newest hub report of the repo, and draws it again when it changes.
+pub async fn board(args: Vec<String>) -> i32 {
+    let mut repo = None;
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--repo" => match args.next() {
+                Some(path) => repo = Some(PathBuf::from(path)),
+                None => return die("--repo needs a path"),
+            },
+            _ => return die(&format!("unexpected argument: {arg}")),
+        }
+    }
+    let target = match target(&WatchArgs {
+        repo,
+        ..WatchArgs::default()
+    }) {
+        Ok(target) => target,
+        Err(message) => return die(&message),
+    };
+    let dirs = StateDirs::from_env();
+    let path = dirs.board(&target.slug);
+    let mut shown = None;
+    loop {
+        let stream = match connect(&dirs, true).await {
+            Ok(stream) => stream,
+            Err(message) => return die(&message),
+        };
+        let (read, mut write) = stream.into_split();
+        if send(&mut write, &envelope(Request::Follow { after: None })).await.is_ok() {
+            let mut reader = BufReader::new(read);
+            let mut line = String::new();
+            loop {
+                draw_board(&path, &mut shown);
+                line.clear();
+                // A report writes no log line, so the board also reads its file each second.
+                tokio::select! {
+                    read = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line) => match read {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) => {}
+                    },
+                    _ = tokio::time::sleep(Duration::from_secs(1)) => {}
+                }
+            }
+        }
+        // The daemon closed the socket, for example for a restart.
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
+fn draw_board(path: &Path, shown: &mut Option<String>) {
+    let text = std::fs::read_to_string(path).unwrap_or_else(|_| "No report yet.".to_string());
+    if shown.as_ref() == Some(&text) {
+        return;
+    }
+    use std::io::Write;
+    let mut stdout = std::io::stdout().lock();
+    let _ = write!(stdout, "\x1b[H\x1b[2J{}\n", text.trim_end()).and_then(|()| stdout.flush());
+    *shown = Some(text);
 }
 
 pub async fn status() -> i32 {

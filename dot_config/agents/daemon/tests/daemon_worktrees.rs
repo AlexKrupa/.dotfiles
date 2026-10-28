@@ -907,6 +907,21 @@ fn kind_is_kept_by_worktree_path() {
 }
 
 #[test]
+fn kind_hub_opens_the_board() {
+    let w = Watchd::new();
+    let calls = || std::fs::read_to_string(w.workspaces().join("calls")).unwrap_or_default();
+
+    let mine = w.client_in(&w.env.repo, &["kind", "mine"]);
+    let after_mine = calls();
+    let hub = w.client_in(&w.env.repo, &["kind", "hub"]);
+
+    assert_eq!((mine.code, hub.code), (0, 0), "{}{}", mine.err, hub.err);
+    assert_eq!(after_mine, "");
+    let repo = w.env.repo.canonicalize().unwrap();
+    assert_eq!(calls(), format!("open_board {}\n", repo.display()));
+}
+
+#[test]
 fn local_round_keeps_a_kind_set_during_the_round() {
     let w = Watchd::new();
     let wt = stacked_worktree(&w);

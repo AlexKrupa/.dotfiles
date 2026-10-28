@@ -12,3 +12,4 @@ mod platform;
 mod protocol;
 mod report;
 mod server;
+mod workspaces;
