@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A fake agent session of `sample`: runs `watchd watch` in the worktree again and again, and prints
-# each event line, as an agent gets them. A failed watch, an ended agent record, or a new client
-# stops the loop.
+# each event line, as an agent gets them. A failed watch, a new client, or the end of the agent
+# record, for example after the last MR merged, stops the loop.
 # Usage: agent-loop <worktree> <pid file> [<watch argument>...]
 set -u
 
@@ -14,9 +14,16 @@ cd "$worktree" || exit 1
 # The agent record ends with this process, as it ends with a Claude Code process.
 export WATCH_SESSION_PID=$$
 echo "agent loop in $worktree: watchd watch $*"
+own_record() {
+  "$watchd" debug state | jq -e --argjson pid "$$" 'any(.subs[]; .session_pid == $pid)' >/dev/null
+}
 code=0
 while [ "$code" = 0 ]; do
   "$watchd" watch "$@"
   code=$?
+  if [ "$code" = 0 ] && ! own_record; then
+    echo "the daemon ended the agent record, the agent loop stops"
+    exit 0
+  fi
 done
 echo "watchd watch: exit $code, the agent loop stops"

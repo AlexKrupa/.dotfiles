@@ -62,8 +62,12 @@ retry() { # retry <id> <json>: the new job of a retry
   jq -c . <<<"$2" >"$engine/retry-$1.json"
 }
 
+# The daemon runs git-spice only when the ref refs/spice/data changes.
 spice() { # spice <worktree> <jsonl>: the output of the fake git-spice in the worktree
+  local object
   printf '%s\n' "$2" >"$SAMPLE_STATE/spice/spice-$(hash12 "$1").jsonl"
+  object=$(printf '%s\n%s\n' "$1" "$2" | git -C "$repo" hash-object -w --stdin) || return 1
+  git -C "$repo" update-ref refs/spice/data "$object"
 }
 
 commit() { # commit <folder> <file> <text>: writes the text to the file and commits it
