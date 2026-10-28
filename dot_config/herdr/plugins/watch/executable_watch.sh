@@ -96,7 +96,9 @@ FOLDERS_PROGRAM='
           | [$s.panes[]? | select(.pane_id == $pane)][0].cwd))}]
   | map(select(.value)) | from_entries'
 
-# Writes the tokens that changed since the last write, only for the workspaces that herdr has.
+# Writes the tokens that changed since the last write, only for the workspaces that herdr has. A
+# watcher of another daemon writes the other workspaces, so this one writes only the workspaces of
+# its daemon and the workspaces in its own cache.
 sidebar() { # sidebar <sidebar line>
   local snapshot ids folders id desired changes value written=''
   snapshot=$(herdr api snapshot 2>/dev/null)
@@ -110,6 +112,7 @@ sidebar() { # sidebar <sidebar line>
     --slurpfile cache "$state_dir/tokens.json" '
     . as $desired | $cache[0] as $cache
     | $ids[]
+    | select($desired[.] or $cache[.])
     | ($none + ($desired[.] // {})) as $value
     | select($value != $cache[.])
     | "\(.)\t\($value | tojson)"' <<<"$desired")

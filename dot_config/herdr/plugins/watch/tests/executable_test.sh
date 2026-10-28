@@ -150,14 +150,16 @@ check "order: unwatched mine sorts with no kind, then watched, debug, bump" \
     wP:app:r:parent wB:ABC-0:r wD:ABC-0:r wW:ABC-1:r wO:ABC-3:r wU:ABC-2:r)"
 check "order: numbers in labels sort by value" \
   '[{"workspace_ids":["wC","wB","wA"]}]' \
-  "$(order '{}' wP:app:r:parent wA:ABC-123:r wB:ABC-23:r wC:ABC-4:r)"
+  "$(order '{"wA": {}}' wP:app:r:parent wA:ABC-123:r wB:ABC-23:r wC:ABC-4:r)"
 check "order: sorted group gives no move" '[]' \
   "$(order '{"wB": {"watch_kind": "mine", "watch_stage": "watching"}}' wP:app:r:parent wA:z:r wB:a:r)"
 check "order: each group moves alone, parents stay" \
   '[{"workspace_ids":["wA","wB"],"before_workspace_id":"wQ"}]' \
-  "$(order '{}' wP:app:r:parent wB:b:r wA:a:r wQ:lib:s:parent wC:a:s wD:b:s)"
+  "$(order '{"wA": {}, "wC": {}}' wP:app:r:parent wB:b:r wA:a:r wQ:lib:s:parent wC:a:s wD:b:s)"
 check "order: worktrees with no open parent stay" '[]' \
   "$(order '{}' wB:b:r wA:a:r)"
+check "order: a group with no tokens: no move" '[]' \
+  "$(order '{}' wP:app:r:parent wB:b:r wA:a:r)"
 
 # The test repos have no remote: each check fails before a glab call.
 mkdir -p "$tmp/bin" "$tmp/config"
@@ -240,6 +242,26 @@ check "live stack subscription" \
   "$(metadata)"
 sweep
 check "no change: no herdr call" '' "$(metadata)"
+
+snapshot "wT:$tmp/t" "wO:$tmp/other"
+sweep
+check "a workspace of another daemon: no write" '' "$(metadata | grep wO)"
+
+repo c
+client "$tmp/c" kind mine
+snapshot "wT:$tmp/t" "wC:$tmp/c"
+sweep
+rm -rf "$tmp/c"
+for _ in $(seq 100); do
+  [ -n "$(client "$tmp/t" debug state | jq -r --arg c "$tmp/c" '.worktrees[$c] // empty')" ] \
+    || break
+  sleep 0.1
+done
+sweep
+check "a workspace in the cache: cleared when its worktree goes away" \
+  'workspace report-metadata wC --source watch --clear-token watch_kind --clear-token watch_stage --clear-token watch_needs --clear-token watch_stack --clear-token watch_conflict' \
+  "$(metadata)"
+snapshot "wT:$tmp/t"
 
 mv "$watchd/subs/app-x.json" "$tmp/app-x.json"
 state=$(ls "$watchd"/worktrees/*.json)

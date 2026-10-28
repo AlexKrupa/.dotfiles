@@ -1,6 +1,7 @@
 # The order of the worktree workspaces in each herdr worktree group: my work with no live watcher,
 # my watched work, debugging, bumps, code reviews, then other kinds. Alphabetical by label in each
-# part. The parent rows stay in place.
+# part. The parent rows stay in place. A group with no tokens belongs to the watcher of another
+# daemon, which sorts it.
 #
 #   in:  {workspaces: [<herdr workspace>], tokens: {<id>: {watch_kind, watch_stage}}}
 #        workspaces: in sidebar order, from `herdr api snapshot`
@@ -28,7 +29,8 @@ def label_key: ascii_downcase | [scan("[0-9]+|[^0-9]+") | tonumber? // .];
 | [$workspaces | to_entries[]
     | select(.value.worktree.is_linked_worktree and (.value.worktree.repo_key | IN($parents[])))]
 | group_by(.value.worktree.repo_key)
-| map((map(.value.workspace_id)) as $current
+| map(select(any(.[]; $tokens[.value.workspace_id]))
+    | (map(.value.workspace_id)) as $current
     | (sort_by(.value | [($tokens[.workspace_id] // {} | rank),
         (.label // "" | label_key)]) | map(.value.workspace_id)) as $sorted
     | select($sorted != $current)
