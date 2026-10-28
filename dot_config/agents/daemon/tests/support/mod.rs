@@ -75,15 +75,8 @@ esac
 const FAKE_PMSET: &str = "#!/bin/sh\necho \"Current System Capabilities are: CPU Graphics Audio Network\"\n";
 const FAKE_NC: &str = "#!/bin/sh\nexit 0\n";
 
-/// Prints `$MOCK_DIR/spice-<hash of the folder>.jsonl` if it exists. Waits first for the seconds
-/// in `$MOCK_DIR/spice-sleep` if it exists.
-const FAKE_SPICE: &str = r#"#!/bin/sh
-perl -e 'syswrite STDOUT, "@ARGV\n"' -- git-spice "$@" @ "$(pwd -P)" >>"$MOCK_LOG"
-[ -f "$MOCK_DIR/spice-sleep" ] && sleep "$(cat "$MOCK_DIR/spice-sleep")"
-f="$MOCK_DIR/spice-$(printf %s "$(pwd -P)" | shasum | cut -c1-12).jsonl"
-[ -f "$f" ] && cat "$f"
-exit 0
-"#;
+/// The sample daemon puts the same file on its PATH.
+const FAKE_SPICE: &str = include_str!("../../sample/bin/git-spice");
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
