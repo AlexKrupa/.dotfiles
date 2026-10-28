@@ -4,7 +4,7 @@ use std::os::unix::process::CommandExt;
 use std::sync::OnceLock;
 
 use support::Checks;
-use support::daemon::{Watchd, alive, end, ev, is_daemon, norow, session, sleep, wait_for};
+use support::daemon::{Watchd, alive, end, ev, is_daemon, norow, session, wait_for};
 
 fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
@@ -40,7 +40,7 @@ fn hub_client() -> &'static Checks {
 
         w.events("app", &[ev("note", 6)]);
         wait_for(5, || !w.inbox_of("app").is_empty());
-        sleep(2);
+        w.local_rounds(2);
         let run = w.watch(&[]);
         c.check(
             "events with no client wait in the inbox",
@@ -227,7 +227,7 @@ fn process_group() -> &'static Checks {
         let daemon = w.daemon_pid();
         unsafe { libc::kill(-(group as i32), libc::SIGTERM) };
         let _ = client.wait();
-        sleep(1);
+        w.local_rounds(2);
         c.check(
             "the process group of the client gets SIGTERM: the daemon stays",
             "yes yes",

@@ -5,7 +5,7 @@ use std::process::Command;
 use std::sync::OnceLock;
 
 use support::Checks;
-use support::daemon::{Watchd, alive, ev, is_daemon, norow, sleep, wait_for};
+use support::daemon::{Watchd, alive, ev, is_daemon, norow, wait_for};
 
 fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
@@ -248,7 +248,7 @@ fn network_down() -> &'static Checks {
         w.fake("app", "exit", "4\n");
         let client = w.start(w.watch_command(&[]));
         wait_for(5, || w.log_count("network error") > 0);
-        sleep(2);
+        w.local_rounds(2);
         c.check(
             "network down: no client error, subscription stays",
             "running no",

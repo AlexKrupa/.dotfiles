@@ -329,7 +329,7 @@ fn follow() -> &'static Checks {
         wait_for(5, || {
             std::fs::read_to_string(&out).unwrap_or_default().contains(r#""todo""#)
         });
-        sleep(1);
+        w.local_rounds(2);
         end(follower);
         let events: Vec<Value> = event_lines(&out)
             .iter()

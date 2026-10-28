@@ -3,7 +3,7 @@ mod support;
 use std::sync::OnceLock;
 
 use serde_json::{Value, json};
-use support::daemon::{Watchd, end, ev, norm, session, sleep, wait_for};
+use support::daemon::{Watchd, end, ev, norm, session, wait_for};
 use support::{Checks, Run};
 
 const MR_URL: &str = "https://gitlab.example.com/app/-/merge_requests";
@@ -466,7 +466,7 @@ fn hub_items_stay() -> &'static Checks {
         );
         w.events(&w.stack_key(), &[ev("approved", 5)]);
         w.watch(&["--mr", "5"]);
-        sleep(3);
+        w.local_rounds(2);
         c.check(
             "hub items with no hub record: no sweep log line, items stay",
             "0 yes",
