@@ -52,6 +52,13 @@ code=$?
 check "check branch: exit 0" 0 "$code"
 [ "$code" = 0 ] || cat "$tmp/check.log"
 
+for scenario in stack review; do
+  "$sample" check "$scenario" >"$tmp/check.log" 2>&1
+  code=$?
+  check "check $scenario: exit 0" 0 "$code"
+  [ "$code" = 0 ] || cat "$tmp/check.log"
+done
+
 # live_sub <role>: yes if the test daemon has an agent record of the role with a live session.
 live_sub() {
   local key pid

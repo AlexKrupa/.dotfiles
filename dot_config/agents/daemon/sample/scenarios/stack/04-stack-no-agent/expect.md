@@ -1,0 +1,3 @@
+- Sidebar: the `feature-b` workspace has no stage "watching".
+- Agent pane: the shell, after `Terminated` of the agent loop.
+- `watchd debug state` in the repo: the hub items have the comment of MR 4.

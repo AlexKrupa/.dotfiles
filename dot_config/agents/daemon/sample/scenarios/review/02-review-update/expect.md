@@ -1,0 +1,2 @@
+- Sidebar: the `review-7` workspace shows the needs `commits,reply`.
+- Agent pane: the `pushed` and `comment` event lines, then a new `watchd watch`.

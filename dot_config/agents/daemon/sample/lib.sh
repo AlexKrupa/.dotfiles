@@ -74,6 +74,15 @@ commit() { # commit <folder> <file> <text>: writes the text to the file and comm
   printf '%s\n' "$3" >"$1/$2" && git -C "$1" add "$2" && git -C "$1" commit -q -m "$3"
 }
 
+origin_commit() { # origin_commit <branch> <file> <text>: a commit of another person, pushed to origin
+  local clone=$SAMPLE_ROOT/clone
+  rm -rf "$clone"
+  git clone -q "$origin" "$clone" || return 1
+  git -C "$clone" switch -q "$1" 2>/dev/null || git -C "$clone" switch -q -c "$1" || return 1
+  commit "$clone" "$2" "$3" && git -C "$clone" push -q origin "$1" || return 1
+  rm -rf "$clone"
+}
+
 settle() { # waits until the daemon takes all event files of the fake engine
   local left file
   for _ in $(seq 30); do
