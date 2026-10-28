@@ -142,6 +142,9 @@ check "order: no kind, mine, bump, review, other kinds, each alphabetical" \
 check "order: workspace with no tokens is first" \
   '[{"workspace_ids":["wB","wA"]}]' \
   "$(order '{"wA": {"watch_kind": "review"}}' wP:app:r:parent wA:a:r wB:b:r)"
+check "order: numbers in labels sort by value" \
+  '[{"workspace_ids":["wC","wB","wA"]}]' \
+  "$(order '{}' wP:app:r:parent wA:ABC-123:r wB:ABC-23:r wC:ABC-4:r)"
 check "order: sorted group gives no move" '[]' \
   "$(order '{"wB": {"watch_kind": "mine"}}' wP:app:r:parent wA:z:r wB:a:r)"
 check "order: each group moves alone, parents stay" \

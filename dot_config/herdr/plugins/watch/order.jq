@@ -11,6 +11,9 @@
 
 def kind_rank: {"": 0, mine: 1, bump: 2, review: 3}[. // ""] // 4;
 
+# ABC-23 before ABC-123: each run of digits compares as a number.
+def label_key: ascii_downcase | [scan("[0-9]+|[^0-9]+") | tonumber? // .];
+
 .tokens as $tokens
 | .workspaces as $workspaces
 | [$workspaces[] | select(.worktree.is_linked_worktree == false) | .worktree.repo_key] as $parents
@@ -19,7 +22,7 @@ def kind_rank: {"": 0, mine: 1, bump: 2, review: 3}[. // ""] // 4;
 | group_by(.value.worktree.repo_key)
 | map((map(.value.workspace_id)) as $current
     | (sort_by(.value | [($tokens[.workspace_id].watch_kind | kind_rank),
-        (.label // "" | ascii_downcase)]) | map(.value.workspace_id)) as $sorted
+        (.label // "" | label_key)]) | map(.value.workspace_id)) as $sorted
     | select($sorted != $current)
     | {workspace_ids: $sorted}
       + ($workspaces[last.key + 1].workspace_id as $next
