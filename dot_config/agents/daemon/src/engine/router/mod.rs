@@ -72,10 +72,11 @@ impl Routing {
         self.input.cells.extend(other.input.cells);
         self.input.agent.extend(other.input.agent);
         self.input.close.extend(other.input.close);
+        self.input.add.extend(other.input.add);
         self.handled.extend(other.handled);
     }
 
-    /// Takes the fields of the rows out of `self`.
+    /// Takes the fields of the rows out of `self`, and all added rows.
     pub fn take(&mut self, rows: &[u64]) -> Routing {
         let of_rows = |value: &serde_json::Value| value.as_u64().is_some_and(|row| rows.contains(&row));
         let (cells, kept) = std::mem::take(&mut self.input.cells)
@@ -95,7 +96,7 @@ impl Routing {
                 cells,
                 agent,
                 close,
-                add: Vec::new(),
+                add: std::mem::take(&mut self.input.add),
             },
             handled,
         }

@@ -839,6 +839,7 @@ impl Store {
         }
         input.agent.extend(routed.agent);
         input.close.extend(routed.close);
+        input.add.extend(routed.add);
         let text = self.build(key, mode, mrs, &input, &delivery)?;
         self.write_routing(key, &saved);
         Ok(text)

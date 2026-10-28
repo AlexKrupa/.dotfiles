@@ -9,6 +9,7 @@ use crate::daemon::store::Store;
 use crate::engine::Engine;
 use crate::engine::event::EventKind;
 use crate::platform::now_seconds;
+use crate::report::{Add, AddSection};
 use crate::workspaces::{AgentStart, StartError, Workspaces};
 
 pub struct ExecuteContext<'a> {
@@ -53,7 +54,9 @@ pub async fn execute(decisions: Vec<Decision>, events: &[RoutedEvent], ctx: &Exe
                     branch,
                     prompt: format!("/bump {url}"),
                 };
-                start_agent(ctx, &mut routing, row, &start, "Bump agent started");
+                if start_agent(ctx, &mut routing, row, &start, "Bump agent started") {
+                    tokio::task::block_in_place(|| stale_agents(ctx, &mut routing, &start.branch));
+                }
             }
             Action::Dismiss => {
                 let opened = events
@@ -72,22 +75,66 @@ pub async fn execute(decisions: Vec<Decision>, events: &[RoutedEvent], ctx: &Exe
     routing
 }
 
-/// A failed start keeps the row as a pending item, with the error text as its cell.
-fn start_agent(ctx: &ExecuteContext<'_>, routing: &mut Routing, row: u64, start: &AgentStart, started: &str) {
+/// The dependency of a bot branch: the last `/` part with no version part.
+fn dependency(branch: &str) -> Option<String> {
+    let name = ["renovate/", "dependabot/"]
+        .iter()
+        .find_map(|prefix| branch.strip_prefix(prefix))?;
+    let name = name.rsplit('/').next().unwrap_or(name);
+    let is_version = |part: &str| {
+        let digit_at = |index: usize| part.as_bytes().get(index).is_some_and(u8::is_ascii_digit);
+        digit_at(0) || (part.starts_with('v') && digit_at(1)) || part.ends_with(".x")
+    };
+    match name.rsplit_once('-') {
+        Some((dependency, version)) if is_version(version) => Some(dependency.to_string()),
+        _ => Some(name.to_string()),
+    }
+}
+
+/// An agent row for each older bump agent of the dependency. Its workspace stays, because it can
+/// have changes.
+fn stale_agents(ctx: &ExecuteContext<'_>, routing: &mut Routing, branch: &str) {
+    let Some(name) = dependency(branch) else {
+        return;
+    };
+    let branches = match ctx.workspaces.agent_branches(ctx.repo) {
+        Ok(branches) => branches,
+        Err(error) => {
+            ctx.store.log(ctx.key, ctx.key, &format!("stale check: {error}"));
+            return;
+        }
+    };
+    for old in branches
+        .iter()
+        .filter(|old| old.as_str() != branch && dependency(old).as_ref() == Some(&name))
+    {
+        routing.input.add.push(Add {
+            section: AddSection::Agent,
+            iid: None,
+            what: Some(format!("The bump agent of {old} is stale")),
+            result: None,
+        });
+    }
+}
+
+/// Returns true if the agent started. A failed start keeps the row as a pending item, with the error
+/// text as its cell.
+fn start_agent(ctx: &ExecuteContext<'_>, routing: &mut Routing, row: u64, start: &AgentStart, started: &str) -> bool {
     let result = tokio::task::block_in_place(|| ctx.workspaces.start_agent(ctx.repo, start));
-    let cell = match result {
+    let (cell, ok) = match result {
         Ok(()) => {
             routing.input.agent.push(row.into());
-            started.to_string()
+            (started.to_string(), true)
         }
         Err(StartError::Busy) => {
             routing.input.agent.push(row.into());
-            "An agent works on the branch".to_string()
+            ("An agent works on the branch".to_string(), false)
         }
-        Err(StartError::Failed(text)) => text,
+        Err(StartError::Failed(text)) => (text, false),
     };
     routing.input.cells.insert(row.to_string(), cell.into());
     routing.handled.push(row);
+    ok
 }
 
 #[cfg(test)]
@@ -210,6 +257,39 @@ mod tests {
         assert_eq!(routing.input.cells["3"], "work-start: not a git repo: /x");
         assert!(routing.input.agent.is_empty());
         assert!(routing.input.close.is_empty());
+    }
+
+    #[test]
+    fn dependency_is_the_branch_name_with_no_bot_prefix_and_no_version() {
+        assert_eq!(dependency("renovate/foo-1.x"), Some("foo".into()));
+        assert_eq!(dependency("renovate/org-foo-bar-2.3.4"), Some("org-foo-bar".into()));
+        assert_eq!(dependency("dependabot/npm_and_yarn/lodash-4.17.21"), Some("lodash".into()));
+        assert_eq!(dependency("renovate/foo-v2"), Some("foo".into()));
+        assert_eq!(dependency("feature/foo-1.x"), None);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn bump_start_marks_the_older_agent_of_the_dependency_stale() {
+        let setup = Setup::new("stale", "ok");
+        std::fs::write(setup.base.join("fake/branches"), "renovate/foo-1.x\nrenovate/bar-2.x\n").unwrap();
+        let bump = Decision {
+            row: 4,
+            action: Action::StartBump {
+                iid: 7,
+                title: "Update foo to v2".to_string(),
+                branch: "renovate/foo-2.x".to_string(),
+                url: "https://g/mr/7".to_string(),
+            },
+        };
+
+        let routing = execute(vec![bump], &[], &setup.context()).await;
+
+        let added: Vec<serde_json::Value> = routing.input.add.iter().map(|add| json!(add)).collect();
+        assert_eq!(
+            added,
+            [json!({"section": "agent", "iid": null, "what": "The bump agent of renovate/foo-1.x is stale",
+                    "result": null})]
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]

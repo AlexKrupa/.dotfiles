@@ -13,6 +13,9 @@ pub trait Workspaces: Send + Sync {
 
     /// Starts an agent on the existing branch, in its own worktree workspace.
     fn start_agent(&self, repo: &Path, start: &AgentStart) -> Result<(), StartError>;
+
+    /// The branch of each agent in the linked worktrees of the repo.
+    fn agent_branches(&self, repo: &Path) -> Result<Vec<String>, String>;
 }
 
 pub struct AgentStart {
@@ -30,9 +33,9 @@ pub enum StartError {
 
 pub struct HerdrWorkspaces;
 
-/// Runs a script of `~/.claude/skills` in the folder, with the text on stdin. Gives its stderr text
-/// on failure.
-fn run_skill_script(script: &str, args: &[&std::ffi::OsStr], folder: &Path, stdin: &str) -> Result<(), String> {
+/// Runs a script of `~/.claude/skills` in the folder, with the text on stdin. Gives its stdout text,
+/// or its stderr text on failure.
+fn run_skill_script(script: &str, args: &[&std::ffi::OsStr], folder: &Path, stdin: &str) -> Result<String, String> {
     use std::io::Write;
     let path = home().join(".claude/skills").join(script);
     let failed = |error: std::io::Error| format!("{}: {error}", path.display());
@@ -40,7 +43,7 @@ fn run_skill_script(script: &str, args: &[&std::ffi::OsStr], folder: &Path, stdi
         .args(args)
         .current_dir(folder)
         .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(failed)?;
@@ -49,14 +52,14 @@ fn run_skill_script(script: &str, args: &[&std::ffi::OsStr], folder: &Path, stdi
     }
     let output = child.wait_with_output().map_err(failed)?;
     match output.status.success() {
-        true => Ok(()),
+        true => Ok(String::from_utf8_lossy(&output.stdout).to_string()),
         false => Err(String::from_utf8_lossy(&output.stderr).trim_end().to_string()),
     }
 }
 
 impl Workspaces for HerdrWorkspaces {
     fn open_board(&self, repo: &Path) -> Result<(), String> {
-        run_skill_script("hub/hub-board.sh", &["--repo".as_ref(), repo.as_os_str()], repo, "")
+        run_skill_script("hub/hub-board.sh", &["--repo".as_ref(), repo.as_os_str()], repo, "").map(|_| ())
     }
 
     fn start_agent(&self, repo: &Path, start: &AgentStart) -> Result<(), StartError> {
@@ -66,12 +69,22 @@ impl Workspaces for HerdrWorkspaces {
             start.branch.as_ref(),
             "--no-track".as_ref(),
         ];
-        run_skill_script("work/work-start.sh", &args, repo, &start.prompt).map_err(|text| {
-            match text.contains("is open in herdr workspace") {
+        run_skill_script("work/work-start.sh", &args, repo, &start.prompt)
+            .map(|_| ())
+            .map_err(|text| match text.contains("is open in herdr workspace") {
                 true => StartError::Busy,
                 false => StartError::Failed(text),
-            }
-        })
+            })
+    }
+
+    fn agent_branches(&self, repo: &Path) -> Result<Vec<String>, String> {
+        let text = run_skill_script("hub/hub-status.sh", &["--repo".as_ref(), repo.as_os_str()], repo, "")?;
+        // The fields: pane id, status, branch, cwd, title.
+        Ok(text
+            .lines()
+            .filter_map(|line| line.split('\t').nth(2))
+            .map(str::to_string)
+            .collect())
     }
 }
 
@@ -110,6 +123,13 @@ impl Workspaces for FakeWorkspaces {
             "busy" => Err(StartError::Busy),
             text => Err(StartError::Failed(text.to_string())),
         }
+    }
+
+    /// The file `<dir>/branches` gives one branch on each line.
+    fn agent_branches(&self, repo: &Path) -> Result<Vec<String>, String> {
+        self.call(&format!("agent_branches {}", repo.display()));
+        let text = std::fs::read_to_string(self.dir.join("branches")).unwrap_or_default();
+        Ok(text.lines().map(str::to_string).collect())
     }
 }
 
