@@ -52,7 +52,7 @@ code=$?
 check "check branch: exit 0" 0 "$code"
 [ "$code" = 0 ] || cat "$tmp/check.log"
 
-for scenario in stack review; do
+for scenario in stack review errors; do
   "$sample" check "$scenario" >"$tmp/check.log" 2>&1
   code=$?
   check "check $scenario: exit 0" 0 "$code"
@@ -69,6 +69,8 @@ live_sub() {
 }
 "$sample" run branch >/dev/null && "$sample" next >/dev/null
 check "branch-watching: a live agent record" yes "$(live_sub branch)"
+"$sample" run errors >/dev/null && "$sample" next >/dev/null
+check "check-error: no live agent record" no "$(live_sub branch)"
 
 mkdir -p "$tmp/scenarios/lost/01-lost"
 echo 'printf "{}\n" >"$SAMPLE_STATE/engine/nobody.jsonl"' >"$tmp/scenarios/lost/01-lost/step.sh"

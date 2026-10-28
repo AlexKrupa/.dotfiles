@@ -51,7 +51,7 @@ start_daemon() {
   XDG_STATE_HOME=$SAMPLE_STATE WATCHD_FAKE_ENGINE=$engine \
     WATCHD_FAKE_WORKSPACES=$SAMPLE_STATE/workspaces PATH=$sample_dir/bin:$PATH \
     MOCK_DIR=$SAMPLE_STATE/spice MOCK_LOG=$SAMPLE_STATE/spice.log \
-    WATCHD_TICK=1 WATCHD_MANAGED_SECONDS=2 \
+    WATCHD_TICK=1 WATCHD_MANAGED_SECONDS=2 WATCHD_RETRY_INTERVAL=2 \
     perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$watchd" daemon \
     >>"$log" 2>&1 </dev/null &
   for _ in $(seq 50); do
@@ -165,9 +165,10 @@ back() {
   for index in $(seq $((number - 1))); do apply "$scenario" "$index"; done
 }
 
-# A step fails when it fails, when the daemon stops, or when the log has a new error line.
+# A step fails when it fails, when the daemon stops, or when the log has a new error line. The
+# file `errors` of a step has the patterns of its expected error lines, one on each line.
 check_scenario() { # check_scenario <scenario>
-  local count index before errors failed=0
+  local count index before errors folder failed=0
   steps_of "$1" >/dev/null
   count=$(steps_of "$1" | wc -l)
   reset
@@ -178,7 +179,9 @@ check_scenario() { # check_scenario <scenario>
       echo "FAIL $1 $index: the test daemon stopped, see $log"
       return 1
     fi
-    errors=$(tail -n +$((before + 1)) "$log" | grep -Ei 'error|panic' || true)
+    folder=$(steps_of "$1" | sed -n "${index}p")
+    errors=$(tail -n +$((before + 1)) "$log" | grep -Ei 'error|panic' \
+      | grep -Evf <(cat "$folder/errors" 2>/dev/null || echo '^$') || true)
     if [ -n "$errors" ]; then
       printf 'FAIL %s %s: new error lines in %s\n%s\n' "$1" "$index" "$log" "$errors"
       failed=1

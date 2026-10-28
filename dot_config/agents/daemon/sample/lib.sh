@@ -21,7 +21,15 @@ export GIT_CONFIG_KEY_3=core.fsmonitor GIT_CONFIG_VALUE_3=false
 
 hash12() { printf %s "$1" | shasum | cut -c1-12; }
 
-# The keys of src/key.rs. The worktree of a role is $SAMPLE_ROOT/repo-<role>.
+worktree_of() { # worktree_of <role>: the hub and the own MRs use the main checkout
+  case $1 in
+    hub | own) echo "$repo" ;;
+    branch | stack | review) echo "$SAMPLE_ROOT/repo-$1" ;;
+    *) echo "unknown role: $1" >&2; return 1 ;;
+  esac
+}
+
+# The keys of src/key.rs.
 key_of() { # key_of <role>
   local slug
   slug=$(cd "$repo" && "$HOME/.config/agents/bin/repo-slug.sh") || return 1
@@ -83,6 +91,30 @@ origin_commit() { # origin_commit <branch> <file> <text>: a commit of another pe
   rm -rf "$clone"
 }
 
+open_branch() { # the branch `feature` in the worktree of the role branch, with MR 5
+  git -C "$repo" worktree add -q -b feature "$SAMPLE_ROOT/repo-branch"
+  commit "$SAMPLE_ROOT/repo-branch" feature.txt "Add feature"
+  spice "$SAMPLE_ROOT/repo-branch" '{"name": "main", "ups": [{"name": "feature"}]}
+{"name": "feature", "current": true, "down": {"name": "main"}, "change": {"id": "!5"}}'
+  (cd "$SAMPLE_ROOT/repo-branch" && "$watchd" kind mine)
+}
+
+wait_until() { # wait_until <what> <command>...: runs the command until it succeeds, 15 seconds
+  local what=$1
+  shift
+  for _ in $(seq 75); do
+    if "$@"; then return 0; fi
+    sleep 0.2
+  done
+  echo "timeout: $what" >&2
+  return 1
+}
+
+record_gone() { # record_gone <role>: the test daemon has no agent record of the role
+  (cd "$repo" && "$watchd" debug state) \
+    | jq -e --arg key "$(key_of "$1")" '.subs | has($key) | not' >/dev/null
+}
+
 settle() { # waits until the daemon takes all event files of the fake engine
   local left file
   for _ in $(seq 30); do
@@ -104,7 +136,7 @@ agents=$SAMPLE_STATE/agents
 agent_open() { # agent_open <role>: opens the worktree workspace in herdr
   local branch opened workspace pane
   if [ "${SAMPLE_NO_HERDR:-}" = 1 ] || [ -s "$agents/$1.pane" ]; then return 0; fi
-  branch=$(git -C "$SAMPLE_ROOT/repo-$1" symbolic-ref --short HEAD) || return 1
+  branch=$(git -C "$(worktree_of "$1")" symbolic-ref --short HEAD) || return 1
   opened=$("$HOME/.config/agents/skills/work/herdr-worktree.sh" "$branch" --repo "$repo") || return 1
   workspace=$(jq -r .workspace_id <<<"$opened")
   pane=$(jq -r .root_pane_id <<<"$opened")
@@ -123,11 +155,11 @@ agent_run() { # agent_run <role> [<watch argument>...]: starts the loop, waits f
   key=$(key_of "$role") || return 1
   rm -f "$agents/$role.pid"
   if [ "${SAMPLE_NO_HERDR:-}" = 1 ]; then
-    nohup "$sample_dir/agent-loop" "$SAMPLE_ROOT/repo-$role" "$agents/$role.pid" "$@" \
+    nohup "$sample_dir/agent-loop" "$(worktree_of "$role")" "$agents/$role.pid" "$@" \
       >>"$agents/$role.log" 2>&1 </dev/null &
   else
     herdr pane run "$(cat "$agents/$role.pane")" "$(printf '%q ' env SAMPLE_ROOT="$SAMPLE_ROOT" \
-      SAMPLE_STATE="$SAMPLE_STATE" "$sample_dir/agent-loop" "$SAMPLE_ROOT/repo-$role" \
+      SAMPLE_STATE="$SAMPLE_STATE" "$sample_dir/agent-loop" "$(worktree_of "$role")" \
       "$agents/$role.pid" "$@")" >/dev/null
   fi
   for _ in $(seq 75); do

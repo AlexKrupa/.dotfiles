@@ -1,0 +1,2 @@
+- `watchd.log`: the key `repo-own` routes 1 event.
+- `watchd debug state` in the repo: the hub items have the comment of MR 9.
