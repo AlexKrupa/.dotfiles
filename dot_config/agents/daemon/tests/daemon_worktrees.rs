@@ -419,6 +419,77 @@ fn local_state_has_the_conflict_with_main() {
     end(follow);
 }
 
+fn commit_f(w: &Watchd, folder: &Path, text: &str) {
+    std::fs::write(folder.join("f"), text).unwrap();
+    w.env.git(folder, &["commit", "-q", "-am", text]);
+}
+
+const LOWER_AND_UPPER: &str = r#"{"name":"main","ups":[{"name":"lower"}]}
+{"name":"lower","down":{"name":"main"},"ups":[{"name":"upper"}],"change":{"id":"!12","url":"u"}}
+{"name":"upper","current":true,"down":{"name":"lower"},"change":{"id":"!13","url":"u"}}
+"#;
+
+#[test]
+fn merged_lower_branch_leaves_the_conflict_test() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
+    let (pusher, work) = origin(&w);
+    commit_f(&w, &pusher, "1\n2\n3\n4\n5\n");
+    w.env.git(&pusher, &["push", "-q", "origin", "main"]);
+    w.env.git(&work, &["pull", "-q"]);
+    let wt = w.env.dir.join("wt");
+    w.env
+        .git(&work, &["worktree", "add", "-q", "-b", "lower", wt.to_str().unwrap()]);
+    commit_f(&w, &wt, "1\nB\n3\n4\n5\n");
+    w.env.git(&wt, &["switch", "-q", "-c", "upper"]);
+    commit_f(&w, &wt, "1\nB\n3\n4\nE\n");
+    w.env.git(&work, &["update-ref", "refs/spice/data", "HEAD"]);
+    w.env.fake_spice(&wt, LOWER_AND_UPPER);
+    commit_f(&w, &pusher, "A\n2\n3\n4\n5\n");
+    commit_f(&w, &pusher, "A\nB\n3\n4\n5\n");
+    w.env.git(&pusher, &["push", "-q", "origin", "main"]);
+    let follow = w.follower(&w.env.dir);
+    w.client_in(&wt, &["status"]);
+    wait_for(10, || w.worktree_state(&wt)["conflict"] == json!(["f"]));
+    let before = w.worktree_state(&wt)["conflict"].clone();
+
+    let merged = r#"{"kind":"merged","iid":12,"title":"T","url":"u","actor":"anna","detail":"d","branch":"lower"}"#;
+    w.events(&format!("work-{}", support::hash12(&wt)), &[merged.to_string()]);
+    wait_for(10, || w.worktree_state(&wt)["conflict"] == json!([]));
+
+    assert_eq!(before, json!(["f"]), "{}", w.log());
+    assert_eq!(w.worktree_state(&wt)["conflict"], json!([]), "{}", w.log());
+    end(follow);
+}
+
+#[test]
+fn merged_branch_of_a_lookup_leaves_the_conflict_test() {
+    let mut w = Watchd::new();
+    w.env.set_env("WATCHD_MANAGED_SECONDS", "0.2");
+    let (pusher, work) = origin(&w);
+    let wb = w.env.dir.join("wb");
+    w.env
+        .git(&work, &["worktree", "add", "-q", "-b", "b", wb.to_str().unwrap()]);
+    commit_f(&w, &wb, "branch\n");
+    commit_f(&w, &pusher, "main\n");
+    w.env.git(&pusher, &["push", "-q", "origin", "main"]);
+    std::fs::write(w.events.join("lookup-b"), "20\n").unwrap();
+    let follow = w.follower(&w.env.dir);
+    w.client_in(&wb, &["status"]);
+    wait_for(10, || {
+        w.worktree_state(&wb)["conflict"] == json!(["f"]) && reviews(&w) != json!([])
+    });
+    let before = w.worktree_state(&wb)["conflict"].clone();
+
+    let key = format!("work-{}-review-20", support::hash12(&wb));
+    w.events(&key, &[support::daemon::ev("merged", 20)]);
+    wait_for(10, || w.worktree_state(&wb)["conflict"] == json!([]));
+
+    assert_eq!(before, json!(["f"]), "{}", w.log());
+    assert_eq!(w.worktree_state(&wb)["conflict"], json!([]), "{}", w.log());
+    end(follow);
+}
+
 fn mr_lines(w: &Watchd, iid: u64) -> usize {
     let flag = format!("--mr {iid}");
     w.args().lines().filter(|line| line.contains(&flag)).count()

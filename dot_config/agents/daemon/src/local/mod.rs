@@ -215,12 +215,15 @@ pub fn fast_forward(main: &Path, branch: &str) -> Result<bool, Blocked> {
     }
 }
 
-pub fn conflict(worktree: &Path, default: &str, top: &str) -> Result<Vec<String>, String> {
+/// With `merge_base`, only the commits of `top` that are not in `merge_base` count.
+pub fn conflict(worktree: &Path, default: &str, merge_base: Option<&str>, top: &str) -> Result<Vec<String>, String> {
     let base = format!("origin/{default}");
     let output = Command::new("git")
         .arg("-C")
         .arg(worktree)
-        .args(["merge-tree", "--write-tree", "--name-only", "--no-messages", &base, top])
+        .args(["merge-tree", "--write-tree", "--name-only", "--no-messages"])
+        .args(merge_base.map(|commit| format!("--merge-base={commit}")))
+        .args([&base, top])
         .stdin(Stdio::null())
         .output()
         .map_err(|error| format!("git merge-tree: {error}"))?;
@@ -396,8 +399,32 @@ mod tests {
         git(&pusher, &["push", "-q", "origin", "main"]);
         fetch(&clone, "main", FETCH_TIMEOUT).unwrap();
 
-        assert_eq!(conflict(&clone, "main", "b"), Ok(vec!["f".to_string()]));
-        assert_eq!(conflict(&clone, "main", "c"), Ok(Vec::new()));
+        assert_eq!(conflict(&clone, "main", None, "b"), Ok(vec!["f".to_string()]));
+        assert_eq!(conflict(&clone, "main", None, "c"), Ok(Vec::new()));
+    }
+
+    fn commit_f(folder: &Path, text: &str) {
+        std::fs::write(folder.join("f"), text).unwrap();
+        git(folder, &["commit", "-q", "-am", text]);
+    }
+
+    #[test]
+    fn conflict_leaves_out_the_commits_of_the_merge_base() {
+        let (pusher, clone) = origin_and_clones("conflict-merge-base");
+        commit_f(&pusher, "1\n2\n3\n4\n5\n");
+        git(&pusher, &["push", "-q", "origin", "main"]);
+        git(&clone, &["pull", "-q"]);
+        git(&clone, &["switch", "-q", "-c", "lower"]);
+        commit_f(&clone, "1\nB\n3\n4\n5\n");
+        git(&clone, &["switch", "-q", "-c", "upper"]);
+        commit_f(&clone, "1\nB\n3\n4\nE\n");
+        commit_f(&pusher, "A\n2\n3\n4\n5\n");
+        commit_f(&pusher, "A\nB\n3\n4\n5\n");
+        git(&pusher, &["push", "-q", "origin", "main"]);
+        fetch(&clone, "main", FETCH_TIMEOUT).unwrap();
+
+        assert_eq!(conflict(&clone, "main", None, "upper"), Ok(vec!["f".to_string()]));
+        assert_eq!(conflict(&clone, "main", Some("lower"), "upper"), Ok(Vec::new()));
     }
 
     #[test]

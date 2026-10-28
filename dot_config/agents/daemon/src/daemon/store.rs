@@ -582,14 +582,14 @@ impl Store {
     /// The merged and closed MRs leave the polling of the worktree. Returns true if this ended
     /// the agent record of the key.
     pub fn end_mrs(&self, target: &Target, routed: &[RoutedEvent]) -> bool {
-        let ended: Vec<u64> = routed
+        let ended_events: Vec<&RoutedEvent> = routed
             .iter()
             .filter(|event| matches!(event.event.kind, EventKind::Merged | EventKind::Closed))
-            .filter_map(|event| event.event.iid)
             .collect();
-        if ended.is_empty() {
+        if ended_events.is_empty() {
             return false;
         }
+        let ended: Vec<u64> = ended_events.iter().filter_map(|event| event.event.iid).collect();
         if target.mode == Mode::Review {
             let reviews = self.reviews();
             let kept: Vec<ReviewLink> = reviews
@@ -602,10 +602,19 @@ impl Store {
             }
         }
         let worktree = self.worktrees().into_iter().find(|state| state.path == target.repo);
-        if let Some(mut state) = worktree.filter(|_| target.mode == Mode::Stack) {
-            state.ended.extend(&ended);
-            state.ended.sort_unstable();
-            state.ended.dedup();
+        if let Some(mut state) = worktree {
+            if target.mode == Mode::Stack {
+                state.ended.extend(&ended);
+                state.ended.sort_unstable();
+                state.ended.dedup();
+            }
+            state
+                .ended_branches
+                .extend(ended_events.iter().map(|event| event.event.branch.clone()));
+            state.ended_branches.sort_unstable();
+            state.ended_branches.dedup();
+            // The next local round runs the conflict test again, without the ended branches.
+            state.key.clear();
             self.write_worktree(&state);
         }
         let Some(mut sub) = self.sub(&target.key) else {

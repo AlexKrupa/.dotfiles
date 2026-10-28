@@ -115,7 +115,9 @@ flowchart TB
   (`refs/spice/data` and `origin/HEAD`). The key of a worktree is its HEAD, its branch, and the
   shared refs. When the key changes, the round reads the git-spice stack
   (`git-spice log short --json`). Then it runs the conflict test: `git merge-tree` of the top
-  branch and `origin/<default>`.
+  branch and `origin/<default>`. The test does not use the branches of merged or closed MRs. If a
+  branch below the top has an ended MR, only the commits above that branch count. When an MR ends,
+  the next local round runs the test again.
 - Managed loop: one round is the fetch of origin, the fast-forward of the main checkout, the MR
   lookup of new branches, and one check for each target, in parallel. A blocked fast-forward is one
   open `pull-blocked` item. With no `origin/HEAD`, the fetch and the fast-forward are off. Then the

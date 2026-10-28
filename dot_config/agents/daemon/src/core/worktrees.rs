@@ -16,7 +16,7 @@ pub struct Repos {
 }
 
 /// `key` is the git state at the last read of git-spice. `stack` has the branches above the trunk.
-/// `ended` has the merged or closed MRs.
+/// `ended` has the merged or closed MRs, and `ended_branches` has their source branches.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WorktreeState {
     pub path: PathBuf,
@@ -29,6 +29,8 @@ pub struct WorktreeState {
     pub conflict: Vec<String>,
     #[serde(default)]
     pub ended: Vec<u64>,
+    #[serde(default)]
+    pub ended_branches: Vec<String>,
     #[serde(default)]
     pub lookup_branch: Option<String>,
     /// From `watchd kind` or the first agent.
@@ -192,6 +194,7 @@ impl WorktreeState {
             mrs: stack.filter_map(|branch| branch.mr).collect(),
             conflict: Vec::new(),
             ended: Vec::new(),
+            ended_branches: Vec::new(),
             lookup_branch: None,
             kind: None,
             stage: None,
@@ -199,11 +202,16 @@ impl WorktreeState {
         }
     }
 
-    /// The other fields have other writers.
+    /// The other fields have other writers. `read.ended_branches` has the ended branches of the
+    /// conflict test.
     pub fn set_local(&mut self, read: WorktreeState) {
         self.repo = read.repo;
         self.branch = read.branch;
-        self.key = read.key;
+        // An MR that ended during the git calls makes the next local round test again.
+        self.key = match self.ended_branches == read.ended_branches {
+            true => read.key,
+            false => String::new(),
+        };
         self.stack = read.stack;
         self.mrs = read.mrs;
         self.conflict = read.conflict;
@@ -296,6 +304,49 @@ pub fn top_branches(branches: &[SpiceBranch]) -> Vec<String> {
         .filter(|branch| branch.down.is_some() && branch.ups.is_empty())
         .map(|branch| branch.name.clone())
         .collect()
+}
+
+/// One conflict test: the commits of `tip` that are not in `base`, against the default branch.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ConflictTest {
+    pub base: Option<String>,
+    pub tip: String,
+}
+
+/// The top branch has the commits of all branches below it. The commits of an ended branch are
+/// in the default branch, or are not for it: they leave the test.
+pub fn conflict_tests(branch: Option<&str>, branches: &[SpiceBranch], ended: &[String]) -> Vec<ConflictTest> {
+    let is_ended = |name: &str| ended.iter().any(|known| known == name);
+    let stack: Vec<&SpiceBranch> = branches.iter().filter(|branch| branch.down.is_some()).collect();
+    if stack.is_empty() {
+        return branch
+            .filter(|name| !is_ended(name))
+            .map(|tip| ConflictTest {
+                base: None,
+                tip: tip.to_string(),
+            })
+            .into_iter()
+            .collect();
+    }
+    let named = |name: &str| stack.iter().find(|branch| branch.name == name);
+    let mut tests = Vec::new();
+    for top in top_branches(branches) {
+        let below = std::iter::successors(named(&top), |branch| branch.down.as_deref().and_then(named));
+        let mut down = below
+            .map(|branch| branch.name.as_str())
+            .skip_while(|name| is_ended(name));
+        let Some(tip) = down.next() else {
+            continue;
+        };
+        let test = ConflictTest {
+            base: down.find(|name| is_ended(name)).map(str::to_string),
+            tip: tip.to_string(),
+        };
+        if !tests.contains(&test) {
+            tests.push(test);
+        }
+    }
+    tests
 }
 
 #[cfg(test)]
@@ -523,6 +574,45 @@ mod tests {
         );
 
         assert_eq!(top_branches(&branches), ["a"]);
+    }
+
+    fn conflict_test(base: Option<&str>, tip: &str) -> ConflictTest {
+        ConflictTest {
+            base: base.map(str::to_string),
+            tip: tip.to_string(),
+        }
+    }
+
+    #[test]
+    fn conflict_tests_start_above_the_highest_ended_branch() {
+        let branches = parse_spice_log(STACK);
+
+        assert_eq!(conflict_tests(Some("b"), &branches, &[]), [conflict_test(None, "b")]);
+        assert_eq!(
+            conflict_tests(Some("b"), &branches, &["a".to_string()]),
+            [conflict_test(Some("a"), "b")]
+        );
+    }
+
+    #[test]
+    fn conflict_tests_end_at_the_highest_open_branch() {
+        let branches = parse_spice_log(STACK);
+
+        assert_eq!(
+            conflict_tests(Some("b"), &branches, &["b".to_string()]),
+            [conflict_test(None, "a")]
+        );
+        assert_eq!(
+            conflict_tests(Some("b"), &branches, &["a".to_string(), "b".to_string()]),
+            []
+        );
+    }
+
+    #[test]
+    fn conflict_tests_with_no_stack_test_the_open_branch() {
+        assert_eq!(conflict_tests(Some("b"), &[], &[]), [conflict_test(None, "b")]);
+        assert_eq!(conflict_tests(Some("b"), &[], &["b".to_string()]), []);
+        assert_eq!(conflict_tests(None, &[], &[]), []);
     }
 
     fn names(branches: &[SpiceBranch]) -> Vec<String> {

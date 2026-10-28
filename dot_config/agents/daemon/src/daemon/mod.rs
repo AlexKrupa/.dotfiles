@@ -15,7 +15,7 @@ use tokio::task::JoinHandle;
 
 use self::store::{Store, first_line};
 use crate::core::subs::{Agent, Mode};
-use crate::core::worktrees::{ReviewLink, Target, WorktreeState, lookup_branch, targets, top_branches};
+use crate::core::worktrees::{ReviewLink, Target, WorktreeState, conflict_tests, lookup_branch, targets};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
@@ -284,15 +284,14 @@ impl Daemon {
                         Vec::new()
                     }),
                 };
+                let ended_branches = known
+                    .get(&worktree.path)
+                    .map_or_else(Vec::new, |state| state.ended_branches.clone());
                 let mut state = WorktreeState::new(worktree.path, repo.clone(), worktree.branch, key, &branches);
+                state.ended_branches = ended_branches;
                 if let Some(default) = &refs.default_branch {
-                    // The top branch has the commits of all branches below it.
-                    let tops = match state.stack.is_empty() {
-                        true => state.branch.clone().into_iter().collect(),
-                        false => top_branches(&branches),
-                    };
-                    for top in tops {
-                        match conflict(&state.path, default, &top) {
+                    for test in conflict_tests(state.branch.as_deref(), &branches, &state.ended_branches) {
+                        match conflict(&state.path, default, test.base.as_deref(), &test.tip) {
                             Ok(files) => state.conflict.extend(files),
                             Err(text) => {
                                 self.store
