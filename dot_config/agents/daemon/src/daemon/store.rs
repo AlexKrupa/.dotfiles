@@ -516,7 +516,11 @@ impl Store {
         match (self.live_agent(&target.key), target.mode) {
             (true, _) => Some((target.key.clone(), routed.to_vec())),
             (false, Mode::Stack | Mode::Review) if self.live_hub(&target.slug) => {
-                let items = routed.iter().filter(|event| event.event.item.is_some()).cloned().collect();
+                let items = routed
+                    .iter()
+                    .filter(|event| event.event.item.is_some())
+                    .cloned()
+                    .collect();
                 Some((target.slug.clone(), items))
             }
             (false, _) => None,
@@ -603,7 +607,7 @@ impl Store {
         items.items.into_iter().find(|open| open.item == item)
     }
 
-    pub fn live_hub(&self, slug: &str) -> bool {
+    fn live_hub(&self, slug: &str) -> bool {
         self.live_subs(Some(slug)).iter().any(|agent| agent.mode == Mode::Hub)
     }
 
@@ -1076,6 +1080,44 @@ mod tests {
 
         let rows: Vec<u64> = store.take_inbox("app").iter().map(|event| event.row).collect();
         assert_eq!(rows, [1, 2, 3]);
+    }
+
+    #[test]
+    fn report_has_the_router_rows_of_its_delivery_and_keeps_the_others() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-routing", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
+        store.ensure_dirs().unwrap();
+        let todo = |row: u64| RoutedEvent {
+            event: Event::new(
+                EventKind::Todo,
+                Some(row),
+                Some("Add foo"),
+                "u",
+                "anna",
+                "mentioned",
+                "b",
+            ),
+            row,
+        };
+        store.write_last("app", &[todo(1), todo(2)]);
+        let mut routing = Routing::default();
+        for row in [1, 3] {
+            routing
+                .input
+                .cells
+                .insert(row.to_string(), format!("router cell {row}").into());
+            routing.handled.push(row);
+        }
+        store.write_routing("app", &routing);
+
+        let text = store.report("app", Mode::Hub, &[], &ReportInput::default()).unwrap();
+
+        assert!(text.contains("router cell 1"), "{text}");
+        assert_eq!(store.routing("app").handled, [3]);
     }
 
     #[test]

@@ -462,6 +462,30 @@ fn mixed_round_gives_the_model_only_its_events() {
     let report = w.report("{}", &[]);
 
     assert_eq!(support::each(&run.out, "kind"), "default-failed");
-    assert!(report.out.contains("Pull blocked: changes in tracked files"), "{}", report.out);
+    assert!(
+        report.out.contains("Pull blocked: changes in tracked files"),
+        "{}",
+        report.out
+    );
     assert!(report.out.contains("Pipeline failed"), "{}", report.out);
+}
+
+#[test]
+fn board_draws_the_board_file_again_after_a_change() {
+    let w = Watchd::new();
+    let file = w.watchd.join("items/app.board");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let writer = std::thread::spawn(move || {
+        support::daemon::sleep(2);
+        std::fs::write(file, "Hub 10:00\n\n1. first row\n").unwrap();
+    });
+    let mut command = w.command();
+    command.arg("board");
+
+    let run = support::daemon::run_limited(command, &w.env.dir, 4);
+    writer.join().unwrap();
+
+    assert_eq!(run.code, 124, "{}", run.err);
+    let drawn: Vec<&str> = run.out.split("\x1b[H\x1b[2J").filter(|text| !text.is_empty()).collect();
+    assert_eq!(drawn, ["No report yet.\n", "Hub 10:00\n\n1. first row"]);
 }

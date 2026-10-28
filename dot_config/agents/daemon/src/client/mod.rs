@@ -436,7 +436,10 @@ pub async fn board(args: Vec<String>) -> i32 {
             Err(message) => return die(&message),
         };
         let (read, mut write) = stream.into_split();
-        if send(&mut write, &envelope(Request::Follow { after: None })).await.is_ok() {
+        if send(&mut write, &envelope(Request::Follow { after: None }))
+            .await
+            .is_ok()
+        {
             let mut reader = BufReader::new(read);
             let mut line = String::new();
             loop {
@@ -464,7 +467,7 @@ fn draw_board(path: &Path, shown: &mut Option<String>) {
     }
     use std::io::Write;
     let mut stdout = std::io::stdout().lock();
-    let _ = write!(stdout, "\x1b[H\x1b[2J{}\n", text.trim_end()).and_then(|()| stdout.flush());
+    let _ = writeln!(stdout, "\x1b[H\x1b[2J{}", text.trim_end()).and_then(|()| stdout.flush());
     *shown = Some(text);
 }
 

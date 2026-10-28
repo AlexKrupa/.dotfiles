@@ -1,9 +1,9 @@
 //! The seam for herdr: agents and panes. The Rust code outside `HerdrWorkspaces` makes no herdr
 //! calls.
 
+use std::path::Path;
 #[cfg(feature = "test-support")]
 use std::path::PathBuf;
-use std::path::Path;
 
 use crate::paths::home;
 

@@ -29,9 +29,10 @@ and closes them when GitLab shows that their cause is gone.
 
 For each result with exit `0`, do these steps:
 
-1. For each `default-failed` event, do "Auto-debug". An `opened` or `todo` event comes only if
-   the daemon cannot read the MR author (see "Review and bump agents"). Start no agent for it. Each
-   action gives a cell: the Proposal or result text of a row.
+1. For each `default-failed` event, do "Auto-debug". Start no agent for an `opened` or `todo`
+   event. The daemon starts the review and bump agents (see "Review and bump agents"). Such an
+   event comes if the daemon cannot read the MR author. A new hub session also gets the open
+   items of the hub. Each action gives a cell: the Proposal or result text of a row.
 2. Run the host command "Report" with the JSON of your actions, and output its stdout word for
    word. The JSON fields:
    - `cells`: the text for each row, for example `{"2": "Review agent started"}`.

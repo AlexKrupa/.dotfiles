@@ -15,10 +15,27 @@ pub mod retry;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
-    StartReview { iid: u64, title: String, branch: String, url: String },
-    StartBump { iid: u64, title: String, branch: String, url: String },
-    RetryJob { job: FailedJob, branch: String, pipeline: u64, url: String },
-    ReportOnly { cell: Option<String> },
+    StartReview {
+        iid: u64,
+        title: String,
+        branch: String,
+        url: String,
+    },
+    StartBump {
+        iid: u64,
+        title: String,
+        branch: String,
+        url: String,
+    },
+    RetryJob {
+        job: FailedJob,
+        branch: String,
+        pipeline: u64,
+        url: String,
+    },
+    ReportOnly {
+        cell: Option<String>,
+    },
     Dismiss,
     AskModel,
 }
@@ -108,19 +125,20 @@ impl Routing {
 pub fn decide(events: &[RoutedEvent], facts: &Facts) -> Vec<Decision> {
     let mut mrs: BTreeMap<u64, MrRound> = BTreeMap::new();
     for iid in events.iter().filter_map(|routed| routed.event.iid) {
-        if !mrs.contains_key(&iid) {
+        mrs.entry(iid).or_insert_with(|| {
             let of_mr: Vec<&RoutedEvent> = events.iter().filter(|routed| routed.event.iid == Some(iid)).collect();
-            mrs.insert(iid, mr_round(&of_mr, facts));
-        }
+            mr_round(&of_mr, facts)
+        });
     }
     let no_mr = MrRound::default();
     events
         .iter()
         .flat_map(|routed| {
             let mr = routed.event.iid.and_then(|iid| mrs.get(&iid)).unwrap_or(&no_mr);
-            actions_of(routed, mr, facts)
-                .into_iter()
-                .map(|action| Decision { row: routed.row, action })
+            actions_of(routed, mr, facts).into_iter().map(|action| Decision {
+                row: routed.row,
+                action,
+            })
         })
         .collect()
 }
@@ -177,10 +195,23 @@ fn start_of(routed: &RoutedEvent, kind: StartKind) -> Decision {
         event.url.clone(),
     );
     let action = match kind {
-        StartKind::Review => Action::StartReview { iid, title, branch, url },
-        StartKind::Bump => Action::StartBump { iid, title, branch, url },
+        StartKind::Review => Action::StartReview {
+            iid,
+            title,
+            branch,
+            url,
+        },
+        StartKind::Bump => Action::StartBump {
+            iid,
+            title,
+            branch,
+            url,
+        },
     };
-    Decision { row: routed.row, action }
+    Decision {
+        row: routed.row,
+        action,
+    }
 }
 
 fn actions_of(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Vec<Action> {
@@ -263,7 +294,12 @@ fn is_runner_failure(job: &FailedJob) -> bool {
 }
 
 fn pipeline_id(event: &Event) -> Option<u64> {
-    event.detail.strip_prefix("pipeline ")?.strip_suffix(" failed")?.parse().ok()
+    event
+        .detail
+        .strip_prefix("pipeline ")?
+        .strip_suffix(" failed")?
+        .parse()
+        .ok()
 }
 
 /// A retry for each job with a runner failure. The model gets the other jobs.
@@ -310,9 +346,8 @@ fn worktree_item_action(facts: &Facts) -> Action {
 /// The event of the model has only the jobs that the daemon does not retry. A handled row keeps all
 /// jobs for the board.
 pub fn narrow(events: &mut [RoutedEvent], handled: &[u64]) {
-    let to_model = |routed: &&mut RoutedEvent| {
-        routed.event.kind == EventKind::DefaultFailed && !handled.contains(&routed.row)
-    };
+    let to_model =
+        |routed: &&mut RoutedEvent| routed.event.kind == EventKind::DefaultFailed && !handled.contains(&routed.row);
     for routed in events.iter_mut().filter(to_model) {
         let Some(failed) = routed.event.failed.as_mut() else {
             continue;
@@ -383,7 +418,15 @@ mod tests {
         RoutedEvent {
             event: Event {
                 author: author.map(str::to_string),
-                ..Event::new(kind, Some(5), Some("Add foo"), "https://g/mr/5", "anna", detail, "ABC-1/foo")
+                ..Event::new(
+                    kind,
+                    Some(5),
+                    Some("Add foo"),
+                    "https://g/mr/5",
+                    "anna",
+                    detail,
+                    "ABC-1/foo",
+                )
             },
             row,
         }
@@ -465,7 +508,10 @@ mod tests {
     fn other_todo_is_report_only() {
         let events = [mr_event(EventKind::Todo, "mentioned", Some("bob"), 1)];
 
-        assert_eq!(actions(&events, &Facts::default()), [(1, Action::ReportOnly { cell: None })]);
+        assert_eq!(
+            actions(&events, &Facts::default()),
+            [(1, Action::ReportOnly { cell: None })]
+        );
     }
 
     #[test]
@@ -503,7 +549,10 @@ mod tests {
             actions(&review, &Facts::default()),
             [(1, Action::Dismiss), (2, start_review())]
         );
-        assert_eq!(actions(&bump, &Facts::default()), [(1, Action::Dismiss), (2, start_bump())]);
+        assert_eq!(
+            actions(&bump, &Facts::default()),
+            [(1, Action::Dismiss), (2, start_bump())]
+        );
     }
 
     #[test]
@@ -511,7 +560,12 @@ mod tests {
         let reviews = std::env::temp_dir().join(format!("watchd-router-{}-reviews", std::process::id()));
         let _ = std::fs::remove_dir_all(&reviews);
         std::fs::create_dir_all(&reviews).unwrap();
-        for name in ["2026-10-02-mr-5-b.md", "2026-10-01-mr-5-a.md", "2026-10-01-mr-55-c.md", "x-mr-6-y.txt"] {
+        for name in [
+            "2026-10-02-mr-5-b.md",
+            "2026-10-01-mr-5-a.md",
+            "2026-10-01-mr-55-c.md",
+            "x-mr-6-y.txt",
+        ] {
             std::fs::write(reviews.join(name), "").unwrap();
         }
         let events = [
@@ -524,7 +578,10 @@ mod tests {
 
         let facts = read_facts(&reviews, &events);
 
-        assert_eq!(facts.reviewed, BTreeMap::from([(5, reviews.join("2026-10-01-mr-5-a.md"))]));
+        assert_eq!(
+            facts.reviewed,
+            BTreeMap::from([(5, reviews.join("2026-10-01-mr-5-a.md"))])
+        );
     }
 
     fn failed_job(id: u64, name: &str, reason: &str) -> FailedJob {
@@ -594,13 +651,22 @@ mod tests {
 
     #[test]
     fn pull_blocked_is_report_only() {
-        assert_eq!(action_of(routed(EventKind::PullBlocked, 1)), [Action::ReportOnly { cell: None }]);
+        assert_eq!(
+            action_of(routed(EventKind::PullBlocked, 1)),
+            [Action::ReportOnly { cell: None }]
+        );
     }
 
     #[test]
     fn note_and_reaction_are_report_only() {
-        assert_eq!(action_of(routed(EventKind::Note, 1)), [Action::ReportOnly { cell: None }]);
-        assert_eq!(action_of(routed(EventKind::Reaction, 1)), [Action::ReportOnly { cell: None }]);
+        assert_eq!(
+            action_of(routed(EventKind::Note, 1)),
+            [Action::ReportOnly { cell: None }]
+        );
+        assert_eq!(
+            action_of(routed(EventKind::Reaction, 1)),
+            [Action::ReportOnly { cell: None }]
+        );
     }
 
     #[test]

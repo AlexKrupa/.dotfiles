@@ -14,9 +14,9 @@ use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
 use tokio::task::JoinHandle;
 
 use self::store::{Store, first_line};
+use crate::core::items::RoutedEvent;
 use crate::core::subs::{Agent, Mode};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, conflict_tests, lookup_branch, targets};
-use crate::core::items::RoutedEvent;
 use crate::engine::event::{Event, EventKind};
 use crate::engine::router::execute::{ExecuteContext, execute};
 use crate::engine::router::retry::Retry;
@@ -283,7 +283,7 @@ impl Daemon {
         let mut routed = self.store.assign(target, events, now_seconds());
         let recipient = self.store.recipient(target, &routed);
         drop(memory);
-        let routing = match recipient {
+        let (routing, lines) = match recipient {
             Some((key, events)) if key == target.slug => {
                 let reviews = home().join(".ai").join(&target.slug).join("reviews");
                 let facts = Facts {
@@ -300,16 +300,16 @@ impl Daemon {
                     repo: &target.repo,
                     key: &target.slug,
                     workspaces: self.workspaces.as_ref(),
-                    engine: self.engine.as_ref(),
                     store: &self.store,
                     spawn_retry: &spawn_retry,
                 };
                 execute(router::decide(&events, &facts), &events, &ctx).await
             }
-            _ => Routing::default(),
+            _ => (Routing::default(), Vec::new()),
         };
         router::narrow(&mut routed, &routing.handled);
         let memory = self.lock().await;
+        self.store.event_log(lines);
         self.store.deliver(target, &routed, &routing);
         (memory, routed)
     }

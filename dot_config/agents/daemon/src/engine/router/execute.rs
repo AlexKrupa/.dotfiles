@@ -7,7 +7,6 @@ use super::{Action, Decision, Routing, routing};
 use crate::core::eventlog::{LogLine, RouteAction, route_line};
 use crate::core::items::RoutedEvent;
 use crate::daemon::store::Store;
-use crate::engine::Engine;
 use crate::engine::event::EventKind;
 use crate::platform::now_seconds;
 use crate::report::{Add, AddSection};
@@ -19,15 +18,19 @@ pub struct ExecuteContext<'a> {
     /// The hub key.
     pub key: &'a str,
     pub workspaces: &'a dyn Workspaces,
-    pub engine: &'a dyn Engine,
     pub store: &'a Store,
     /// Starts the task of a retry, which runs after the round.
     pub spawn_retry: &'a (dyn Fn(Retry) + Sync),
 }
 
-/// Runs the actions of the decisions. Each agent start and each dismissed new MR writes the router
-/// result line, which the herdr `watch` plugin reads for its notification.
-pub async fn execute(decisions: Vec<Decision>, events: &[RoutedEvent], ctx: &ExecuteContext<'_>) -> Routing {
+/// Runs the actions of the decisions. Each agent start and each dismissed new MR gives a router
+/// result line, which the herdr `watch` plugin reads for its notification. The caller writes the
+/// lines under the state lock.
+pub async fn execute(
+    decisions: Vec<Decision>,
+    events: &[RoutedEvent],
+    ctx: &ExecuteContext<'_>,
+) -> (Routing, Vec<LogLine>) {
     let mut routing = routing(&decisions);
     let started: Vec<u64> = decisions
         .iter()
@@ -41,7 +44,12 @@ pub async fn execute(decisions: Vec<Decision>, events: &[RoutedEvent], ctx: &Exe
     for decision in decisions {
         let row = decision.row;
         match decision.action {
-            Action::StartReview { iid, title, branch, url } => {
+            Action::StartReview {
+                iid,
+                title,
+                branch,
+                url,
+            } => {
                 lines.push(LogLine::Route(route_line(now, ctx.key, iid, RouteAction::Review)));
                 let start = AgentStart {
                     title,
@@ -50,7 +58,12 @@ pub async fn execute(decisions: Vec<Decision>, events: &[RoutedEvent], ctx: &Exe
                 };
                 start_agent(ctx, &mut routing, row, &start, "Review agent started");
             }
-            Action::StartBump { iid, title, branch, url } => {
+            Action::StartBump {
+                iid,
+                title,
+                branch,
+                url,
+            } => {
                 lines.push(LogLine::Route(route_line(now, ctx.key, iid, RouteAction::Bump)));
                 let start = AgentStart {
                     title,
@@ -85,8 +98,7 @@ pub async fn execute(decisions: Vec<Decision>, events: &[RoutedEvent], ctx: &Exe
             Action::ReportOnly { .. } | Action::AskModel => {}
         }
     }
-    ctx.store.event_log(lines);
-    routing
+    (routing, lines)
 }
 
 /// The dependency of a bot branch: the last `/` part with no version part.
@@ -160,7 +172,6 @@ mod tests {
 
     use super::*;
     use crate::engine::event::Event;
-    use crate::engine::fake::FakeEngine;
     use crate::paths::StateDirs;
     use crate::workspaces::FakeWorkspaces;
 
@@ -168,7 +179,6 @@ mod tests {
         base: PathBuf,
         store: Store,
         workspaces: FakeWorkspaces,
-        engine: FakeEngine,
         /// The job of each spawned retry.
         retried: Arc<Mutex<Vec<u64>>>,
         spawn_retry: Box<dyn Fn(Retry) + Sync>,
@@ -192,11 +202,7 @@ mod tests {
             Setup {
                 retried,
                 spawn_retry: Box::new(move |retry: Retry| spawned.lock().unwrap().push(retry.job.id)),
-                workspaces: FakeWorkspaces { dir: fake.clone() },
-                engine: FakeEngine {
-                    dir: fake,
-                    engine_dir: base.join("watch-gitlab"),
-                },
+                workspaces: FakeWorkspaces { dir: fake },
                 store,
                 base,
             }
@@ -207,7 +213,6 @@ mod tests {
                 repo: &self.base,
                 key: "app",
                 workspaces: &self.workspaces,
-                engine: &self.engine,
                 store: &self.store,
                 spawn_retry: self.spawn_retry.as_ref(),
             }
@@ -216,15 +221,15 @@ mod tests {
         fn calls(&self) -> String {
             std::fs::read_to_string(self.base.join("fake/calls")).unwrap_or_default()
         }
+    }
 
-        fn route_actions(&self) -> Vec<String> {
-            let text = std::fs::read_to_string(self.store.dirs.events()).unwrap_or_default();
-            text.lines()
-                .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
-                .filter(|line| line["type"] == "route")
-                .map(|line| format!("{} {}", line["iid"], line["action"].as_str().unwrap_or_default()))
-                .collect()
-        }
+    /// The MR and the action of each router result line.
+    fn route_actions(lines: &[LogLine]) -> Vec<String> {
+        lines
+            .iter()
+            .map(|line| serde_json::to_value(line).unwrap())
+            .map(|line| format!("{} {}", line["iid"], line["action"].as_str().unwrap_or_default()))
+            .collect()
     }
 
     fn start_review(row: u64) -> Decision {
@@ -250,20 +255,21 @@ mod tests {
     async fn started_agent_is_an_agent_row() {
         let setup = Setup::new("ok", "ok");
 
-        let routing = execute(vec![start_review(3)], &[], &setup.context()).await;
+        let (routing, lines) = execute(vec![start_review(3)], &[], &setup.context()).await;
 
         assert_eq!(routing.handled, [3]);
         assert_eq!(routing.input.cells["3"], "Review agent started");
         assert_eq!(routing.input.agent, [json!(3)]);
         assert_eq!(setup.calls(), "start_agent ABC-1/foo /review-pr https://g/mr/5\n");
-        assert_eq!(setup.route_actions(), ["5 review"]);
+        assert_eq!(route_actions(&lines), ["5 review"]);
+        assert!(!setup.store.dirs.events().exists());
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn busy_branch_is_an_agent_row() {
         let setup = Setup::new("busy", "busy");
 
-        let routing = execute(vec![start_review(3)], &[], &setup.context()).await;
+        let (routing, _) = execute(vec![start_review(3)], &[], &setup.context()).await;
 
         assert_eq!(routing.handled, [3]);
         assert_eq!(routing.input.cells["3"], "An agent works on the branch");
@@ -274,7 +280,7 @@ mod tests {
     async fn failed_start_gives_its_text_and_keeps_the_item() {
         let setup = Setup::new("failed", "work-start: not a git repo: /x");
 
-        let routing = execute(vec![start_review(3)], &[], &setup.context()).await;
+        let (routing, _) = execute(vec![start_review(3)], &[], &setup.context()).await;
 
         assert_eq!(routing.handled, [3]);
         assert_eq!(routing.input.cells["3"], "work-start: not a git repo: /x");
@@ -299,7 +305,7 @@ mod tests {
             },
         };
 
-        let routing = execute(vec![retry], &[], &setup.context()).await;
+        let (routing, _) = execute(vec![retry], &[], &setup.context()).await;
 
         assert_eq!(*setup.retried.lock().unwrap(), [11]);
         assert_eq!(routing.handled, [3]);
@@ -309,7 +315,10 @@ mod tests {
     fn dependency_is_the_branch_name_with_no_bot_prefix_and_no_version() {
         assert_eq!(dependency("renovate/foo-1.x"), Some("foo".into()));
         assert_eq!(dependency("renovate/org-foo-bar-2.3.4"), Some("org-foo-bar".into()));
-        assert_eq!(dependency("dependabot/npm_and_yarn/lodash-4.17.21"), Some("lodash".into()));
+        assert_eq!(
+            dependency("dependabot/npm_and_yarn/lodash-4.17.21"),
+            Some("lodash".into())
+        );
         assert_eq!(dependency("renovate/foo-v2"), Some("foo".into()));
         assert_eq!(dependency("feature/foo-1.x"), None);
     }
@@ -328,13 +337,15 @@ mod tests {
             },
         };
 
-        let routing = execute(vec![bump], &[], &setup.context()).await;
+        let (routing, _) = execute(vec![bump], &[], &setup.context()).await;
 
         let added: Vec<serde_json::Value> = routing.input.add.iter().map(|add| json!(add)).collect();
         assert_eq!(
             added,
-            [json!({"section": "agent", "iid": null, "what": "The bump agent of renovate/foo-1.x is stale",
-                    "result": null})]
+            [
+                json!({"section": "agent", "iid": null, "what": "The bump agent of renovate/foo-1.x is stale",
+                    "result": null})
+            ]
         );
     }
 
@@ -353,9 +364,9 @@ mod tests {
             start_review(3),
         ];
 
-        let routing = execute(decisions, &[opened(1, 6), opened(2, 5)], &setup.context()).await;
+        let (routing, lines) = execute(decisions, &[opened(1, 6), opened(2, 5)], &setup.context()).await;
 
         assert_eq!(routing.input.close, [json!(1), json!(2)]);
-        assert_eq!(setup.route_actions(), ["6 none", "5 review"]);
+        assert_eq!(route_actions(&lines), ["6 none", "5 review"]);
     }
 }

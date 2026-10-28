@@ -54,7 +54,12 @@ pub async fn retry(daemon: Arc<Daemon>, target: Target, retry: Retry) {
         let status = match wait(&daemon, &target, new.id).await {
             WaitEnd::Finished(status) => status,
             WaitEnd::Timeout => {
-                return add_row(&daemon, &target, format!("{branch}: job {name} did not finish in 1 hour")).await;
+                return add_row(
+                    &daemon,
+                    &target,
+                    format!("{branch}: job {name} did not finish in 1 hour"),
+                )
+                .await;
             }
             WaitEnd::Failed(text) => return add_row(&daemon, &target, format!("{branch}: job {name}: {text}")).await,
             WaitEnd::Stopped => return,
