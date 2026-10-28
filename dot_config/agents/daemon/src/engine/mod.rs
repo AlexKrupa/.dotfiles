@@ -83,7 +83,7 @@ use serde::de::DeserializeOwned;
 
 use self::event::{Event, EventKind};
 use crate::glab;
-use crate::key::{KeyMode, watch_key};
+use crate::key::{KeyMode, digits, watch_key};
 use crate::paths::StateDirs;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -137,9 +137,9 @@ impl EngineArgs {
 
 pub fn mr_number(arg: Option<String>) -> Option<u64> {
     let arg = arg?;
-    let digits = arg.strip_prefix('!').unwrap_or(&arg);
-    match !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit()) {
-        true => digits.parse().ok(),
+    let number = arg.strip_prefix('!').unwrap_or(&arg);
+    match digits(number) {
+        true => number.parse().ok(),
         false => None,
     }
 }
@@ -434,7 +434,7 @@ pub async fn add_jobs(ctx: &CheckContext, project: &str, mut events: Vec<Event>)
 
 fn failed_pipeline(detail: &str) -> Option<&str> {
     let id = detail.strip_prefix("pipeline ")?.strip_suffix(" failed")?;
-    match !id.is_empty() && id.bytes().all(|byte| byte.is_ascii_digit()) {
+    match digits(id) {
         true => Some(id),
         false => None,
     }

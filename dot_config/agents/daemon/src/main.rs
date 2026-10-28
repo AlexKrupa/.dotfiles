@@ -56,11 +56,6 @@ enum Commands {
         #[arg(long)]
         after: Option<u64>,
     },
-    /// No records of herdr workspaces: `workspace forget ID` does nothing, for older callers.
-    Workspace {
-        #[command(subcommand)]
-        command: WorkspaceCommand,
-    },
     /// The Markdown report of the last delivery: [--repo PATH] [--review] [--mr IID]... <JSON.
     #[command(disable_help_flag = true)]
     Report {
@@ -78,12 +73,6 @@ enum DebugCommand {
         #[arg(long)]
         repo: std::path::PathBuf,
     },
-}
-
-#[derive(Subcommand)]
-enum WorkspaceCommand {
-    /// Removes the record of a closed herdr workspace.
-    Forget { id: String },
 }
 
 #[tokio::main]
@@ -104,9 +93,6 @@ async fn main() {
             command: DebugCommand::ReplaceClients { repo },
         } => client::replace_clients(&repo).await,
         Commands::Follow { after } => client::follow(after).await,
-        Commands::Workspace {
-            command: WorkspaceCommand::Forget { .. },
-        } => client::forget_workspace(),
     };
     std::process::exit(code);
 }

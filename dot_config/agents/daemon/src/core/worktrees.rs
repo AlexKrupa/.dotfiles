@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::core::subs::{Agent, Mode};
-use crate::core::workspaces::{Kind, Stage};
 use crate::engine::state::{Need, OwnMr};
 use crate::key::review_key;
 
@@ -42,6 +41,36 @@ pub struct WorktreeState {
     /// live agent.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub needs: BTreeMap<String, Vec<Need>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Kind {
+    Mine,
+    Review,
+    Bump,
+    Debug,
+    Hub,
+}
+
+impl Kind {
+    pub fn parse(text: &str) -> Option<Kind> {
+        match text {
+            "mine" => Some(Kind::Mine),
+            "review" => Some(Kind::Review),
+            "bump" => Some(Kind::Bump),
+            "debug" => Some(Kind::Debug),
+            "hub" => Some(Kind::Hub),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Stage {
+    Done,
+    Stopped,
 }
 
 /// `repo` is the folder of the check: the main checkout for the hub and the own MRs, else the
@@ -178,6 +207,14 @@ impl WorktreeState {
         self.stack = read.stack;
         self.mrs = read.mrs;
         self.conflict = read.conflict;
+    }
+}
+
+/// With no live watch, a new task starts, and the end stage of an earlier watch does not apply to it.
+pub fn set_kind(state: &mut WorktreeState, kind: Kind, live_watch: bool) {
+    state.kind = Some(kind);
+    if !live_watch {
+        state.stage = None;
     }
 }
 
@@ -438,7 +475,6 @@ mod tests {
             client_at: 0,
             replaced_sessions: Vec::new(),
             ended_mrs: vec![9],
-            herdr_workspace: None,
         }
     }
 
@@ -543,5 +579,18 @@ mod tests {
         let names: Vec<String> = parse_spice_log(&text).into_iter().map(|branch| branch.name).collect();
 
         assert_eq!(names, ["main", "a", "b"]);
+    }
+
+    #[test]
+    fn kind_without_live_subscription_clears_the_stage() {
+        let mut state = WorktreeState {
+            kind: Some(Kind::Mine),
+            stage: Some(Stage::Done),
+            ..WorktreeState::new("/r".into(), "/r".into(), None, String::new(), &[])
+        };
+        set_kind(&mut state, Kind::Review, true);
+        assert_eq!((state.kind, state.stage), (Some(Kind::Review), Some(Stage::Done)));
+        set_kind(&mut state, Kind::Bump, false);
+        assert_eq!((state.kind, state.stage), (Some(Kind::Bump), None));
     }
 }

@@ -63,10 +63,6 @@ impl StateDirs {
         Ok(self.watchd.join(format!("worktrees/{hash}.json")))
     }
 
-    pub fn workspace(&self, id: &str) -> PathBuf {
-        self.watchd.join(format!("workspaces/{id}.json"))
-    }
-
     pub fn socket(&self) -> PathBuf {
         self.watchd.join("daemon.sock")
     }

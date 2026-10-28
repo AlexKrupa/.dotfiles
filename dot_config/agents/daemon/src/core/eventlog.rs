@@ -90,7 +90,7 @@ pub struct RouteLine {
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum LogLine {
-    Event(EventLine),
+    Event(Box<EventLine>),
     Stopped(StoppedLine),
     Route(RouteLine),
 }

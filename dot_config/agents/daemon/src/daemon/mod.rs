@@ -13,13 +13,13 @@ use std::time::Duration;
 use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
 use tokio::task::JoinHandle;
 
-use self::store::{Store, first_line, is_worktree_key};
+use self::store::{Store, first_line};
 use crate::core::subs::{Agent, Mode};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, lookup_branch, targets, top_branches};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
-use crate::key::{repo_slug, stack_key};
+use crate::key::{is_worktree_key, repo_slug, stack_key};
 use crate::local::{
     FETCH_TIMEOUT, FetchError, conflict, fast_forward, fetch, list_worktrees, repo_of, shared_refs, spice_log,
     worktree_key,
@@ -442,7 +442,7 @@ impl Daemon {
                     self.store.log(
                         slug,
                         "",
-                        &format!("lookup of {branch}: {}", first_line(&error.message())),
+                        &format!("lookup of {branch}: {}", first_line(error.message())),
                     );
                     continue;
                 }
@@ -746,7 +746,6 @@ async fn run(daemon: &Arc<Daemon>) -> End {
     let mut pruned_at = 0;
     {
         let _memory = daemon.lock().await;
-        daemon.store.convert_workspaces();
         for sub in daemon.store.subs() {
             if let Some(repo) = repo_of(&sub.repo) {
                 daemon.store.add_repo(&repo);

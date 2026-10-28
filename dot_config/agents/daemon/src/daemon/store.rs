@@ -11,10 +11,10 @@ use serde::de::DeserializeOwned;
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
 use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
 use crate::core::subs::{Agent, Mode, add_ended};
-use crate::core::workspaces::{Kind, Stage, Workspace};
-use crate::core::worktrees::{Repos, ReviewLink, Reviews, Target, WorktreeState};
+use crate::core::worktrees::{Kind, Repos, ReviewLink, Reviews, Stage, Target, WorktreeState};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::state::Need;
+use crate::key::is_worktree_key;
 use crate::local::repo_of;
 use crate::paths::StateDirs;
 use crate::persist::{Load, load, save};
@@ -31,18 +31,6 @@ pub struct Store {
 
 fn remove(path: &Path) {
     let _ = std::fs::remove_file(path);
-}
-
-pub fn is_worktree_key(key: &str) -> bool {
-    let key = match key.rsplit_once("-review-") {
-        Some((front, iid)) if !iid.is_empty() && iid.bytes().all(|byte| byte.is_ascii_digit()) => front,
-        _ => key,
-    };
-    key.len() > 13
-        && key.as_bytes()[key.len() - 13] == b'-'
-        && key[key.len() - 12..]
-            .bytes()
-            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 pub fn first_line(text: &str) -> &str {
@@ -355,38 +343,6 @@ impl Store {
         self.write_worktree(&state);
     }
 
-    /// Format version 1 kept the kind and the stage in a record of each herdr workspace.
-    pub fn convert_workspaces(&self) {
-        let mut used = Vec::new();
-        for mut sub in self.subs() {
-            let Some(id) = sub.herdr_workspace.take() else {
-                continue;
-            };
-            if let Ok(Some(record)) = self.read_json::<Workspace>(&self.dirs.workspace(&id)) {
-                self.update_worktree(&sub.repo, |state| {
-                    state.kind = record.kind.or(state.kind);
-                    state.stage = record.stage;
-                });
-            }
-            self.write_sub(&sub);
-            used.push(id);
-        }
-        let folder = self.dirs.watchd.join("workspaces");
-        let Ok(entries) = std::fs::read_dir(&folder) else {
-            return;
-        };
-        for name in entries.filter_map(|entry| entry.ok()?.file_name().into_string().ok()) {
-            let Some(id) = name.strip_suffix(".json") else {
-                continue;
-            };
-            remove(&self.dirs.workspace(id));
-            if !used.iter().any(|known| known == id) {
-                self.log("", "", &format!("workspace record dropped: {id}"));
-            }
-        }
-        let _ = std::fs::remove_dir(&folder);
-    }
-
     pub fn engine_value(&self, key: &str) -> Option<serde_json::Value> {
         self.read_json(&self.dirs.engine_state(key)).ok().flatten()
     }
@@ -538,7 +494,15 @@ impl Store {
         };
         let lines = routed
             .iter()
-            .map(|event| LogLine::Event(event_line(&target.slug, &target.key, target.mode, now, event.clone())))
+            .map(|event| {
+                LogLine::Event(Box::new(event_line(
+                    &target.slug,
+                    &target.key,
+                    target.mode,
+                    now,
+                    event.clone(),
+                )))
+            })
             .collect();
         self.event_log(lines);
         match (live, target.mode) {
@@ -734,7 +698,6 @@ impl Store {
             client_at: now,
             replaced_sessions: replaced,
             ended_mrs: ended,
-            herdr_workspace: None,
         };
         self.write_sub(&sub);
         remove(&self.dirs.owner(&sub.key));
@@ -943,15 +906,6 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn worktree_keys_have_the_hash_of_the_worktree() {
-        assert!(is_worktree_key("app-0123456789ab"));
-        assert!(is_worktree_key("app-0123456789ab-review-5"));
-        assert!(!is_worktree_key("app"));
-        assert!(!is_worktree_key("my-app"));
-        assert!(!is_worktree_key("app-0123456789ab-review-"));
-    }
 
     #[test]
     fn record_of_an_unknown_format_is_removed_with_a_log_line() {

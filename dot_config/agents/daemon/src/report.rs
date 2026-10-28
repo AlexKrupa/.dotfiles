@@ -90,7 +90,7 @@ pub struct Link {
 
 #[derive(Clone, Debug, Default)]
 pub struct ReportData {
-    pub known: BTreeMap<String, Known>,
+    pub known: BTreeMap<u64, Known>,
     pub rows: Vec<Row>,
     pub links: Vec<Link>,
 }
@@ -100,6 +100,10 @@ fn text_of(value: &serde_json::Value) -> String {
         serde_json::Value::String(text) => text.clone(),
         other => other.to_string(),
     }
+}
+
+fn number_of(value: &serde_json::Value) -> Option<u64> {
+    text_of(value).parse().ok()
 }
 
 fn without_anchor(url: &str) -> String {
@@ -113,8 +117,8 @@ pub fn build_report(
     engine_titles: &BTreeMap<u64, String>,
     now: i64,
 ) -> (Items, ReportData) {
-    let agent: Vec<String> = input.agent.iter().map(text_of).collect();
-    let close: Vec<String> = input.close.iter().map(text_of).collect();
+    let agent: Vec<u64> = input.agent.iter().filter_map(number_of).collect();
+    let close: Vec<u64> = input.close.iter().filter_map(number_of).collect();
     let cell = |n: u64| input.cells.get(&n.to_string()).map(text_of);
     // Of the events of one row, a comment wins over its unaddressed line.
     let mut events: Vec<&RoutedEvent> = Vec::new();
@@ -131,7 +135,7 @@ pub fn build_report(
         .filter(|event| event.event.kind != EventKind::Unaddressed)
         .map(|event| event.row)
         .collect();
-    let mut known: BTreeMap<String, Known> = BTreeMap::new();
+    let mut known: BTreeMap<u64, Known> = BTreeMap::new();
     let sources = delivery
         .iter()
         .map(|event| {
@@ -149,14 +153,14 @@ pub fn build_report(
         );
     for (iid, title, url) in sources {
         let Some(iid) = iid else { continue };
-        known.entry(iid.to_string()).or_insert(Known {
+        known.entry(iid).or_insert(Known {
             title,
             url: Some(without_anchor(&url.unwrap_or_default())),
         });
     }
     // The engine state has the titles of the MRs with no event.
     for (iid, title) in engine_titles {
-        known.entry(iid.to_string()).or_insert(Known {
+        known.entry(*iid).or_insert(Known {
             title: Some(title.clone()),
             url: None,
         });
@@ -171,24 +175,19 @@ pub fn build_report(
     let agent_items: Vec<Item> = updated
         .items
         .iter()
-        .filter(|item| agent.contains(&item.n.to_string()) && !is_pull_item(&item.item))
+        .filter(|item| agent.contains(&item.n) && !is_pull_item(&item.item))
         .cloned()
         .collect();
     let mut state = updated.clone();
-    state.items.retain(|item| {
-        let n = item.n.to_string();
-        is_pull_item(&item.item) || (!agent.contains(&n) && !close.contains(&n))
-    });
+    state
+        .items
+        .retain(|item| is_pull_item(&item.item) || (!agent.contains(&item.n) && !close.contains(&item.n)));
     let mut new_items: Vec<u64> = Vec::new();
     let mut added_rows: Vec<Row> = Vec::new();
     for add in &input.add {
         let n = state.next;
         state.next += 1;
-        let mr = add
-            .iid
-            .and_then(|iid| known.get(&iid.to_string()))
-            .cloned()
-            .unwrap_or_default();
+        let mr = add.iid.and_then(|iid| known.get(&iid)).cloned().unwrap_or_default();
         let result = add.result.clone().unwrap_or_default();
         let section = match add.section {
             AddSection::Needs => {
@@ -222,7 +221,7 @@ pub fn build_report(
             since: None,
         });
     }
-    let open: Vec<String> = state.items.iter().map(|item| item.n.to_string()).collect();
+    let open: Vec<u64> = state.items.iter().map(|item| item.n).collect();
     let item_row = |item: &Item, section: RowSection| Row {
         n: item.n,
         section,
@@ -255,12 +254,12 @@ pub fn build_report(
     sorted.sort_by_key(|item| item.n);
     let mut rows: Vec<Row> = sorted.iter().map(|item| item_row(item, RowSection::NeedsYou)).collect();
     for id in &agent {
-        let from_item = agent_items.iter().find(|item| &item.n.to_string() == id);
+        let from_item = agent_items.iter().find(|item| item.n == *id);
         let row = match from_item {
             Some(item) => Some(item_row(item, RowSection::Agent)),
             None => events
                 .iter()
-                .find(|event| &event.row.to_string() == id)
+                .find(|event| event.row == *id)
                 .map(|event| event_row(event, RowSection::Agent)),
         };
         rows.extend(row);
@@ -272,7 +271,7 @@ pub fn build_report(
             .cloned(),
     );
     for event in &events {
-        let row = event.row.to_string();
+        let row = event.row;
         if !open.contains(&row) && !agent.contains(&row) && !close.contains(&row) {
             rows.push(event_row(event, RowSection::Info));
         }
@@ -487,12 +486,11 @@ pub fn render(mode: Mode, time: &str, mrs: &[u64], data: &ReportData) -> String 
         }
         Mode::Stack | Mode::Review => {
             // A watch with no `--mr` list reports each MR that the check knows.
-            let mut known: Vec<u64> = data.known.keys().filter_map(|iid| iid.parse().ok()).collect();
-            known.sort_unstable();
+            let known: Vec<u64> = data.known.keys().copied().collect();
             let mrs = if mrs.is_empty() { known.as_slice() } else { mrs };
             for iid in mrs {
                 let mr_rows: Vec<&Row> = data.rows.iter().filter(|row| row.iid == Some(*iid)).collect();
-                let mr = data.known.get(&iid.to_string()).cloned().unwrap_or_default();
+                let mr = data.known.get(iid).cloned().unwrap_or_default();
                 if mr_rows.is_empty() && mr.title.is_none() {
                     continue;
                 }

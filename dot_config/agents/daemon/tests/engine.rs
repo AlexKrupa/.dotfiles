@@ -388,8 +388,8 @@ fn opened_mrs() -> &'static Checks {
         let env = TestEnv::new();
         let mut c = Checks::default();
         env.write_engine_state("app", EMPTY_HUB);
-        let foo = mr(20, "Update dependency foo to v2", "opened", "t1", "renovate-bot", "renovate/foo-2.x");
-        env.fixture("opened", &json!([foo]).to_string());
+        let foo_bump = mr(20, "Update dependency foo to v2", "opened", "t1", "renovate-bot", "renovate/foo-2.x");
+        env.fixture("opened", &json!([foo_bump]).to_string());
         env.clear_calls();
         let out = env.run(&[]).out;
         c.check("open MRs: newest first",
@@ -397,7 +397,7 @@ fn opened_mrs() -> &'static Checks {
             env.calls_with("api projects/7/merge_requests?state=opened"));
         c.check("state with no open MRs: no events for open MRs", "", out);
         env.fixture("opened", &json!([mr(22, "Add qux", "opened", "t1", "me", "ABC-4/qux"),
-            mr(21, "Update dependency bar to v3", "opened", "t1", "renovate-bot", "renovate/bar-3.x"), foo]).to_string());
+            mr(21, "Update dependency bar to v3", "opened", "t1", "renovate-bot", "renovate/bar-3.x"), foo_bump]).to_string());
         c.check("new MR of a different user, not own MRs",
             u(r#"{"kind":"opened","iid":21,"title":"Update dependency bar to v3","url":"$url/21","actor":"renovate-bot","detail":"opened","branch":"renovate/bar-3.x"}"#),
             env.run(&[]).out);
@@ -729,7 +729,7 @@ fn stack_draft() -> &'static Checks {
         c.check(
             "stack: marked as draft",
             Line::sev("draft", 5, "anna", "marked as draft"),
-            after_change(&env, |mr| mr["draft"] = json!(true), Some(&[draft.clone()])),
+            after_change(&env, |mr| mr["draft"] = json!(true), Some(std::slice::from_ref(&draft))),
         );
         gql(&env, 5, plain);
         discussions(

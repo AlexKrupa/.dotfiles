@@ -11,7 +11,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use crate::core::eventlog::RouteAction;
 use crate::core::items::{Items, RoutedEvent};
 use crate::core::subs::{Agent, Mode};
-use crate::core::workspaces::Kind;
+use crate::core::worktrees::Kind;
 use crate::core::worktrees::WorktreeState;
 use crate::report::ReportInput;
 
@@ -35,10 +35,7 @@ pub enum Request {
         session_pid: u32,
     },
     Status,
-    /// An older client sends a workspace.
     Kind {
-        #[serde(default)]
-        workspace: Option<String>,
         kind: Kind,
     },
     Route {
@@ -55,9 +52,6 @@ pub enum Request {
     DebugState,
     Follow {
         after: Option<u64>,
-    },
-    WorkspaceForget {
-        id: String,
     },
     ReplaceClients {
         repo: PathBuf,

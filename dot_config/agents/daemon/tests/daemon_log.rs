@@ -75,11 +75,6 @@ fn log_and_worktrees() -> &'static Checks {
         let stack = w.stack_key();
         w.events(&stack, &[ev("pipeline", 5)]);
         w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
-        c.check(
-            "a new record has no herdr workspace",
-            "null",
-            support::raw(&w.sub_of(&stack)["herdr_workspace"]),
-        );
         w.events(&stack, &[ev("merged", 5)]);
         w.run(w.watch_command(&["--interval", "600", "--once", "--mr", "5"]));
         wait_for(5, || !w.has_sub(&stack));
@@ -139,7 +134,7 @@ fn log_and_worktrees() -> &'static Checks {
             "0 ",
             format!("{} {worktrees}", run.code),
         );
-        let run = kind(&w, &w.env.repo, &["review", "--workspace", "wT"]);
+        let run = kind(&w, &w.env.repo, &["review"]);
         c.check(
             "kind: writes the worktree state",
             format!("0 {}", norm(r#"{"kind":"review","stage":null}"#)),
@@ -323,8 +318,7 @@ fn follow() -> &'static Checks {
         );
         let last = lines
             .iter()
-            .filter(|line| line["type"] == "event")
-            .last()
+            .rfind(|line| line["type"] == "event")
             .and_then(|line| line["id"].as_u64())
             .unwrap_or(0);
         end(follower);
@@ -405,11 +399,6 @@ fn routed_event_log_line() {
 #[test]
 fn reaction_sound_none() {
     log_and_worktrees().assert("reaction: sound none");
-}
-
-#[test]
-fn a_new_record_has_no_herdr_workspace() {
-    log_and_worktrees().assert("a new record has no herdr workspace");
 }
 
 #[test]

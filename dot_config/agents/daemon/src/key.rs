@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use crate::local::git;
 use crate::paths::home;
 use crate::platform::shasum12;
 
@@ -24,17 +25,9 @@ pub fn repo_slug(repo: &Path) -> Result<String, String> {
 }
 
 pub fn worktree_top(repo: &Path) -> Result<PathBuf, String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(repo)
-        .args(["rev-parse", "--show-toplevel"])
-        .stderr(Stdio::inherit())
-        .output()
-        .map_err(|error| format!("git: {error}"))?;
-    match output.status.success() {
-        true => Ok(PathBuf::from(String::from_utf8_lossy(&output.stdout).trim_end())),
-        false => Err(format!("not a git worktree: {}", repo.display())),
-    }
+    let top =
+        git(repo, &["rev-parse", "--show-toplevel"]).map_err(|_| format!("not a git worktree: {}", repo.display()))?;
+    Ok(PathBuf::from(top.trim_end()))
 }
 
 /// The worktree hash keeps the key of a stack watch apart from the hub watch of the same repo.
@@ -44,6 +37,22 @@ pub fn stack_key(slug: &str, top: &Path) -> Result<String, String> {
 
 pub fn review_key(stack_key: &str, iid: u64) -> String {
     format!("{stack_key}-review-{iid}")
+}
+
+pub fn digits(text: &str) -> bool {
+    !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+pub fn is_worktree_key(key: &str) -> bool {
+    let key = match key.rsplit_once("-review-") {
+        Some((front, iid)) if digits(iid) => front,
+        _ => key,
+    };
+    key.len() > 13
+        && key.as_bytes()[key.len() - 13] == b'-'
+        && key[key.len() - 12..]
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 pub fn watch_key(repo: &Path, mode: &KeyMode) -> Result<String, String> {
@@ -103,5 +112,14 @@ mod tests {
             format!("{stack}-review-5")
         );
         std::fs::remove_dir_all(repo.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn worktree_keys_have_the_hash_of_the_worktree() {
+        assert!(is_worktree_key("app-0123456789ab"));
+        assert!(is_worktree_key("app-0123456789ab-review-5"));
+        assert!(!is_worktree_key("app"));
+        assert!(!is_worktree_key("my-app"));
+        assert!(!is_worktree_key("app-0123456789ab-review-"));
     }
 }

@@ -12,8 +12,7 @@ use tokio::net::{UnixListener, UnixStream};
 
 use crate::core::eventlog::{LogLine, id_of, route_line};
 use crate::core::subs::Mode;
-use crate::core::workspaces::set_kind;
-use crate::core::worktrees::ReviewLink;
+use crate::core::worktrees::{ReviewLink, set_kind};
 use crate::daemon::{Daemon, Memory};
 use crate::key::worktree_top;
 use crate::local::repo_of;
@@ -82,8 +81,6 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
                 ..daemon.store.debug_disk()
             }))
         }
-        // The record of format version 1 is gone already.
-        Request::WorkspaceForget { .. } => Response::Ok,
         Request::ReplaceClients { repo } => {
             let memory = daemon.lock().await;
             let count = daemon.store.replace_clients(&repo);

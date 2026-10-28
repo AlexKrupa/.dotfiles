@@ -508,7 +508,7 @@ fn hub_items() -> &'static Checks {
         let logged = std::fs::read_to_string(w.watchd.join("events.jsonl")).unwrap_or_default();
         c.check(
             "no agent: the event of a worktree is a hub item, not a hub inbox line",
-            format!("comment:1 [] 1"),
+            "comment:1 [] 1",
             format!(
                 "{} [{}] {}",
                 items(&w, "app"),

@@ -9,10 +9,10 @@ use tokio::net::UnixStream;
 
 use crate::core::eventlog::RouteAction;
 use crate::core::subs::Mode;
-use crate::core::workspaces::Kind;
+use crate::core::worktrees::Kind;
 use crate::daemon::store::Store;
 use crate::engine::mr_number;
-use crate::key::{KeyMode, repo_slug, watch_key, worktree_top};
+use crate::key::{KeyMode, digits, repo_slug, watch_key, worktree_top};
 use crate::local::{git, repo_of, shared_refs};
 use crate::paths::StateDirs;
 use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
@@ -63,10 +63,6 @@ impl WatchArgs {
         }
         Ok(parsed)
     }
-}
-
-fn digits(value: &str) -> bool {
-    !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 struct Target {
@@ -303,26 +299,18 @@ async fn ask_ok(request: &Request) -> i32 {
     }
 }
 
-/// `--workspace ID` is the flag of the herdr workspace of format version 1: the daemon ignores it.
 pub async fn kind(args: Vec<String>) -> i32 {
     let mut args = args.into_iter();
     let Some(kind) = args.next() else {
         return die("kind needs a kind");
     };
-    let mut workspace = None;
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--workspace" => match args.next() {
-                Some(id) => workspace = Some(id),
-                None => return die("--workspace needs an ID"),
-            },
-            _ => return die(&format!("unexpected argument: {arg}")),
-        }
+    if let Some(arg) = args.next() {
+        return die(&format!("unexpected argument: {arg}"));
     }
     let Some(kind) = Kind::parse(&kind) else {
         return die(&format!("unknown kind: {kind}"));
     };
-    ask_ok(&Request::Kind { workspace, kind }).await
+    ask_ok(&Request::Kind { kind }).await
 }
 
 pub async fn route(args: Vec<String>) -> i32 {
@@ -457,11 +445,6 @@ pub async fn debug_state() -> i32 {
 pub async fn replace_clients(repo: &Path) -> i32 {
     let top = worktree_top(repo).unwrap_or_else(|_| repo.to_path_buf());
     ask_ok(&Request::ReplaceClients { repo: top }).await
-}
-
-/// The daemon keeps no herdr workspace records: the command of format version 1 does nothing.
-pub fn forget_workspace() -> i32 {
-    0
 }
 
 pub async fn follow(after: Option<u64>) -> i32 {

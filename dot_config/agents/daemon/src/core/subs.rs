@@ -40,9 +40,6 @@ pub struct Agent {
     pub replaced_sessions: Vec<u32>,
     #[serde(default)]
     pub ended_mrs: Vec<u64>,
-    /// Only in records of format version 1: the daemon start converts it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub herdr_workspace: Option<String>,
 }
 
 /// Returns true if this made all MRs of the agent end. With no `--mr` list, the MRs of the
@@ -81,7 +78,6 @@ mod tests {
             client_at: 0,
             replaced_sessions: Vec::new(),
             ended_mrs: Vec::new(),
-            herdr_workspace: None,
         }
     }
 

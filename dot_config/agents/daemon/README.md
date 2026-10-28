@@ -146,7 +146,7 @@ each change, the task sends the `changed` signal, and the waiting connections re
 | `src/daemon/` | The main loop, the local round, the managed loops, the checks, the lock, the restart. `store.rs` writes the state files. |
 | `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
-| `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets, version 1 herdr workspace records |
+| `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets |
 | `src/engine/` | The GitLab checks. `hub.rs` watches the project. `stack.rs` watches the MRs of a stack or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
 | `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
@@ -184,8 +184,7 @@ Clients that are older than an upgrade stay in use: agent sessions keep the old 
 waiting client keeps its old process. An upgrade converts the old state at the first start of the
 new daemon. It keeps no second code path for the old format.
 
-- CLI: keep the subcommand names and flags. `kind --workspace ID` is the flag of format version 1:
-  the daemon ignores it. `watchd workspace forget` exits 0 and does nothing.
+- CLI: keep the subcommand names and flags.
 - Socket protocol: only add optional fields. The daemon reads the `subscribe` message of a version
   1 client.
 - State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the version
