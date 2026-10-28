@@ -241,7 +241,7 @@ check "a rank past 9 shows no number"              "<none>" "$(tok "$out" wZ:p1 
 out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_id == "wH"
   then .tokens = {watch_kind: "mine", watch_stage: "watching", watch_needs: "failed,reply"}
   else . end)')")
-check "a title starts with the first needs glyph only" "M w F Herdr work" "$(tok "$out" wH:p1 title)"
+check "a title starts with the first needs glyph only" "M w F · Herdr work" "$(tok "$out" wH:p1 title)"
 out=$(agents '{}' "$(fixture '.result.snapshot.agents[0].tokens.work = "MwF pipeline failed"')")
 check "the old agent work token is cleared" "" "$(tok "$out" wH:p1 work)"
 
@@ -256,10 +256,10 @@ out=$(agents '{}' "$(fixture '.result.snapshot.agents |= map(.tokens =
 check "a token is not written twice"               "{}" "$(jq -c .panes <<<"$out")"
 
 out=$(agents '{}')
-check "a root title is the session"           "M Herdr work" "$(tok "$out" wH:p1 title)"
-check "a worktree title continues the tree line" "│ M subtract fn" "$(tok "$out" wA:p1 title)"
-check "a tab in the session becomes a space"  "│ M Calc desc" "$(tok "$out" wB:p1 title)"
-check "the last worktree title gets a corner" "└ M orphan one" "$(tok "$out" wO:p1 title)"
+check "a root title is the session"           "M · Herdr work" "$(tok "$out" wH:p1 title)"
+check "a worktree title continues the tree line" "│ M · subtract fn" "$(tok "$out" wA:p1 title)"
+check "a tab in the session becomes a space"  "│ M · Calc desc" "$(tok "$out" wB:p1 title)"
+check "the last worktree title gets a corner" "└ M · orphan one" "$(tok "$out" wO:p1 title)"
 check "a worktree with no title keeps the glyphs" "└ M" "$(tok "$out" wB:p2 title)"
 check "an idle agent seen first is fresh"     "○" "$(tok "$out" wR:p1 dot_idle_fresh)"
 check "idle_since starts at now"              "10000" "$(jq -r '.state.idle_since["wR:p1"]' <<<"$out")"
@@ -288,24 +288,24 @@ out=$(agents '{}' "$(fixture '.result.snapshot.agents |=
 check "a new state clears the old dot"    "" "$(tok "$out" wA:p1 dot_idle)"
 
 out=$(agents '{}' "$(fixture '.result.snapshot.agents[0].tokens.session = "a=b \\ c"')")
-check "a title keeps = and backslash"     'M a=b \ c' "$(tok "$out" wH:p1 title)"
+check "a title keeps = and backslash"     'M · a=b \ c' "$(tok "$out" wH:p1 title)"
 
 # herdr stores a token value without control characters, trimmed, and cut to 80 code points.
 # A wanted value that differs from the stored one is written again on every sweep.
 long=$(printf 'x%.0s' {1..80})
 out=$(agents '{}' "$(fixture '.result.snapshot.agents[2].terminal_title_stripped = $t' --arg t "$long")")
 check "a long title is cut as herdr cuts it" \
-  "│ M ${long:0:76}" "$(tok "$out" wA:p1 title)"
+  "│ M · ${long:0:74}" "$(tok "$out" wA:p1 title)"
 
 out=$(agents '{}' "$(fixture '.result.snapshot.agents[2].terminal_title_stripped = "sub\u0007tract  "')")
 check "a title loses control characters and end spaces" \
-  "│ M subtract" "$(tok "$out" wA:p1 title)"
+  "│ M · subtract" "$(tok "$out" wA:p1 title)"
 
 # herdr <panes-json> -> the token values as herdr stores them
 herdr_store() {
   jq -c 'map_values(map_values(gsub("[\u0000-\u001f\u007f-\u009f]"; "") | trim | .[0:80] | trim))' <<<"$1"
 }
-cut=$(printf 'y%.0s' {1..74})
+cut=$(printf 'y%.0s' {1..72})
 out=$(agents '{}' "$(fixture '.result.snapshot.agents[2].terminal_title_stripped = $t' --arg t "$cut   tail")")
 out=$(agents '{}' "$(fixture '.result.snapshot.agents |= map(.tokens =
   ((.tokens // {}) + ($t[.pane_id] // {}) | with_entries(select(.value != ""))))

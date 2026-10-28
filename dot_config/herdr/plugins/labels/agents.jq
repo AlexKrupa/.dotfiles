@@ -76,7 +76,8 @@ def dot_state($since; $now):
 def wanted($since; $now; $glyphs):
   dot_state($since; $now) as $state
   | ([(.workspace_tokens | work_agent_kind | work_glyphs($glyphs)), (.title | herdr_text)]
-     | map(select(. != "")) | join(" ")) as $title
+     # The separator that herdr puts between the parts of a sidebar row.
+     | map(select(. != "")) | join(" · ")) as $title
   | { ord: ("00" + (.rank | tostring))[-3:],
       rank: (.rank | slot),
       group_parent: (if .header then .repo else "" end),
