@@ -14,7 +14,7 @@ use crate::daemon::store::Store;
 use crate::engine::mr_number;
 use crate::key::{KeyMode, digits, repo_slug, watch_key, worktree_top};
 use crate::local::{git, repo_of, shared_refs};
-use crate::paths::StateDirs;
+use crate::paths::{ClientDirs, StateDirs};
 use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
 use crate::protocol::{Envelope, Request, Response, StatusReport, SubscribeArgs, receive, send};
 use crate::workspaces::workspaces_of;
@@ -118,9 +118,23 @@ fn target(args: &WatchArgs) -> Result<Target, String> {
     Ok(Target { top, slug, key, mode })
 }
 
-async fn connect(dirs: &StateDirs, start: bool) -> Result<UnixStream, String> {
+/// The folder of a client is its `--repo` folder, else the current folder.
+fn client_dirs(repo: Option<&PathBuf>) -> ClientDirs {
+    let current = std::env::current_dir().unwrap_or_default();
+    StateDirs::for_client(&repo.map_or(current.clone(), |repo| current.join(repo)))
+}
+
+async fn connect(client: &ClientDirs, start: bool) -> Result<UnixStream, String> {
+    let dirs = &client.dirs;
     if let Ok(stream) = UnixStream::connect(dirs.socket()).await {
         return Ok(stream);
+    }
+    if !client.start {
+        let base = dirs.watchd.parent().unwrap_or(&dirs.watchd);
+        return Err(format!(
+            "no watchd daemon in {}, run: daemon/sample/sample start",
+            base.display()
+        ));
     }
     let failed = format!("the daemon did not start, see {}", dirs.log().display());
     if !start {
@@ -145,8 +159,8 @@ fn envelope(request: Request) -> Envelope {
     }
 }
 
-async fn ask(dirs: &StateDirs, request: &Request, start: bool) -> Result<Response, String> {
-    let stream = connect(dirs, start).await?;
+async fn ask(client: &ClientDirs, request: &Request, start: bool) -> Result<Response, String> {
+    let stream = connect(client, start).await?;
     let (read, mut write) = stream.into_split();
     send(&mut write, &envelope(request.clone()))
         .await
@@ -175,9 +189,9 @@ pub async fn watch(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
-    let dirs = StateDirs::from_env();
-    let _ = std::fs::create_dir_all(&dirs.watchd);
-    let session_pid = session(&Store::new(dirs.clone()));
+    let client = client_dirs(args.repo.as_ref());
+    let _ = std::fs::create_dir_all(&client.dirs.watchd);
+    let session_pid = session(&Store::new(client.dirs.clone()));
     let client_pid = std::process::id();
     // The check covers all ancestors: the parent can be a wrapper shell that stays alive after the
     // agent is killed.
@@ -201,7 +215,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
         .and_then(|value| value.parse().ok())
         .unwrap_or(3);
     loop {
-        let stream = match connect(&dirs, true).await {
+        let stream = match connect(&client, true).await {
             Ok(stream) => stream,
             Err(message) => return die(&message),
         };
@@ -281,18 +295,19 @@ pub async fn unsubscribe(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
-    let session_pid = session(&Store::new(StateDirs::from_env()));
-    ask_ok(&Request::Unsubscribe {
+    let client = client_dirs(args.repo.as_ref());
+    let session_pid = session(&Store::new(client.dirs.clone()));
+    let request = Request::Unsubscribe {
         key: target.key,
         slug: target.slug,
         mode: target.mode,
         session_pid,
-    })
-    .await
+    };
+    ask_ok(&client, &request).await
 }
 
-async fn ask_ok(request: &Request) -> i32 {
-    match ask(&StateDirs::from_env(), request, true).await {
+async fn ask_ok(client: &ClientDirs, request: &Request) -> i32 {
+    match ask(client, request, true).await {
         Ok(Response::Ok) => 0,
         Ok(Response::Error { text }) => die(&text),
         Ok(_) => die("unexpected answer of the daemon"),
@@ -311,7 +326,7 @@ pub async fn kind(args: Vec<String>) -> i32 {
     let Some(kind) = Kind::parse(&kind) else {
         return die(&format!("unknown kind: {kind}"));
     };
-    let code = ask_ok(&Request::Kind { kind }).await;
+    let code = ask_ok(&client_dirs(None), &Request::Kind { kind }).await;
     if code == 0 && kind == Kind::Hub {
         // The board is display only: its error does not fail the command.
         let opened = std::env::current_dir()
@@ -354,6 +369,7 @@ pub async fn route(args: Vec<String>) -> i32 {
     let Some(action) = RouteAction::parse(&action_text) else {
         return die(&format!("unknown action: {action_text}"));
     };
+    let client = client_dirs(repo.as_ref());
     let target = match target(&WatchArgs {
         repo,
         ..WatchArgs::default()
@@ -361,12 +377,12 @@ pub async fn route(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
-    ask_ok(&Request::Route {
+    let request = Request::Route {
         key: target.key,
         iid,
         action,
-    })
-    .await
+    };
+    ask_ok(&client, &request).await
 }
 
 pub async fn report(args: Vec<String>) -> i32 {
@@ -396,7 +412,7 @@ pub async fn report(args: Vec<String>) -> i32 {
         mrs: args.mrs.clone(),
         input,
     };
-    match ask(&StateDirs::from_env(), &request, true).await {
+    match ask(&client_dirs(args.repo.as_ref()), &request, true).await {
         Ok(Response::Report { text }) => {
             println!("{text}");
             0
@@ -419,6 +435,7 @@ pub async fn board(args: Vec<String>) -> i32 {
             _ => return die(&format!("unexpected argument: {arg}")),
         }
     }
+    let client = client_dirs(repo.as_ref());
     let target = match target(&WatchArgs {
         repo,
         ..WatchArgs::default()
@@ -426,11 +443,10 @@ pub async fn board(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
-    let dirs = StateDirs::from_env();
-    let path = dirs.board(&target.slug);
+    let path = client.dirs.board(&target.slug);
     let mut shown = None;
     loop {
-        let stream = match connect(&dirs, true).await {
+        let stream = match connect(&client, true).await {
             Ok(stream) => stream,
             Err(message) => return die(&message),
         };
@@ -471,13 +487,14 @@ fn draw_board(path: &Path, shown: &mut Option<String>) {
 }
 
 pub async fn status() -> i32 {
-    let dirs = StateDirs::from_env();
-    let report = match ask(&dirs, &Request::Status, false).await {
+    let client = client_dirs(None);
+    let report = match ask(&client, &Request::Status, false).await {
         Ok(Response::Status(report)) => report,
+        Err(message) if !client.start => return die(&message),
         _ => StatusReport {
             pid: None,
             repos: Vec::new(),
-            subs: Store::new(dirs).sub_status(),
+            subs: Store::new(client.dirs).sub_status(),
         },
     };
     match report.pid {
@@ -504,10 +521,11 @@ pub async fn status() -> i32 {
 }
 
 pub async fn debug_state() -> i32 {
-    let dirs = StateDirs::from_env();
-    let state = match ask(&dirs, &Request::DebugState, false).await {
+    let client = client_dirs(None);
+    let state = match ask(&client, &Request::DebugState, false).await {
         Ok(Response::State(state)) => *state,
-        _ => Store::new(dirs).debug_disk(),
+        Err(message) if !client.start => return die(&message),
+        _ => Store::new(client.dirs).debug_disk(),
     };
     println!(
         "{}",
@@ -519,12 +537,15 @@ pub async fn debug_state() -> i32 {
 /// Only for the eval shims, so that an eval run does not wait for its watch.
 pub async fn replace_clients(repo: &Path) -> i32 {
     let top = worktree_top(repo).unwrap_or_else(|_| repo.to_path_buf());
-    ask_ok(&Request::ReplaceClients { repo: top }).await
+    ask_ok(&StateDirs::for_client(repo), &Request::ReplaceClients { repo: top }).await
 }
 
 pub async fn follow(after: Option<u64>) -> i32 {
-    let dirs = StateDirs::from_env();
-    let stream = match connect(&dirs, true).await {
+    let client = ClientDirs {
+        dirs: StateDirs::from_env(),
+        start: true,
+    };
+    let stream = match connect(&client, true).await {
         Ok(stream) => stream,
         Err(message) => return die(&message),
     };

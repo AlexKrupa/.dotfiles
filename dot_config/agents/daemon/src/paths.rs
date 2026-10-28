@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use crate::local::git;
 use crate::platform::shasum12;
 
 #[derive(Clone)]
@@ -8,15 +9,41 @@ pub struct StateDirs {
     pub engine: PathBuf,
 }
 
+/// The state folders of a client, and if the client can start a daemon.
+pub struct ClientDirs {
+    pub dirs: StateDirs,
+    pub start: bool,
+}
+
 impl StateDirs {
     pub fn from_env() -> StateDirs {
         let base = match std::env::var_os("XDG_STATE_HOME") {
             Some(dir) if !dir.is_empty() => PathBuf::from(dir),
             _ => home().join(".local/state"),
         };
+        StateDirs::from_base(&base)
+    }
+
+    pub fn from_base(base: &Path) -> StateDirs {
         StateDirs {
             watchd: base.join("watchd"),
             engine: base.join("watch-gitlab"),
+        }
+    }
+
+    /// A repo with the git configuration key `watchd.stateHome` has its own daemon. A client
+    /// there starts no daemon, because its binary can have a different engine.
+    pub fn for_client(folder: &Path) -> ClientDirs {
+        let value = git(folder, &["config", "--get", "watchd.stateHome"]).unwrap_or_default();
+        match value.trim_end() {
+            "" => ClientDirs {
+                dirs: StateDirs::from_env(),
+                start: true,
+            },
+            base => ClientDirs {
+                dirs: StateDirs::from_base(Path::new(base)),
+                start: false,
+            },
         }
     }
 
