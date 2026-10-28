@@ -55,6 +55,10 @@ The managed set (`repos.json`) has the repos that the daemon watches:
 - At start, the daemon adds the repo of each agent record.
 - If the folder of a repo is gone, the main loop removes the repo.
 
+A repo with the git configuration key `watchd.stateHome` has its own daemon: its clients use the
+socket and the state in that folder, and they start no daemon. The
+[sample](sample/README.md) uses it for its test daemon.
+
 The daemon makes no herdr calls.
 
 ## One watch
