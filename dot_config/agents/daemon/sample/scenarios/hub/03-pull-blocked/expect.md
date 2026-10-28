@@ -1,0 +1,3 @@
+- Notification: "Pull blocked: cannot fast-forward main to origin/main".
+- `watchd.log`: a line `pull blocked: cannot fast-forward main to origin/main`.
+- `watchd debug state` in the repo: an open hub item `pull:main`, next to `main-failed:main`.

@@ -1,0 +1,3 @@
+- Sidebar: the `repo` workspace shows the need `main-failed`.
+- Notification: "Pipeline failed: unit-tests" for `main`.
+- `watchd debug state` in the repo: one open hub item `main-failed:main`.

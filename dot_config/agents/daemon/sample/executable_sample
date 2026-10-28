@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+# Moves a test daemon and a generated sample repo through fixed scenarios, one step at a time, with
+# no GitLab and no Claude. See README.md.
+set -euo pipefail
+
+source "$(dirname "$0")/lib.sh"
+scenarios=${SAMPLE_SCENARIOS:-$sample_dir/scenarios}
+step_file=$SAMPLE_STATE/step
+log=$SAMPLE_STATE/watchd/watchd.log
+
+die() { echo "sample: $*" >&2; exit 1; }
+
+usage() {
+  cat >&2 <<'EOF'
+usage: sample start                 build the test-support binary, start the test daemon
+       sample stop                  stop the test daemon
+       sample run <scenario>        reset, then apply step 1 of the scenario
+       sample next                  apply the next step
+       sample back                  replay from the reset to the step before
+       sample status                scenario, step, expect list, daemon PID and binary
+       sample list                  the scenarios and their steps
+       sample check [<scenario>]    run the scenarios with no herdr, look for daemon errors
+EOF
+  exit 2
+}
+
+daemon_pid() { cat "$SAMPLE_STATE/watchd/daemon.pid" 2>/dev/null; }
+
+# A daemon of another binary has the real engine and the real workspaces.
+test_daemon() {
+  local pid
+  pid=$(daemon_pid) && [ "$(ps -o comm= -p "$pid" 2>/dev/null)" = "$watchd" ]
+}
+
+require_daemon() {
+  if test_daemon; then return 0; fi
+  die "no test daemon in $SAMPLE_STATE, run: daemon/sample/sample start"
+}
+
+build() {
+  cargo build -q --release --features test-support --manifest-path "$sample_dir/../Cargo.toml"
+  mkdir -p "$SAMPLE_ROOT/bin"
+  # The rename gives a running daemon a new inode, as daemon/build.sh does.
+  cp "$sample_dir/../target/release/watchd" "$SAMPLE_ROOT/bin/.watchd.tmp"
+  mv "$SAMPLE_ROOT/bin/.watchd.tmp" "$watchd"
+}
+
+# The daemon gets its own session, so that a Ctrl-C in the terminal of `sample` does not stop it.
+start_daemon() {
+  mkdir -p "$SAMPLE_STATE/watchd" "$engine" "$SAMPLE_STATE/workspaces" "$SAMPLE_STATE/spice"
+  XDG_STATE_HOME=$SAMPLE_STATE WATCHD_FAKE_ENGINE=$engine \
+    WATCHD_FAKE_WORKSPACES=$SAMPLE_STATE/workspaces PATH=$sample_dir/bin:$PATH \
+    MOCK_DIR=$SAMPLE_STATE/spice MOCK_LOG=$SAMPLE_STATE/spice.log \
+    WATCHD_TICK=1 WATCHD_MANAGED_SECONDS=2 \
+    perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$watchd" daemon \
+    >>"$log" 2>&1 </dev/null &
+  for _ in $(seq 50); do
+    if test_daemon && [ -S "$SAMPLE_STATE/watchd/daemon.sock" ]; then return 0; fi
+    sleep 0.2
+  done
+  die "the test daemon did not start, see $log"
+}
+
+stop_daemon() {
+  local pid
+  test_daemon || return 0
+  pid=$(daemon_pid)
+  kill "$pid"
+  for _ in $(seq 50); do
+    if ! kill -0 "$pid" 2>/dev/null; then return 0; fi
+    sleep 0.2
+  done
+  die "the test daemon $pid did not stop, see $log"
+}
+
+# The state folder keeps the step file, because a failed step does not move it.
+reset() {
+  stop_daemon
+  if [ -d "$SAMPLE_STATE" ]; then
+    find "$SAMPLE_STATE" -mindepth 1 -maxdepth 1 ! -name step -exec rm -rf {} +
+  fi
+  rm -rf "$repo" "$origin" "$SAMPLE_ROOT"/repo-*
+  git init -q --bare -b main "$origin"
+  git init -q -b main "$repo"
+  commit "$repo" README.md "Sample repo"
+  git -C "$repo" remote add origin "$origin"
+  git -C "$repo" push -q -u origin main
+  git -C "$repo" remote set-head origin main
+  git -C "$repo" config watchd.stateHome "$SAMPLE_STATE"
+  start_daemon
+  # A client request adds the repo of its folder to the managed set.
+  (cd "$repo" && "$watchd" status >/dev/null)
+}
+
+steps_of() { # steps_of <scenario>: the step folders in order
+  [ -d "$scenarios/$1" ] || die "unknown scenario: $1"
+  find "$scenarios/$1" -mindepth 1 -maxdepth 1 -type d | sort
+}
+
+# A new bash with -e stops the step at its first failed command.
+apply() { # apply <scenario> <step number>
+  local folder
+  folder=$(steps_of "$1" | sed -n "$2p")
+  if ! bash -euo pipefail -c 'cd "$1" && source "$2/lib.sh" && source "$3/step.sh"' step \
+    "$repo" "$sample_dir" "$folder"; then
+    die "step $1 $2 $(basename "$folder") failed, see $log"
+  fi
+  settle || die "step $1 $2 $(basename "$folder"): the daemon did not take the events, see $log"
+  echo "$1 $2" >"$step_file"
+}
+
+require_step() {
+  if [ -s "$step_file" ]; then return 0; fi
+  die "no scenario, run: sample run <scenario>"
+}
+
+status() {
+  local scenario number folder
+  require_step
+  read -r scenario number <"$step_file"
+  folder=$(steps_of "$scenario" | sed -n "${number}p")
+  echo "$scenario $number/$(steps_of "$scenario" | wc -l | tr -d ' '): $(basename "$folder" | cut -d- -f2-)"
+  echo
+  if [ -f "$folder/expect.md" ]; then cat "$folder/expect.md"; echo; fi
+  echo "daemon $(daemon_pid): $watchd"
+  echo "log: $log"
+}
+
+list() {
+  local scenario number folder index mark
+  if [ -s "$step_file" ]; then read -r scenario number <"$step_file"; fi
+  for folder in "$scenarios"/*/; do
+    basename "$folder"
+    index=0
+    while IFS= read -r step; do
+      index=$((index + 1))
+      mark=' '
+      if [ "$(basename "$folder")" = "${scenario:-}" ] && [ "$index" = "${number:-}" ]; then mark='*'; fi
+      echo "  $mark $index $(basename "$step" | cut -d- -f2-)"
+    done < <(steps_of "$(basename "$folder")")
+  done
+}
+
+run_scenario() { # run_scenario <scenario>
+  steps_of "$1" >/dev/null
+  reset
+  apply "$1" 1
+}
+
+next() {
+  local scenario number
+  require_step
+  read -r scenario number <"$step_file"
+  [ "$number" -lt "$(steps_of "$scenario" | wc -l)" ] || die "$scenario $number is the last step"
+  apply "$scenario" $((number + 1))
+}
+
+back() {
+  local scenario number index
+  require_step
+  read -r scenario number <"$step_file"
+  [ "$number" -gt 1 ] || die "$scenario $number is the first step"
+  reset
+  for index in $(seq $((number - 1))); do apply "$scenario" "$index"; done
+}
+
+# A step fails when it fails, when the daemon stops, or when the log has a new error line.
+check_scenario() { # check_scenario <scenario>
+  local count index before errors failed=0
+  count=$(steps_of "$1" | wc -l)
+  reset
+  for index in $(seq "$count"); do
+    before=$(wc -l <"$log")
+    if ! (apply "$1" "$index"); then failed=1; fi
+    if ! test_daemon; then
+      echo "FAIL $1 $index: the test daemon stopped, see $log"
+      return 1
+    fi
+    errors=$(tail -n +$((before + 1)) "$log" | grep -Ei 'error|panic' || true)
+    if [ -n "$errors" ]; then
+      printf 'FAIL %s %s: new error lines in %s\n%s\n' "$1" "$index" "$log" "$errors"
+      failed=1
+    fi
+    if [ "$failed" = 1 ]; then return 1; fi
+    echo "ok   $1 $index"
+  done
+}
+
+check() { # check [<scenario>]
+  local scenario failed=0
+  export SAMPLE_NO_HERDR=1
+  local names=("$@")
+  if [ ${#names[@]} = 0 ]; then
+    for scenario in "$scenarios"/*/; do names+=("$(basename "$scenario")"); done
+  fi
+  for scenario in "${names[@]}"; do
+    check_scenario "$scenario" || failed=1
+  done
+  return "$failed"
+}
+
+case ${1:-} in
+  start)
+    build
+    if ! test_daemon; then start_daemon; fi
+    echo "daemon $(daemon_pid): $watchd"
+    ;;
+  stop) stop_daemon ;;
+  run) [ $# = 2 ] || usage; require_daemon; run_scenario "$2"; status ;;
+  next) require_daemon; next; status ;;
+  back) require_daemon; back; status ;;
+  status) require_daemon; status ;;
+  list) require_daemon; list ;;
+  check) require_daemon; shift; check "$@" ;;
+  *) usage ;;
+esac

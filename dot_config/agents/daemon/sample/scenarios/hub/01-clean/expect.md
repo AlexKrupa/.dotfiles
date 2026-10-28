@@ -1,0 +1,3 @@
+- Sidebar: the `repo` workspace has no watch tokens.
+- Board: no report.
+- `watchd status` in the repo: the daemon PID, `repo` with a last poll time, no agent records.
