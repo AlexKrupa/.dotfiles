@@ -1,0 +1,3 @@
+- Sidebar: the `feature` workspace shows the stage "watching".
+- Agent pane: `agent loop in .../repo-branch: watchd watch`, and no event yet.
+- `watchd status` in the repo: one live agent record for the branch, with MR 5.

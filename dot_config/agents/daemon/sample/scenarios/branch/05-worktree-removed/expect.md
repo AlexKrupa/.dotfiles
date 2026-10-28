@@ -1,0 +1,2 @@
+- Sidebar: the `feature` workspace is gone. No other workspace lost its watch tokens.
+- `watchd debug state` in the repo: no worktree state for `repo-branch`.

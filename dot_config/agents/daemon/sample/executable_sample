@@ -75,6 +75,7 @@ stop_daemon() {
 
 # The state folder keeps the step file, because a failed step does not move it.
 reset() {
+  close_agents
   stop_daemon
   if [ -d "$SAMPLE_STATE" ]; then
     find "$SAMPLE_STATE" -mindepth 1 -maxdepth 1 ! -name step -exec rm -rf {} +
@@ -167,6 +168,7 @@ back() {
 # A step fails when it fails, when the daemon stops, or when the log has a new error line.
 check_scenario() { # check_scenario <scenario>
   local count index before errors failed=0
+  steps_of "$1" >/dev/null
   count=$(steps_of "$1" | wc -l)
   reset
   for index in $(seq "$count"); do
@@ -186,15 +188,16 @@ check_scenario() { # check_scenario <scenario>
   done
 }
 
+# Each scenario runs in its own process: in a `||` list, bash ignores `set -e` in the functions.
 check() { # check [<scenario>]
   local scenario failed=0
   export SAMPLE_NO_HERDR=1
-  local names=("$@")
-  if [ ${#names[@]} = 0 ]; then
-    for scenario in "$scenarios"/*/; do names+=("$(basename "$scenario")"); done
+  if [ $# = 1 ]; then
+    check_scenario "$1"
+    return
   fi
-  for scenario in "${names[@]}"; do
-    check_scenario "$scenario" || failed=1
+  for scenario in "$scenarios"/*/; do
+    "$0" check "$(basename "$scenario")" || failed=1
   done
   return "$failed"
 }
@@ -205,12 +208,12 @@ case ${1:-} in
     if ! test_daemon; then start_daemon; fi
     echo "daemon $(daemon_pid): $watchd"
     ;;
-  stop) stop_daemon ;;
+  stop) close_agents; stop_daemon ;;
   run) [ $# = 2 ] || usage; require_daemon; run_scenario "$2"; status ;;
   next) require_daemon; next; status ;;
   back) require_daemon; back; status ;;
   status) require_daemon; status ;;
   list) require_daemon; list ;;
-  check) require_daemon; shift; check "$@" ;;
+  check) [ $# -le 2 ] || usage; require_daemon; shift; check "$@" ;;
   *) usage ;;
 esac

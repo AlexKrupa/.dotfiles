@@ -83,7 +83,90 @@ settle() { # waits until the daemon takes all event files of the fake engine
   return 1
 }
 
-agent() { # agent start|stop <role>
-  echo "agent sessions: Task 5" >&2
+# A fake agent session is the agent loop in the root pane of the worktree workspace, or with
+# SAMPLE_NO_HERDR=1 a background process. The files $SAMPLE_STATE/agents/<role>.<name> keep the
+# herdr workspace and pane, and the PID of the loop.
+agents=$SAMPLE_STATE/agents
+
+agent_open() { # agent_open <role>: opens the worktree workspace in herdr
+  local branch opened workspace pane
+  if [ "${SAMPLE_NO_HERDR:-}" = 1 ] || [ -s "$agents/$1.pane" ]; then return 0; fi
+  branch=$(git -C "$SAMPLE_ROOT/repo-$1" symbolic-ref --short HEAD) || return 1
+  opened=$("$HOME/.config/agents/skills/work/herdr-worktree.sh" "$branch" --repo "$repo") || return 1
+  workspace=$(jq -r .workspace_id <<<"$opened")
+  pane=$(jq -r .root_pane_id <<<"$opened")
+  # A workspace that was open gives no root pane.
+  if [ -z "$pane" ]; then
+    pane=$(herdr pane list --workspace "$workspace" | jq -r '.result.panes[0].pane_id // empty')
+  fi
+  [ -n "$pane" ] || { echo "no pane in the herdr workspace $workspace" >&2; return 1; }
+  echo "$workspace" >"$agents/$1.workspace"
+  echo "$pane" >"$agents/$1.pane"
+}
+
+agent_run() { # agent_run <role> [<watch argument>...]: starts the loop, waits for its agent record
+  local role=$1 key pid
+  shift
+  key=$(key_of "$role") || return 1
+  rm -f "$agents/$role.pid"
+  if [ "${SAMPLE_NO_HERDR:-}" = 1 ]; then
+    nohup "$sample_dir/agent-loop" "$SAMPLE_ROOT/repo-$role" "$agents/$role.pid" "$@" \
+      >>"$agents/$role.log" 2>&1 </dev/null &
+  else
+    herdr pane run "$(cat "$agents/$role.pane")" "$(printf '%q ' env SAMPLE_ROOT="$SAMPLE_ROOT" \
+      SAMPLE_STATE="$SAMPLE_STATE" "$sample_dir/agent-loop" "$SAMPLE_ROOT/repo-$role" \
+      "$agents/$role.pid" "$@")" >/dev/null
+  fi
+  for _ in $(seq 75); do
+    pid=$(cat "$agents/$role.pid" 2>/dev/null) || pid=
+    if [ -n "$pid" ] && [ "$(cd "$repo" && "$watchd" debug state \
+      | jq -r --arg key "$key" '.subs[$key].session_pid // empty')" = "$pid" ]; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  echo "the agent loop of $role has no agent record $key" >&2
   return 1
+}
+
+agent_stop() { # agent_stop <role>: ends the agent session, the workspace stays
+  local pid
+  pid=$(cat "$agents/$1.pid" 2>/dev/null) || return 0
+  pkill -P "$pid" 2>/dev/null || true
+  kill "$pid" 2>/dev/null || true
+  rm -f "$agents/$1.pid"
+}
+
+agent_close() { # agent_close <role>: ends the agent session and closes the workspace
+  agent_stop "$1"
+  if [ -s "$agents/$1.workspace" ]; then
+    herdr workspace close "$(cat "$agents/$1.workspace")" >/dev/null || return 1
+  fi
+  rm -f "$agents/$1.workspace" "$agents/$1.pane"
+}
+
+# A review agent watches its MR in review mode.
+agent() { # agent open|start|stop|close <role>
+  mkdir -p "$agents"
+  case $1 in
+    open) agent_open "$2" ;;
+    start)
+      agent_open "$2" || return 1
+      case $2 in
+        review) agent_run "$2" --review --mr "$review_iid" ;;
+        *) agent_run "$2" ;;
+      esac
+      ;;
+    stop) agent_stop "$2" ;;
+    close) agent_close "$2" ;;
+    *) echo "unknown agent action: $1" >&2; return 1 ;;
+  esac
+}
+
+close_agents() { # ends all agent sessions and closes their workspaces
+  local file
+  for file in "$agents"/*.pid "$agents"/*.workspace; do
+    [ -e "$file" ] || continue
+    agent_close "$(basename "${file%.*}")"
+  done
 }

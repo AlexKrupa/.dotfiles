@@ -47,6 +47,22 @@ check "next after the last step: the step stays" "hub 3" "$(cat "$SAMPLE_STATE/s
 check "back at step 1: exit 1" 1 "$?"
 check "back at step 1: the step stays" "hub 1" "$(cat "$SAMPLE_STATE/step")"
 
+"$sample" check branch >"$tmp/check.log" 2>&1
+code=$?
+check "check branch: exit 0" 0 "$code"
+[ "$code" = 0 ] || cat "$tmp/check.log"
+
+# live_sub <role>: yes if the test daemon has an agent record of the role with a live session.
+live_sub() {
+  local key pid
+  key=$(source "$here/lib.sh" && key_of "$1")
+  pid=$(cd "$SAMPLE_ROOT/repo" && "$SAMPLE_ROOT/bin/watchd" debug state \
+    | jq -r --arg key "$key" '.subs[$key].session_pid // empty')
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo yes; else echo no; fi
+}
+"$sample" run branch >/dev/null && "$sample" next >/dev/null
+check "branch-watching: a live agent record" yes "$(live_sub branch)"
+
 mkdir -p "$tmp/scenarios/lost/01-lost"
 echo 'printf "{}\n" >"$SAMPLE_STATE/engine/nobody.jsonl"' >"$tmp/scenarios/lost/01-lost/step.sh"
 SAMPLE_SCENARIOS=$tmp/scenarios "$sample" run lost >/dev/null 2>"$tmp/err"

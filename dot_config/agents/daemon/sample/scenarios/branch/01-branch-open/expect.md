@@ -1,0 +1,3 @@
+- Sidebar: a `feature` workspace below `repo`, with the kind `mine` and no stage.
+- Agent pane: an idle shell.
+- `watchd status` in the repo: no agent records.
