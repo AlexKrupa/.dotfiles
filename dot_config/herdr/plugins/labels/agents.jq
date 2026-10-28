@@ -75,12 +75,13 @@ def dot_state($since; $now):
 # dot color by the name of the one dot token.
 def wanted($since; $now; $glyphs):
   dot_state($since; $now) as $state
-  | (.title | herdr_text) as $title
+  | ([(.workspace_tokens | work_agent_kind | work_glyphs($glyphs)), (.title | herdr_text)]
+     | map(select(. != "")) | join(" ")) as $title
   | { ord: ("00" + (.rank | tostring))[-3:],
       rank: (.rank | slot),
       group_parent: (if .header then .repo else "" end),
       idx: "",
-      work: (.workspace_tokens | work_agent_kind | work_line($glyphs)) }
+      work: "" }
     + (dot_states | map({key: ("dot_" + .), value: ""}) | from_entries)
     # herdr indents every row of an entry after its first, so the name row under a repo
     # header is indented already.

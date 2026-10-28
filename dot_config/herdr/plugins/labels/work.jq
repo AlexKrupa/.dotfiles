@@ -20,19 +20,10 @@ def work_stage:
 # The needs-you values, in priority order.
 def work_needs: .watch_needs // "" | split(",") | map(select(. != ""));
 
-def work_words: {
-  failed: "pipeline failed", conflict: "conflict", reply: "reply",
-  requested_changes: "changes requested", commits: "new commits", ready: "ready to merge",
-  draft: "draft", todo: "to-do", "main-failed": "main failed" };
-
 # The first needs-you value wins over a local conflict. The space after a glyph lets the terminal
 # draw it 2 cells wide.
 def work_glyphs($glyphs):
   [.watch_kind // "", (if .watch_stack == "1" then "stack" else "" end), work_stage,
     (work_needs[0] // (if .watch_conflict == "1" then "conflict" else "" end))]
   | map($glyphs[.] // "")
-  | map(select(. != "")) | join(" ");
-
-def work_line($glyphs):
-  [work_glyphs($glyphs), (work_needs | map(work_words[.] // .) | join(", "))]
   | map(select(. != "")) | join(" ");
