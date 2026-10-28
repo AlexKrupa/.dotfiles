@@ -142,11 +142,17 @@ check "order: no kind, mine, bump, review, other kinds, each alphabetical" \
 check "order: workspace with no tokens is first" \
   '[{"workspace_ids":["wB","wA"]}]' \
   "$(order '{"wA": {"watch_kind": "review"}}' wP:app:r:parent wA:a:r wB:b:r)"
+check "order: unwatched mine sorts with no kind, then watched, debug, bump" \
+  '[{"workspace_ids":["wU","wO","wW","wD","wB"]}]' \
+  "$(order '{"wW": {"watch_kind": "mine", "watch_stage": "watching"},
+    "wU": {"watch_kind": "mine", "watch_stage": "done"}, "wD": {"watch_kind": "debug"},
+    "wB": {"watch_kind": "bump"}}' \
+    wP:app:r:parent wB:ABC-0:r wD:ABC-0:r wW:ABC-1:r wO:ABC-3:r wU:ABC-2:r)"
 check "order: numbers in labels sort by value" \
   '[{"workspace_ids":["wC","wB","wA"]}]' \
   "$(order '{}' wP:app:r:parent wA:ABC-123:r wB:ABC-23:r wC:ABC-4:r)"
 check "order: sorted group gives no move" '[]' \
-  "$(order '{"wB": {"watch_kind": "mine"}}' wP:app:r:parent wA:z:r wB:a:r)"
+  "$(order '{"wB": {"watch_kind": "mine", "watch_stage": "watching"}}' wP:app:r:parent wA:z:r wB:a:r)"
 check "order: each group moves alone, parents stay" \
   '[{"workspace_ids":["wA","wB"],"before_workspace_id":"wQ"}]' \
   "$(order '{}' wP:app:r:parent wB:b:r wA:a:r wQ:lib:s:parent wC:a:s wD:b:s)"
@@ -245,13 +251,13 @@ check "ended with done" \
 
 jq -nc --arg t "$tmp/t" '{result: {snapshot: {workspaces: [
     {workspace_id: "wP", label: "app", worktree: {repo_key: "k", is_linked_worktree: false}},
-    {workspace_id: "wT", label: "alpha",
+    {workspace_id: "wT", label: "zeta",
      worktree: {repo_key: "k", is_linked_worktree: true, checkout_path: $t}},
-    {workspace_id: "wZ", label: "zeta", worktree: {repo_key: "k", is_linked_worktree: true}}]}}}' \
+    {workspace_id: "wZ", label: "alpha", worktree: {repo_key: "k", is_linked_worktree: true}}]}}}' \
   >"$tmp/snapshot.json"
 : >"$tmp/nc.log"
 sweep
-check "the worktree with no kind moves before my watched worktree" \
+check "unwatched mine and no kind sort together by label" \
   '{"id":"watch:order","method":"workspace.move_block","params":{"workspace_ids":["wZ","wT"]}}' \
   "$(cat "$tmp/nc.log")"
 snapshot "wT:$tmp/t"

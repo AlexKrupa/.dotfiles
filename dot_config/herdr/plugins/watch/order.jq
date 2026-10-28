@@ -1,15 +1,23 @@
-# The order of the worktree workspaces in each herdr worktree group: my work with no watcher, my
-# watched work, bumps, code reviews, then other kinds. Alphabetical by label in each kind. The parent
-# rows stay in place.
+# The order of the worktree workspaces in each herdr worktree group: my work with no live watcher,
+# my watched work, debugging, bumps, code reviews, then other kinds. Alphabetical by label in each
+# part. The parent rows stay in place.
 #
-#   in:  {workspaces: [<herdr workspace>], tokens: {<id>: {watch_kind}}}
+#   in:  {workspaces: [<herdr workspace>], tokens: {<id>: {watch_kind, watch_stage}}}
 #        workspaces: in sidebar order, from `herdr api snapshot`
 #        tokens: the output of sidebar.jq
 #   out: [<workspace.move_block params>], one for each group in the wrong order
 #
 # Pure: watch.sh does the reads and the herdr calls.
 
-def kind_rank: {"": 0, mine: 1, bump: 2, review: 3}[. // ""] // 4;
+# A worktree with no kind is my work from before watchd. A new worktree gets the kind `mine` before
+# an agent watches it.
+def rank:
+  (.watch_kind // "") as $kind
+  | if $kind | IN("", "mine") then
+      (if .watch_stage == "watching" then 1 else 0 end)
+    else
+      {debug: 2, bump: 3, review: 4}[$kind] // 5
+    end;
 
 # ABC-23 before ABC-123: each run of digits compares as a number.
 def label_key: ascii_downcase | [scan("[0-9]+|[^0-9]+") | tonumber? // .];
@@ -21,7 +29,7 @@ def label_key: ascii_downcase | [scan("[0-9]+|[^0-9]+") | tonumber? // .];
     | select(.value.worktree.is_linked_worktree and (.value.worktree.repo_key | IN($parents[])))]
 | group_by(.value.worktree.repo_key)
 | map((map(.value.workspace_id)) as $current
-    | (sort_by(.value | [($tokens[.workspace_id].watch_kind | kind_rank),
+    | (sort_by(.value | [($tokens[.workspace_id] // {} | rank),
         (.label // "" | label_key)]) | map(.value.workspace_id)) as $sorted
     | select($sorted != $current)
     | {workspace_ids: $sorted}
