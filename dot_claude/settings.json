@@ -55,8 +55,6 @@
       "Bash(pwd)",
       "Bash(rg *)",
       "Bash(tail *)",
-      "Bash(tmux display-message:*)",
-      "Bash(tmux list-panes:*)",
       "Bash(unzip * ~/.gradle/caches/*)",
       "Bash(wc *)",
       "Bash(which *)",
@@ -130,8 +128,7 @@
     "navigation-3": "off",
     "r8-analyzer": "off",
     "styles": "off",
-    "testing-setup": "off",
-    "simple-english": "off"
+    "testing-setup": "off"
   },
   "hooks": {
     "PreToolUse": [
@@ -203,7 +200,6 @@
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
-    "md-prompt@nogu66": false,
     "nono@nolabs-ai": false,
     "skins@hellosverre-mods": true,
     "pyright-lsp@claude-plugins-official": false,
@@ -225,12 +221,6 @@
       "source": {
         "source": "github",
         "repo": "AminBlg/SimpleEnglish"
-      }
-    },
-    "nogu66": {
-      "source": {
-        "source": "github",
-        "repo": "nogu66/md-prompt"
       }
     },
     "hellosverre-mods": {
@@ -279,7 +269,6 @@
       ],
       "strictAllowlist": true,
       "allowUnixSockets": [
-        "/private/tmp/tmux-501/default",
         "~/.config/herdr/herdr.sock"
       ],
       "allowLocalBinding": true,
