@@ -1,0 +1,4 @@
+#!/bin/sh
+# source hash: {{ output "sh" "-c" "cd \"$1\" && find plugins/watch plugins/labels plugins/caffeinate bin/executable_restart-watchers.sh -type f -not -path '*/tests/*' | sort | xargs shasum | shasum" "sh" (joinPath .chezmoi.sourceDir "dot_config/herdr") }}
+plugins=$HOME/.config/herdr/plugins
+exec "$HOME/.config/herdr/bin/restart-watchers.sh" "$plugins/watch" "$plugins/labels" "$plugins/caffeinate"
