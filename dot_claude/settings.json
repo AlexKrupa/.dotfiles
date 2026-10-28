@@ -210,9 +210,9 @@
     "rust-analyzer-lsp@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": false,
     "simple-english@simple-english": true,
-    "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false
+    "typescript-lsp@claude-plugins-official": false,
+    "superpowers@local-pins": true
   },
   "extraKnownMarketplaces": {
     "respawn-tools": {
@@ -237,6 +237,12 @@
       "source": {
         "source": "github",
         "repo": "hellosverre/claude-skins"
+      }
+    },
+    "local-pins": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/alexkrupa/.claude/local-marketplace"
       }
     }
   },
