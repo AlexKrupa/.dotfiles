@@ -588,6 +588,17 @@ check "existing no track: exit 0" 0 "$code"
 check "existing no track: no git-spice call, not tracked" " false" \
   "$(grep '^git-spice' "$MOCK_LOG") $(jq -r .tracked <<<"$out")"
 
+# An MR title with the ticket id or the draft marker in front: the session name has the id once.
+for mr_title in '[ABC-5] Review me' 'Draft: [ABC-5] Review me' 'ABC-5: Review me' \
+  'ABC-5 Review me' 'Draft: ABC-5 Review me'; do
+  fresh
+  push_branch ABC-5/review-me
+  run p ABC-5 "$mr_title" --branch ABC-5/review-me
+  check "existing MR title '$mr_title': ticket id once in the session name" \
+    "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name [ABC-5] Review me" \
+    "$(grep '^herdr agent start' "$MOCK_LOG")"
+done
+
 fresh
 run p ABC-0 'typo' --no-track
 check "new no track: exit 1" 1 "$code"

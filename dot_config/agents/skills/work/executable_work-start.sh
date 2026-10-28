@@ -9,7 +9,8 @@
 #          [-- <claude flags>...]
 # Starts work on a ticket. Reads the first prompt on stdin. Branch: <ticket-id>/<slug>.
 # Session name: "[<ticket-id>] <slug-text>", only "<slug-text>" for the placeholder ID. In
-# existing mode: "[<ticket-id>] <title>", or NAME with no title.
+# existing mode: "[<ticket-id>] <title>", or NAME with no title. A leading "Draft: " and ticket id
+# ("[<ticket-id>] ", "<ticket-id>: ", "<ticket-id> ") of the title go.
 # Mode "new" (main checkout): creates the branch from the default branch of origin (origin/HEAD)
 # after a fast-forward, or from the remote ref REF. Tracks it on the default branch with
 # git-spice. Opens it as a new herdr worktree workspace, starts Claude there, and submits the
@@ -117,6 +118,9 @@ if [[ -n $existing ]]; then
     || die "usage: work-start.sh <ticket-id> [<title>] --branch NAME [--reset-local] [--no-track]\
  [-- <claude flags>...]"
   branch=$existing
+  # An MR title can start with the draft marker and the ticket id.
+  text=${text#Draft: }
+  for prefix in "[$ticket] " "$ticket: " "$ticket "; do text=${text#"$prefix"}; done
   if [[ -n $text ]]; then title="[$ticket] $text"; else title=$branch; fi
 else
   [[ -n $ticket && -n $text && -z $reset_local$no_track ]] \
