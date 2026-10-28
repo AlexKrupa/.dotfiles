@@ -134,12 +134,12 @@ flowchart TB
 - Events: the events of a key with a live agent go to its inbox. The events of a key with no live
   agent go to the hub as open items.
 - Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
-  event, and starts the review and bump agents. The lock is free during the agent starts. A
-  failed default-branch job with a runner failure gets 2 retries at most, in a task of its own. A
-  handled event does not go to the hub inbox. If a round has only handled events, the
-  daemon writes the hub report to the board file, and `watchd board` shows it. Else all events go
-  to the inbox, and the client gets only the events that the router did not handle. The next hub
-  report also shows the handled rows.
+  event, and starts the review and bump agents. The lock is free during the agent starts. A failed
+  default-branch job with a runner failure gets 2 retries at most, in a task of its own. A handled
+  event does not go to the hub inbox. If a round has only handled events, the daemon writes the
+  hub report to the board file, and `watchd board` shows it. Else all events go to the inbox, and
+  the client gets only the events that the router did not handle. The next hub report also shows
+  the handled rows.
 
 Each task takes the `memory` lock before it changes the state in memory or the state files. After
 each change, the task sends the `changed` signal, and the waiting connections read the files again.

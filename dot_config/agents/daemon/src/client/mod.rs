@@ -407,7 +407,6 @@ pub async fn report(args: Vec<String>) -> i32 {
     }
 }
 
-/// Draws the newest hub report of the repo, and draws it again when it changes.
 pub async fn board(args: Vec<String>) -> i32 {
     let mut repo = None;
     let mut args = args.into_iter();
@@ -445,7 +444,7 @@ pub async fn board(args: Vec<String>) -> i32 {
             loop {
                 draw_board(&path, &mut shown);
                 line.clear();
-                // A report writes no log line, so the board also reads its file each second.
+                // The board also reads its file each second, because a report writes no log line.
                 tokio::select! {
                     read = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line) => match read {
                         Ok(0) | Err(_) => break,

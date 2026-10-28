@@ -1,5 +1,4 @@
-//! The retry of a job with a runner failure: 2 retries at most for each job of a pipeline. The
-//! count is in the hub state, so that it stays after a daemon restart.
+//! The retry count is in the hub state, so that it stays after a daemon restart.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -21,8 +20,7 @@ pub struct Retry {
     pub url: String,
 }
 
-/// Retries the job, waits for the new job, and adds a row with the result. A failure for another
-/// reason goes to the hub model as a `default-failed` event with only that job.
+/// A failure for another reason goes to the hub model as a `default-failed` event with only that job.
 pub async fn retry(daemon: Arc<Daemon>, target: Target, retry: Retry) {
     let Retry {
         mut job,
@@ -82,11 +80,9 @@ enum WaitEnd {
     Finished(JobStatus),
     Timeout,
     Failed(String),
-    /// The daemon stops.
     Stopped,
 }
 
-/// Reads the status of the job each retry interval until it finishes.
 async fn wait(daemon: &Daemon, target: &Target, job_id: u64) -> WaitEnd {
     let remote = remote_url(&target.repo);
     let host = remote.as_deref().and_then(split_remote).map(|(host, _)| host);
@@ -112,7 +108,7 @@ async fn wait(daemon: &Daemon, target: &Target, job_id: u64) -> WaitEnd {
                 "success" | "failed" | "canceled" | "skipped" => return WaitEnd::Finished(status),
                 _ => {}
             },
-            // A network outage does not count. With the network up, as for HTTP 502, the read counts.
+            // A network outage does not count, but an error with the network up does, as for HTTP 502.
             Err(EngineError::Network(_)) if !online(host).await => {
                 if !daemon.wait_network(&target.repo, host).await {
                     return WaitEnd::Stopped;
@@ -145,7 +141,6 @@ async fn add_row(daemon: &Daemon, target: &Target, text: String) {
     daemon.changed.notify_waiters();
 }
 
-/// A `default-failed` event with only the job, which goes to the hub model.
 async fn ask_model(daemon: &Daemon, target: &Target, job: FailedJob, branch: &str, pipeline: u64, url: &str) {
     let event = Event {
         item: Some(format!("main-failed:{branch}")),

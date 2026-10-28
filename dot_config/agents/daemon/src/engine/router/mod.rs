@@ -1,5 +1,4 @@
-//! The router of the hub: a fixed rule for each event that needs no judgment. `decide` is pure, and
-//! the side effects run after it.
+//! The hub router: `decide` is a pure fixed rule for each event, and `execute` runs the side effects.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -46,16 +45,14 @@ pub struct Decision {
     pub action: Action,
 }
 
-/// The data that `decide` reads besides the events.
 #[derive(Clone, Debug, Default)]
 pub struct Facts {
-    /// The review report of each MR that has one.
     pub reviewed: BTreeMap<u64, PathBuf>,
     /// The events are items of an own worktree with no agent.
     pub worktree: bool,
 }
 
-/// The report fields of the handled rows. The other rows go to the model.
+/// The report fields of the rows that the model does not get.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Routing {
     pub input: ReportInput,
@@ -143,15 +140,14 @@ pub fn decide(events: &[RoutedEvent], facts: &Facts) -> Vec<Decision> {
         .collect()
 }
 
-/// What all events of one MR in the round show: one agent at most for each MR.
+/// One agent at most for each MR in a round.
 #[derive(Default)]
 struct MrRound {
     author: Option<String>,
     start: Option<Decision>,
 }
 
-/// A bot is an MR author whose username has `renovate` or `dependabot`. The branch name does not
-/// count, because a branch rule also matches the MRs that change the bot configuration.
+/// The branch name does not count, because a branch rule also matches the MRs of the bot configuration.
 fn is_bot(author: &str) -> bool {
     let author = author.to_lowercase();
     author.contains("renovate") || author.contains("dependabot")
@@ -161,8 +157,6 @@ fn is_review_request(event: &Event) -> bool {
     event.kind == EventKind::Todo && event.detail == "review_requested"
 }
 
-/// A bump starts at the `opened` event, else at the first event of the MR. A review starts at the
-/// review request.
 fn mr_round(events: &[&RoutedEvent], facts: &Facts) -> MrRound {
     let author = events.iter().find_map(|routed| routed.event.author.clone());
     let start = match author.as_deref() {
@@ -243,7 +237,6 @@ fn actions_of(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Vec<Action> 
     vec![action]
 }
 
-/// The start of the MR, if it is on this row.
 fn start_on(routed: &RoutedEvent, mr: &MrRound) -> Option<Action> {
     mr.start
         .as_ref()
@@ -302,7 +295,6 @@ fn pipeline_id(event: &Event) -> Option<u64> {
         .ok()
 }
 
-/// A retry for each job with a runner failure. The model gets the other jobs.
 fn default_failed_actions(event: &Event) -> Vec<Action> {
     let (Some(failed), Some(pipeline)) = (event.failed.as_deref(), pipeline_id(event)) else {
         return vec![Action::AskModel];
@@ -335,7 +327,7 @@ fn reaction_action() -> Action {
     Action::ReportOnly { cell: None }
 }
 
-/// The hub check gives none of these kinds. They come to the hub as items of an own worktree.
+/// These kinds come to the hub only as items of an own worktree.
 fn worktree_item_action(facts: &Facts) -> Action {
     match facts.worktree {
         true => Action::ReportOnly { cell: None },
@@ -343,8 +335,7 @@ fn worktree_item_action(facts: &Facts) -> Action {
     }
 }
 
-/// The event of the model has only the jobs that the daemon does not retry. A handled row keeps all
-/// jobs for the board.
+/// A handled row keeps all jobs, for the board.
 pub fn narrow(events: &mut [RoutedEvent], handled: &[u64]) {
     let to_model =
         |routed: &&mut RoutedEvent| routed.event.kind == EventKind::DefaultFailed && !handled.contains(&routed.row);
@@ -360,7 +351,6 @@ pub fn narrow(events: &mut [RoutedEvent], handled: &[u64]) {
     }
 }
 
-/// The report fields of the decisions that need no side effect.
 pub fn routing(decisions: &[Decision]) -> Routing {
     let mut routing = Routing::default();
     let mut asked = Vec::new();

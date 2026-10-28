@@ -81,7 +81,7 @@ pub struct Daemon {
     workspaces: Box<dyn Workspaces>,
     /// The wait between two status reads of a retried job.
     pub retry_interval: Duration,
-    /// The longest wait for a retried job. Sleep time and network outages do not count.
+    /// The longest wait for a retried job, with no sleep time and no network outages.
     pub retry_timeout: Duration,
 }
 
@@ -272,8 +272,7 @@ impl Daemon {
         network
     }
 
-    /// The rows of the events, the router, then the delivery. The lock is free while the router
-    /// runs, because an agent start takes seconds.
+    /// The lock is free while the router runs, because an agent start takes seconds.
     async fn route<'a>(
         self: &'a Arc<Self>,
         memory: MutexGuard<'a, Memory>,

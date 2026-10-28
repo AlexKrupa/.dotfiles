@@ -23,9 +23,7 @@ pub struct ExecuteContext<'a> {
     pub spawn_retry: &'a (dyn Fn(Retry) + Sync),
 }
 
-/// Runs the actions of the decisions. Each agent start and each dismissed new MR gives a router
-/// result line, which the herdr `watch` plugin reads for its notification. The caller writes the
-/// lines under the state lock.
+/// The caller writes the returned router result lines under the state lock.
 pub async fn execute(
     decisions: Vec<Decision>,
     events: &[RoutedEvent],
@@ -101,7 +99,6 @@ pub async fn execute(
     (routing, lines)
 }
 
-/// The dependency of a bot branch: the last `/` part with no version part.
 fn dependency(branch: &str) -> Option<String> {
     let name = ["renovate/", "dependabot/"]
         .iter()
@@ -117,8 +114,7 @@ fn dependency(branch: &str) -> Option<String> {
     }
 }
 
-/// An agent row for each older bump agent of the dependency. Its workspace stays, because it can
-/// have changes.
+/// The old workspace stays open, because it can have changes.
 fn stale_agents(ctx: &ExecuteContext<'_>, routing: &mut Routing, branch: &str) {
     let Some(name) = dependency(branch) else {
         return;
@@ -143,8 +139,7 @@ fn stale_agents(ctx: &ExecuteContext<'_>, routing: &mut Routing, branch: &str) {
     }
 }
 
-/// Returns true if the agent started. A failed start keeps the row as a pending item, with the error
-/// text as its cell.
+/// Only a new agent gives true. A failed start stays a pending item, with the error text as its cell.
 fn start_agent(ctx: &ExecuteContext<'_>, routing: &mut Routing, row: u64, start: &AgentStart, started: &str) -> bool {
     let result = tokio::task::block_in_place(|| ctx.workspaces.start_agent(ctx.repo, start));
     let (cell, ok) = match result {
@@ -179,7 +174,6 @@ mod tests {
         base: PathBuf,
         store: Store,
         workspaces: FakeWorkspaces,
-        /// The job of each spawned retry.
         retried: Arc<Mutex<Vec<u64>>>,
         spawn_retry: Box<dyn Fn(Retry) + Sync>,
     }
@@ -223,7 +217,6 @@ mod tests {
         }
     }
 
-    /// The MR and the action of each router result line.
     fn route_actions(lines: &[LogLine]) -> Vec<String> {
         lines
             .iter()

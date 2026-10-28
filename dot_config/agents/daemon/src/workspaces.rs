@@ -1,5 +1,4 @@
-//! The seam for herdr: agents and panes. The Rust code outside `HerdrWorkspaces` makes no herdr
-//! calls.
+//! The Rust code outside `HerdrWorkspaces` makes no herdr calls.
 
 use std::path::Path;
 #[cfg(feature = "test-support")]
@@ -8,7 +7,7 @@ use std::path::PathBuf;
 use crate::paths::home;
 
 pub trait Workspaces: Send + Sync {
-    /// Opens the board pane next to the current pane. An open board pane stays.
+    /// Opens the board pane next to the current pane, if none is open.
     fn open_board(&self, repo: &Path) -> Result<(), String>;
 
     /// Starts an agent on the existing branch, in its own worktree workspace.
@@ -33,8 +32,7 @@ pub enum StartError {
 
 pub struct HerdrWorkspaces;
 
-/// Runs a script of `~/.claude/skills` in the folder, with the text on stdin. Gives its stdout text,
-/// or its stderr text on failure.
+/// Gives the stdout text, or the stderr text on failure.
 fn run_skill_script(script: &str, args: &[&std::ffi::OsStr], folder: &Path, stdin: &str) -> Result<String, String> {
     use std::io::Write;
     let path = home().join(".claude/skills").join(script);

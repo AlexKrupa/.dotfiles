@@ -470,7 +470,6 @@ impl Store {
         }
     }
 
-    /// The rows, the items, and the event log lines of the events.
     pub fn assign(&self, target: &Target, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
         let owner = match (self.live_agent(&target.key), target.mode) {
             (false, Mode::Stack | Mode::Review) => {
@@ -510,8 +509,7 @@ impl Store {
         routed
     }
 
-    /// The key of the inbox that gets the events, with these events. A live agent of the key gets
-    /// all events. With no live agent, a live hub gets the events of a worktree that have an item.
+    /// A live agent of the key gets all events, else a live hub gets the worktree events with an item.
     pub fn recipient(&self, target: &Target, routed: &[RoutedEvent]) -> Option<(String, Vec<RoutedEvent>)> {
         match (self.live_agent(&target.key), target.mode) {
             (true, _) => Some((target.key.clone(), routed.to_vec())),
@@ -555,7 +553,6 @@ impl Store {
         self.log(&target.slug, &target.key, &format!("routed {} event(s)", routed.len()));
     }
 
-    /// A report with only the added rows of the input, for the board.
     pub fn add_rows(&self, target: &Target, input: &ReportInput) {
         for add in &input.add {
             let text = add.what.as_deref().or(add.result.as_deref()).unwrap_or_default();
@@ -879,7 +876,6 @@ impl Store {
         Ok(text)
     }
 
-    /// Builds the report of the delivery, saves the items, and writes the board of a hub.
     fn build(
         &self,
         key: &str,

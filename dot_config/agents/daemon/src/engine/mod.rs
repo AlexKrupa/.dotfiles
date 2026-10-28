@@ -214,7 +214,6 @@ pub trait Engine: Send + Sync {
     fn job(&self, repo: PathBuf, job_id: u64) -> JobFuture<'_>;
 }
 
-/// The URI-encoded project of the remote of the repo.
 fn project_ref_of(repo: &Path) -> Result<String, EngineError> {
     let remote = remote_url(repo).ok_or_else(|| EngineError::Other(format!("no git remote in {}", repo.display())))?;
     Ok(uri_encode(&project_of_url(&remote)))
