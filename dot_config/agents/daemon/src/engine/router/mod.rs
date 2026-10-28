@@ -2,13 +2,15 @@
 //! the side effects run after it.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::core::items::RoutedEvent;
 use crate::engine::event::{Event, EventKind};
 use crate::report::ReportInput;
+
+pub mod execute;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
@@ -39,6 +41,30 @@ pub struct Facts {
 pub struct Routing {
     pub input: ReportInput,
     pub handled: Vec<u64>,
+}
+
+/// The review report of each MR of the events: the first `*-mr-<iid>-*.md` file of the folder.
+pub fn read_facts(reviews: &Path, events: &[RoutedEvent]) -> Facts {
+    let mut names: Vec<String> = std::fs::read_dir(reviews)
+        .map(|entries| {
+            entries
+                .filter_map(|entry| entry.ok()?.file_name().into_string().ok())
+                .filter(|name| name.ends_with(".md"))
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    let mut reviewed = BTreeMap::new();
+    for iid in events.iter().filter_map(|routed| routed.event.iid) {
+        let part = format!("-mr-{iid}-");
+        if let Some(name) = names.iter().find(|name| name.contains(&part)) {
+            reviewed.insert(iid, reviews.join(name));
+        }
+    }
+    Facts {
+        reviewed,
+        ..Facts::default()
+    }
 }
 
 impl Routing {
@@ -77,19 +103,88 @@ impl Routing {
 }
 
 pub fn decide(events: &[RoutedEvent], facts: &Facts) -> Vec<Decision> {
+    let mut mrs: BTreeMap<u64, MrRound> = BTreeMap::new();
+    for iid in events.iter().filter_map(|routed| routed.event.iid) {
+        if !mrs.contains_key(&iid) {
+            let of_mr: Vec<&RoutedEvent> = events.iter().filter(|routed| routed.event.iid == Some(iid)).collect();
+            mrs.insert(iid, mr_round(&of_mr, facts));
+        }
+    }
+    let no_mr = MrRound::default();
     events
         .iter()
-        .map(|routed| Decision {
-            row: routed.row,
-            action: action_of(&routed.event, facts),
+        .map(|routed| {
+            let mr = routed.event.iid.and_then(|iid| mrs.get(&iid)).unwrap_or(&no_mr);
+            Decision {
+                row: routed.row,
+                action: action_of(routed, mr, facts),
+            }
         })
         .collect()
 }
 
-fn action_of(event: &Event, facts: &Facts) -> Action {
-    match event.kind {
-        EventKind::Todo => todo_action(),
-        EventKind::Opened => opened_action(),
+/// What all events of one MR in the round show: one agent at most for each MR.
+#[derive(Default)]
+struct MrRound {
+    author: Option<String>,
+    start: Option<Decision>,
+}
+
+/// A bot is an MR author whose username has `renovate` or `dependabot`. The branch name does not
+/// count, because a branch rule also matches the MRs that change the bot configuration.
+fn is_bot(author: &str) -> bool {
+    let author = author.to_lowercase();
+    author.contains("renovate") || author.contains("dependabot")
+}
+
+fn is_review_request(event: &Event) -> bool {
+    event.kind == EventKind::Todo && event.detail == "review_requested"
+}
+
+/// A bump starts at the `opened` event, else at the first event of the MR. A review starts at the
+/// review request.
+fn mr_round(events: &[&RoutedEvent], facts: &Facts) -> MrRound {
+    let author = events.iter().find_map(|routed| routed.event.author.clone());
+    let start = match author.as_deref() {
+        None => None,
+        Some(author) if is_bot(author) => events
+            .iter()
+            .find(|routed| routed.event.kind == EventKind::Opened)
+            .or(events.first())
+            .map(|routed| start_of(routed, StartKind::Bump)),
+        Some(_) => events
+            .iter()
+            .find(|routed| is_review_request(&routed.event))
+            .filter(|routed| routed.event.iid.is_some_and(|iid| !facts.reviewed.contains_key(&iid)))
+            .map(|routed| start_of(routed, StartKind::Review)),
+    };
+    MrRound { author, start }
+}
+
+enum StartKind {
+    Review,
+    Bump,
+}
+
+fn start_of(routed: &RoutedEvent, kind: StartKind) -> Decision {
+    let event = &routed.event;
+    let (iid, title, branch, url) = (
+        event.iid.unwrap_or_default(),
+        event.title.clone().unwrap_or_default(),
+        event.branch.clone(),
+        event.url.clone(),
+    );
+    let action = match kind {
+        StartKind::Review => Action::StartReview { iid, title, branch, url },
+        StartKind::Bump => Action::StartBump { iid, title, branch, url },
+    };
+    Decision { row: routed.row, action }
+}
+
+fn action_of(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Action {
+    match routed.event.kind {
+        EventKind::Todo => todo_action(routed, mr, facts),
+        EventKind::Opened => opened_action(routed, mr),
         EventKind::DefaultFailed => default_failed_action(),
         EventKind::PullBlocked => pull_blocked_action(),
         EventKind::Note => note_action(),
@@ -114,12 +209,41 @@ fn action_of(event: &Event, facts: &Facts) -> Action {
     }
 }
 
-fn todo_action() -> Action {
-    Action::AskModel
+/// The start of the MR, if it is on this row.
+fn start_on(routed: &RoutedEvent, mr: &MrRound) -> Option<Action> {
+    mr.start
+        .as_ref()
+        .filter(|start| start.row == routed.row)
+        .map(|start| start.action.clone())
 }
 
-fn opened_action() -> Action {
-    Action::AskModel
+fn todo_action(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Action {
+    if let Some(start) = start_on(routed, mr) {
+        return start;
+    }
+    if mr.author.is_none() {
+        return Action::AskModel;
+    }
+    if mr.start.is_some() {
+        return Action::Dismiss;
+    }
+    let reviewed = routed.event.iid.and_then(|iid| facts.reviewed.get(&iid));
+    match reviewed.filter(|_| is_review_request(&routed.event)) {
+        Some(path) => Action::ReportOnly {
+            cell: Some(format!("Already reviewed: {}", path.display())),
+        },
+        None => Action::ReportOnly { cell: None },
+    }
+}
+
+fn opened_action(routed: &RoutedEvent, mr: &MrRound) -> Action {
+    if let Some(start) = start_on(routed, mr) {
+        return start;
+    }
+    match mr.author {
+        Some(_) => Action::Dismiss,
+        None => Action::AskModel,
+    }
 }
 
 fn default_failed_action() -> Action {
@@ -184,6 +308,154 @@ mod tests {
             .into_iter()
             .map(|decision| decision.action)
             .collect()
+    }
+
+    fn mr_event(kind: EventKind, detail: &str, author: Option<&str>, row: u64) -> RoutedEvent {
+        RoutedEvent {
+            event: Event {
+                author: author.map(str::to_string),
+                ..Event::new(kind, Some(5), Some("Add foo"), "https://g/mr/5", "anna", detail, "ABC-1/foo")
+            },
+            row,
+        }
+    }
+
+    fn actions(events: &[RoutedEvent], facts: &Facts) -> Vec<(u64, Action)> {
+        decide(events, facts)
+            .into_iter()
+            .map(|decision| (decision.row, decision.action))
+            .collect()
+    }
+
+    fn start_review() -> Action {
+        Action::StartReview {
+            iid: 5,
+            title: "Add foo".to_string(),
+            branch: "ABC-1/foo".to_string(),
+            url: "https://g/mr/5".to_string(),
+        }
+    }
+
+    fn start_bump() -> Action {
+        Action::StartBump {
+            iid: 5,
+            title: "Add foo".to_string(),
+            branch: "ABC-1/foo".to_string(),
+            url: "https://g/mr/5".to_string(),
+        }
+    }
+
+    #[test]
+    fn review_request_of_a_reviewed_mr_is_report_only_with_the_report() {
+        let facts = Facts {
+            reviewed: BTreeMap::from([(5, PathBuf::from("/r/2026-10-01-mr-5-x.md"))]),
+            ..Facts::default()
+        };
+        let events = [mr_event(EventKind::Todo, "review_requested", Some("bob"), 1)];
+
+        assert_eq!(
+            actions(&events, &facts),
+            [(
+                1,
+                Action::ReportOnly {
+                    cell: Some("Already reviewed: /r/2026-10-01-mr-5-x.md".to_string())
+                }
+            )]
+        );
+    }
+
+    #[test]
+    fn review_request_of_a_person_starts_a_review() {
+        let events = [mr_event(EventKind::Todo, "review_requested", Some("bob"), 1)];
+
+        assert_eq!(actions(&events, &Facts::default()), [(1, start_review())]);
+    }
+
+    #[test]
+    fn opened_mr_of_a_bot_starts_a_bump() {
+        let events = [mr_event(EventKind::Opened, "opened", Some("renovate-bot"), 1)];
+
+        assert_eq!(actions(&events, &Facts::default()), [(1, start_bump())]);
+    }
+
+    #[test]
+    fn todo_of_a_bot_mr_starts_a_bump() {
+        let events = [mr_event(EventKind::Todo, "mentioned", Some("dependabot[bot]"), 1)];
+
+        assert_eq!(actions(&events, &Facts::default()), [(1, start_bump())]);
+    }
+
+    #[test]
+    fn opened_mr_of_a_person_is_dismissed() {
+        let events = [mr_event(EventKind::Opened, "opened", Some("bob"), 1)];
+
+        assert_eq!(actions(&events, &Facts::default()), [(1, Action::Dismiss)]);
+    }
+
+    #[test]
+    fn other_todo_is_report_only() {
+        let events = [mr_event(EventKind::Todo, "mentioned", Some("bob"), 1)];
+
+        assert_eq!(actions(&events, &Facts::default()), [(1, Action::ReportOnly { cell: None })]);
+    }
+
+    #[test]
+    fn mr_event_with_no_author_asks_the_model() {
+        let events = [
+            mr_event(EventKind::Todo, "review_requested", None, 1),
+            mr_event(EventKind::Opened, "opened", None, 2),
+        ];
+
+        assert_eq!(
+            actions(&events, &Facts::default()),
+            [(1, Action::AskModel), (2, Action::AskModel)]
+        );
+    }
+
+    #[test]
+    fn bot_mr_with_review_request_starts_a_bump() {
+        let events = [mr_event(EventKind::Todo, "review_requested", Some("renovate"), 1)];
+
+        assert_eq!(actions(&events, &Facts::default()), [(1, start_bump())]);
+    }
+
+    #[test]
+    fn opened_and_todo_of_one_mr_start_one_agent() {
+        let review = [
+            mr_event(EventKind::Opened, "opened", Some("bob"), 1),
+            mr_event(EventKind::Todo, "review_requested", Some("bob"), 2),
+        ];
+        let bump = [
+            mr_event(EventKind::Todo, "review_requested", None, 1),
+            mr_event(EventKind::Opened, "opened", Some("renovate-bot"), 2),
+        ];
+
+        assert_eq!(
+            actions(&review, &Facts::default()),
+            [(1, Action::Dismiss), (2, start_review())]
+        );
+        assert_eq!(actions(&bump, &Facts::default()), [(1, Action::Dismiss), (2, start_bump())]);
+    }
+
+    #[test]
+    fn read_facts_finds_the_first_review_report_of_each_mr() {
+        let reviews = std::env::temp_dir().join(format!("watchd-router-{}-reviews", std::process::id()));
+        let _ = std::fs::remove_dir_all(&reviews);
+        std::fs::create_dir_all(&reviews).unwrap();
+        for name in ["2026-10-02-mr-5-b.md", "2026-10-01-mr-5-a.md", "2026-10-01-mr-55-c.md", "x-mr-6-y.txt"] {
+            std::fs::write(reviews.join(name), "").unwrap();
+        }
+        let events = [
+            mr_event(EventKind::Todo, "review_requested", Some("bob"), 1),
+            RoutedEvent {
+                event: Event::new(EventKind::Opened, Some(6), None, "u", "bob", "opened", "b"),
+                row: 2,
+            },
+        ];
+
+        let facts = read_facts(&reviews, &events);
+
+        assert_eq!(facts.reviewed, BTreeMap::from([(5, reviews.join("2026-10-01-mr-5-a.md"))]));
     }
 
     #[test]

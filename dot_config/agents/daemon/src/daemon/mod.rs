@@ -18,6 +18,7 @@ use crate::core::subs::{Agent, Mode};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, conflict_tests, lookup_branch, targets};
 use crate::core::items::RoutedEvent;
 use crate::engine::event::{Event, EventKind};
+use crate::engine::router::execute::{ExecuteContext, execute};
 use crate::engine::router::{self, Facts, Routing};
 use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
@@ -27,8 +28,9 @@ use crate::local::{
     worktree_key,
 };
 use crate::nap::{NapEnd, nap};
-use crate::paths::StateDirs;
+use crate::paths::{StateDirs, home};
 use crate::platform::{full_wake, now_seconds, online};
+use crate::workspaces::{Workspaces, workspaces_of};
 
 const LOCK_FD: &str = "WATCHD_LOCK_FD";
 const SOCKET_FD: &str = "WATCHD_SOCKET_FD";
@@ -75,6 +77,7 @@ pub struct Daemon {
     /// The test value of both intervals of the managed loops.
     test_interval: Option<Duration>,
     engine: Box<dyn Engine>,
+    workspaces: Box<dyn Workspaces>,
 }
 
 #[derive(Default)]
@@ -246,7 +249,7 @@ impl Daemon {
     }
 
     /// The rows of the events, the router, then the delivery. The lock is free while the router
-    /// runs.
+    /// runs, because an agent start takes seconds.
     async fn route<'a>(
         &'a self,
         memory: MutexGuard<'a, Memory>,
@@ -258,14 +261,22 @@ impl Daemon {
         drop(memory);
         let routing = match recipient {
             Some((key, events)) if key == target.slug => {
+                let reviews = home().join(".ai").join(&target.slug).join("reviews");
                 let facts = Facts {
                     worktree: match target.mode {
                         Mode::Hub => false,
                         Mode::Stack | Mode::Review => true,
                     },
-                    ..Facts::default()
+                    ..router::read_facts(&reviews, &events)
                 };
-                router::routing(&router::decide(&events, &facts))
+                let ctx = ExecuteContext {
+                    repo: &target.repo,
+                    key: &target.slug,
+                    workspaces: self.workspaces.as_ref(),
+                    engine: self.engine.as_ref(),
+                    store: &self.store,
+                };
+                execute(router::decide(&events, &facts), &events, &ctx).await
             }
             _ => Routing::default(),
         };
@@ -726,6 +737,7 @@ pub async fn main() -> i32 {
         client_seconds: env_seconds("WATCHD_CLIENT_SECONDS", 1800),
         test_interval: env_duration("WATCHD_MANAGED_SECONDS"),
         engine: engine_of(&dirs),
+        workspaces: workspaces_of(),
     });
     let socket_fd = listener.as_raw_fd();
     let _ = listener.set_nonblocking(true);

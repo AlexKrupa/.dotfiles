@@ -588,6 +588,14 @@ check "existing no track: exit 0" 0 "$code"
 check "existing no track: no git-spice call, not tracked" " false" \
   "$(grep '^git-spice' "$MOCK_LOG") $(jq -r .tracked <<<"$out")"
 
+fresh
+push_branch ABC-5/review-me
+run p 'Draft: Review me' --branch ABC-5/review-me --no-track
+check "existing no ticket id: exit 0" 0 "$code"
+check "existing no ticket id: the title is the session name" \
+  "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name Review me" \
+  "$(grep '^herdr agent start' "$MOCK_LOG")"
+
 # An MR title with the ticket id or the draft marker in front: the session name has the id once.
 for mr_title in '[ABC-5] Review me' 'Draft: [ABC-5] Review me' 'ABC-5: Review me' \
   'ABC-5 Review me' 'Draft: ABC-5 Review me'; do
@@ -710,7 +718,7 @@ check "existing open: no agent start" "" "$(grep '^herdr agent start' "$MOCK_LOG
 fresh
 push_branch ABC-5/review-me
 MOCK_WT_LIST='{"result":{"worktrees":[{"branch":"ABC-5/review-me","path":"/wt/old",
-"is_prunable":false}]}}' run p ABC-5 --branch ABC-5/review-me
+"is_prunable":false}]}}' run p --branch ABC-5/review-me
 check "existing closed: exit 0" 0 "$code"
 check "existing closed: worktree opened" "herdr worktree open --cwd $work --path /wt/old --no-focus" \
   "$(grep '^herdr worktree open' "$MOCK_LOG")"
@@ -724,7 +732,7 @@ check "existing closed: output has the worktree" "/wt/old wO" \
 fresh
 push_branch ABC-5/review-me
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
-cwd="$d/linked" run p ABC-5 --branch ABC-5/review-me -- --effort low
+cwd="$d/linked" run p --branch ABC-5/review-me -- --effort low
 check "existing from linked: exit 0" 0 "$code"
 check "existing from linked: mode" existing "$(jq -r .mode <<<"$out")"
 check "existing from linked: worktree opened from the main checkout" \

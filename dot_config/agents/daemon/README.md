@@ -134,7 +134,8 @@ flowchart TB
 - Events: the events of a key with a live agent go to its inbox. The events of a key with no live
   agent go to the hub as open items.
 - Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
-  event. A handled event does not go to the hub inbox. If a round has only handled events, the
+  event, and starts the review and bump agents. The lock is free during the agent starts. A
+  handled event does not go to the hub inbox. If a round has only handled events, the
   daemon writes the hub report to the board file, and `watchd board` shows it. Else all events go
   to the inbox, and the client gets only the events that the router did not handle. The next hub
   report also shows the handled rows.
@@ -155,7 +156,7 @@ each change, the task sends the `changed` signal, and the waiting connections re
 | `src/report.rs` | The Markdown text of `watchd report` |
 | `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets |
 | `src/engine/` | The GitLab checks. `hub.rs` watches the project. `stack.rs` watches the MRs of a stack or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
-| `src/workspaces.rs` | The herdr calls: the board pane |
+| `src/workspaces.rs` | The herdr calls: the board pane and the agent starts |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
 | `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
 
