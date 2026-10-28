@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use super::retry::Retry;
 use super::{Action, Decision, Routing, routing};
 use crate::core::eventlog::{LogLine, RouteAction, route_line};
 use crate::core::items::RoutedEvent;
@@ -20,6 +21,8 @@ pub struct ExecuteContext<'a> {
     pub workspaces: &'a dyn Workspaces,
     pub engine: &'a dyn Engine,
     pub store: &'a Store,
+    /// Starts the task of a retry, which runs after the round.
+    pub spawn_retry: &'a (dyn Fn(Retry) + Sync),
 }
 
 /// Runs the actions of the decisions. Each agent start and each dismissed new MR writes the router
@@ -30,7 +33,7 @@ pub async fn execute(decisions: Vec<Decision>, events: &[RoutedEvent], ctx: &Exe
         .iter()
         .filter_map(|decision| match &decision.action {
             Action::StartReview { iid, .. } | Action::StartBump { iid, .. } => Some(*iid),
-            Action::ReportOnly { .. } | Action::Dismiss | Action::AskModel => None,
+            Action::RetryJob { .. } | Action::ReportOnly { .. } | Action::Dismiss | Action::AskModel => None,
         })
         .collect();
     let now = now_seconds();
@@ -68,6 +71,17 @@ pub async fn execute(decisions: Vec<Decision>, events: &[RoutedEvent], ctx: &Exe
                     lines.push(LogLine::Route(route_line(now, ctx.key, iid, RouteAction::None)));
                 }
             }
+            Action::RetryJob {
+                job,
+                branch,
+                pipeline,
+                url,
+            } => (ctx.spawn_retry)(Retry {
+                job,
+                branch,
+                pipeline,
+                url,
+            }),
             Action::ReportOnly { .. } | Action::AskModel => {}
         }
     }
@@ -140,6 +154,7 @@ fn start_agent(ctx: &ExecuteContext<'_>, routing: &mut Routing, row: u64, start:
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
 
     use serde_json::json;
 
@@ -154,6 +169,9 @@ mod tests {
         store: Store,
         workspaces: FakeWorkspaces,
         engine: FakeEngine,
+        /// The job of each spawned retry.
+        retried: Arc<Mutex<Vec<u64>>>,
+        spawn_retry: Box<dyn Fn(Retry) + Sync>,
     }
 
     impl Setup {
@@ -169,7 +187,11 @@ mod tests {
             let fake = base.join("fake");
             std::fs::create_dir_all(&fake).unwrap();
             std::fs::write(fake.join("start"), start).unwrap();
+            let retried = Arc::new(Mutex::new(Vec::new()));
+            let spawned = retried.clone();
             Setup {
+                retried,
+                spawn_retry: Box::new(move |retry: Retry| spawned.lock().unwrap().push(retry.job.id)),
                 workspaces: FakeWorkspaces { dir: fake.clone() },
                 engine: FakeEngine {
                     dir: fake,
@@ -187,6 +209,7 @@ mod tests {
                 workspaces: &self.workspaces,
                 engine: &self.engine,
                 store: &self.store,
+                spawn_retry: self.spawn_retry.as_ref(),
             }
         }
 
@@ -257,6 +280,29 @@ mod tests {
         assert_eq!(routing.input.cells["3"], "work-start: not a git repo: /x");
         assert!(routing.input.agent.is_empty());
         assert!(routing.input.close.is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn retry_job_spawns_a_retry() {
+        let setup = Setup::new("retry", "ok");
+        let retry = Decision {
+            row: 3,
+            action: Action::RetryJob {
+                job: crate::engine::event::FailedJob {
+                    id: 11,
+                    name: "build".to_string(),
+                    failure_reason: Some("api_failure".to_string()),
+                },
+                branch: "main".to_string(),
+                pipeline: 7,
+                url: "u".to_string(),
+            },
+        };
+
+        let routing = execute(vec![retry], &[], &setup.context()).await;
+
+        assert_eq!(*setup.retried.lock().unwrap(), [11]);
+        assert_eq!(routing.handled, [3]);
     }
 
     #[test]

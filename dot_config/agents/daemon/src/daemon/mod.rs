@@ -19,6 +19,7 @@ use crate::core::worktrees::{ReviewLink, Target, WorktreeState, conflict_tests, 
 use crate::core::items::RoutedEvent;
 use crate::engine::event::{Event, EventKind};
 use crate::engine::router::execute::{ExecuteContext, execute};
+use crate::engine::router::retry::Retry;
 use crate::engine::router::{self, Facts, Routing};
 use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
@@ -35,7 +36,7 @@ use crate::workspaces::{Workspaces, workspaces_of};
 const LOCK_FD: &str = "WATCHD_LOCK_FD";
 const SOCKET_FD: &str = "WATCHD_SOCKET_FD";
 /// Short, so that a poke or a stop gets an answer in seconds.
-const NAP_STEP: Duration = Duration::from_secs(2);
+pub(crate) const NAP_STEP: Duration = Duration::from_secs(2);
 
 fn env_seconds(name: &str, default: u64) -> u64 {
     std::env::var(name)
@@ -76,8 +77,12 @@ pub struct Daemon {
     pub client_seconds: u64,
     /// The test value of both intervals of the managed loops.
     test_interval: Option<Duration>,
-    engine: Box<dyn Engine>,
+    pub engine: Box<dyn Engine>,
     workspaces: Box<dyn Workspaces>,
+    /// The wait between two status reads of a retried job.
+    pub retry_interval: Duration,
+    /// The longest wait for a retried job. Sleep time and network outages do not count.
+    pub retry_timeout: Duration,
 }
 
 #[derive(Default)]
@@ -103,6 +108,25 @@ struct ManagedTask {
 }
 
 impl Daemon {
+    pub fn new(store: Store, engine: Box<dyn Engine>, workspaces: Box<dyn Workspaces>) -> Daemon {
+        Daemon {
+            store,
+            memory: Mutex::default(),
+            changed: Notify::new(),
+            delivering: RwLock::new(()),
+            stopping: AtomicBool::new(false),
+            stop: Notify::new(),
+            tick: env_duration("WATCHD_TICK").unwrap_or(Duration::from_secs(5)),
+            idle_seconds: env_seconds("WATCHD_IDLE_SECONDS", 600),
+            client_seconds: env_seconds("WATCHD_CLIENT_SECONDS", 1800),
+            test_interval: env_duration("WATCHD_MANAGED_SECONDS"),
+            engine,
+            workspaces,
+            retry_interval: Duration::from_secs(env_seconds("WATCHD_RETRY_INTERVAL", 30)),
+            retry_timeout: Duration::from_secs(3600),
+        }
+    }
+
     pub fn stopping(&self) -> bool {
         self.stopping.load(Ordering::SeqCst)
     }
@@ -251,12 +275,12 @@ impl Daemon {
     /// The rows of the events, the router, then the delivery. The lock is free while the router
     /// runs, because an agent start takes seconds.
     async fn route<'a>(
-        &'a self,
+        self: &'a Arc<Self>,
         memory: MutexGuard<'a, Memory>,
         target: &Target,
         events: Vec<Event>,
     ) -> (MutexGuard<'a, Memory>, Vec<RoutedEvent>) {
-        let routed = self.store.assign(target, events, now_seconds());
+        let mut routed = self.store.assign(target, events, now_seconds());
         let recipient = self.store.recipient(target, &routed);
         drop(memory);
         let routing = match recipient {
@@ -269,17 +293,22 @@ impl Daemon {
                     },
                     ..router::read_facts(&reviews, &events)
                 };
+                let spawn_retry = |retry: Retry| {
+                    tokio::spawn(router::retry::retry(self.clone(), target.clone(), retry));
+                };
                 let ctx = ExecuteContext {
                     repo: &target.repo,
                     key: &target.slug,
                     workspaces: self.workspaces.as_ref(),
                     engine: self.engine.as_ref(),
                     store: &self.store,
+                    spawn_retry: &spawn_retry,
                 };
                 execute(router::decide(&events, &facts), &events, &ctx).await
             }
             _ => Routing::default(),
         };
+        router::narrow(&mut routed, &routing.handled);
         let memory = self.lock().await;
         self.store.deliver(target, &routed, &routing);
         (memory, routed)
@@ -382,7 +411,7 @@ impl Daemon {
     }
 
     /// Returns false if the loop must stop.
-    async fn wait_network(&self, repo: &Path, host: Option<&str>) -> bool {
+    pub async fn wait_network(&self, repo: &Path, host: Option<&str>) -> bool {
         while !online(host).await {
             self.sleep_or_stop(10).await;
             if self.stopping() || !self.is_managed(repo).await {
@@ -393,7 +422,7 @@ impl Daemon {
     }
 
     /// One open item while the fast-forward is blocked: an unchanged reason sends no new event.
-    async fn pull(&self, slug: &str, repo: &Path, default: &str) {
+    async fn pull(self: &Arc<Self>, slug: &str, repo: &Path, default: &str) {
         let (main, branch) = (repo.to_path_buf(), default.to_string());
         let result = tokio::task::spawn_blocking(move || fast_forward(&main, &branch))
             .await
@@ -725,20 +754,7 @@ pub async fn main() -> i32 {
     let pid = std::process::id();
     let _ = std::fs::write(dirs.pid(), format!("{pid}\n"));
     store.log("", "", &format!("daemon start {pid}"));
-    let daemon = Arc::new(Daemon {
-        store,
-        memory: Mutex::default(),
-        changed: Notify::new(),
-        delivering: RwLock::new(()),
-        stopping: AtomicBool::new(false),
-        stop: Notify::new(),
-        tick: env_duration("WATCHD_TICK").unwrap_or(Duration::from_secs(5)),
-        idle_seconds: env_seconds("WATCHD_IDLE_SECONDS", 600),
-        client_seconds: env_seconds("WATCHD_CLIENT_SECONDS", 1800),
-        test_interval: env_duration("WATCHD_MANAGED_SECONDS"),
-        engine: engine_of(&dirs),
-        workspaces: workspaces_of(),
-    });
+    let daemon = Arc::new(Daemon::new(store, engine_of(&dirs), workspaces_of()));
     let socket_fd = listener.as_raw_fd();
     let _ = listener.set_nonblocking(true);
     let listener = tokio::net::UnixListener::from_std(listener).expect("a listener in the runtime");

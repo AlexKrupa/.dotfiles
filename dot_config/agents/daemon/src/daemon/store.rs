@@ -551,6 +551,36 @@ impl Store {
         self.log(&target.slug, &target.key, &format!("routed {} event(s)", routed.len()));
     }
 
+    /// A report with only the added rows of the input, for the board.
+    pub fn add_rows(&self, target: &Target, input: &ReportInput) {
+        for add in &input.add {
+            let text = add.what.as_deref().or(add.result.as_deref()).unwrap_or_default();
+            self.log(&target.slug, &target.key, &format!("row: {text}"));
+        }
+        if let Err(error) = self.build(&target.slug, Mode::Hub, &[], input, &[]) {
+            self.log(&target.slug, &target.key, &format!("board: {error}"));
+        }
+    }
+
+    fn retry_counts(&self, key: &str) -> BTreeMap<String, u32> {
+        let text = std::fs::read_to_string(self.dirs.retries(key)).unwrap_or_default();
+        serde_json::from_str(&text).unwrap_or_default()
+    }
+
+    /// `job` is `<pipeline id>:<job name>`.
+    pub fn retry_count(&self, key: &str, job: &str) -> u32 {
+        self.retry_counts(key).get(job).copied().unwrap_or(0)
+    }
+
+    pub fn set_retry_count(&self, key: &str, job: &str, count: u32) {
+        let mut counts = self.retry_counts(key);
+        counts.insert(job.to_string(), count);
+        let text = serde_json::to_string(&counts).expect("the counts serialize");
+        if let Err(error) = std::fs::write(self.dirs.retries(key), text) {
+            self.log("", key, &format!("retry count not written: {error}"));
+        }
+    }
+
     pub fn routing(&self, key: &str) -> Routing {
         let text = std::fs::read_to_string(self.dirs.routing(key)).unwrap_or_default();
         serde_json::from_str(&text).unwrap_or_default()

@@ -83,7 +83,7 @@ use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 
-use self::event::{Event, EventKind};
+use self::event::{Event, EventKind, FailedJob};
 use crate::glab;
 use crate::key::{KeyMode, digits, watch_key};
 use crate::paths::StateDirs;
@@ -193,10 +193,31 @@ pub type EngineFuture<'a> = std::pin::Pin<Box<dyn Future<Output = Result<Vec<Eve
 
 pub type LookupFuture<'a> = std::pin::Pin<Box<dyn Future<Output = Result<Option<u64>, EngineError>> + Send + 'a>>;
 
+pub type JobFuture<'a> = std::pin::Pin<Box<dyn Future<Output = Result<JobStatus, EngineError>> + Send + 'a>>;
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct JobStatus {
+    pub id: u64,
+    pub name: String,
+    pub status: String,
+    pub failure_reason: Option<String>,
+}
+
 pub trait Engine: Send + Sync {
     fn check(&self, args: EngineArgs, cache: Arc<MrCache>) -> EngineFuture<'_>;
 
     fn lookup(&self, repo: PathBuf, branch: String) -> LookupFuture<'_>;
+
+    /// Retries a job of the project of the repo, and gives the new job.
+    fn retry_job(&self, repo: PathBuf, job_id: u64) -> JobFuture<'_>;
+
+    fn job(&self, repo: PathBuf, job_id: u64) -> JobFuture<'_>;
+}
+
+/// The URI-encoded project of the remote of the repo.
+fn project_ref_of(repo: &Path) -> Result<String, EngineError> {
+    let remote = remote_url(repo).ok_or_else(|| EngineError::Other(format!("no git remote in {}", repo.display())))?;
+    Ok(uri_encode(&project_of_url(&remote)))
 }
 
 pub struct GitlabEngine {
@@ -223,6 +244,28 @@ impl Engine for GitlabEngine {
 
     fn lookup(&self, repo: PathBuf, branch: String) -> LookupFuture<'_> {
         Box::pin(async move { lookup::lookup_mr(&repo, &branch).await })
+    }
+
+    fn retry_job(&self, repo: PathBuf, job_id: u64) -> JobFuture<'_> {
+        Box::pin(async move {
+            let path = format!("projects/{}/jobs/{job_id}/retry", project_ref_of(&repo)?);
+            let call = Call {
+                dir: repo,
+                args: args(&[&path, "--method", "POST"]),
+            };
+            api_json(call).await
+        })
+    }
+
+    fn job(&self, repo: PathBuf, job_id: u64) -> JobFuture<'_> {
+        Box::pin(async move {
+            let path = format!("projects/{}/jobs/{job_id}", project_ref_of(&repo)?);
+            api_json(Call {
+                dir: repo,
+                args: args(&[&path]),
+            })
+            .await
+        })
     }
 }
 
@@ -401,7 +444,9 @@ pub fn all_ok<T>(results: Vec<Result<T, EngineError>>) -> Result<Vec<T>, EngineE
 
 #[derive(serde::Deserialize)]
 struct Job {
+    id: u64,
     name: String,
+    failure_reason: Option<String>,
 }
 
 /// Call this before the state is saved, so that a failed call gives the events again.
@@ -425,11 +470,20 @@ pub async fn add_jobs(ctx: &CheckContext, project: &str, mut events: Vec<Event>)
         })
         .collect();
     let jobs: Vec<Vec<Job>> = all_ok(glab::parallel(tasks).await)?;
-    for ((index, _), jobs) in calls.into_iter().zip(jobs) {
-        let mut names: Vec<String> = jobs.into_iter().map(|job| job.name).collect();
-        names.sort();
+    for ((index, _), mut jobs) in calls.into_iter().zip(jobs) {
+        jobs.sort_by(|left, right| (&left.name, left.id).cmp(&(&right.name, right.id)));
+        let mut names: Vec<String> = jobs.iter().map(|job| job.name.clone()).collect();
         names.dedup();
         events[index].jobs = Some(names);
+        let failed = jobs
+            .into_iter()
+            .map(|job| FailedJob {
+                id: job.id,
+                name: job.name,
+                failure_reason: job.failure_reason,
+            })
+            .collect();
+        events[index].failed = Some(failed);
     }
     Ok(events)
 }

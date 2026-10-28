@@ -7,15 +7,17 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::core::items::RoutedEvent;
-use crate::engine::event::{Event, EventKind};
+use crate::engine::event::{Event, EventKind, FailedJob};
 use crate::report::ReportInput;
 
 pub mod execute;
+pub mod retry;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
     StartReview { iid: u64, title: String, branch: String, url: String },
     StartBump { iid: u64, title: String, branch: String, url: String },
+    RetryJob { job: FailedJob, branch: String, pipeline: u64, url: String },
     ReportOnly { cell: Option<String> },
     Dismiss,
     AskModel,
@@ -114,12 +116,11 @@ pub fn decide(events: &[RoutedEvent], facts: &Facts) -> Vec<Decision> {
     let no_mr = MrRound::default();
     events
         .iter()
-        .map(|routed| {
+        .flat_map(|routed| {
             let mr = routed.event.iid.and_then(|iid| mrs.get(&iid)).unwrap_or(&no_mr);
-            Decision {
-                row: routed.row,
-                action: action_of(routed, mr, facts),
-            }
+            actions_of(routed, mr, facts)
+                .into_iter()
+                .map(|action| Decision { row: routed.row, action })
         })
         .collect()
 }
@@ -182,11 +183,11 @@ fn start_of(routed: &RoutedEvent, kind: StartKind) -> Decision {
     Decision { row: routed.row, action }
 }
 
-fn action_of(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Action {
-    match routed.event.kind {
+fn actions_of(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Vec<Action> {
+    let action = match routed.event.kind {
         EventKind::Todo => todo_action(routed, mr, facts),
         EventKind::Opened => opened_action(routed, mr),
-        EventKind::DefaultFailed => default_failed_action(),
+        EventKind::DefaultFailed => return default_failed_actions(&routed.event),
         EventKind::PullBlocked => pull_blocked_action(),
         EventKind::Note => note_action(),
         EventKind::Reaction => reaction_action(),
@@ -207,7 +208,8 @@ fn action_of(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Action {
         | EventKind::Unaddressed
         | EventKind::Pushed
         | EventKind::Resolved => worktree_item_action(facts),
-    }
+    };
+    vec![action]
 }
 
 /// The start of the MR, if it is on this row.
@@ -247,8 +249,42 @@ fn opened_action(routed: &RoutedEvent, mr: &MrRound) -> Action {
     }
 }
 
-fn default_failed_action() -> Action {
-    Action::AskModel
+const RUNNER_REASONS: [&str; 4] = [
+    "runner_system_failure",
+    "stuck_or_timeout_failure",
+    "scheduler_failure",
+    "api_failure",
+];
+
+fn is_runner_failure(job: &FailedJob) -> bool {
+    job.failure_reason
+        .as_deref()
+        .is_some_and(|reason| RUNNER_REASONS.contains(&reason))
+}
+
+fn pipeline_id(event: &Event) -> Option<u64> {
+    event.detail.strip_prefix("pipeline ")?.strip_suffix(" failed")?.parse().ok()
+}
+
+/// A retry for each job with a runner failure. The model gets the other jobs.
+fn default_failed_actions(event: &Event) -> Vec<Action> {
+    let (Some(failed), Some(pipeline)) = (event.failed.as_deref(), pipeline_id(event)) else {
+        return vec![Action::AskModel];
+    };
+    let mut actions: Vec<Action> = failed
+        .iter()
+        .filter(|job| is_runner_failure(job))
+        .map(|job| Action::RetryJob {
+            job: job.clone(),
+            branch: event.branch.clone(),
+            pipeline,
+            url: event.url.clone(),
+        })
+        .collect();
+    if actions.is_empty() || !failed.iter().all(is_runner_failure) {
+        actions.push(Action::AskModel);
+    }
+    actions
 }
 
 fn pull_blocked_action() -> Action {
@@ -271,12 +307,37 @@ fn worktree_item_action(facts: &Facts) -> Action {
     }
 }
 
+/// The event of the model has only the jobs that the daemon does not retry. A handled row keeps all
+/// jobs for the board.
+pub fn narrow(events: &mut [RoutedEvent], handled: &[u64]) {
+    let to_model = |routed: &&mut RoutedEvent| {
+        routed.event.kind == EventKind::DefaultFailed && !handled.contains(&routed.row)
+    };
+    for routed in events.iter_mut().filter(to_model) {
+        let Some(failed) = routed.event.failed.as_mut() else {
+            continue;
+        };
+        failed.retain(|job| !is_runner_failure(job));
+        let names: Vec<String> = failed.iter().map(|job| job.name.clone()).collect();
+        if let Some(jobs) = routed.event.jobs.as_mut() {
+            jobs.retain(|name| names.contains(name));
+        }
+    }
+}
+
 /// The report fields of the decisions that need no side effect.
 pub fn routing(decisions: &[Decision]) -> Routing {
     let mut routing = Routing::default();
+    let mut asked = Vec::new();
     for decision in decisions {
         let row = decision.row;
         match &decision.action {
+            Action::RetryJob { .. } => {
+                if !routing.handled.contains(&row) {
+                    routing.input.agent.push(row.into());
+                    routing.handled.push(row);
+                }
+            }
             Action::ReportOnly { cell } => {
                 if let Some(cell) = cell {
                     routing.input.cells.insert(row.to_string(), cell.clone().into());
@@ -287,9 +348,16 @@ pub fn routing(decisions: &[Decision]) -> Routing {
                 routing.input.close.push(row.into());
                 routing.handled.push(row);
             }
-            Action::StartReview { .. } | Action::StartBump { .. } | Action::AskModel => {}
+            Action::AskModel => asked.push(row),
+            Action::StartReview { .. } | Action::StartBump { .. } => {}
         }
     }
+    // A row with a question for the model is not handled, also with a retry.
+    routing.handled.retain(|row| !asked.contains(row));
+    routing
+        .input
+        .agent
+        .retain(|row| row.as_u64().is_none_or(|row| !asked.contains(&row)));
     routing
 }
 
@@ -457,6 +525,71 @@ mod tests {
         let facts = read_facts(&reviews, &events);
 
         assert_eq!(facts.reviewed, BTreeMap::from([(5, reviews.join("2026-10-01-mr-5-a.md"))]));
+    }
+
+    fn failed_job(id: u64, name: &str, reason: &str) -> FailedJob {
+        FailedJob {
+            id,
+            name: name.to_string(),
+            failure_reason: Some(reason.to_string()),
+        }
+    }
+
+    fn default_failed(jobs: Vec<FailedJob>) -> RoutedEvent {
+        RoutedEvent {
+            event: Event {
+                jobs: Some(jobs.iter().map(|job| job.name.clone()).collect()),
+                failed: Some(jobs),
+                item: Some("main-failed:main".to_string()),
+                ..Event::new(
+                    EventKind::DefaultFailed,
+                    None,
+                    None,
+                    "https://g/-/pipelines/7",
+                    "",
+                    "pipeline 7 failed",
+                    "main",
+                )
+            },
+            row: 3,
+        }
+    }
+
+    fn retry(job: FailedJob) -> Action {
+        Action::RetryJob {
+            job,
+            branch: "main".to_string(),
+            pipeline: 7,
+            url: "https://g/-/pipelines/7".to_string(),
+        }
+    }
+
+    #[test]
+    fn default_failed_retries_runner_jobs_and_asks_for_the_rest() {
+        let build = failed_job(11, "build", "runner_system_failure");
+        let lint = failed_job(12, "lint", "script_failure");
+        let test = failed_job(13, "test", "stuck_or_timeout_failure");
+        let events = [default_failed(vec![build.clone(), lint.clone(), test.clone()])];
+
+        let decisions = decide(&events, &Facts::default());
+
+        let actions: Vec<(u64, Action)> = decisions.iter().map(|d| (d.row, d.action.clone())).collect();
+        assert_eq!(actions, [(3, retry(build)), (3, retry(test)), (3, Action::AskModel)]);
+        assert!(routing(&decisions).handled.is_empty());
+        let mut model = events.to_vec();
+        narrow(&mut model, &[]);
+        assert_eq!(model[0].event.jobs, Some(vec!["lint".to_string()]));
+        assert_eq!(model[0].event.failed, Some(vec![lint]));
+    }
+
+    #[test]
+    fn default_failed_with_only_runner_jobs_is_an_agent_row() {
+        let events = [default_failed(vec![failed_job(11, "build", "api_failure")])];
+
+        let routing = routing(&decide(&events, &Facts::default()));
+
+        assert_eq!(routing.handled, [3]);
+        assert_eq!(routing.input.agent, [serde_json::json!(3)]);
     }
 
     #[test]

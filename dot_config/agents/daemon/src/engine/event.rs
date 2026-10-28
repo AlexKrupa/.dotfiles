@@ -61,6 +61,15 @@ pub struct Event {
     pub jobs: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed: Option<Vec<FailedJob>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FailedJob {
+    pub id: u64,
+    pub name: String,
+    pub failure_reason: Option<String>,
 }
 
 /// Gives `Some(None)` for a `null` field, so that `null` and absent stay different.
@@ -101,6 +110,7 @@ impl Event {
             own: None,
             jobs: None,
             author: None,
+            failed: None,
         }
     }
 }

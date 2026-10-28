@@ -6,12 +6,15 @@
 //! - `.sleep`: the seconds to wait after the events are read. The file then goes away.
 //!
 //! Each check adds its arguments as one line to `args`.
+//!
+//! A job retry reads the new job from `retry-<id>.json` and adds `retry <id>` to `args`. A job
+//! status call takes the first line of `job-<id>.json`, and the last line stays.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::event::Event;
-use super::{Engine, EngineArgs, EngineError, EngineFuture, LookupFuture, MrCache};
+use super::{Engine, EngineArgs, EngineError, EngineFuture, JobFuture, JobStatus, LookupFuture, MrCache};
 use crate::key::watch_key;
 
 pub struct FakeEngine {
@@ -48,6 +51,27 @@ fn arguments(args: &EngineArgs) -> Vec<String> {
 }
 
 impl FakeEngine {
+    fn log(&self, line: &str) {
+        let log = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.dir.join("args"));
+        if let Ok(mut log) = log {
+            let _ = std::io::Write::write_all(&mut log, format!("{line}\n").as_bytes());
+        }
+    }
+
+    fn job_of(&self, file: &str) -> Result<JobStatus, EngineError> {
+        let path = self.dir.join(file);
+        let text = std::fs::read_to_string(&path).map_err(|error| EngineError::Other(format!("{file}: {error}")))?;
+        let lines: Vec<&str> = text.lines().filter(|line| !line.trim().is_empty()).collect();
+        let first = lines.first().copied().unwrap_or_default();
+        if lines.len() > 1 {
+            let _ = std::fs::write(&path, lines[1..].join("\n"));
+        }
+        serde_json::from_str(first).map_err(|error| EngineError::Other(format!("{file}: {error}")))
+    }
+
     async fn run(&self, args: EngineArgs) -> Result<Vec<Event>, EngineError> {
         let line = arguments(&args).join(" ") + "\n";
         let log = std::fs::OpenOptions::new()
@@ -110,6 +134,17 @@ impl Engine for FakeEngine {
             let text = std::fs::read_to_string(file).unwrap_or_default();
             Ok(text.trim().parse().ok())
         })
+    }
+
+    fn retry_job(&self, _repo: PathBuf, job_id: u64) -> JobFuture<'_> {
+        Box::pin(async move {
+            self.log(&format!("retry {job_id}"));
+            self.job_of(&format!("retry-{job_id}.json"))
+        })
+    }
+
+    fn job(&self, _repo: PathBuf, job_id: u64) -> JobFuture<'_> {
+        Box::pin(async move { self.job_of(&format!("job-{job_id}.json")) })
     }
 }
 

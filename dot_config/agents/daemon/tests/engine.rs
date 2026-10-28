@@ -356,7 +356,7 @@ fn default_pipeline() -> &'static Checks {
         c.check("state with no default pipeline: no events", "", out);
         env.fixture("pipelines", &failed_pipeline(71, "failed"));
         c.check("default branch pipeline failed",
-            u(r#"{"kind":"default-failed","iid":null,"title":null,"url":"$pipelines/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x","previous":"failed","item":"main-failed:dev/x","jobs":[]}"#),
+            u(r#"{"kind":"default-failed","iid":null,"title":null,"url":"$pipelines/71","actor":"","detail":"pipeline 71 failed","branch":"dev/x","previous":"failed","item":"main-failed:dev/x","jobs":[],"failed":[]}"#),
             env.run(&[]).out);
         c.check("same default branch pipeline: no events", "", env.run(&[]).out);
         env.fixture("pipelines", &failed_pipeline(72, "success"));
@@ -376,8 +376,14 @@ fn default_pipeline() -> &'static Checks {
         env.write_engine_state("app", r#"{"todos": [], "mrs": {}, "default_pipeline": null}"#);
         c.check("saved null pipeline: event with previous null", "null", each(&env.run(&[]).out, "previous"));
         env.fixture("pipelines", &failed_pipeline(88123, "failed"));
-        env.fixture("jobs_88123", r#"[{"name": "unit-tests"}]"#);
-        c.check("default-failed: jobs", r#"["unit-tests"]"#, each(&env.run(&[]).out, "jobs"));
+        env.fixture("jobs_88123", r#"[{"id": 501, "name": "unit-tests", "failure_reason": "script_failure"}]"#);
+        let out = env.run(&[]).out;
+        c.check("default-failed: jobs", r#"["unit-tests"]"#, each(&out, "jobs"));
+        c.check(
+            "default-failed: failed jobs with id and reason",
+            r#"[{"failure_reason":"script_failure","id":501,"name":"unit-tests"}]"#,
+            each(&out, "failed"),
+        );
         c
     })
 }
@@ -473,7 +479,8 @@ fn stack_basics() -> &'static Checks {
             "stack: pipeline failed",
             Line::sev("pipeline", 5, "", "pipeline 50 failed")
                 .item("pipeline:5")
-                .add("jobs", json!([])),
+                .add("jobs", json!([]))
+                .add("failed", json!([])),
             env.run(&["--mr", "5"]).out,
         );
         c.check("stack: same pipeline: no events", "", env.run(&["--mr", "5"]).out);
@@ -488,7 +495,7 @@ fn stack_basics() -> &'static Checks {
         gql(&env, 5, pipeline(4567, "FAILED"));
         env.fixture(
             "jobs_4567",
-            r#"[{"name": "unit-tests"}, {"name": "ktlint"}, {"name": "ktlint"}]"#,
+            r#"[{"id": 3, "name": "unit-tests"}, {"id": 1, "name": "ktlint"}, {"id": 2, "name": "ktlint"}]"#,
         );
         c.check(
             "pipeline failed: jobs",
@@ -1475,6 +1482,11 @@ fn saved_null_pipeline_event_with_previous_null() {
 #[test]
 fn default_failed_jobs() {
     default_pipeline().assert("default-failed: jobs");
+}
+
+#[test]
+fn default_failed_has_the_failed_jobs_with_id_and_reason() {
+    default_pipeline().assert("default-failed: failed jobs with id and reason");
 }
 
 #[test]

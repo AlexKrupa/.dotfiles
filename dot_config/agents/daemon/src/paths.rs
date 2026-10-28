@@ -55,6 +55,11 @@ impl StateDirs {
         self.watchd.join(format!("items/{key}.json"))
     }
 
+    /// The retry count of each failed job, as `<pipeline id>:<job name>`.
+    pub fn retries(&self, key: &str) -> PathBuf {
+        self.watchd.join(format!("items/{key}.retries"))
+    }
+
     /// The text of the newest report of the key, for `watchd board`.
     pub fn board(&self, key: &str) -> PathBuf {
         self.watchd.join(format!("items/{key}.board"))
