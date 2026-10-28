@@ -12,13 +12,15 @@ die() { echo "sample: $*" >&2; exit 1; }
 
 usage() {
   cat >&2 <<'EOF'
-usage: sample start                 build the test-support binary, start the test daemon
-       sample stop                  stop the test daemon
+usage: sample start                 build the test-support binary, start the test daemon and
+                                    its herdr watcher
+       sample stop                  stop the agent sessions, the watcher, and the test daemon
        sample run <scenario>        reset, then apply step 1 of the scenario
        sample next                  apply the next step
        sample back                  replay from the reset to the step before
        sample status                scenario, step, expect list, daemon PID and binary
        sample list                  the scenarios and their steps
+       sample ui                    the control pane: keys n next, p back, r reset, s select
        sample check [<scenario>]    run the scenarios with no herdr, look for daemon errors
 EOF
   exit 2
@@ -73,13 +75,32 @@ stop_daemon() {
   die "the test daemon $pid did not stop, see $log"
 }
 
-# The state folder keeps the step file, because a failed step does not move it.
+# The second watcher of the herdr plugin shows the sample workspaces. Its plugin state is in
+# $SAMPLE_STATE/herdr-watch, apart from the state of the real watcher.
+plugin_state=$SAMPLE_STATE/herdr-watch
+
+start_watcher() {
+  if [ "${SAMPLE_NO_HERDR:-}" = 1 ]; then return 0; fi
+  XDG_STATE_HOME=$SAMPLE_STATE WATCHD=$watchd "$HOME/.config/herdr/plugins/watch/watch.sh" ensure
+}
+
+# The watcher and its child processes hold the lock file while they live.
+stop_watcher() {
+  local pids
+  pids=$(lsof -t "$plugin_state/watch.lock" 2>/dev/null) || return 0
+  # shellcheck disable=SC2086
+  kill $pids 2>/dev/null || true
+}
+
+# The state folder keeps the step file, because a failed step does not move it. The watcher keeps
+# its lock and its written tokens, but it reads the new event log from the start.
 reset() {
   close_agents
   stop_daemon
   if [ -d "$SAMPLE_STATE" ]; then
-    find "$SAMPLE_STATE" -mindepth 1 -maxdepth 1 ! -name step -exec rm -rf {} +
+    find "$SAMPLE_STATE" -mindepth 1 -maxdepth 1 ! -name step ! -name herdr-watch -exec rm -rf {} +
   fi
+  rm -f "$plugin_state/reader" "$plugin_state/pending.json"
   rm -rf "$repo" "$origin" "$SAMPLE_ROOT"/repo-*
   git init -q --bare -b main "$origin"
   git init -q -b main "$repo"
@@ -191,6 +212,44 @@ check_scenario() { # check_scenario <scenario>
   done
 }
 
+select_scenario() {
+  local names=() index=0 folder number
+  for folder in "$scenarios"/*/; do
+    names+=("$(basename "$folder")")
+    index=$((index + 1))
+    echo "$index ${names[-1]}" >&2
+  done
+  read -rp "scenario number: " number
+  if [[ $number =~ ^[0-9]+$ ]] && ((number >= 1 && number <= ${#names[@]})); then
+    "$0" run "${names[number - 1]}" 2>&1 >/dev/null
+  else
+    echo "no scenario $number"
+  fi
+}
+
+# Each action runs in its own `sample` process, so that a failed step shows its error here.
+ui() {
+  local key message='' scenario
+  while :; do
+    clear
+    "$0" status 2>&1 || true
+    printf '\n%s\nkeys: n next, p back, r reset, s select, q quit\n' "$message"
+    read -rsn1 -t 2 key || continue
+    case $key in
+      n) message=$("$0" next 2>&1 >/dev/null) || true ;;
+      p) message=$("$0" back 2>&1 >/dev/null) || true ;;
+      r)
+        if [ -s "$step_file" ]; then
+          read -r scenario _ <"$step_file"
+          message=$("$0" run "$scenario" 2>&1 >/dev/null) || true
+        fi
+        ;;
+      s) message=$(select_scenario | tail -n 1) || true ;;
+      q) return 0 ;;
+    esac
+  done
+}
+
 # Each scenario runs in its own process: in a `||` list, bash ignores `set -e` in the functions.
 check() { # check [<scenario>]
   local scenario failed=0
@@ -209,14 +268,16 @@ case ${1:-} in
   start)
     build
     if ! test_daemon; then start_daemon; fi
+    start_watcher
     echo "daemon $(daemon_pid): $watchd"
     ;;
-  stop) close_agents; stop_daemon ;;
+  stop) close_agents; stop_watcher; stop_daemon ;;
   run) [ $# = 2 ] || usage; require_daemon; run_scenario "$2"; status ;;
   next) require_daemon; next; status ;;
   back) require_daemon; back; status ;;
   status) require_daemon; status ;;
   list) require_daemon; list ;;
+  ui) require_daemon; ui ;;
   check) [ $# -le 2 ] || usage; require_daemon; shift; check "$@" ;;
   *) usage ;;
 esac
