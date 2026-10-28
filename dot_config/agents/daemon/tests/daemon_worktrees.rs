@@ -608,46 +608,23 @@ fn hub_items() -> &'static Checks {
         let hub = w.start(w.watch_command(&[]));
         wait_for(5, || w.client_is() != client);
         w.events(&key, &[comment(12, "comment:2")]);
-        let run = hub.wait(10);
-        let rows: Vec<String> = w.items_of("app")["items"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default()
-            .iter()
-            .filter(|item| item["item"] == "comment:2")
-            .map(|item| item["n"].to_string())
-            .collect();
+        let board = || std::fs::read_to_string(w.watchd.join("items/app.board")).unwrap_or_default();
+        let drawn = wait_for(10, || board().contains(r#"@anna: "d""#));
         c.check(
-            "live hub: the event of a worktree with no agent wakes it, with the row of the hub item",
-            format!("0 comment:2 {}", rows.join(" ")),
-            run.map_or("still waits".to_string(), |run| {
-                format!(
-                    "{} {} {}",
-                    run.code,
-                    support::each(&run.out, "item"),
-                    support::each(&run.out, "row")
-                )
-            }),
+            "live hub: the item of a worktree with no agent goes to the board, not to the hub",
+            "true true",
+            format!("{drawn} {}", hub.running()),
         );
 
-        let client = w.client_is();
-        let hub = w.start(w.watch_command(&[]));
-        wait_for(5, || w.client_is() != client);
         w.events(&key, &[support::daemon::ev("approved", 12)]);
         w.managed_rounds(2);
-        let waits = hub.running();
-        w.events(&key, &[comment(12, "comment:3")]);
-        let run = hub.wait(10);
         c.check(
-            "live hub: an event of a worktree with no agent and no item does not wake it",
-            "true approved:0 comment:3",
-            format!(
-                "{waits} approved:{} {}",
-                run.as_ref()
-                    .map_or(0, |run| run.out.matches(r#""kind":"approved""#).count()),
-                run.map_or(String::new(), |run| support::each(&run.out, "item"))
-            ),
+            "live hub: an event of a worktree with no agent and no item goes nowhere",
+            "true false",
+            format!("{} {}", hub.running(), board().contains("approved")),
         );
+        w.events("app", &[support::daemon::ev("todo", 12)]);
+        hub.wait(10);
         end(follow);
         c
     })
@@ -670,12 +647,27 @@ fn same_item_of_a_worktree_without_agent_is_one_hub_item() {
 
 #[test]
 fn live_hub_gets_no_event_of_a_worktree_without_agent_and_item() {
-    hub_items().assert("live hub: an event of a worktree with no agent and no item does not wake it");
+    hub_items().assert("live hub: an event of a worktree with no agent and no item goes nowhere");
 }
 
 #[test]
-fn live_hub_gets_the_events_of_a_worktree_without_agent() {
-    hub_items().assert("live hub: the event of a worktree with no agent wakes it, with the row of the hub item");
+fn board_gets_the_items_of_a_worktree_without_agent() {
+    hub_items().assert("live hub: the item of a worktree with no agent goes to the board, not to the hub");
+}
+
+#[test]
+fn no_live_hub_no_routing() {
+    let mut w = Watchd::new();
+    let (wt, follow) = polled_worktree(&mut w);
+    let key = format!("app-{}", support::hash12(&wt));
+    wait_for(10, || mr_lines(&w, 12) > 0);
+
+    w.events(&key, &[comment(12, "comment:1")]);
+    wait_for(10, || items(&w, "app") == "comment:1");
+
+    assert_eq!(items(&w, "app"), "comment:1");
+    assert!(!w.watchd.join("items/app.board").exists());
+    end(follow);
 }
 
 const TWO_MRS: &str = r#"{"name":"main","ups":[{"name":"a"}]}

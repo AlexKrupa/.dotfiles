@@ -59,6 +59,8 @@ pub struct Event {
     pub own: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jobs: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
 }
 
 /// Gives `Some(None)` for a `null` field, so that `null` and absent stay different.
@@ -98,6 +100,7 @@ impl Event {
             item: None,
             own: None,
             jobs: None,
+            author: None,
         }
     }
 }

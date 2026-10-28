@@ -16,7 +16,9 @@ use tokio::task::JoinHandle;
 use self::store::{Store, first_line};
 use crate::core::subs::{Agent, Mode};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, conflict_tests, lookup_branch, targets};
+use crate::core::items::RoutedEvent;
 use crate::engine::event::{Event, EventKind};
+use crate::engine::router::{self, Facts, Routing};
 use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
 use crate::key::{is_worktree_key, repo_slug, stack_key};
@@ -192,7 +194,11 @@ impl Daemon {
                 memory.fails.remove(key);
                 let routed = match events.is_empty() {
                     true => Vec::new(),
-                    false => self.store.route(&target, events, now_seconds()),
+                    false => {
+                        let (relocked, routed) = self.route(memory, &target, events).await;
+                        memory = relocked;
+                        routed
+                    }
                 };
                 self.store.prune_items(&target);
                 if is_worktree_key(key) {
@@ -237,6 +243,35 @@ impl Daemon {
         drop(memory);
         self.changed.notify_waiters();
         network
+    }
+
+    /// The rows of the events, the router, then the delivery. The lock is free while the router
+    /// runs.
+    async fn route<'a>(
+        &'a self,
+        memory: MutexGuard<'a, Memory>,
+        target: &Target,
+        events: Vec<Event>,
+    ) -> (MutexGuard<'a, Memory>, Vec<RoutedEvent>) {
+        let routed = self.store.assign(target, events, now_seconds());
+        let recipient = self.store.recipient(target, &routed);
+        drop(memory);
+        let routing = match recipient {
+            Some((key, events)) if key == target.slug => {
+                let facts = Facts {
+                    worktree: match target.mode {
+                        Mode::Hub => false,
+                        Mode::Stack | Mode::Review => true,
+                    },
+                    ..Facts::default()
+                };
+                router::routing(&router::decide(&events, &facts))
+            }
+            _ => Routing::default(),
+        };
+        let memory = self.lock().await;
+        self.store.deliver(target, &routed, &routing);
+        (memory, routed)
     }
 
     async fn interrupted(&self, slug: &str) -> bool {
@@ -379,7 +414,10 @@ impl Daemon {
                     repo: repo.to_path_buf(),
                     mrs: Vec::new(),
                 };
-                self.store.route(&hub, vec![event], now_seconds());
+                let (memory, _) = self.route(memory, &hub, vec![event]).await;
+                drop(memory);
+                self.changed.notify_waiters();
+                return;
             }
         }
         drop(memory);

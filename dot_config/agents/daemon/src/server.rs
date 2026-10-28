@@ -11,6 +11,7 @@ use tokio::io::BufReader;
 use tokio::net::{UnixListener, UnixStream};
 
 use crate::core::eventlog::{LogLine, id_of, route_line};
+use crate::core::items::RoutedEvent;
 use crate::core::subs::Mode;
 use crate::core::worktrees::{ReviewLink, set_kind};
 use crate::daemon::{Daemon, Memory};
@@ -183,9 +184,16 @@ fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs, new: bool) -
         if events.is_empty() && new && args.mode == Mode::Hub {
             events = daemon.store.open_events(key);
         }
-        if !events.is_empty() || (args.once && own_round) {
+        // The report shows all rows, and the model gets the rows that the router did not handle.
+        let handled = daemon.store.routing(key).handled;
+        let shown: Vec<RoutedEvent> = events
+            .iter()
+            .filter(|event| !handled.contains(&event.row))
+            .cloned()
+            .collect();
+        if !shown.is_empty() || (args.once && own_round) {
             daemon.store.write_last(key, &events);
-            return Some(Response::Events { events });
+            return Some(Response::Events { events: shown });
         }
     }
     ended.then_some(Response::Ended)

@@ -13,6 +13,7 @@ use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_item
 use crate::core::subs::{Agent, Mode, add_ended};
 use crate::core::worktrees::{Kind, Repos, ReviewLink, Reviews, Stage, Target, WorktreeState};
 use crate::engine::event::{Event, EventKind};
+use crate::engine::router::Routing;
 use crate::engine::state::Need;
 use crate::key::is_worktree_key;
 use crate::local::repo_of;
@@ -23,6 +24,10 @@ use crate::protocol::{DebugState, SubStatus, SubscribeArgs};
 use crate::report::{ReportInput, build_report, render};
 
 pub const ALL_ENDED: &str = "all MRs merged or closed";
+
+fn unreadable() -> String {
+    "report: jq could not read the input or the state".to_string()
+}
 
 pub struct Store {
     pub dirs: StateDirs,
@@ -465,12 +470,9 @@ impl Store {
         }
     }
 
-    /// A live agent of the key gets the events in its inbox. With no live agent, the events of a
-    /// worktree key are items of the hub, and a live hub gets the events that have an item.
-    pub fn route(&self, target: &Target, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
-        let count = events.len();
-        let live = self.live_agent(&target.key);
-        let owner = match (live, target.mode) {
+    /// The rows, the items, and the event log lines of the events.
+    pub fn assign(&self, target: &Target, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
+        let owner = match (self.live_agent(&target.key), target.mode) {
             (false, Mode::Stack | Mode::Review) => {
                 // The items that an ended agent left in the file of the key.
                 self.move_items(&target.key, &target.slug, None);
@@ -505,20 +507,65 @@ impl Store {
             })
             .collect();
         self.event_log(lines);
-        match (live, target.mode) {
-            (true, _) => self.append_lines(&self.dirs.inbox(&target.key), &routed),
-            (false, Mode::Stack | Mode::Review) if self.live_hub(&target.slug) => {
-                let items: Vec<RoutedEvent> = routed
-                    .iter()
-                    .filter(|event| event.event.item.is_some())
-                    .cloned()
-                    .collect();
-                self.append_lines(&self.dirs.inbox(&target.slug), &items);
-            }
-            (false, _) => {}
-        }
-        self.log(&target.slug, &target.key, &format!("routed {count} event(s)"));
         routed
+    }
+
+    /// The key of the inbox that gets the events, with these events. A live agent of the key gets
+    /// all events. With no live agent, a live hub gets the events of a worktree that have an item.
+    pub fn recipient(&self, target: &Target, routed: &[RoutedEvent]) -> Option<(String, Vec<RoutedEvent>)> {
+        match (self.live_agent(&target.key), target.mode) {
+            (true, _) => Some((target.key.clone(), routed.to_vec())),
+            (false, Mode::Stack | Mode::Review) if self.live_hub(&target.slug) => {
+                let items = routed.iter().filter(|event| event.event.item.is_some()).cloned().collect();
+                Some((target.slug.clone(), items))
+            }
+            (false, _) => None,
+        }
+    }
+
+    /// With only handled rows, the board gets the report and the hub inbox gets nothing. Else the
+    /// inbox gets all events, and the `.routing` file keeps the fields of the handled rows.
+    pub fn deliver(&self, target: &Target, routed: &[RoutedEvent], routing: &Routing) {
+        if let Some((key, events)) = self.recipient(target, routed)
+            && !events.is_empty()
+        {
+            let all_handled = events.iter().all(|event| routing.handled.contains(&event.row));
+            // A router of the hub does not apply to the inbox of another agent.
+            match (key == target.slug, all_handled) {
+                (true, true) => {
+                    if let Err(error) = self.build(&key, Mode::Hub, &[], &routing.input, &events) {
+                        self.log(&target.slug, &key, &format!("board: {error}"));
+                    }
+                }
+                (true, false) => {
+                    self.append_lines(&self.dirs.inbox(&key), &events);
+                    if !routing.handled.is_empty() {
+                        let mut saved = self.routing(&key);
+                        saved.add(routing.clone());
+                        self.write_routing(&key, &saved);
+                    }
+                }
+                (false, _) => self.append_lines(&self.dirs.inbox(&key), &events),
+            }
+        }
+        self.log(&target.slug, &target.key, &format!("routed {} event(s)", routed.len()));
+    }
+
+    pub fn routing(&self, key: &str) -> Routing {
+        let text = std::fs::read_to_string(self.dirs.routing(key)).unwrap_or_default();
+        serde_json::from_str(&text).unwrap_or_default()
+    }
+
+    fn write_routing(&self, key: &str, routing: &Routing) {
+        let path = self.dirs.routing(key);
+        if routing.handled.is_empty() {
+            remove(&path);
+            return;
+        }
+        let text = serde_json::to_string(routing).expect("a routing serializes");
+        if let Err(error) = std::fs::write(&path, text) {
+            self.log("", key, &format!("routing not written: {error}"));
+        }
     }
 
     pub fn open_item(&self, key: &str, item: &str) -> Option<Item> {
@@ -526,7 +573,7 @@ impl Store {
         items.items.into_iter().find(|open| open.item == item)
     }
 
-    fn live_hub(&self, slug: &str) -> bool {
+    pub fn live_hub(&self, slug: &str) -> bool {
         self.live_subs(Some(slug)).iter().any(|agent| agent.mode == Mode::Hub)
     }
 
@@ -774,13 +821,8 @@ impl Store {
         Ok(())
     }
 
+    /// The router fields of the rows of the delivery join the input of the model.
     pub fn report(&self, key: &str, mode: Mode, mrs: &[u64], input: &ReportInput) -> Result<String, String> {
-        let unreadable = || "report: jq could not read the input or the state".to_string();
-        let path = self.dirs.items(key);
-        let items = self
-            .read_json::<Items>(&path)
-            .map_err(|_| unreadable())?
-            .unwrap_or_default();
         let text = std::fs::read_to_string(self.dirs.last(key)).unwrap_or_default();
         let delivery: Vec<RoutedEvent> = text
             .lines()
@@ -788,6 +830,34 @@ impl Store {
             .map(serde_json::from_str)
             .collect::<Result<_, _>>()
             .map_err(|_| unreadable())?;
+        let rows: Vec<u64> = delivery.iter().map(|event| event.row).collect();
+        let mut saved = self.routing(key);
+        let routed = saved.take(&rows).input;
+        let mut input = input.clone();
+        for (row, cell) in routed.cells {
+            input.cells.entry(row).or_insert(cell);
+        }
+        input.agent.extend(routed.agent);
+        input.close.extend(routed.close);
+        let text = self.build(key, mode, mrs, &input, &delivery)?;
+        self.write_routing(key, &saved);
+        Ok(text)
+    }
+
+    /// Builds the report of the delivery, saves the items, and writes the board of a hub.
+    fn build(
+        &self,
+        key: &str,
+        mode: Mode,
+        mrs: &[u64],
+        input: &ReportInput,
+        delivery: &[RoutedEvent],
+    ) -> Result<String, String> {
+        let path = self.dirs.items(key);
+        let items = self
+            .read_json::<Items>(&path)
+            .map_err(|_| unreadable())?
+            .unwrap_or_default();
         let mut titles = BTreeMap::new();
         if let Some(engine) = self.engine_value(key)
             && let Some(mrs) = engine["mrs"].as_object()
@@ -798,7 +868,7 @@ impl Store {
                 }
             }
         }
-        let (items, data) = build_report(input, &items, &delivery, &titles, now_seconds());
+        let (items, data) = build_report(input, &items, delivery, &titles, now_seconds());
         save(&path, &items).map_err(|error| format!("report: {}: {error}", path.display()))?;
         let (hour, minute, _) = local_time(now_seconds());
         let text = render(mode, &format!("{hour:02}:{minute:02}"), mrs, &data);

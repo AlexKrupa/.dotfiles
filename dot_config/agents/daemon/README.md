@@ -132,7 +132,12 @@ flowchart TB
 - Check: after a permanent error, or after 5 other errors in a row, the check ends the agent record
   of its key.
 - Events: the events of a key with a live agent go to its inbox. The events of a key with no live
-  agent go to the hub as open items. A live hub agent also gets the events that have an item.
+  agent go to the hub as open items.
+- Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
+  event. A handled event does not go to the hub inbox. If a round has only handled events, the
+  daemon writes the hub report to the board file, and `watchd board` shows it. Else all events go
+  to the inbox, and the client gets only the events that the router did not handle. The next hub
+  report also shows the handled rows.
 
 Each task takes the `memory` lock before it changes the state in memory or the state files. After
 each change, the task sends the `changed` signal, and the waiting connections read the files again.
@@ -149,7 +154,8 @@ each change, the task sends the `changed` signal, and the waiting connections re
 | `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
 | `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets |
-| `src/engine/` | The GitLab checks. `hub.rs` watches the project. `stack.rs` watches the MRs of a stack or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. |
+| `src/engine/` | The GitLab checks. `hub.rs` watches the project. `stack.rs` watches the MRs of a stack or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
+| `src/workspaces.rs` | The herdr calls: the board pane |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
 | `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
 
@@ -169,7 +175,9 @@ worktree. A review key also has `-review-IID` at the end.
 | `watchd/reviews.json` | The review links: a worktree and the MR that it reviews |
 | `watchd/subs/KEY.json` | One agent record |
 | `watchd/inbox/KEY.jsonl` | Events that no client took yet |
+| `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The open items of the key |
+| `watchd/items/KEY.board` | The newest hub report, for `watchd board` |
 | `watch-gitlab/KEY.json` | The engine state: what GitLab showed at the last check |
 
 ## Single instance and restart

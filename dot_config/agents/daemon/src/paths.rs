@@ -46,6 +46,11 @@ impl StateDirs {
         self.watchd.join(format!("inbox/{key}.last.jsonl"))
     }
 
+    /// The report fields of the router rows in the inbox, for the next report of the model.
+    pub fn routing(&self, key: &str) -> PathBuf {
+        self.watchd.join(format!("inbox/{key}.routing"))
+    }
+
     pub fn items(&self, key: &str) -> PathBuf {
         self.watchd.join(format!("items/{key}.json"))
     }

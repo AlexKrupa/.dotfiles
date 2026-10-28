@@ -393,6 +393,7 @@ fn hub_events(
         }
         events.push(Event {
             item: Some(format!("todo:{}", todo.id)),
+            author: todo.target.author.as_ref().map(|author| author.username.clone()),
             ..Event::new(
                 EventKind::Todo,
                 Some(todo.target.iid),
@@ -406,15 +407,18 @@ fn hub_events(
     }
     if let Some(old_opened) = &old.opened {
         for mr in opened.iter().filter(|mr| !old_opened.contains(&mr.iid)) {
-            events.push(Event::new(
-                EventKind::Opened,
-                Some(mr.iid),
-                Some(&mr.title),
-                &mr.web_url,
-                &mr.author.username,
-                "opened",
-                &mr.source_branch,
-            ));
+            events.push(Event {
+                author: Some(mr.author.username.clone()),
+                ..Event::new(
+                    EventKind::Opened,
+                    Some(mr.iid),
+                    Some(&mr.title),
+                    &mr.web_url,
+                    &mr.author.username,
+                    "opened",
+                    &mr.source_branch,
+                )
+            });
         }
     }
     if let (Some(old_pipeline), Some(pipeline)) = (&old.default_pipeline, &input.default) {
@@ -524,7 +528,7 @@ mod tests {
         assert_eq!(
             lines(&events),
             vec![format!(
-                r#"{{"kind":"todo","iid":5,"title":"Add foo","url":"{URL}/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11"}}"#
+                r#"{{"kind":"todo","iid":5,"title":"Add foo","url":"{URL}/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11","author":"bob"}}"#
             )]
         );
     }
@@ -552,12 +556,15 @@ mod tests {
             .unwrap(),
         )];
         let (_, events) = hub_compare(&input, Some(&old), &[9]);
-        let kinds: Vec<_> = events.iter().map(|event| (event.kind, event.item.clone())).collect();
+        let kinds: Vec<_> = events
+            .iter()
+            .map(|event| (event.kind, event.item.clone(), event.author.clone()))
+            .collect();
         assert_eq!(
             kinds,
             vec![
-                (EventKind::Todo, Some("todo:22".to_string())),
-                (EventKind::Opened, None)
+                (EventKind::Todo, Some("todo:22".to_string()), Some("bob".to_string())),
+                (EventKind::Opened, None, Some("renovate-bot".to_string()))
             ]
         );
     }

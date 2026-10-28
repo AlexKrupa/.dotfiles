@@ -92,18 +92,18 @@ fn client_limit_inbox() -> &'static Checks {
         let mut c = Checks::default();
         w.events("app", &[ev("todo", 5)]);
         w.run(with_client_limit(w.watch_command(&[])));
-        w.events("app", &[ev("note", 6)]);
+        w.events("app", &[ev("todo", 6)]);
         wait_for(5, || !w.inbox_of("app").is_empty());
         wait_for(8, || !w.has_sub("app"));
         c.check(
             "no client for the limit: the inbox stays",
-            norm(&ev("note", 6)),
+            norm(&ev("todo", 6)),
             w.inbox_of("app"),
         );
         let run = w.watch(&[]);
         c.check(
             "no client for the limit: the inbox comes at the next client of the same session",
-            format!("0 {}", ev("note", 6)),
+            format!("0 {}", ev("todo", 6)),
             format!("{} {}", run.code, norow(&run.out)),
         );
         c

@@ -399,7 +399,7 @@ fn opened_mrs() -> &'static Checks {
         env.fixture("opened", &json!([mr(22, "Add qux", "opened", "t1", "me", "ABC-4/qux"),
             mr(21, "Update dependency bar to v3", "opened", "t1", "renovate-bot", "renovate/bar-3.x"), foo_bump]).to_string());
         c.check("new MR of a different user, not own MRs",
-            u(r#"{"kind":"opened","iid":21,"title":"Update dependency bar to v3","url":"$url/21","actor":"renovate-bot","detail":"opened","branch":"renovate/bar-3.x"}"#),
+            u(r#"{"kind":"opened","iid":21,"title":"Update dependency bar to v3","url":"$url/21","actor":"renovate-bot","detail":"opened","branch":"renovate/bar-3.x","author":"renovate-bot"}"#),
             env.run(&[]).out);
         c.check("same open MRs: no events", "", env.run(&[]).out);
         c
@@ -419,7 +419,7 @@ fn skip_mr() -> &'static Checks {
         env.fixture("commented", &json!([mr(9, "Fix bar", "opened", "t2", "bob", "ABC-2/bar")]).to_string());
         env.fixture("notes_9", r#"[{"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}]"#);
         c.check("--skip-mr: only the review request and opened",
-            u(r#"{"kind":"todo","iid":9,"title":"Fix bar","url":"$url/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar","item":"todo:22"}"#),
+            u(r#"{"kind":"todo","iid":9,"title":"Fix bar","url":"$url/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar","item":"todo:22","author":"bob"}"#),
             env.run(&["--skip-mr", "9"]).out);
         c
     })

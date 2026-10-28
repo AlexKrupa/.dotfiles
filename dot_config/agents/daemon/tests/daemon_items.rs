@@ -93,7 +93,7 @@ fn hub_items() -> &'static Checks {
         );
         w.events("app", &[iev("todo", 5, "todo:11")]);
         c.check("second event of the same item: same row", 1, rows(&w.watch(&[]).out));
-        w.events("app", &[ev("reaction", 5)]);
+        w.events("app", &[ev("todo", 5)]);
         let out = w.watch(&[]).out;
         c.check(
             "info event: new row, no item",
@@ -106,7 +106,7 @@ fn hub_items() -> &'static Checks {
         );
         w.report(r#"{"add": [{"section": "needs", "iid": 5, "what": "w"}]}"#, &[]);
         w.fake("app", "state", r#"{"present": []}"#);
-        w.events("app", &[ev("reaction", 5)]);
+        w.events("app", &[ev("todo", 5)]);
         w.watch(&[]);
         let items = || item_keys(&w.items_of("app"));
         wait_for(5, || items() == r#"["model:3"]"#);

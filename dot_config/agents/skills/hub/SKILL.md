@@ -55,4 +55,5 @@ Give the status when `/hub` starts, and each time the user asks for it.
 After the first status report, start the watch. Read
 `~/.config/agents/references/watch/common.md` and follow it, with the role file `hub.md`. The
 watch finds new MRs, review requests, comments, and failed default-branch pipelines, and starts
-the review, bump, and debug agents.
+the review, bump, and debug agents. The watch gives only the events that need the model. The board
+shows the others.

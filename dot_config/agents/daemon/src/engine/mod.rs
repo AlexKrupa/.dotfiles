@@ -20,8 +20,9 @@
 //!                                                                 for example during a job retry
 //! An MR of --skip-mr gives only the review_requested to-do item and the opened event. The agent of
 //! the review watch reports the other events.
-//! opened: actor is the MR author. default-failed: iid and title are null, previous is the status
-//! of the saved default-branch pipeline or null, and jobs are the names of the failed jobs.
+//! opened: actor is the MR author. todo and opened: author is the MR author, absent if GitLab does
+//! not give it. default-failed: iid and title are null, previous is the status of the saved
+//! default-branch pipeline or null, and jobs are the names of the failed jobs.
 //!
 //! Stack mode (--mr, one for each MR, `!` prefix allowed) watches the MRs of the stack of the user.
 //! Review mode (--review and one --mr) watches one MR for its reviewer. Events of both modes:
@@ -73,6 +74,7 @@ pub mod event;
 pub mod fake;
 pub mod hub;
 pub mod lookup;
+pub mod router;
 pub mod stack;
 pub mod state;
 

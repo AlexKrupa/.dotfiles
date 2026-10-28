@@ -2,8 +2,8 @@
 
 The role file of `hub`: the hub mode for the project of the repo. The watch finds to-do items, new
 MRs of other people, comments on MRs of other people, reactions on your comments in these MRs, and
-failed pipelines of the default branch. It also gets the open items of own worktrees with no agent.
-The hub has its own report, so the "MR events" part of `common.md` does not apply.
+failed pipelines of the default branch. The hub has its own report, so the "MR events" part of
+`common.md` does not apply.
 
 ## Start
 
@@ -15,9 +15,9 @@ An MR can have a live review subscription, for example of a review agent or a bu
 MR, the watch gives only the review request and the `opened` event. That agent reports the other
 events.
 
-A `pull-blocked` event shows that the daemon cannot fast-forward the main checkout to the default
-branch. Its `detail` is the reason, for example changes in tracked files. Report it. The user
-fixes the cause. Its item stays open until the daemon fast-forwards the main checkout.
+The watch gives only the events that need the model. The daemon handles the other events, and the
+board pane next to the hub shows them: `pull-blocked`, `note`, `reaction`, and the items of own
+worktrees. The next report also shows their rows.
 
 A `default-failed` event is a failed pipeline of the default branch. Its `iid` and `title` are
 null. Its `previous` is the status of the earlier default-branch pipeline. All other events are MR
@@ -50,9 +50,8 @@ row of the section `agent`. Run the report command with it, and output its stdou
 
 The watch daemon polls the MRs of each own worktree, also when no agent runs in the worktree, and
 the open MRs of the user that have no worktree. If no agent waits for an event of these MRs, its
-open item comes to the hub, and the hub watch gets the event. Such an item is one row of the
-report, for example `!12: @anna commented`. Start no agent for it. The user starts work on it
-with `/work`.
+open item comes to the hub. The board shows it as one row, for example `!12: @anna commented`. The
+user starts work on it with `/work`.
 
 ## Router
 

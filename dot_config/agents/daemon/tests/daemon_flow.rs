@@ -38,13 +38,13 @@ fn hub_client() -> &'static Checks {
             ),
         );
 
-        w.events("app", &[ev("note", 6)]);
+        w.events("app", &[ev("todo", 6)]);
         wait_for(5, || !w.inbox_of("app").is_empty());
         w.local_rounds(2);
         let run = w.watch(&[]);
         c.check(
             "events with no client wait in the inbox",
-            format!("0 {}", ev("note", 6)),
+            format!("0 {}", ev("todo", 6)),
             format!("{} {}", run.code, norow(&run.out)),
         );
 
@@ -420,4 +420,48 @@ fn client_worktree_gone_exit_1() {
 #[test]
 fn client_parent_gone_client_stops() {
     client_ends().assert("client: parent gone: client stops");
+}
+
+const PULL_BLOCKED: &str = r#"{"kind":"pull-blocked","iid":null,"title":null,"url":"","actor":"","detail":"changes in tracked files","branch":"main","item":"pull:main"}"#;
+const DEFAULT_FAILED: &str = r#"{"kind":"default-failed","iid":null,"title":null,"url":"u/-/pipelines/88","actor":"","detail":"pipeline 88 failed","branch":"main","previous":"success","item":"main-failed:main"}"#;
+
+/// A hub subscription whose session stays, with no waiting client.
+fn live_hub(w: &Watchd) {
+    w.events("app", &[ev("todo", 5)]);
+    assert_eq!(w.watch(&[]).code, 0);
+}
+
+fn board(w: &Watchd) -> String {
+    std::fs::read_to_string(w.watchd.join("items/app.board")).unwrap_or_default()
+}
+
+#[test]
+fn handled_round_wakes_no_hub() {
+    let w = Watchd::new();
+    live_hub(&w);
+
+    w.events("app", &[PULL_BLOCKED.to_string()]);
+    let drawn = wait_for(10, || board(&w).contains("Pull blocked: changes in tracked files"));
+
+    assert!(drawn, "{}", board(&w));
+    assert_eq!(w.inbox_of("app"), "");
+    let run = w.watch(&["--once"]);
+    assert_eq!((run.code, run.out.as_str()), (0, ""), "{}", run.err);
+}
+
+#[test]
+fn mixed_round_gives_the_model_only_its_events() {
+    let w = Watchd::new();
+    live_hub(&w);
+    let client = w.client_is();
+    let hub = w.start(w.watch_command(&[]));
+    wait_for(5, || w.client_is() != client);
+
+    w.events("app", &[PULL_BLOCKED.to_string(), DEFAULT_FAILED.to_string()]);
+    let run = hub.wait(10).expect("the hub client gets the events");
+    let report = w.report("{}", &[]);
+
+    assert_eq!(support::each(&run.out, "kind"), "default-failed");
+    assert!(report.out.contains("Pull blocked: changes in tracked files"), "{}", report.out);
+    assert!(report.out.contains("Pipeline failed"), "{}", report.out);
 }
