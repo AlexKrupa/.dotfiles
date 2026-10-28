@@ -52,7 +52,7 @@ code=$?
 check "check branch: exit 0" 0 "$code"
 [ "$code" = 0 ] || cat "$tmp/check.log"
 
-for scenario in stack review errors; do
+for scenario in stack review errors daemon; do
   "$sample" check "$scenario" >"$tmp/check.log" 2>&1
   code=$?
   check "check $scenario: exit 0" 0 "$code"
@@ -71,6 +71,10 @@ live_sub() {
 check "branch-watching: a live agent record" yes "$(live_sub branch)"
 "$sample" run errors >/dev/null && "$sample" next >/dev/null
 check "check-error: no live agent record" no "$(live_sub branch)"
+"$sample" run daemon >/dev/null && "$sample" next >/dev/null
+check "migration: the version 1 worktree state loads" mine \
+  "$(cd "$SAMPLE_ROOT/repo" && "$SAMPLE_ROOT/bin/watchd" debug state \
+    | jq -r --arg path "$SAMPLE_ROOT/repo-branch" '.worktrees[$path].kind')"
 
 mkdir -p "$tmp/scenarios/lost/01-lost"
 echo 'printf "{}\n" >"$SAMPLE_STATE/engine/nobody.jsonl"' >"$tmp/scenarios/lost/01-lost/step.sh"

@@ -150,7 +150,7 @@ agent_open() { # agent_open <role>: opens the worktree workspace in herdr
 }
 
 agent_run() { # agent_run <role> [<watch argument>...]: starts the loop, waits for its agent record
-  local role=$1 key pid
+  local role=$1 key
   shift
   key=$(key_of "$role") || return 1
   rm -f "$agents/$role.pid"
@@ -162,16 +162,14 @@ agent_run() { # agent_run <role> [<watch argument>...]: starts the loop, waits f
       SAMPLE_STATE="$SAMPLE_STATE" "$sample_dir/agent-loop" "$(worktree_of "$role")" \
       "$agents/$role.pid" "$@")" >/dev/null
   fi
-  for _ in $(seq 75); do
-    pid=$(cat "$agents/$role.pid" 2>/dev/null) || pid=
-    if [ -n "$pid" ] && [ "$(cd "$repo" && "$watchd" debug state \
-      | jq -r --arg key "$key" '.subs[$key].session_pid // empty')" = "$pid" ]; then
-      return 0
-    fi
-    sleep 0.2
-  done
-  echo "the agent loop of $role has no agent record $key" >&2
-  return 1
+  wait_until "the agent record $key of the loop of $role" agent_live "$role"
+}
+
+agent_live() { # agent_live <role>: the agent record of the role has the session of its loop
+  local pid key
+  pid=$(cat "$agents/$1.pid" 2>/dev/null) && key=$(key_of "$1") || return 1
+  [ "$(cd "$repo" && "$watchd" debug state \
+    | jq -r --arg key "$key" '.subs[$key].session_pid // empty')" = "$pid" ]
 }
 
 agent_stop() { # agent_stop <role>: ends the agent session, the workspace stays
