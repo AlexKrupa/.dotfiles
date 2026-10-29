@@ -310,6 +310,41 @@ fn stream() -> &'static Checks {
             format!("1 {}\n{}", ev("pipeline", 5), ev("approved", 5)),
             format!("{} {}", run.code, norow(&run.out)),
         );
+        drop(w);
+
+        let w = Watchd::new();
+        let key = w.author_key();
+        w.events(&key, &[ev("pipeline", 5)]);
+        let client = w.start(w.watch_command(&["--stream", "--fresh", "--mr", "5"]));
+        wait_for(10, || w.log_count("subscribed: author") >= 2);
+        let state = w.env.engine_state(&key);
+        std::fs::create_dir_all(state.parent().unwrap()).unwrap();
+        std::fs::write(&state, "{}").unwrap();
+        w.events(&key, &[ev("approved", 5)]);
+        wait_for(10, || w.log_count("subscribed: author") >= 3);
+        c.check(
+            "stream: --fresh applies to the first subscribe only",
+            "yes",
+            yes_no(state.exists()),
+        );
+        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
+        client.wait(20);
+        drop(w);
+
+        let w = Watchd::new();
+        w.events(&w.author_key(), &[ev("merged", 5)]);
+        let run = w.watch(&["--stream", "--mr", "5"]);
+        c.check(
+            "stream: the delivery that ends all MRs ends the client",
+            format!("0 {} 1 yes", ev("merged", 5)),
+            format!(
+                "{} {} {} {}",
+                run.code,
+                norow(&run.out),
+                w.log_count("subscribed: author"),
+                w.sub_gone(&w.author_key())
+            ),
+        );
         c
     })
 }
@@ -444,13 +479,23 @@ fn client_parent_gone_client_stops() {
     client_ends().assert("client: parent gone: client stops");
 }
 
-const PULL_BLOCKED: &str = r#"{"kind":"pull-blocked","iid":null,"title":null,"url":"","actor":"","detail":"changes in tracked files","branch":"main","item":"pull:main"}"#;
-const DEFAULT_FAILED: &str = r#"{"kind":"default-failed","iid":null,"title":null,"url":"u/-/pipelines/88","actor":"","detail":"pipeline 88 failed","branch":"main","previous":"success","item":"main-failed:main"}"#;
-
 #[test]
 fn stream_one_client_gives_the_events_of_each_delivery() {
     stream().assert("stream: one client gives the events of each delivery");
 }
+
+#[test]
+fn stream_the_delivery_that_ends_all_mrs_ends_the_client() {
+    stream().assert("stream: the delivery that ends all MRs ends the client");
+}
+
+#[test]
+fn stream_fresh_applies_to_the_first_subscribe_only() {
+    stream().assert("stream: --fresh applies to the first subscribe only");
+}
+
+const PULL_BLOCKED: &str = r#"{"kind":"pull-blocked","iid":null,"title":null,"url":"","actor":"","detail":"changes in tracked files","branch":"main","item":"pull:main"}"#;
+const DEFAULT_FAILED: &str = r#"{"kind":"default-failed","iid":null,"title":null,"url":"u/-/pipelines/88","actor":"","detail":"pipeline 88 failed","branch":"main","previous":"success","item":"main-failed:main"}"#;
 
 /// A hub subscription whose session stays, with no waiting client.
 fn live_hub(w: &Watchd) {

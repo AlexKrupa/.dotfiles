@@ -779,7 +779,7 @@ fn worktree_whose_mrs_go_away_loses_their_needs() {
 }
 
 #[test]
-fn watch_with_no_mr_in_the_main_checkout_on_a_feature_branch_is_a_stack_watch() {
+fn watch_with_no_mr_in_the_main_checkout_on_a_feature_branch_is_an_author_watch() {
     let w = Watchd::new();
     w.env.commit(&w.env.repo, "one");
     w.env

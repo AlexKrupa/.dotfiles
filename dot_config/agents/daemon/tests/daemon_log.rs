@@ -417,7 +417,7 @@ fn permanent_error_stopped_line() {
 }
 
 #[test]
-fn permanent_error_of_a_stack_stopped_line_has_the_mr_title() {
+fn permanent_error_of_an_author_watch_stopped_line_has_the_mr_title() {
     log_and_worktrees().assert("permanent error of an author watch: stopped line has the MR title");
 }
 

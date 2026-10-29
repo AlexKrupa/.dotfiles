@@ -1,6 +1,6 @@
 # Watch: Claude Code
 
-The agent tool file for Claude Code: how the session runs the watch command of the host file. The
+The runner file for Claude Code: how the session runs the watch command of the host file. The
 watch runs as a stream in the `Monitor` tool. The client does not exit for events, so a delivery
 gives no "completed" message and needs no restart.
 
@@ -8,8 +8,9 @@ gives no "completed" message and needs no restart.
 
 1. If the `Monitor` tool is not loaded, load it with `ToolSearch` (`select:Monitor`).
 2. Start `Monitor` with these values:
-   - `command`: the watch command of the host file, with `--stream`. Example:
-     `watchd watch --stream --interval 120`.
+   - `command`: the watch command of the host file, with `--stream` and `2>&1` added. Do not
+     change the other parts of the command. The monitor sends only stdout lines. The text of exit
+     `1` and `3` is on stderr.
    - `description`: `watch: <MR title>`, or `watch: hub` for the hub mode.
    - `timeout_ms`: `1800000`, the maximum.
 

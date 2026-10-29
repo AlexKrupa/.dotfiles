@@ -202,6 +202,6 @@ fn review_and_bump_on_the_same_mr_one_fetch_in_each_round() {
 }
 
 #[test]
-fn e2e_stack_real_engine_gives_a_pipeline_event() {
+fn e2e_author_real_engine_gives_a_pipeline_event() {
     author_pipeline().assert("e2e author: real engine gives a pipeline event");
 }

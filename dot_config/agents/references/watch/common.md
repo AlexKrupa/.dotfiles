@@ -1,8 +1,8 @@
 # Watch: common rules
 
-A watch is a background task that checks the code host. It stops at the first check with events.
-You handle the events, report, and start the watch again. Between events, the user can use the
-session for other work.
+A watch is a background task that checks the code host. Each check with events gives a result. You
+handle the events and report. The runner file tells how a result arrives, and if you must start the
+watch again. Between events, the user can use the session for other work.
 
 The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply to PRs and checks.
 
@@ -17,8 +17,8 @@ Read this file, the host file, and the role file that the skill names. All files
   `gitlab.md` for GitLab. If the prompt or a wrapper skill names a different host file, use that
   file. If no host file agrees with the host, do not start the watch. Tell it in one line.
 - Role file: the events of the role, and the action for each event.
-- Agent tool file: how the agent tool runs the watch command and gives its results.
-  `claude-code.md` for Claude Code.
+- Runner file: how the agent runs the watch command and gets its results. `claude-code.md` for
+  Claude Code.
 
 | Role file     | Skill       | Watches                                                     |
 | ------------- | ----------- | ----------------------------------------------------------- |
@@ -29,7 +29,7 @@ Read this file, the host file, and the role file that the skill names. All files
 
 ## Task
 
-- Run the watch command of the host file for the role, as the agent tool file tells.
+- Run the watch command of the host file for the role, as the runner file tells.
 - A session has one watch task. If a watch task runs, do not start a new one. If it watches a
   different MR, tell it in one line.
 - If the user says "watch", start the watch. If the user says "stop watch", stop the task. Then run
@@ -49,8 +49,8 @@ Read this file, the host file, and the role file that the skill names. All files
 On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
 `actor`, `detail`, and `branch`. The role file tells the other fields of its events.
 
-Start the watch again with the restart command of the host file. If all watched MRs are merged or
-closed, do not start it again. Tell it in one line.
+To start the watch again, do what the runner file tells, with the restart command of the host file.
+If all watched MRs are merged or closed, do not start it again. Tell it in one line.
 
 ## MR events
 

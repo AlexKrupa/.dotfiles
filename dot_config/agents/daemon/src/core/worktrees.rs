@@ -142,18 +142,18 @@ pub fn targets(
     }
     let open =
         |mrs: &[u64], ended: &[u64]| -> Vec<u64> { mrs.iter().copied().filter(|iid| !ended.contains(iid)).collect() };
-    let mut stacks: Vec<(String, PathBuf, Vec<u64>)> = worktrees
+    let mut authors: Vec<(String, PathBuf, Vec<u64>)> = worktrees
         .iter()
         .map(|state| (key_of(&state.path), state.path.clone(), open(&state.mrs, &state.ended)))
         .collect();
     for agent in agents.iter().filter(|agent| agent.mode == Mode::Author) {
         let mrs = open(&agent.mrs, &agent.ended_mrs);
-        match stacks.iter_mut().find(|(key, ..)| *key == agent.key) {
+        match authors.iter_mut().find(|(key, ..)| *key == agent.key) {
             Some((.., known)) => known.extend(mrs),
-            None => stacks.push((agent.key.clone(), agent.repo.clone(), mrs)),
+            None => authors.push((agent.key.clone(), agent.repo.clone(), mrs)),
         }
     }
-    for (key, folder, mrs) in stacks {
+    for (key, folder, mrs) in authors {
         let mut left: Vec<u64> = Vec::new();
         for iid in mrs {
             if !taken.contains(&iid) {
@@ -270,7 +270,7 @@ pub fn parse_spice_log(text: &str) -> Vec<SpiceBranch> {
         .collect()
 }
 
-/// git-spice lists all branches on the trunk, also the other stacks. The stack of the current
+/// git-spice lists all branches on the trunk, also the other authors. The stack of the current
 /// branch is the branches below it down to the trunk, and all branches above it. On the trunk, it is
 /// empty.
 pub fn current_stack(branches: &[SpiceBranch]) -> Vec<SpiceBranch> {
@@ -386,7 +386,7 @@ mod tests {
     }
 
     #[test]
-    fn targets_have_one_hub_and_one_stack_per_worktree_with_mrs() {
+    fn targets_have_one_hub_and_one_author_per_worktree_with_mrs() {
         let worktrees = [
             worktree("/r", &[], &[]),
             worktree("/r/a", &[12], &[]),

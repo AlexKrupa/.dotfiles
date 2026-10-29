@@ -405,6 +405,6 @@ fn author_a_new_mr_list_refreshes_the_subscription() {
 }
 
 #[test]
-fn author_hub_does_not_skip_a_stack_mr() {
+fn author_hub_does_not_skip_an_author_mr() {
     author_mrs().assert("author: hub does not skip an author MR");
 }

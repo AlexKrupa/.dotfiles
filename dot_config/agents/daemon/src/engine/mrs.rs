@@ -1068,7 +1068,7 @@ mod tests {
     }
 
     #[test]
-    fn needs_order_differs_between_review_and_stack() {
+    fn needs_order_differs_between_review_and_author() {
         let data = mr(|m| {
             m["draft"] = json!(true);
             m["headPipeline"] = json!({"id": "gid://gitlab/Ci::Pipeline/9", "status": "FAILED"});
@@ -1081,8 +1081,8 @@ mod tests {
                 ]
             )]);
         });
-        let stack_needs = compare(&data, None, false).0.needs;
-        assert_eq!(stack_needs, vec![Need::Failed, Need::Reply, Need::Draft]);
+        let author_needs = compare(&data, None, false).0.needs;
+        assert_eq!(author_needs, vec![Need::Failed, Need::Reply, Need::Draft]);
         assert_eq!(compare(&data, None, true).0.needs, vec![Need::Reply]);
     }
 
@@ -1155,7 +1155,7 @@ esac
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn stack_check_of_20_mrs_runs_at_most_8_glab_calls_at_once() {
+    async fn check_of_20_mrs_runs_at_most_8_glab_calls_at_once() {
         let ctx = context("parallel", (1..=20).collect());
         check_mrs(&ctx).await.unwrap();
         let counts = std::fs::read_to_string(fake_glab().join("parallel/counts")).unwrap();

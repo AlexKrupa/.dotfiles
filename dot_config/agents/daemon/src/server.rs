@@ -193,7 +193,7 @@ fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs, new: bool) -
             .collect();
         if !shown.is_empty() || (args.once && own_round) {
             daemon.store.write_last(key, &events);
-            return Some(Response::Events { events: shown });
+            return Some(Response::Events { events: shown, ended });
         }
     }
     ended.then_some(Response::Ended)
@@ -265,7 +265,7 @@ async fn subscribe(
         None => false,
     };
     let mut memory = daemon.lock().await;
-    if let Some(Response::Events { events }) = &response {
+    if let Some(Response::Events { events, .. }) = &response {
         match sent {
             true if daemon.store.sub(&args.key).is_none() => daemon.store.remove_owner(&args.key),
             true => {}

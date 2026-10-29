@@ -237,7 +237,7 @@ jq -n --argjson pid $$ --argjson now "$(date +%s)" --arg repo "$tmp/t" '{key: "a
   >"$watchd/subs/app-x.json"
 echo '{"needs": ["failed", "reply"]}' >"$tmp/state/watch-gitlab/app-x.json"
 sweep
-check "live stack subscription" \
+check "live author subscription" \
   'workspace report-metadata wT --source watch --token watch_kind=mine --token watch_stage=watching --token watch_needs=failed,reply --clear-token watch_stack --clear-token watch_conflict' \
   "$(metadata)"
 sweep

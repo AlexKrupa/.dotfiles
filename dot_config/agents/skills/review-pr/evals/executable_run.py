@@ -20,7 +20,7 @@ import grade  # noqa: E402
 HOME = Path.home()
 SHIMS = HERE / "shims"
 # Edit rules also cover Write. The skill adds an update to the report in ~/.ai/.
-ALLOWED_TOOLS = "Bash Read Grep Glob Skill Edit(~/.ai/**)"
+ALLOWED_TOOLS = "Bash ToolSearch Monitor TaskStop Read Grep Glob Skill Edit(~/.ai/**)"
 
 
 def setup(ev, k, repos, run_dir):

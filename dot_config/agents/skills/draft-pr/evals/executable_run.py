@@ -20,7 +20,7 @@ import grade  # noqa: E402
 HOME = Path.home()
 SHIMS = HERE / "shims"
 # Edit rules also cover Write. The watch evals fix code in the fixture repos in the temp dir.
-ALLOWED_TOOLS = "Bash Read Grep Glob Skill Edit(~/.ai/**) Edit(//private/var/folders/**) Edit(//var/folders/**)"
+ALLOWED_TOOLS = "Bash ToolSearch Monitor TaskStop Read Grep Glob Skill Edit(~/.ai/**) Edit(//private/var/folders/**) Edit(//var/folders/**)"
 
 
 def setup(ev, k, repos, run_dir):

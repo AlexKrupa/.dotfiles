@@ -80,6 +80,9 @@ pub struct SubscribeArgs {
 pub enum Response {
     Events {
         events: Vec<RoutedEvent>,
+        /// The subscription ended with this delivery.
+        #[serde(default)]
+        ended: bool,
     },
     /// The text for stderr, with its newline.
     Error {

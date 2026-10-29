@@ -9,7 +9,7 @@ use crate::engine::event::EventKind;
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
     Hub,
-    // Format version 2 and older clients use the old name.
+    // Files of format version 2 and older, and older clients, name this mode `stack`.
     #[serde(alias = "stack")]
     Author,
     Review,
@@ -105,6 +105,11 @@ mod tests {
 
         assert!(!add_ended(&mut sub, &[merged(5)], &[5, 6]));
         assert!(add_ended(&mut sub, &[merged(6)], &[6]));
+    }
+
+    #[test]
+    fn stack_mode_reads_as_author() {
+        assert_eq!(serde_json::from_str::<Mode>(r#""stack""#).unwrap(), Mode::Author);
     }
 
     #[test]

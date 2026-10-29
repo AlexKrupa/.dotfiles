@@ -64,6 +64,9 @@ impl WatchArgs {
         if parsed.review && parsed.mrs.len() != 1 {
             return Err("--review needs exactly one --mr".to_string());
         }
+        if parsed.once && parsed.stream {
+            return Err("--stream does not work with --once".to_string());
+        }
         Ok(parsed)
     }
 }
@@ -76,7 +79,7 @@ struct Target {
 }
 
 /// A linked worktree, or the main checkout on a branch that is not the default branch.
-fn has_stack(top: &Path) -> bool {
+fn is_author_worktree(top: &Path) -> bool {
     let main = repo_of(top);
     if main.is_some() && main != top.canonicalize().ok() {
         return true;
@@ -108,7 +111,7 @@ fn target(args: &WatchArgs) -> Result<Target, String> {
     let mode = match (args.review, args.mrs.is_empty()) {
         (true, _) => Mode::Review,
         (false, false) => Mode::Author,
-        (false, true) if has_stack(&top) => Mode::Author,
+        (false, true) if is_author_worktree(&top) => Mode::Author,
         (false, true) => Mode::Hub,
     };
     let key_mode = match mode {
@@ -221,17 +224,18 @@ pub async fn watch(args: Vec<String>) -> i32 {
         };
         let (read, mut write) = stream.into_split();
         let mut reader = BufReader::new(read);
-        if send(&mut write, &envelope(Request::Subscribe(subscribe.clone())))
+        let sent = send(&mut write, &envelope(Request::Subscribe(subscribe.clone())))
             .await
-            .is_ok()
-        {
+            .is_ok();
+        // `--fresh` applies to the first subscribe only.
+        subscribe.fresh = false;
+        if sent {
             loop {
                 tokio::select! {
                     response = receive::<_, Response>(&mut reader) => match response {
-                        Ok(Some(response @ Response::Events { .. })) if args.stream => match deliver(response) {
+                        Ok(Some(response @ Response::Events { ended: false, .. })) if args.stream => match deliver(response) {
                             0 => {
                                 subscribe.again = false;
-                                subscribe.fresh = false;
                                 continue 'connection;
                             }
                             code => return code,
@@ -247,9 +251,8 @@ pub async fn watch(args: Vec<String>) -> i32 {
                 }
             }
         }
-        // The daemon closed the socket: `--fresh` applies to the first subscribe only.
+        // The daemon closed the socket.
         subscribe.again = true;
-        subscribe.fresh = false;
         if let Some(code) = orphaned(&parents, &target.top) {
             return code;
         }
@@ -269,7 +272,7 @@ fn orphaned(parents: &[u32], top: &Path) -> Option<i32> {
 
 fn deliver(response: Response) -> i32 {
     match response {
-        Response::Events { events } => {
+        Response::Events { events, .. } => {
             let lines: String = events
                 .iter()
                 .map(|event| serde_json::to_string(event).expect("an event serializes") + "\n")

@@ -584,12 +584,12 @@ fn open_item_keeps_its_row_in_a_second_delivery() {
 }
 
 #[test]
-fn unsubscribe_of_a_stack_items_go_to_the_hub() {
+fn unsubscribe_of_an_author_watch_items_go_to_the_hub() {
     author_rows().assert("unsubscribe of an author watch: items go to the hub");
 }
 
 #[test]
-fn ended_stack_items_go_to_the_hub() {
+fn ended_author_watch_items_go_to_the_hub() {
     author_end().assert("ended author watch: items go to the hub");
 }
 

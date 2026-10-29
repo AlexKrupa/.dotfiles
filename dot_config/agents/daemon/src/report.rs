@@ -610,7 +610,7 @@ mod tests {
     }
 
     #[test]
-    fn report_stack_mode_is_one_table_for_each_mr_with_title_and_url() {
+    fn report_author_mode_is_one_table_for_each_mr_with_title_and_url() {
         let delivery = vec![RoutedEvent {
             event: mr_event(EventKind::Approved, 5, "anna", "approved", "u"),
             row: 1,
@@ -632,7 +632,7 @@ Add bar (!6)"
     }
 
     #[test]
-    fn report_stack_mode_with_no_mr_list_has_a_table_for_each_known_mr() {
+    fn report_author_mode_with_no_mr_list_has_a_table_for_each_known_mr() {
         let delivery = vec![RoutedEvent {
             event: mr_event(EventKind::Approved, 5, "anna", "approved", "u"),
             row: 1,

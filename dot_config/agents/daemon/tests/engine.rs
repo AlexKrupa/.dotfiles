@@ -1779,7 +1779,7 @@ fn review_own_state_file() {
 }
 
 #[test]
-fn review_no_stack_state_file() {
+fn review_no_author_state_file() {
     review_pushes().assert("review: no author state file");
 }
 
