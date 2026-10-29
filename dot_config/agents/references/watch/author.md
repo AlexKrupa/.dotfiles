@@ -20,8 +20,9 @@ If the session is not idle, do not do an auto-fix.
 2. If there is no MR, tell it in one line and stop.
 3. Run the author mode watch command. It gets the events of all MRs of the worktree.
 
-After you handle the events, do "Start" again, not the restart command. A sync can delete a merged
-branch. Then the worktree can have no MR.
+After you handle the events, do not do "Start" again. The watch continues, and it also gets the
+events of an MR that the worktree gets later. If all MRs are merged or closed, `common.md` tells you
+to run the unsubscribe command. This also covers a sync that deletes a merged branch.
 
 ## Events
 

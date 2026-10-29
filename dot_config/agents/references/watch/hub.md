@@ -40,7 +40,8 @@ For each result with exit `0`, do these steps:
    - `close`: the rows that need nothing more.
    - `add`: a row with no event, as `{"section": "agent", "iid": <iid or null>, "what": "<text>",
      "result": "<text>"}`. The section `needs` opens an item that waits for the user.
-3. Start the watch again.
+
+The watch continues: do not start it again.
 
 A result of an action that comes after the report, for example of a background task, is an `add`
 row of the section `agent`. Run the report command with it, and output its stdout word for word.
