@@ -197,7 +197,8 @@
     "simple-english@simple-english": true,
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
-    "superpowers@local-pins": true
+    "superpowers@local-pins": true,
+    "watchd@local-pins": true
   },
   "extraKnownMarketplaces": {
     "respawn-tools": {
