@@ -157,14 +157,14 @@
       "fixture": "fixtures/fan-out.sh",
       "prompt": "/review-diff",
       "slow": true,
-      "expected_output": "23 files: dispatches the three review agents in one message, verifies and merges their findings, writes the report itself.",
+      "expected_output": "23 files: dispatches the four review agents in one message, verifies and merges their findings, writes the report itself.",
       "checks": [
         {"type": "report_name", "pattern": "^\\d{4}-\\d{2}-\\d{2}-feat-catalog-test-dev\\.md$", "text": "Report file is <date>-feat-catalog-test-dev.md"},
-        {"type": "parallel_agents", "min": 3, "text": "Dispatches at least 3 agents in one message"},
+        {"type": "parallel_agents", "min": 4, "text": "Dispatches at least 4 agents in one message"},
         {"type": "tool_count", "tool": "Agent|Task", "scope": "sub", "max": 0, "text": "Review agents dispatch no agents"},
         {"type": "tool_count", "tool": "Write|Edit|NotebookEdit", "scope": "sub", "max": 0, "text": "Review agents write no files"},
         {"type": "report_regex", "patterns": ["^- Convention docs consulted: .*CONTRIBUTING\\.md"], "text": "Convention docs line lists CONTRIBUTING.md"},
-        {"type": "finding", "file": "src/catalog/Paging\\.kt", "lines": [4, 4], "any": ["remainder", "partial", "round", "ceil", "last page", "division"], "text": "pageCount drops the last partial page (defect agent)"},
+        {"type": "finding", "file": "src/catalog/Paging\\.kt", "lines": [4, 4], "any": ["remainder", "partial", "round", "ceil", "last page", "division"], "text": "pageCount drops the last partial page (runtime agent)"},
         {"type": "finding", "file": "src/catalog/CatalogLog\\.kt", "lines": [3, 4], "any": ["CONTRIBUTING"], "text": "println cites CONTRIBUTING.md (docs agent)"},
         {"type": "finding", "file": "src/catalog/Strings\\.kt", "any": ["src/util/Text\\.kt"], "text": "clip() duplicates truncate() and cites src/util/Text.kt (structure agent)"}
       ]

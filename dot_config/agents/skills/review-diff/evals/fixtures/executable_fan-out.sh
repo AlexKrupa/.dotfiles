@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: fan-out.sh <repo-dir>
 # Branch `feat/catalog` vs `main` (with origin) with 23 changed files, so the skill must dispatch
-# its three review agents. One seeded defect per agent:
-#   defect:    src/catalog/Paging.kt:4     integer division drops the last partial page
+# its four review agents. One seeded defect per agent, except contract:
+#   runtime:   src/catalog/Paging.kt:4     integer division drops the last partial page
 #   docs:      src/catalog/CatalogLog.kt:4 println - violates CONTRIBUTING.md "Logging"
 #   structure: src/catalog/Strings.kt:3    `clip` duplicates `truncate` in src/util/Text.kt:4
 source "$(dirname "$0")/../../../../evals/fixture-lib.sh"

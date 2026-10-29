@@ -176,10 +176,10 @@ Count the files in the diffstat.
 
 **20 or fewer:** audit every checklist item yourself in one pass. Skip to "Audit checklist".
 
-**More than 20:** dispatch three review agents in parallel, in one message, then merge their output.
+**More than 20:** dispatch four review agents in parallel, in one message, then merge their output.
 Keep the context you already gathered - the agents do not re-run the helpers.
 
-### The three agents
+### The four agents
 
 Every agent prompt has the same preamble: the `parent` value, the `diff-command`, the diffstat, in
 the uncommitted scopes the untracked files to audit, and this instruction - "Read
@@ -187,11 +187,14 @@ the uncommitted scopes the untracked files to audit, and this instruction - "Rea
 named below. Return each finding in the report bullet format with its severity. No ids. Write no
 files."
 
-| Agent | Extra input | Checklist items |
-|---|---|---|
-| defect | the spec and plan paths, or none | Spec alignment, Correctness, Concurrency & data races, Error handling & edge cases, Tests, Security, Performance, Public API / contracts |
-| docs | the `docs-index.sh` output | Conventions & docs alignment, Docs & comments, Style & consistency, Dependencies |
-| structure | none | Simplicity (with its adjacent radius), Dead code, the "Existing implementations" search, and "High-impact changes" |
+Dispatch each agent with the `effort` value in the table.
+
+| Agent | Effort | Extra input | Checklist items |
+|---|---|---|---|
+| runtime | high | none | Correctness, Concurrency & data races, Error handling & edge cases, Performance |
+| contract | high | the spec and plan paths, or none | Spec alignment, Tests, Security, Public API / contracts |
+| docs | medium | the `docs-index.sh` output | Conventions & docs alignment, Docs & comments, Style & consistency, Dependencies |
+| structure | medium | none | Simplicity (with its adjacent radius), Dead code, the "Existing implementations" search, and "High-impact changes" |
 
 The docs agent also returns the docs it opened, for the `Convention docs consulted:` header line.
 Only the structure agent runs the repo-wide symbol search. It also returns the high-impact items in
