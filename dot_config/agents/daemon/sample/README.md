@@ -30,7 +30,7 @@ sample next                  # apply the next step
 sample back                  # replay from the reset to the step before
 sample status                # scenario, step, expect list, daemon PID and binary
 sample list                  # the scenarios and their steps, with a mark on the current step
-sample ui                    # the control pane: keys n next, p back, r reset, s select a step, q quit
+sample ui                    # the control pane: all steps, keys n next, p back, r reset, step number and Enter, q quit
 sample check [<scenario>]    # run the scenarios with no herdr and look for daemon errors
 ```
 

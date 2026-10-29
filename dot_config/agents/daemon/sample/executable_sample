@@ -20,8 +20,8 @@ usage: sample start                 build the test-support binary, start the tes
        sample back                  replay from the reset to the step before
        sample status                scenario, step, expect list, daemon PID and binary
        sample list                  the scenarios and their steps, with a mark on the current step
-       sample ui                    the control pane: keys n next, p back, r reset, s select a
-                                    step, q quit
+       sample ui                    the control pane: all steps, keys n next, p back, r reset,
+                                    step number and Enter, q quit
        sample check [<scenario>]    run the scenarios with no herdr and look for daemon errors
 EOF
   exit 2
@@ -222,42 +222,58 @@ check_scenario() { # check_scenario <scenario>
   done
 }
 
-# The list goes to stderr, so that the caller gets only the message on stdout.
-select_step() {
-  local targets=() folder scenario step index number
+all_steps() { # one line `<scenario> <step number> <step name>` for each step, in order
+  local folder scenario step index
   for folder in "$scenarios"/*/; do
     scenario=$(basename "$folder")
-    echo "$scenario" >&2
     index=0
     while IFS= read -r step; do
       index=$((index + 1))
-      targets+=("$scenario $index")
-      echo "  ${#targets[@]} $(basename "$step" | cut -d- -f2-)" >&2
+      echo "$scenario $index $(basename "$step" | cut -d- -f2-)"
     done < <(steps_of "$scenario")
   done
-  read -rp "step number: " number
-  if [[ $number =~ ^[0-9]+$ ]] && ((number >= 1 && number <= ${#targets[@]})); then
-    # shellcheck disable=SC2069,SC2086
-    "$0" run ${targets[number - 1]} 2>&1 >/dev/null
-  else
-    echo "no step $number"
-  fi
+}
+
+# The ui numbers all steps in one list, so that one number selects a scenario and a step.
+step_list() {
+  local current='' last='' count=0 scenario number name mark
+  if [ -s "$step_file" ]; then current=$(<"$step_file"); fi
+  while read -r scenario number name; do
+    count=$((count + 1))
+    if [ "$scenario" != "$last" ]; then echo "$scenario"; last=$scenario; fi
+    mark=' '
+    if [ "$scenario $number" = "$current" ]; then mark='*'; fi
+    printf '  %s %2d %s\n' "$mark" "$count" "$name"
+  done < <(all_steps)
 }
 
 # Each action runs in its own `sample` process, so that a failed step shows its error here.
 # A `clear` before each draw shows a blank screen while `status` runs. The ui draws over the old
 # text, and only when the text changed.
 ui() {
-  local key message='' scenario frame shown=''
+  local key message='' typed='' scenario number frame shown=''
   clear
   while :; do
-    frame="$("$0" status 2>&1 || true)"$'\n\n'"$message"$'\nkeys: n next, p back, r reset, s select, q quit'
+    frame="$(step_list)"$'\n\n'"$("$0" status 2>&1 || true)"$'\n\n'"$message"
+    frame+=$'\n'"keys: n next, p back, r reset, step number and Enter, q quit"$'\n'"step: $typed"
     if [ "$frame" != "$shown" ]; then
       printf '\033[H%s\033[K\033[J' "${frame//$'\n'/$'\033[K\n'}"
       shown=$frame
     fi
     read -rsn1 -t 2 key || continue
     case $key in
+      [0-9]) typed+=$key ;;
+      $'\177') typed=${typed%?} ;;
+      '')
+        [ -n "$typed" ] || continue
+        read -r scenario number _ < <(all_steps | awk -v n="$typed" 'NR == n') || true
+        if [ -n "$scenario" ]; then
+          message=$("$0" run "$scenario" "$number" 2>&1 >/dev/null) || true
+        else
+          message="no step $typed"
+        fi
+        typed=''
+        ;;
       n) message=$("$0" next 2>&1 >/dev/null) || true ;;
       p) message=$("$0" back 2>&1 >/dev/null) || true ;;
       r)
@@ -265,11 +281,6 @@ ui() {
           read -r scenario _ <"$step_file"
           message=$("$0" run "$scenario" 2>&1 >/dev/null) || true
         fi
-        ;;
-      s)
-        clear
-        message=$(select_step | tail -n 1) || true
-        shown=''
         ;;
       q) return 0 ;;
     esac
