@@ -1,7 +1,7 @@
 # Watch: Claude Code
 
 The runner file for Claude Code: how the session runs the watch command of the host file. The
-watch runs as a stream in the `Monitor` tool. The client does not exit for events, so a delivery
+watch runs as a stream in the `Monitor` tool. The client does not exit for events. Thus a delivery
 gives no "completed" message and needs no restart.
 
 ## Start
@@ -18,8 +18,8 @@ gives no "completed" message and needs no restart.
 
 - A notification of the monitor is one result with exit `0`: one JSON line for each event. Do the
   exit `0` action of `common.md`.
-- A rule tells you to start the watch again: the stream continues, so do not start it. First do
-  the checks of the rule, for example "Start" of `author.md`. If a check stops the watch, stop the
+- A rule tells you to start the watch again: the stream continues. Do not start it. First do the
+  checks of the rule, for example "Start" of `author.md`. If a check stops the watch, stop the
   monitor with `TaskStop`.
 - A rule tells you not to start the watch again: stop the monitor with `TaskStop`.
 - The monitor ended with exit `1` or `3`: do the action of that exit code in `common.md`.

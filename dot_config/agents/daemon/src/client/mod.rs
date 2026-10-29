@@ -251,7 +251,6 @@ pub async fn watch(args: Vec<String>) -> i32 {
                 }
             }
         }
-        // The daemon closed the socket.
         subscribe.again = true;
         if let Some(code) = orphaned(&parents, &target.top) {
             return code;

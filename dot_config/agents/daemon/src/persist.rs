@@ -3,8 +3,7 @@ use std::path::Path;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// Files with no `version` field, version 1, and version 2 files still load. Version 2 and older
-/// files name the author mode `stack`.
+/// Files with no `version` field, version 1, and version 2 files still load: their fields are the same.
 pub const FORMAT_VERSION: u32 = 3;
 
 #[derive(Serialize, Deserialize)]
