@@ -1,5 +1,0 @@
-#!/bin/sh
-# source hash: {{ output "sh" "-c" "cd \"$1\" && find . -type f | sort | xargs shasum | shasum" "sh" (joinPath .chezmoi.sourceDir "dot_config/agents/daemon/integrations/claude-code") }}
-command -v claude >/dev/null || exit 0
-claude plugin marketplace update local-pins || exit
-exec claude plugin update watchd@local-pins
