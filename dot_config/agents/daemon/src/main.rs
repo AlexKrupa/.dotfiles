@@ -19,7 +19,8 @@ enum Commands {
     },
     /// The daemon, which a client starts.
     Daemon,
-    /// Subscribe and wait: [--repo PATH] [--interval SECONDS] [--once] [--fresh] [--review] [--mr IID]...
+    /// Subscribe and wait: [--repo PATH] [--interval SECONDS] [--once] [--stream] [--fresh] [--review] [--mr IID]...
+    /// With --stream, the client prints each delivery and waits for the next one.
     #[command(disable_help_flag = true)]
     Watch {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]

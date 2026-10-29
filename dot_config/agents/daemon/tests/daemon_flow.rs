@@ -292,6 +292,28 @@ fn client_ends() -> &'static Checks {
     })
 }
 
+fn stream() -> &'static Checks {
+    static CHECKS: OnceLock<Checks> = OnceLock::new();
+    CHECKS.get_or_init(|| {
+        let w = Watchd::new();
+        let mut c = Checks::default();
+        let key = w.author_key();
+        w.events(&key, &[ev("pipeline", 5)]);
+        let client = w.start(w.watch_command(&["--stream", "--mr", "5"]));
+        wait_for(10, || w.log_count("subscribed: author") >= 2);
+        w.events(&key, &[ev("approved", 5)]);
+        wait_for(10, || w.log_count("subscribed: author") >= 3);
+        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
+        let run = client.wait(20).unwrap();
+        c.check(
+            "stream: one client gives the events of each delivery",
+            format!("1 {}\n{}", ev("pipeline", 5), ev("approved", 5)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
+        c
+    })
+}
+
 #[test]
 fn hub_event_comes_out_of_the_client_exit_0() {
     hub_client().assert("hub: event comes out of the client, exit 0");
@@ -424,6 +446,11 @@ fn client_parent_gone_client_stops() {
 
 const PULL_BLOCKED: &str = r#"{"kind":"pull-blocked","iid":null,"title":null,"url":"","actor":"","detail":"changes in tracked files","branch":"main","item":"pull:main"}"#;
 const DEFAULT_FAILED: &str = r#"{"kind":"default-failed","iid":null,"title":null,"url":"u/-/pipelines/88","actor":"","detail":"pipeline 88 failed","branch":"main","previous":"success","item":"main-failed:main"}"#;
+
+#[test]
+fn stream_one_client_gives_the_events_of_each_delivery() {
+    stream().assert("stream: one client gives the events of each delivery");
+}
 
 /// A hub subscription whose session stays, with no waiting client.
 fn live_hub(w: &Watchd) {

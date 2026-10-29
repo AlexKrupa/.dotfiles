@@ -17,6 +17,8 @@ Read this file, the host file, and the role file that the skill names. All files
   `gitlab.md` for GitLab. If the prompt or a wrapper skill names a different host file, use that
   file. If no host file agrees with the host, do not start the watch. Tell it in one line.
 - Role file: the events of the role, and the action for each event.
+- Agent tool file: how the agent tool runs the watch command and gives its results.
+  `claude-code.md` for Claude Code.
 
 | Role file     | Skill       | Watches                                                     |
 | ------------- | ----------- | ----------------------------------------------------------- |
@@ -27,8 +29,7 @@ Read this file, the host file, and the role file that the skill names. All files
 
 ## Task
 
-- The watch is a background Bash task (`run_in_background: true`). Use the watch command of the
-  host file for the role.
+- Run the watch command of the host file for the role, as the agent tool file tells.
 - A session has one watch task. If a watch task runs, do not start a new one. If it watches a
   different MR, tell it in one line.
 - If the user says "watch", start the watch. If the user says "stop watch", stop the task. Then run

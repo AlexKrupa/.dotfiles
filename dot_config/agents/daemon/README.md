@@ -64,7 +64,8 @@ The daemon makes no herdr calls.
 
 ## One watch
 
-A `watch` client keeps its socket connection open until it has events.
+A `watch` client keeps its socket connection open until it has events. With `--stream`, it prints
+the events and subscribes again in the same process.
 
 ```mermaid
 sequenceDiagram

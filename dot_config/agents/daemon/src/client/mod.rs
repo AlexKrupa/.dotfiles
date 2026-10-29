@@ -1,5 +1,5 @@
 //! The client commands, with the exit codes 0 for events, 1 for an error, and 3 when a new client
-//! or session replaced this one.
+//! or session replaced this one. A `watch --stream` client does not exit for events.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -29,6 +29,7 @@ struct WatchArgs {
     repo: Option<PathBuf>,
     interval: u64,
     once: bool,
+    stream: bool,
     fresh: bool,
     review: bool,
     mrs: Vec<u64>,
@@ -51,6 +52,7 @@ impl WatchArgs {
                         .ok_or("--interval needs seconds")?;
                 }
                 "--once" => parsed.once = true,
+                "--stream" => parsed.stream = true,
                 "--fresh" => parsed.fresh = true,
                 "--review" => parsed.review = true,
                 "--mr" => parsed
@@ -212,7 +214,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(3);
-    loop {
+    'connection: loop {
         let stream = match connect(&client, true).await {
             Ok(stream) => stream,
             Err(message) => return die(&message),
@@ -226,6 +228,14 @@ pub async fn watch(args: Vec<String>) -> i32 {
             loop {
                 tokio::select! {
                     response = receive::<_, Response>(&mut reader) => match response {
+                        Ok(Some(response @ Response::Events { .. })) if args.stream => match deliver(response) {
+                            0 => {
+                                subscribe.again = false;
+                                subscribe.fresh = false;
+                                continue 'connection;
+                            }
+                            code => return code,
+                        },
                         Ok(Some(response)) => return deliver(response),
                         Ok(None) | Err(_) => break,
                     },
