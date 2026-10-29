@@ -8,6 +8,7 @@
 # - Herdr: a label with the placeholder id, of a workspace that has a worktree of a branch.
 # - --title: after the turn of the calling Claude session, bin/herdr-after-turn.sh submits
 #   "/rename [<ticket-id>] <title>" in its pane. Outside Herdr, the script prints the command.
+# - Worktree directories: the names do not change. The calling Claude session runs in one of them.
 # A branch with an upstream stops the script before it changes anything, with a "pushed:" line
 # for each branch, and the MR URL when git-spice knows it. With --push, the script pushes each
 # new name and deletes the old remote branch.
