@@ -86,7 +86,7 @@ impl StateDirs {
         self.watchd.join(format!("items/{key}.retries"))
     }
 
-    /// The text of the newest report of the key, for `watchd board`.
+    /// The newest hub report of the key as JSON, for `watchd board`.
     pub fn board(&self, key: &str) -> PathBuf {
         self.watchd.join(format!("items/{key}.board"))
     }

@@ -32,6 +32,8 @@ pub struct Add {
     pub iid: Option<u64>,
     pub what: Option<String>,
     pub result: Option<String>,
+    /// The URL of a row with no MR, for example of a pipeline.
+    pub url: Option<String>,
 }
 
 /// A needs row opens an item, and an agent or info row is only in this report.
@@ -43,7 +45,7 @@ pub enum AddSection {
     Info,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, serde::Serialize)]
 pub enum RowSection {
     NeedsYou,
     Agent,
@@ -51,7 +53,7 @@ pub enum RowSection {
 }
 
 impl RowSection {
-    fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             RowSection::NeedsYou => "Needs you",
             RowSection::Agent => "Agent",
@@ -197,7 +199,7 @@ pub fn build_report(
                     owner: Owner::Model,
                     iid: add.iid,
                     title: mr.title,
-                    url: mr.url,
+                    url: add.url.clone().or(mr.url),
                     what: add.what.clone(),
                     result: Some(result),
                     since: Some(now),
@@ -214,7 +216,7 @@ pub fn build_report(
             section,
             iid: add.iid,
             title: mr.title,
-            url: mr.url,
+            url: add.url.clone().or(mr.url),
             event: None,
             what: add.what.clone(),
             result,
@@ -371,6 +373,11 @@ fn failed(event: &Event) -> String {
 }
 
 fn cell(text: &str) -> String {
+    short(text).replace('|', "\\|")
+}
+
+/// One line of 200 characters at most.
+pub(crate) fn short(text: &str) -> String {
     let mut one_line = String::new();
     let mut in_break = false;
     for char in text.chars() {
@@ -381,14 +388,13 @@ fn cell(text: &str) -> String {
         }
         in_break = char == '\r' || char == '\n';
     }
-    let cut = match one_line.chars().count() > 200 {
+    match one_line.chars().count() > 200 {
         true => one_line.chars().take(197).collect::<String>() + "...",
         false => one_line,
-    };
-    cut.replace('|', "\\|")
+    }
 }
 
-fn what(row: &Row) -> String {
+pub(crate) fn what(row: &Row) -> String {
     let since = match row.since {
         Some(time) => {
             let (hour, minute, _) = local_time(time);

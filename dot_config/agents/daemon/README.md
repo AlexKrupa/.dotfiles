@@ -161,6 +161,7 @@ each change, the task sends the `changed` signal, and the waiting connections re
 | `src/daemon/` | The main loop, the local round, the managed loops, the checks, the lock, the restart. `store.rs` writes the state files. |
 | `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
+| `src/board.rs` | The text of `watchd board`: one block for each row, with the URL of the comment, the MR, or the pipeline |
 | `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets |
 | `src/engine/` | The GitLab checks. `hub.rs` watches the project. `mrs.rs` watches the MRs of a worktree or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
 | `src/workspaces.rs` | The herdr calls: the board pane and the agent starts |
@@ -186,7 +187,7 @@ the worktree. A review key also has `-review-IID` at the end.
 | `watchd/inbox/KEY.jsonl` | Events that no client took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The open items of the key |
-| `watchd/items/KEY.board` | The newest hub report, for `watchd board` |
+| `watchd/items/KEY.board` | The newest hub report as JSON. `watchd board` draws it at the width of its pane. |
 | `watchd/items/KEY.retries` | The retry count of each failed job of the hub, as `<pipeline id>:<job name>` |
 | `watch-gitlab/KEY.json` | The engine state: what GitLab showed at the last check |
 

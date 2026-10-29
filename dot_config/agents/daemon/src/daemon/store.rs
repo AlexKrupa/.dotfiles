@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use crate::board::Board;
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
 use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
 use crate::core::subs::{Agent, Mode, add_ended};
@@ -18,7 +19,7 @@ use crate::engine::state::Need;
 use crate::key::is_worktree_key;
 use crate::local::repo_of;
 use crate::paths::StateDirs;
-use crate::persist::{Load, load, save};
+use crate::persist::{Load, load, save, write_json};
 use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
 use crate::protocol::{DebugState, SubStatus, SubscribeArgs};
 use crate::report::{ReportInput, build_report, render};
@@ -902,20 +903,16 @@ impl Store {
         let (items, data) = build_report(input, &items, delivery, &titles, now_seconds());
         save(&path, &items).map_err(|error| format!("report: {}: {error}", path.display()))?;
         let (hour, minute, _) = local_time(now_seconds());
-        let text = render(mode, &format!("{hour:02}:{minute:02}"), mrs, &data);
+        let time = format!("{hour:02}:{minute:02}");
+        let text = render(mode, &time, mrs, &data);
         if mode == Mode::Hub {
-            self.write_board(key, &text);
+            self.write_board(key, &Board::of(&time, &data));
         }
         Ok(text)
     }
 
-    pub fn write_board(&self, key: &str, text: &str) {
-        let path = self.dirs.board(key);
-        let mut temp = path.clone().into_os_string();
-        temp.push(".tmp");
-        // The rename keeps a `watchd board` reader from seeing a half-written file.
-        let written = std::fs::write(&temp, text).and_then(|()| std::fs::rename(&temp, &path));
-        if let Err(error) = written {
+    fn write_board(&self, key: &str, board: &Board) {
+        if let Err(error) = write_json(&self.dirs.board(key), board) {
             self.log("", key, &format!("board not written: {error}"));
         }
     }
@@ -1128,6 +1125,8 @@ mod tests {
 
         let text = store.report("app", Mode::Hub, &[], &ReportInput::default()).unwrap();
 
-        assert_eq!(std::fs::read_to_string(store.dirs.board("app")).unwrap(), text);
+        let board: Board = serde_json::from_str(&std::fs::read_to_string(store.dirs.board("app")).unwrap()).unwrap();
+        assert_eq!(board.time, text);
+        assert_eq!(board.rows, []);
     }
 }

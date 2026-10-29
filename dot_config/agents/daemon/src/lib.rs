@@ -1,3 +1,4 @@
+mod board;
 pub mod client;
 mod core;
 pub mod daemon;

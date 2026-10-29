@@ -173,6 +173,17 @@ pub fn local_time(seconds: i64) -> (i32, i32, i32) {
     (parts.tm_hour, parts.tm_min, parts.tm_sec)
 }
 
+/// The column count of the terminal of stdout.
+pub fn terminal_columns() -> Option<usize> {
+    // SAFETY: TIOCGWINSZ writes only to `size`.
+    let mut size: libc::winsize = unsafe { std::mem::zeroed() };
+    let result = unsafe { libc::ioctl(libc::STDOUT_FILENO, libc::TIOCGWINSZ, &mut size) };
+    match result == 0 && size.ws_col > 0 {
+        true => Some(usize::from(size.ws_col)),
+        false => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

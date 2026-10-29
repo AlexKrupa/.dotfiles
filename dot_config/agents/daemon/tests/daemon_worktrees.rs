@@ -609,7 +609,7 @@ fn hub_items() -> &'static Checks {
         wait_for(5, || w.client_is() != client);
         w.events(&key, &[comment(12, "comment:2")]);
         let board = || std::fs::read_to_string(w.watchd.join("items/app.board")).unwrap_or_default();
-        let drawn = wait_for(10, || board().contains(r#"@anna: "d""#));
+        let drawn = wait_for(10, || board().contains(r#"@anna: \"d\""#));
         c.check(
             "live hub: the item of a worktree with no agent goes to the board, not to the hub",
             "true true",

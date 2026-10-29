@@ -7,6 +7,7 @@ use std::time::Duration;
 use tokio::io::BufReader;
 use tokio::net::UnixStream;
 
+use crate::board::Board;
 use crate::core::eventlog::RouteAction;
 use crate::core::subs::Mode;
 use crate::core::worktrees::Kind;
@@ -15,7 +16,9 @@ use crate::engine::mr_number;
 use crate::key::{KeyMode, digits, repo_slug, watch_key, worktree_top};
 use crate::local::{git, repo_of, shared_refs};
 use crate::paths::{ClientDirs, StateDirs};
-use crate::platform::{ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached};
+use crate::platform::{
+    ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached, terminal_columns,
+};
 use crate::protocol::{Envelope, Request, Response, StatusReport, SubscribeArgs, receive, send};
 use crate::workspaces::workspaces_of;
 
@@ -470,7 +473,8 @@ pub async fn board(args: Vec<String>) -> i32 {
             loop {
                 draw_board(&path, &mut shown);
                 line.clear();
-                // The board also reads its file each second, because a report writes no log line.
+                // The board also reads its file and the pane width each second: a report writes no
+                // log line, and a resize sends no line.
                 tokio::select! {
                     read = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line) => match read {
                         Ok(0) | Err(_) => break,
@@ -485,15 +489,21 @@ pub async fn board(args: Vec<String>) -> i32 {
     }
 }
 
-fn draw_board(path: &Path, shown: &mut Option<String>) {
-    let text = std::fs::read_to_string(path).unwrap_or_else(|_| "No report yet.".to_string());
-    if shown.as_ref() == Some(&text) {
+fn draw_board(path: &Path, shown: &mut Option<(String, usize)>) {
+    let file = std::fs::read_to_string(path).unwrap_or_default();
+    let columns = terminal_columns().unwrap_or(80);
+    let state = (file, columns);
+    if shown.as_ref() == Some(&state) {
         return;
     }
+    let text = match serde_json::from_str::<Board>(&state.0) {
+        Ok(board) => board.draw(columns),
+        Err(_) => "No report yet.".to_string(),
+    };
     use std::io::Write;
     let mut stdout = std::io::stdout().lock();
-    let _ = writeln!(stdout, "\x1b[H\x1b[2J{}", text.trim_end()).and_then(|()| stdout.flush());
-    *shown = Some(text);
+    let _ = writeln!(stdout, "\x1b[H\x1b[2J{text}").and_then(|()| stdout.flush());
+    *shown = Some(state);
 }
 
 pub async fn status() -> i32 {

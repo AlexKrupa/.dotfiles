@@ -549,7 +549,8 @@ fn board_draws_the_board_file_again_after_a_change() {
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     let writer = std::thread::spawn(move || {
         support::daemon::sleep(2);
-        std::fs::write(file, "Hub 10:00\n\n1. first row\n").unwrap();
+        let row = r#"{"n": 1, "section": "Info", "iid": null, "title": null, "url": null, "what": "first row", "result": ""}"#;
+        std::fs::write(file, format!(r#"{{"time": "10:00", "rows": [{row}]}}"#)).unwrap();
     });
     let mut command = w.command();
     command.arg("board");
@@ -559,5 +560,11 @@ fn board_draws_the_board_file_again_after_a_change() {
 
     assert_eq!(run.code, 124, "{}", run.err);
     let drawn: Vec<&str> = run.out.split("\x1b[H\x1b[2J").filter(|text| !text.is_empty()).collect();
-    assert_eq!(drawn, ["No report yet.\n", "Hub 10:00\n\n1. first row"]);
+    assert_eq!(
+        drawn,
+        [
+            "No report yet.\n",
+            "\x1b[2m10:00\x1b[0m\n\n\x1b[1m\x1b[90mINFO\x1b[0m\n\x1b[1m1 \x1b[0m first row"
+        ]
+    );
 }

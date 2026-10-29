@@ -37,18 +37,26 @@ pub async fn retry(daemon: Arc<Daemon>, target: Target, retry: Retry) {
         };
         if count >= 2 {
             let text = format!("{branch}: job {name} failed 3 times (runner failure), stopped");
-            return add_row(&daemon, &target, text).await;
+            return add_row(&daemon, &target, text, &url).await;
         }
         let new = match daemon.engine.retry_job(target.repo.clone(), job.id).await {
             Ok(new) => new,
-            Err(error) => return add_row(&daemon, &target, format!("{branch}: job {name}: {}", error.message())).await,
+            Err(error) => {
+                return add_row(
+                    &daemon,
+                    &target,
+                    format!("{branch}: job {name}: {}", error.message()),
+                    &url,
+                )
+                .await;
+            }
         };
         {
             let _memory = daemon.lock().await;
             daemon.store.set_retry_count(&target.slug, &count_key, count + 1);
         }
         let text = format!("{branch}: job {name} retried (runner failure), {} of 2", count + 1);
-        add_row(&daemon, &target, text).await;
+        add_row(&daemon, &target, text, &url).await;
         let status = match wait(&daemon, &target, new.id).await {
             WaitEnd::Finished(status) => status,
             WaitEnd::Timeout => {
@@ -56,10 +64,13 @@ pub async fn retry(daemon: Arc<Daemon>, target: Target, retry: Retry) {
                     &daemon,
                     &target,
                     format!("{branch}: job {name} did not finish in 1 hour"),
+                    &url,
                 )
                 .await;
             }
-            WaitEnd::Failed(text) => return add_row(&daemon, &target, format!("{branch}: job {name}: {text}")).await,
+            WaitEnd::Failed(text) => {
+                return add_row(&daemon, &target, format!("{branch}: job {name}: {text}"), &url).await;
+            }
             WaitEnd::Stopped => return,
         };
         let failed = FailedJob {
@@ -68,10 +79,26 @@ pub async fn retry(daemon: Arc<Daemon>, target: Target, retry: Retry) {
             failure_reason: status.failure_reason,
         };
         match status.status.as_str() {
-            "success" => return add_row(&daemon, &target, format!("{branch}: job {name} passed after retry")).await,
+            "success" => {
+                return add_row(
+                    &daemon,
+                    &target,
+                    format!("{branch}: job {name} passed after retry"),
+                    &url,
+                )
+                .await;
+            }
             "failed" if is_runner_failure(&failed) => job = failed,
             "failed" => return ask_model(&daemon, &target, failed, &branch, pipeline, &url).await,
-            other => return add_row(&daemon, &target, format!("{branch}: job {name} {other} after retry")).await,
+            other => {
+                return add_row(
+                    &daemon,
+                    &target,
+                    format!("{branch}: job {name} {other} after retry"),
+                    &url,
+                )
+                .await;
+            }
         }
     }
 }
@@ -125,13 +152,14 @@ async fn wait(daemon: &Daemon, target: &Target, job_id: u64) -> WaitEnd {
     }
 }
 
-async fn add_row(daemon: &Daemon, target: &Target, text: String) {
+async fn add_row(daemon: &Daemon, target: &Target, text: String, url: &str) {
     let input = ReportInput {
         add: vec![Add {
             section: AddSection::Agent,
             iid: None,
             what: Some(text),
             result: None,
+            url: Some(url.to_string()),
         }],
         ..ReportInput::default()
     };
@@ -169,6 +197,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+    use crate::board::Board;
     use crate::core::subs::{Agent, Mode};
     use crate::daemon::store::Store;
     use crate::engine::fake::FakeEngine;
@@ -271,6 +300,10 @@ mod tests {
             ]
         );
         assert_eq!(setup.daemon.store.retry_count("app", "7:build"), 1);
+        let file = std::fs::read_to_string(setup.daemon.store.dirs.board("app")).unwrap();
+        let board: Board = serde_json::from_str(&file).unwrap();
+        let urls: Vec<Option<&str>> = board.rows.iter().map(|row| row.url.as_deref()).collect();
+        assert_eq!(urls, [Some("https://g/-/pipelines/7")]);
     }
 
     #[tokio::test]

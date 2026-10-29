@@ -135,6 +135,7 @@ fn stale_agents(ctx: &ExecuteContext<'_>, routing: &mut Routing, branch: &str) {
             iid: None,
             what: Some(format!("The bump agent of {old} is stale")),
             result: None,
+            url: None,
         });
     }
 }
@@ -337,7 +338,7 @@ mod tests {
             added,
             [
                 json!({"section": "agent", "iid": null, "what": "The bump agent of renovate/foo-1.x is stale",
-                    "result": null})
+                    "result": null, "url": null})
             ]
         );
     }
