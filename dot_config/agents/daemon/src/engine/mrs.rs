@@ -6,6 +6,7 @@ use super::event::{Event, EventKind, short};
 use super::state::{self, MrState, MrsState, Need, PipelineState};
 use super::{CheckContext, EngineError, add_jobs, all_ok, api_json, api_pages};
 use crate::glab::{self, Task, permission_for};
+use crate::nap::is_network_error;
 
 const MR_QUERY: &str = "query($path: ID!, $iid: String!) {
   currentUser { username }
@@ -267,7 +268,8 @@ pub async fn fetch_mr(ctx: &CheckContext, iid: u64) -> Result<MrData, EngineErro
     Ok(data)
 }
 
-/// On a GraphQL error, `glab` exits 1 with the body on stdout, and a new try gives the same error.
+/// On a GraphQL error, `glab` exits 1 with the body on stdout. A new try gives the same error, but not for a
+/// server fault.
 fn graphql_mr(
     output: std::io::Result<std::process::Output>,
     ctx: &CheckContext,
@@ -291,7 +293,11 @@ fn graphql_mr(
             .flatten()
             .filter_map(|error| error["message"].as_str())
             .collect();
-        return Err(EngineError::Permanent(format!("graphql: {}", messages.join("; "))));
+        let message = format!("graphql: {}", messages.join("; "));
+        return Err(match is_network_error(&String::from_utf8_lossy(&output.stderr)) {
+            true => EngineError::Network(message),
+            false => EngineError::Permanent(message),
+        });
     }
     if !output.status.success() {
         return Err(glab::classify("graphql", &output.stderr).into());

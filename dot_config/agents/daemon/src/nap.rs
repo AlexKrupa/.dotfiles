@@ -13,6 +13,8 @@ const NETWORK_ERRORS: &[&str] = &[
     "timed out",
     "Network is unreachable",
     "network is unreachable",
+    "Internal server error",
+    "HTTP 500",
     "HTTP 502",
     "HTTP 503",
     "HTTP 504",

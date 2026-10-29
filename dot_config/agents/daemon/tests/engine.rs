@@ -200,6 +200,8 @@ fn hub_basics() -> &'static Checks {
             run.err);
         env.set_env("MOCK_FAIL_MSG", "dial tcp: i/o timeout");
         c.check("network error: exit 4", 4, env.run(&[]).code);
+        env.set_env("MOCK_FAIL_MSG", "glab: 500 Internal Server Error (HTTP 500)");
+        c.check("HTTP 500: exit 4", 4, env.run(&[]).code);
         env.set_env("MOCK_FAIL_MSG", "something odd");
         c.check("other error: exit 1", 1, env.run(&[]).code);
         env.set_env("MOCK_FAIL_MSG", "HTTP 404 Not Found");
@@ -880,6 +882,8 @@ fn author_errors() -> &'static Checks {
         let run = env.run(&["--mr", "5"]);
         c.check("author: GraphQL error: exit 5", 5, run.code);
         c.check("author: GraphQL error: message", "watchd: graphql: Field 'awardEmoji' does not exist", run.err);
+        env.fixture("gql_5", r#"{"errors": [{"message": "Internal server error"}]}"#);
+        c.check("author: GraphQL server error: exit 4", 4, env.run(&["--mr", "5"]).code);
         c.check("author: bad MR: message", "watchd: --mr needs an MR number", env.run(&["--mr", "x"]).err);
         c.check("review: no --mr: message", "watchd: --review needs exactly one --mr", env.run(&["--review"]).err);
         c.check("review: two --mr: message", "watchd: --review needs exactly one --mr",
@@ -1340,6 +1344,11 @@ fn network_error_exit_4() {
 }
 
 #[test]
+fn http_500_exit_4() {
+    hub_basics().assert("HTTP 500: exit 4");
+}
+
+#[test]
 fn other_error_exit_1() {
     hub_basics().assert("other error: exit 1");
 }
@@ -1737,6 +1746,11 @@ fn author_graphql_error_exit_5() {
 #[test]
 fn author_graphql_error_message() {
     author_errors().assert("author: GraphQL error: message");
+}
+
+#[test]
+fn author_graphql_server_error_exit_4() {
+    author_errors().assert("author: GraphQL server error: exit 4");
 }
 
 #[test]
