@@ -103,7 +103,7 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
     items.items.retain(|item| {
         let other_mode = match mode {
             Mode::Hub => false,
-            Mode::Stack | Mode::Review => true,
+            Mode::Author | Mode::Review => true,
         };
         match item.owner {
             Owner::Model => true,

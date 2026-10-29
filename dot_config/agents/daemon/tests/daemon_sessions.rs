@@ -146,7 +146,7 @@ fn review_skip() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let review = format!("{}-review-5", w.stack_key());
+        let review = format!("{}-review-5", w.author_key());
         let repo = format!("--repo {}", w.env.repo.display());
         w.events(&review, &[ev("comment", 5)]);
         w.run(with_client_limit(w.watch_command(&["--review", "--mr", "5"])));
@@ -175,16 +175,16 @@ fn all_merged() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let stack = w.stack_key();
-        w.events(&stack, &[ev("pipeline", 5)]);
+        let author = w.author_key();
+        w.events(&author, &[ev("pipeline", 5)]);
         w.watch(&["--mr", "5"]);
-        w.events(&stack, &[ev("merged", 5)]);
-        wait_for(5, || !w.has_sub(&stack));
-        c.check("all MRs merged: subscription ends", "yes", w.sub_gone(&stack));
+        w.events(&author, &[ev("merged", 5)]);
+        wait_for(5, || !w.has_sub(&author));
+        c.check("all MRs merged: subscription ends", "yes", w.sub_gone(&author));
         c.check(
             "all MRs merged: inbox waits for the client",
             norm(&ev("merged", 5)),
-            w.inbox_of(&stack),
+            w.inbox_of(&author),
         );
         let run = w.watch(&["--mr", "5"]);
         c.check(
@@ -195,7 +195,7 @@ fn all_merged() -> &'static Checks {
         c.check(
             "all MRs merged: the client does not subscribe again",
             "yes",
-            w.sub_gone(&stack),
+            w.sub_gone(&author),
         );
         c
     })
@@ -233,7 +233,7 @@ fn smallest_interval() -> &'static Checks {
         let mut c = Checks::default();
         w.events("app", &[ev("todo", 5)]);
         w.watch(&["--interval", "600"]);
-        w.events(&w.stack_key(), &[ev("pipeline", 5)]);
+        w.events(&w.author_key(), &[ev("pipeline", 5)]);
         w.watch(&["--mr", "5"]);
         let before = w.rounds_of("app");
         c.check(
@@ -266,26 +266,26 @@ fn foreign_unsubscribe() -> &'static Checks {
     })
 }
 
-fn stack_mrs() -> &'static Checks {
+fn author_mrs() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let stack = w.stack_key();
-        w.events(&stack, &[ev("pipeline", 5)]);
+        let author = w.author_key();
+        w.events(&author, &[ev("pipeline", 5)]);
         w.watch(&["--mr", "5"]);
-        w.events(&stack, &[ev("pipeline", 6)]);
+        w.events(&author, &[ev("pipeline", 6)]);
         w.watch(&["--mr", "5", "--mr", "6"]);
         c.check(
-            "stack: a new MR list refreshes the subscription",
+            "author: a new MR list refreshes the subscription",
             "[5,6]",
-            w.sub_of(&stack)["mrs"].to_string(),
+            w.sub_of(&author)["mrs"].to_string(),
         );
         let hub = w.start(w.watch_command(&[]));
         wait_for(10, || w.rounds_of("app") >= 2);
         let repo = format!("--repo {}", w.env.repo.display());
         c.check(
-            "stack: hub does not skip a stack MR",
+            "author: hub does not skip an author MR",
             "yes no",
             format!(
                 "{} {}",
@@ -400,11 +400,11 @@ fn unsubscribe_of_a_different_session_exit_1_no_change() {
 }
 
 #[test]
-fn stack_a_new_mr_list_refreshes_the_subscription() {
-    stack_mrs().assert("stack: a new MR list refreshes the subscription");
+fn author_a_new_mr_list_refreshes_the_subscription() {
+    author_mrs().assert("author: a new MR list refreshes the subscription");
 }
 
 #[test]
-fn stack_hub_does_not_skip_a_stack_mr() {
-    stack_mrs().assert("stack: hub does not skip a stack MR");
+fn author_hub_does_not_skip_a_stack_mr() {
+    author_mrs().assert("author: hub does not skip an author MR");
 }

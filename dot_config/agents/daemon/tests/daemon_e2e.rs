@@ -57,7 +57,7 @@ fn review_and_hub() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::with_gitlab_engine();
         let mut c = Checks::default();
-        let review_key = format!("{}-review-5", w.stack_key());
+        let review_key = format!("{}-review-5", w.author_key());
         gql(&w, 5, |_| {});
         w.env.fixture(
             "events",
@@ -121,7 +121,7 @@ fn shared_fetch() -> &'static Checks {
         git(&["commit", "-q", "--allow-empty", "-m", "init"]);
         let app2 = w.env.dir.join("app2");
         git(&["worktree", "add", "-q", app2.to_str().unwrap()]);
-        let first = format!("{}-review-5", w.stack_key());
+        let first = format!("{}-review-5", w.author_key());
         let mut hasher = Command::new("shasum")
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
@@ -160,22 +160,22 @@ fn shared_fetch() -> &'static Checks {
     })
 }
 
-fn stack_pipeline() -> &'static Checks {
+fn author_pipeline() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let w = Watchd::with_gitlab_engine();
         let mut c = Checks::default();
         gql(&w, 5, |_| {});
-        let stack = w.start(w.watch_command(&["--mr", "5"]));
-        wait_for(10, || w.rounds_of(&w.stack_key()) >= 1);
+        let author = w.start(w.watch_command(&["--mr", "5"]));
+        wait_for(10, || w.rounds_of(&w.author_key()) >= 1);
         gql(&w, 5, |mr| {
             mr["headPipeline"] = json!({"id": "gid://gitlab/Ci::Pipeline/50", "status": "FAILED"})
         });
-        let stack = stack.wait(10).unwrap();
+        let author = author.wait(10).unwrap();
         c.check(
-            "e2e stack: real engine gives a pipeline event",
+            "e2e author: real engine gives a pipeline event",
             "0 pipeline 5 pipeline 50 failed",
-            format!("{} {}", stack.code, fields(&stack.out, &["kind", "iid", "detail"])),
+            format!("{} {}", author.code, fields(&author.out, &["kind", "iid", "detail"])),
         );
         c
     })
@@ -203,5 +203,5 @@ fn review_and_bump_on_the_same_mr_one_fetch_in_each_round() {
 
 #[test]
 fn e2e_stack_real_engine_gives_a_pipeline_event() {
-    stack_pipeline().assert("e2e stack: real engine gives a pipeline event");
+    author_pipeline().assert("e2e author: real engine gives a pipeline event");
 }

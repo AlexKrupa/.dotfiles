@@ -159,7 +159,7 @@ fn pushed(head: &str, old_base: &str, old_head: &str, new_base: &str) -> Line {
 
 const EMPTY_HUB: &str = r#"{"todos": []}"#;
 
-fn stack_key(env: &TestEnv) -> String {
+fn author_key(env: &TestEnv) -> String {
     format!("app-{}", env.worktree_hash())
 }
 
@@ -431,20 +431,20 @@ fn skip_mr() -> &'static Checks {
     })
 }
 
-fn stack_basics() -> &'static Checks {
+fn author_basics() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let mut env = TestEnv::new();
         let mut c = Checks::default();
-        let sstate = env.engine_state(&stack_key(&env));
+        let sstate = env.engine_state(&author_key(&env));
         let iid_calls = |env: &TestEnv| env.calls().lines().filter(|line| line.ends_with(" iid=5")).count();
 
         gql(&env, 5, plain);
         env.clear_calls();
         let run = env.run(&["--mr", "5"]);
-        c.check("stack: first check: exit 0", 0, run.code);
-        c.check("stack: first check: no events", "", run.out);
-        c.check("stack: own state file", "yes", yes_no(&sstate));
+        c.check("author: first check: exit 0", 0, run.code);
+        c.check("author: first check: no events", "", run.out);
+        c.check("author: own state file", "yes", yes_no(&sstate));
         let cache = env.dir.join("cache");
         std::fs::create_dir_all(&cache).unwrap();
         env.clear_calls();
@@ -476,19 +476,19 @@ fn stack_basics() -> &'static Checks {
 
         gql(&env, 5, pipeline(50, "FAILED"));
         c.check(
-            "stack: pipeline failed",
+            "author: pipeline failed",
             Line::sev("pipeline", 5, "", "pipeline 50 failed")
                 .item("pipeline:5")
                 .add("jobs", json!([]))
                 .add("failed", json!([])),
             env.run(&["--mr", "5"]).out,
         );
-        c.check("stack: same pipeline: no events", "", env.run(&["--mr", "5"]).out);
+        c.check("author: same pipeline: no events", "", env.run(&["--mr", "5"]).out);
         gql(&env, 5, pipeline(51, "RUNNING"));
-        c.check("stack: running pipeline: no events", "", env.run(&["--mr", "5"]).out);
+        c.check("author: running pipeline: no events", "", env.run(&["--mr", "5"]).out);
         gql(&env, 5, pipeline(51, "SUCCESS"));
         c.check(
-            "stack: pipeline passed, iid with !",
+            "author: pipeline passed, iid with !",
             Line::sev("pipeline", 5, "", "pipeline 51 passed"),
             env.run(&["--mr", "!5"]).out,
         );
@@ -511,21 +511,21 @@ fn stack_basics() -> &'static Checks {
 
         gql(&env, 5, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "anna"}]));
         c.check(
-            "stack: approved",
+            "author: approved",
             Line::sev("approved", 5, "anna", "approved"),
             env.run(&["--mr", "5"]).out,
         );
         gql(&env, 5, plain);
         c.check(
-            "stack: unapproved",
+            "author: unapproved",
             Line::sev("unapproved", 5, "anna", "approval removed"),
             env.run(&["--mr", "5"]).out,
         );
         gql(&env, 5, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "me"}]));
-        c.check("stack: own approval: no events", "", env.run(&["--mr", "5"]).out);
+        c.check("author: own approval: no events", "", env.run(&["--mr", "5"]).out);
         gql(&env, 5, plain);
         c.check(
-            "stack: own approval removed: no events",
+            "author: own approval removed: no events",
             "",
             env.run(&["--mr", "5"]).out,
         );
@@ -535,14 +535,14 @@ fn stack_basics() -> &'static Checks {
             mr["detailedMergeStatus"] = json!("CONFLICT");
         });
         c.check(
-            "stack: conflict",
+            "author: conflict",
             Line::sev("conflict", 5, "", "merge conflict").item("conflict:5"),
             env.run(&["--mr", "5"]).out,
         );
         gql(&env, 5, |mr| mr["detailedMergeStatus"] = json!("CHECKING"));
-        c.check("stack: transient status: no events", "", env.run(&["--mr", "5"]).out);
+        c.check("author: transient status: no events", "", env.run(&["--mr", "5"]).out);
         c.check(
-            "stack: transient status: old conflict value stays",
+            "author: transient status: old conflict value stays",
             "true",
             raw(&read_json(&sstate)["mrs"]["5"]["conflicts"]),
         );
@@ -553,7 +553,7 @@ fn stack_basics() -> &'static Checks {
         discussions(&env, 5, &[thread("", vec![note(99, "anna", "Nit", None)])]);
         let out = env.run(&["--mr", "5"]).out;
         c.check(
-            "stack: mergeable with open threads",
+            "author: mergeable with open threads",
             Line::sev("mergeable", 5, "", "now mergeable, 1 open thread(s)"),
             out.lines()
                 .filter(|line| line.contains(r#""mergeable""#))
@@ -564,7 +564,7 @@ fn stack_basics() -> &'static Checks {
     })
 }
 
-fn stack_comments() -> &'static Checks {
+fn author_comments() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let env = TestEnv::new();
@@ -573,13 +573,13 @@ fn stack_comments() -> &'static Checks {
         gql(&env, 5, plain);
         discussions(&env, 5, &[thread("", vec![note(100, "anna", "old", None)])]);
         c.check(
-            "stack: old comments of a new MR: no events",
+            "author: old comments of a new MR: no events",
             "",
             env.run(&["--mr", "5"]).out,
         );
         discussions(&env, 5, &[thread("", vec![note(100, "anna", "old", None), why()])]);
         c.check(
-            "stack: new comment and its thread",
+            "author: new comment and its thread",
             lines(&[
                 Line::sev("comment", 5, "anna", "Why not X?")
                     .note(101)
@@ -604,7 +604,7 @@ fn stack_comments() -> &'static Checks {
             )],
         );
         c.check(
-            "stack: own reply",
+            "author: own reply",
             Line::sev("own-comment", 5, "me", "Because Y.").note(102),
             env.run(&["--mr", "5"]).out,
         );
@@ -619,7 +619,7 @@ fn stack_comments() -> &'static Checks {
         );
         env.clear_calls();
         c.check(
-            "stack: resolved thread and system note: no unaddressed line for them",
+            "author: resolved thread and system note: no unaddressed line for them",
             lines(&[
                 Line::sev("comment", 5, "bob", "Done?").note(103).at("app/Foo.kt", 42),
                 Line::sev("comment", 5, "bob", "Typo")
@@ -641,7 +641,7 @@ fn stack_comments() -> &'static Checks {
             .filter(|id| !id.is_empty() && id.bytes().all(|byte| byte.is_ascii_digit()))
             .collect();
         c.check(
-            "stack: one reaction call for each comment, none for a system note",
+            "author: one reaction call for each comment, none for a system note",
             "103 104",
             reacted.into_iter().collect::<Vec<_>>().join(" "),
         );
@@ -649,7 +649,7 @@ fn stack_comments() -> &'static Checks {
     })
 }
 
-fn stack_reactions() -> &'static Checks {
+fn author_reactions() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let env = TestEnv::new();
@@ -664,7 +664,7 @@ fn stack_reactions() -> &'static Checks {
         );
         env.fixture("award_note_110", r#"[{"name": "tada", "user": {"username": "anna"}}]"#);
         c.check(
-            "stack: reactions on the MR and on an own comment, not own reactions",
+            "author: reactions on the MR and on an own comment, not own reactions",
             lines(&[
                 Line::sev("reaction", 5, "bob", ":thumbsup: on the MR"),
                 Line::sev("reaction", 5, "anna", ":tada: on your comment")
@@ -673,13 +673,13 @@ fn stack_reactions() -> &'static Checks {
             ]),
             env.run(&["--mr", "5"]).out,
         );
-        c.check("stack: same reactions: no events", "", env.run(&["--mr", "5"]).out);
+        c.check("author: same reactions: no events", "", env.run(&["--mr", "5"]).out);
         gql(&env, 5, |mr| {
             mr["state"] = json!("merged");
             mr["mergeUser"] = json!({"username": "anna"});
         });
         c.check(
-            "stack: merged",
+            "author: merged",
             Line::sev("merged", 5, "anna", "merged"),
             env.run(&["--mr", "5"]).out,
         );
@@ -697,7 +697,7 @@ fn after_change(env: &TestEnv, change: impl FnOnce(&mut Value), threads: Option<
     env.run(&["--mr", "5"]).out
 }
 
-fn stack_ends() -> &'static Checks {
+fn author_ends() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let mut c = Checks::default();
@@ -709,17 +709,17 @@ fn stack_ends() -> &'static Checks {
             }
         };
         c.check(
-            "stack: closed",
+            "author: closed",
             Line::sev("closed", 5, "anna", "closed"),
             after_change(&TestEnv::new(), closed, Some(&[system_note(120, "anna", "closed")])),
         );
         c.check(
-            "stack: own close",
+            "author: own close",
             Line::sev("closed", 5, "me", "closed").add("own", json!(true)),
             after_change(&TestEnv::new(), closed, Some(&[system_note(121, "me", "closed")])),
         );
         c.check(
-            "stack: own merge",
+            "author: own merge",
             Line::sev("merged", 5, "me", "merged").add("own", json!(true)),
             after_change(&TestEnv::new(), merged_by("me"), None),
         );
@@ -727,14 +727,14 @@ fn stack_ends() -> &'static Checks {
     })
 }
 
-fn stack_draft() -> &'static Checks {
+fn author_draft() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let env = TestEnv::new();
         let mut c = Checks::default();
         let draft = system_note(122, "anna", "marked this merge request as **draft**");
         c.check(
-            "stack: marked as draft",
+            "author: marked as draft",
             Line::sev("draft", 5, "anna", "marked as draft"),
             after_change(&env, |mr| mr["draft"] = json!(true), Some(std::slice::from_ref(&draft))),
         );
@@ -744,12 +744,12 @@ fn stack_draft() -> &'static Checks {
             5,
             &[draft, system_note(123, "me", "marked this merge request as **ready**")],
         );
-        c.check("stack: own ready: no events", "", env.run(&["--mr", "5"]).out);
+        c.check("author: own ready: no events", "", env.run(&["--mr", "5"]).out);
         env.run(&["--mr", "5"]);
         gql(&env, 5, |mr| mr["draft"] = json!(true));
         discussions(&env, 5, &[]);
         c.check(
-            "stack: draft with no system note",
+            "author: draft with no system note",
             Line::sev("draft", 5, "", "marked as draft"),
             env.run(&["--mr", "5"]).out,
         );
@@ -757,7 +757,7 @@ fn stack_draft() -> &'static Checks {
     })
 }
 
-fn stack_title() -> &'static Checks {
+fn author_title() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let env = TestEnv::new();
@@ -778,7 +778,7 @@ fn stack_title() -> &'static Checks {
         );
         let title = json!("Add foo and bar");
         c.check(
-            "stack: title, description, and labels changed",
+            "author: title, description, and labels changed",
             lines(&[
                 Line::sev("title", 5, "anna", "Add foo and bar").set("title", title.clone()),
                 Line::sev("description", 5, "anna", "description changed").set("title", title.clone()),
@@ -798,7 +798,7 @@ fn stack_title() -> &'static Checks {
             ],
         );
         c.check(
-            "stack: own title, description, and label changes: no events",
+            "author: own title, description, and label changes: no events",
             "",
             env.run(&["--mr", "5"]).out,
         );
@@ -806,7 +806,7 @@ fn stack_title() -> &'static Checks {
     })
 }
 
-fn stack_pages() -> &'static Checks {
+fn author_pages() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let mut c = Checks::default();
@@ -818,7 +818,7 @@ fn stack_pages() -> &'static Checks {
         gql(&env, 5, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "anna"}]));
         gql(&env, 6, |mr| mr["approvedBy"]["nodes"] = json!([{"username": "bob"}]));
         c.check(
-            "stack: two MRs in the order of the options",
+            "author: two MRs in the order of the options",
             lines(&[
                 Line::sev("approved", 6, "bob", "approved"),
                 Line::sev("approved", 5, "anna", "approved"),
@@ -835,7 +835,7 @@ fn stack_pages() -> &'static Checks {
             &json!([thread("", vec![note(121, "bob", "On page 2", None)])]).to_string(),
         );
         c.check(
-            "stack: comment on the second page of discussions",
+            "author: comment on the second page of discussions",
             lines(&[
                 Line::sev("comment", 5, "bob", "On page 2")
                     .note(121)
@@ -851,7 +851,7 @@ fn stack_pages() -> &'static Checks {
     })
 }
 
-fn stack_errors() -> &'static Checks {
+fn author_errors() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let mut env = TestEnv::new();
@@ -860,27 +860,27 @@ fn stack_errors() -> &'static Checks {
         env.fixture("mr_5", r#"{"user_notes_count": 2}"#);
         discussions(&env, 5, &[system_note(125, "anna", "added 1 commit")]);
         let run = env.run(&["--mr", "5"]);
-        c.check("stack: comments that the token cannot read: exit 5", 5, run.code);
-        c.check("stack: comments that the token cannot read: message",
+        c.check("author: comments that the token cannot read: exit 5", 5, run.code);
+        c.check("author: comments that the token cannot read: message",
             "watchd: MR !5 has 2 comment(s), but projects/group%2Fsub%2Fapp/merge_requests/5/discussions?per_page=100 gave none. The token needs the Read permission for Work Item (group or project boundary).",
             run.err);
         env.fixture("mr_5", "{}");
         env.set_env("MOCK_FAIL", "*/discussions*");
         env.set_env("MOCK_FAIL_MSG", "glab: 403 Forbidden (HTTP 403)");
-        c.check("stack: HTTP 403 on discussions: message",
+        c.check("author: HTTP 403 on discussions: message",
             "watchd: HTTP 403 on projects/group%2Fsub%2Fapp/merge_requests/5/discussions?per_page=100. The token needs the Read permission for Work Item (group or project boundary).",
             env.run(&["--mr", "5"]).err);
         env.remove_env("MOCK_FAIL");
         env.remove_env("MOCK_FAIL_MSG");
 
         let run = env.run(&["--mr", "7"]);
-        c.check("stack: unknown MR: exit 5", 5, run.code);
-        c.check("stack: unknown MR: message", "watchd: MR !7 not found in group/sub/app", run.err);
+        c.check("author: unknown MR: exit 5", 5, run.code);
+        c.check("author: unknown MR: message", "watchd: MR !7 not found in group/sub/app", run.err);
         env.fixture("gql_5", r#"{"errors": [{"message": "Field 'awardEmoji' does not exist"}]}"#);
         let run = env.run(&["--mr", "5"]);
-        c.check("stack: GraphQL error: exit 5", 5, run.code);
-        c.check("stack: GraphQL error: message", "watchd: graphql: Field 'awardEmoji' does not exist", run.err);
-        c.check("stack: bad MR: message", "watchd: --mr needs an MR number", env.run(&["--mr", "x"]).err);
+        c.check("author: GraphQL error: exit 5", 5, run.code);
+        c.check("author: GraphQL error: message", "watchd: graphql: Field 'awardEmoji' does not exist", run.err);
+        c.check("author: bad MR: message", "watchd: --mr needs an MR number", env.run(&["--mr", "x"]).err);
         c.check("review: no --mr: message", "watchd: --review needs exactly one --mr", env.run(&["--review"]).err);
         c.check("review: two --mr: message", "watchd: --review needs exactly one --mr",
             env.run(&["--review", "--mr", "5", "--mr", "6"]).err);
@@ -902,9 +902,9 @@ fn review_pushes() -> &'static Checks {
             yes_no(&env.engine_state(&review_key(&env))),
         );
         c.check(
-            "review: no stack state file",
+            "review: no author state file",
             "no",
-            yes_no(&env.engine_state(&stack_key(&env))),
+            yes_no(&env.engine_state(&author_key(&env))),
         );
         refs(&env, "b1", "h1");
         c.check(
@@ -937,7 +937,7 @@ fn review_pushes() -> &'static Checks {
     })
 }
 
-fn stack_push() -> &'static Checks {
+fn author_push() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let env = TestEnv::new();
@@ -946,7 +946,7 @@ fn stack_push() -> &'static Checks {
         refs(&env, "b1", "h1");
         env.run(&["--mr", "5"]);
         refs(&env, "b1", "h2");
-        c.check("stack: push: no events", "", env.run(&["--mr", "5"]).out);
+        c.check("author: push: no events", "", env.run(&["--mr", "5"]).out);
         c
     })
 }
@@ -1018,7 +1018,7 @@ fn review_threads() -> &'static Checks {
     })
 }
 
-fn stack_needs(change: impl FnOnce(&TestEnv), iids: &[&str]) -> String {
+fn author_needs(change: impl FnOnce(&TestEnv), iids: &[&str]) -> String {
     let env = TestEnv::new();
     change(&env);
     let mut args = Vec::new();
@@ -1026,7 +1026,7 @@ fn stack_needs(change: impl FnOnce(&TestEnv), iids: &[&str]) -> String {
         args.extend(["--mr", iid]);
     }
     env.run(&args);
-    field(&env.engine_state(&stack_key(&env)), "needs")
+    field(&env.engine_state(&author_key(&env)), "needs")
 }
 
 fn needs() -> &'static Checks {
@@ -1034,9 +1034,9 @@ fn needs() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let mut c = Checks::default();
         c.check(
-            "stack needs: failed pipeline and an open thread",
+            "author needs: failed pipeline and an open thread",
             r#"["failed","reply"]"#,
-            stack_needs(
+            author_needs(
                 |env| {
                     gql(env, 5, pipeline(60, "FAILED"));
                     discussions(env, 5, &[thread("", vec![note(150, "anna", "Nit", None)])]);
@@ -1046,37 +1046,37 @@ fn needs() -> &'static Checks {
         );
 
         let env = TestEnv::new();
-        let sstate = env.engine_state(&stack_key(&env));
+        let sstate = env.engine_state(&author_key(&env));
         gql(&env, 5, |mr| {
             mr["detailedMergeStatus"] = json!("MERGEABLE");
             mr["mergeable"] = json!(true);
         });
         env.run(&["--mr", "5"]);
         c.check(
-            "stack needs: mergeable MR is ready",
+            "author needs: mergeable MR is ready",
             r#"["ready"]"#,
             field(&sstate, "needs"),
         );
         gql(&env, 5, |mr| mr["detailedMergeStatus"] = json!("CHECKING"));
         env.run(&["--mr", "5"]);
         c.check(
-            "stack needs: a transient merge status keeps ready",
+            "author needs: a transient merge status keeps ready",
             r#"["ready"]"#,
             field(&sstate, "needs"),
         );
 
         c.check(
-            "stack needs: need_rebase is a conflict",
+            "author needs: need_rebase is a conflict",
             r#"["conflict"]"#,
-            stack_needs(
+            author_needs(
                 |env| gql(env, 5, |mr| mr["detailedMergeStatus"] = json!("NEED_REBASE")),
                 &["5"],
             ),
         );
         c.check(
-            "stack needs: worst over two MRs",
+            "author needs: worst over two MRs",
             r#"["failed","draft"]"#,
-            stack_needs(
+            author_needs(
                 |env| {
                     gql(env, 5, pipeline(61, "FAILED"));
                     gql(env, 6, |mr| mr["draft"] = json!(true));
@@ -1085,9 +1085,9 @@ fn needs() -> &'static Checks {
             ),
         );
         c.check(
-            "stack needs: a merged MR needs nothing",
+            "author needs: a merged MR needs nothing",
             "[]",
-            stack_needs(
+            author_needs(
                 |env| {
                     gql(env, 5, |mr| {
                         mr["state"] = json!("merged");
@@ -1139,9 +1139,9 @@ fn needs() -> &'static Checks {
         );
 
         c.check(
-            "stack needs: nothing",
+            "author needs: nothing",
             "[]",
-            stack_needs(|env| gql(env, 5, plain), &["5"]),
+            author_needs(|env| gql(env, 5, plain), &["5"]),
         );
         c
     })
@@ -1218,7 +1218,7 @@ fn present() -> &'static Checks {
         c.check("default passed: not present", "[]", field(&state, "present"));
 
         let env = TestEnv::new();
-        let sstate = env.engine_state(&stack_key(&env));
+        let sstate = env.engine_state(&author_key(&env));
         let old = || note(600, "anna", "old", None);
         let why = || note(601, "anna", "Why?", None);
         gql(&env, 5, plain);
@@ -1244,7 +1244,7 @@ fn present() -> &'static Checks {
         c.check("answered thread: not present", "[]", field(&sstate, "present"));
 
         let env = TestEnv::new();
-        let sstate = env.engine_state(&stack_key(&env));
+        let sstate = env.engine_state(&author_key(&env));
         gql(&env, 5, pipeline(62, "FAILED"));
         env.run(&["--mr", "5"]);
         c.check(
@@ -1278,7 +1278,7 @@ fn arguments() -> &'static Checks {
         env.run(&["--mr", "5"]);
         let run = env.run(&["--mr", "5", "--deadline", "1"]);
         c.check(
-            "stack: --deadline is unknown",
+            "author: --deadline is unknown",
             "1 watchd: unexpected argument: --deadline",
             format!("{} {}{}", run.code, run.out, run.err),
         );
@@ -1515,243 +1515,243 @@ fn skip_mr_only_the_review_request_and_opened() {
 }
 
 #[test]
-fn stack_first_check_exit_0() {
-    stack_basics().assert("stack: first check: exit 0");
+fn author_first_check_exit_0() {
+    author_basics().assert("author: first check: exit 0");
 }
 
 #[test]
-fn stack_first_check_no_events() {
-    stack_basics().assert("stack: first check: no events");
+fn author_first_check_no_events() {
+    author_basics().assert("author: first check: no events");
 }
 
 #[test]
-fn stack_own_state_file() {
-    stack_basics().assert("stack: own state file");
+fn author_own_state_file() {
+    author_basics().assert("author: own state file");
 }
 
 #[test]
 fn mr_cache_second_fetch_reads_the_cache() {
-    stack_basics().assert("MR cache: second fetch reads the cache");
+    author_basics().assert("MR cache: second fetch reads the cache");
 }
 
 #[test]
 fn mr_cache_file_written() {
-    stack_basics().assert("MR cache: file written");
+    author_basics().assert("MR cache: file written");
 }
 
 #[test]
 fn mr_cache_the_mr_of_a_different_project_is_not_read() {
-    stack_basics().assert("MR cache: the MR of a different project is not read");
+    author_basics().assert("MR cache: the MR of a different project is not read");
 }
 
 #[test]
-fn stack_pipeline_failed() {
-    stack_basics().assert("stack: pipeline failed");
+fn author_pipeline_failed() {
+    author_basics().assert("author: pipeline failed");
 }
 
 #[test]
-fn stack_same_pipeline_no_events() {
-    stack_basics().assert("stack: same pipeline: no events");
+fn author_same_pipeline_no_events() {
+    author_basics().assert("author: same pipeline: no events");
 }
 
 #[test]
-fn stack_running_pipeline_no_events() {
-    stack_basics().assert("stack: running pipeline: no events");
+fn author_running_pipeline_no_events() {
+    author_basics().assert("author: running pipeline: no events");
 }
 
 #[test]
-fn stack_pipeline_passed_iid_with() {
-    stack_basics().assert("stack: pipeline passed, iid with !");
+fn author_pipeline_passed_iid_with() {
+    author_basics().assert("author: pipeline passed, iid with !");
 }
 
 #[test]
 fn pipeline_failed_jobs() {
-    stack_basics().assert("pipeline failed: jobs");
+    author_basics().assert("pipeline failed: jobs");
 }
 
 #[test]
 fn pipeline_passed_no_jobs() {
-    stack_basics().assert("pipeline passed: no jobs");
+    author_basics().assert("pipeline passed: no jobs");
 }
 
 #[test]
-fn stack_approved() {
-    stack_basics().assert("stack: approved");
+fn author_approved() {
+    author_basics().assert("author: approved");
 }
 
 #[test]
-fn stack_unapproved() {
-    stack_basics().assert("stack: unapproved");
+fn author_unapproved() {
+    author_basics().assert("author: unapproved");
 }
 
 #[test]
-fn stack_own_approval_no_events() {
-    stack_basics().assert("stack: own approval: no events");
+fn author_own_approval_no_events() {
+    author_basics().assert("author: own approval: no events");
 }
 
 #[test]
-fn stack_own_approval_removed_no_events() {
-    stack_basics().assert("stack: own approval removed: no events");
+fn author_own_approval_removed_no_events() {
+    author_basics().assert("author: own approval removed: no events");
 }
 
 #[test]
-fn stack_conflict() {
-    stack_basics().assert("stack: conflict");
+fn author_conflict() {
+    author_basics().assert("author: conflict");
 }
 
 #[test]
-fn stack_transient_status_no_events() {
-    stack_basics().assert("stack: transient status: no events");
+fn author_transient_status_no_events() {
+    author_basics().assert("author: transient status: no events");
 }
 
 #[test]
-fn stack_transient_status_old_conflict_value_stays() {
-    stack_basics().assert("stack: transient status: old conflict value stays");
+fn author_transient_status_old_conflict_value_stays() {
+    author_basics().assert("author: transient status: old conflict value stays");
 }
 
 #[test]
-fn stack_mergeable_with_open_threads() {
-    stack_basics().assert("stack: mergeable with open threads");
+fn author_mergeable_with_open_threads() {
+    author_basics().assert("author: mergeable with open threads");
 }
 
 #[test]
-fn stack_old_comments_of_a_new_mr_no_events() {
-    stack_comments().assert("stack: old comments of a new MR: no events");
+fn author_old_comments_of_a_new_mr_no_events() {
+    author_comments().assert("author: old comments of a new MR: no events");
 }
 
 #[test]
-fn stack_new_comment_and_its_thread() {
-    stack_comments().assert("stack: new comment and its thread");
+fn author_new_comment_and_its_thread() {
+    author_comments().assert("author: new comment and its thread");
 }
 
 #[test]
-fn stack_own_reply() {
-    stack_comments().assert("stack: own reply");
+fn author_own_reply() {
+    author_comments().assert("author: own reply");
 }
 
 #[test]
-fn stack_resolved_thread_and_system_note_no_unaddressed_line_for_them() {
-    stack_comments().assert("stack: resolved thread and system note: no unaddressed line for them");
+fn author_resolved_thread_and_system_note_no_unaddressed_line_for_them() {
+    author_comments().assert("author: resolved thread and system note: no unaddressed line for them");
 }
 
 #[test]
-fn stack_one_reaction_call_for_each_comment_none_for_a_system_note() {
-    stack_comments().assert("stack: one reaction call for each comment, none for a system note");
+fn author_one_reaction_call_for_each_comment_none_for_a_system_note() {
+    author_comments().assert("author: one reaction call for each comment, none for a system note");
 }
 
 #[test]
-fn stack_reactions_on_the_mr_and_on_an_own_comment_not_own_reactions() {
-    stack_reactions().assert("stack: reactions on the MR and on an own comment, not own reactions");
+fn author_reactions_on_the_mr_and_on_an_own_comment_not_own_reactions() {
+    author_reactions().assert("author: reactions on the MR and on an own comment, not own reactions");
 }
 
 #[test]
-fn stack_same_reactions_no_events() {
-    stack_reactions().assert("stack: same reactions: no events");
+fn author_same_reactions_no_events() {
+    author_reactions().assert("author: same reactions: no events");
 }
 
 #[test]
-fn stack_merged() {
-    stack_reactions().assert("stack: merged");
+fn author_merged() {
+    author_reactions().assert("author: merged");
 }
 
 #[test]
-fn stack_closed() {
-    stack_ends().assert("stack: closed");
+fn author_closed() {
+    author_ends().assert("author: closed");
 }
 
 #[test]
-fn stack_own_close() {
-    stack_ends().assert("stack: own close");
+fn author_own_close() {
+    author_ends().assert("author: own close");
 }
 
 #[test]
-fn stack_own_merge() {
-    stack_ends().assert("stack: own merge");
+fn author_own_merge() {
+    author_ends().assert("author: own merge");
 }
 
 #[test]
-fn stack_marked_as_draft() {
-    stack_draft().assert("stack: marked as draft");
+fn author_marked_as_draft() {
+    author_draft().assert("author: marked as draft");
 }
 
 #[test]
-fn stack_own_ready_no_events() {
-    stack_draft().assert("stack: own ready: no events");
+fn author_own_ready_no_events() {
+    author_draft().assert("author: own ready: no events");
 }
 
 #[test]
-fn stack_draft_with_no_system_note() {
-    stack_draft().assert("stack: draft with no system note");
+fn author_draft_with_no_system_note() {
+    author_draft().assert("author: draft with no system note");
 }
 
 #[test]
-fn stack_title_description_and_labels_changed() {
-    stack_title().assert("stack: title, description, and labels changed");
+fn author_title_description_and_labels_changed() {
+    author_title().assert("author: title, description, and labels changed");
 }
 
 #[test]
-fn stack_own_title_description_and_label_changes_no_events() {
-    stack_title().assert("stack: own title, description, and label changes: no events");
+fn author_own_title_description_and_label_changes_no_events() {
+    author_title().assert("author: own title, description, and label changes: no events");
 }
 
 #[test]
-fn stack_two_mrs_in_the_order_of_the_options() {
-    stack_pages().assert("stack: two MRs in the order of the options");
+fn author_two_mrs_in_the_order_of_the_options() {
+    author_pages().assert("author: two MRs in the order of the options");
 }
 
 #[test]
-fn stack_comment_on_the_second_page_of_discussions() {
-    stack_pages().assert("stack: comment on the second page of discussions");
+fn author_comment_on_the_second_page_of_discussions() {
+    author_pages().assert("author: comment on the second page of discussions");
 }
 
 #[test]
-fn stack_comments_that_the_token_cannot_read_exit_5() {
-    stack_errors().assert("stack: comments that the token cannot read: exit 5");
+fn author_comments_that_the_token_cannot_read_exit_5() {
+    author_errors().assert("author: comments that the token cannot read: exit 5");
 }
 
 #[test]
-fn stack_comments_that_the_token_cannot_read_message() {
-    stack_errors().assert("stack: comments that the token cannot read: message");
+fn author_comments_that_the_token_cannot_read_message() {
+    author_errors().assert("author: comments that the token cannot read: message");
 }
 
 #[test]
-fn stack_http_403_on_discussions_message() {
-    stack_errors().assert("stack: HTTP 403 on discussions: message");
+fn author_http_403_on_discussions_message() {
+    author_errors().assert("author: HTTP 403 on discussions: message");
 }
 
 #[test]
-fn stack_unknown_mr_exit_5() {
-    stack_errors().assert("stack: unknown MR: exit 5");
+fn author_unknown_mr_exit_5() {
+    author_errors().assert("author: unknown MR: exit 5");
 }
 
 #[test]
-fn stack_unknown_mr_message() {
-    stack_errors().assert("stack: unknown MR: message");
+fn author_unknown_mr_message() {
+    author_errors().assert("author: unknown MR: message");
 }
 
 #[test]
-fn stack_graphql_error_exit_5() {
-    stack_errors().assert("stack: GraphQL error: exit 5");
+fn author_graphql_error_exit_5() {
+    author_errors().assert("author: GraphQL error: exit 5");
 }
 
 #[test]
-fn stack_graphql_error_message() {
-    stack_errors().assert("stack: GraphQL error: message");
+fn author_graphql_error_message() {
+    author_errors().assert("author: GraphQL error: message");
 }
 
 #[test]
-fn stack_bad_mr_message() {
-    stack_errors().assert("stack: bad MR: message");
+fn author_bad_mr_message() {
+    author_errors().assert("author: bad MR: message");
 }
 
 #[test]
 fn review_no_mr_message() {
-    stack_errors().assert("review: no --mr: message");
+    author_errors().assert("review: no --mr: message");
 }
 
 #[test]
 fn review_two_mr_message() {
-    stack_errors().assert("review: two --mr: message");
+    author_errors().assert("review: two --mr: message");
 }
 
 #[test]
@@ -1766,7 +1766,7 @@ fn review_own_state_file() {
 
 #[test]
 fn review_no_stack_state_file() {
-    review_pushes().assert("review: no stack state file");
+    review_pushes().assert("review: no author state file");
 }
 
 #[test]
@@ -1795,8 +1795,8 @@ fn review_fresh_new_state_saved() {
 }
 
 #[test]
-fn stack_push_no_events() {
-    stack_push().assert("stack: push: no events");
+fn author_push_no_events() {
+    author_push().assert("author: push: no events");
 }
 
 #[test]
@@ -1820,33 +1820,33 @@ fn review_unaddressed_only_for_threads_with_a_note_from_the_user() {
 }
 
 #[test]
-fn stack_needs_failed_pipeline_and_an_open_thread() {
-    needs().assert("stack needs: failed pipeline and an open thread");
+fn author_needs_failed_pipeline_and_an_open_thread() {
+    needs().assert("author needs: failed pipeline and an open thread");
 }
 
 #[test]
-fn stack_needs_mergeable_mr_is_ready() {
-    needs().assert("stack needs: mergeable MR is ready");
+fn author_needs_mergeable_mr_is_ready() {
+    needs().assert("author needs: mergeable MR is ready");
 }
 
 #[test]
-fn stack_needs_a_transient_merge_status_keeps_ready() {
-    needs().assert("stack needs: a transient merge status keeps ready");
+fn author_needs_a_transient_merge_status_keeps_ready() {
+    needs().assert("author needs: a transient merge status keeps ready");
 }
 
 #[test]
-fn stack_needs_need_rebase_is_a_conflict() {
-    needs().assert("stack needs: need_rebase is a conflict");
+fn author_needs_need_rebase_is_a_conflict() {
+    needs().assert("author needs: need_rebase is a conflict");
 }
 
 #[test]
-fn stack_needs_worst_over_two_mrs() {
-    needs().assert("stack needs: worst over two MRs");
+fn author_needs_worst_over_two_mrs() {
+    needs().assert("author needs: worst over two MRs");
 }
 
 #[test]
-fn stack_needs_a_merged_mr_needs_nothing() {
-    needs().assert("stack needs: a merged MR needs nothing");
+fn author_needs_a_merged_mr_needs_nothing() {
+    needs().assert("author needs: a merged MR needs nothing");
 }
 
 #[test]
@@ -1870,8 +1870,8 @@ fn hub_needs_pending_to_do_and_failed_default_pipeline() {
 }
 
 #[test]
-fn stack_needs_nothing() {
-    needs().assert("stack needs: nothing");
+fn author_needs_nothing() {
+    needs().assert("author needs: nothing");
 }
 
 #[test]
@@ -1955,8 +1955,8 @@ fn repo_from_a_different_folder_exit_0() {
 }
 
 #[test]
-fn stack_deadline_is_unknown() {
-    arguments().assert("stack: --deadline is unknown");
+fn author_deadline_is_unknown() {
+    arguments().assert("author: --deadline is unknown");
 }
 
 #[test]

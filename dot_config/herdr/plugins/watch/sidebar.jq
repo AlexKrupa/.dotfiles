@@ -13,7 +13,7 @@
 #
 # Pure: watch.sh does the reads and the herdr calls.
 
-def mode_kind: {stack: "mine", review: "review", hub: "hub"}[.mode] // "";
+def mode_kind: {author: "mine", review: "review", hub: "hub"}[.mode] // "";
 
 def ordered_unique: reduce .[] as $value ([]; if any(.[]; . == $value) then . else . + [$value] end);
 

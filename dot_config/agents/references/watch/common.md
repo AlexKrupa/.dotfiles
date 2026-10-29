@@ -21,7 +21,7 @@ Read this file, the host file, and the role file that the skill names. All files
 | Role file     | Skill       | Watches                                                     |
 | ------------- | ----------- | ----------------------------------------------------------- |
 | `hub.md`      | `hub`       | The project: to-do items, new MRs, comments, default branch |
-| `author.md`   | `draft-pr`  | The MRs of the stack of the user                            |
+| `author.md`   | `draft-pr`  | The MRs of the worktree of the user                         |
 | `reviewer.md` | `review-pr` | One MR of a different person, for its reviewer              |
 | `bump.md`     | `bump`      | One dependency bump MR                                      |
 

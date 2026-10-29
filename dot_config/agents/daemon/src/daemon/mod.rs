@@ -23,7 +23,7 @@ use crate::engine::router::retry::Retry;
 use crate::engine::router::{self, Facts, Routing};
 use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
-use crate::key::{is_worktree_key, repo_slug, stack_key};
+use crate::key::{author_key, is_worktree_key, repo_slug};
 use crate::local::{
     FETCH_TIMEOUT, FetchError, conflict, fast_forward, fetch, list_worktrees, repo_of, shared_refs, spice_log,
     worktree_key,
@@ -203,11 +203,11 @@ impl Daemon {
             review: target.mode == Mode::Review,
             mrs: match target.mode {
                 Mode::Hub => Vec::new(),
-                Mode::Stack | Mode::Review => target.mrs.clone(),
+                Mode::Author | Mode::Review => target.mrs.clone(),
             },
             skip_mrs: match target.mode {
                 Mode::Hub => skip,
-                Mode::Stack | Mode::Review => Vec::new(),
+                Mode::Author | Mode::Review => Vec::new(),
             },
             key: Some(target.key.clone()),
             lookup: None,
@@ -288,7 +288,7 @@ impl Daemon {
                 let facts = Facts {
                     worktree: match target.mode {
                         Mode::Hub => false,
-                        Mode::Stack | Mode::Review => true,
+                        Mode::Author | Mode::Review => true,
                     },
                     ..router::read_facts(&reviews, &events)
                 };
@@ -488,7 +488,7 @@ impl Daemon {
             .into_iter()
             .filter(|link| worktrees.iter().any(|state| state.path == link.worktree))
             .collect();
-        let key_of = |path: &Path| stack_key(slug, path).unwrap_or_default();
+        let key_of = |path: &Path| author_key(slug, path).unwrap_or_default();
         let targets = targets(repo, slug, &worktrees, &own, &reviews, &agents, &key_of);
         let mut skip = Vec::new();
         for target in targets.iter().filter(|target| target.mode == Mode::Review) {

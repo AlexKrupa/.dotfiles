@@ -1,7 +1,7 @@
 # Watch: author
 
-The role file of `draft-pr`: the stack mode for the MRs of the stack of the user. You fix small
-failures. During the watch, only trivial fixes are pushed.
+The role file of `draft-pr`: the author mode for the MRs of the worktree of the user. You fix
+small failures. During the watch, only trivial fixes are pushed.
 
 ## Idle session
 
@@ -18,7 +18,7 @@ If the session is not idle, do not do an auto-fix.
 1. Run `git-spice log short --all=false --json --no-prompt`. For each branch object with `change`,
    take `change.id`. A branch with no `change` has no MR yet.
 2. If there is no MR, tell it in one line and stop.
-3. Run the stack mode watch command. It gets the events of all MRs of the worktree.
+3. Run the author mode watch command. It gets the events of all MRs of the worktree.
 
 After you handle the events, do "Start" again, not the restart command. A sync can delete a merged
 branch. Then the worktree can have no MR.

@@ -24,7 +24,7 @@
 //! not give it. default-failed: iid and title are null, previous is the status of the saved
 //! default-branch pipeline or null, and jobs are the names of the failed jobs.
 //!
-//! Stack mode (--mr, one for each MR, `!` prefix allowed) watches the MRs of the stack of the user.
+//! Author mode (--mr, one for each MR, `!` prefix allowed) watches the MRs of a worktree.
 //! Review mode (--review and one --mr) watches one MR for its reviewer. Events of both modes:
 //!   kind                     when                                       except
 //!   pipeline                 the head pipeline failed or passed. A failed
@@ -65,7 +65,7 @@
 //!   conflict:<iid>           conflict                     the merge status of the open MR is
 //!                                                         conflict or need_rebase
 //!
-//! A stack watch has its own state for each worktree. A review watch has its own state for each MR.
+//! An author watch has its own state for each worktree. A review watch has its own state for each MR.
 //! Exit codes: 0 check done, 1 error, 4 network error, 5 permanent error (HTTP 401 or 403, a
 //! GraphQL error, an unknown MR, unreadable comments, no glab authentication).
 
@@ -74,8 +74,8 @@ pub mod event;
 pub mod fake;
 pub mod hub;
 pub mod lookup;
+pub mod mrs;
 pub mod router;
-pub mod stack;
 pub mod state;
 
 use std::path::{Path, PathBuf};
@@ -131,7 +131,7 @@ impl EngineArgs {
     fn key_mode(&self) -> KeyMode {
         match (self.review, self.mrs.first()) {
             (true, Some(iid)) => KeyMode::Review { iid: *iid },
-            (_, Some(_)) => KeyMode::Stack,
+            (_, Some(_)) => KeyMode::Author,
             (_, None) => KeyMode::Hub,
         }
     }
@@ -498,7 +498,7 @@ fn failed_pipeline(detail: &str) -> Option<&str> {
 pub async fn run_check(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     match ctx.args.mrs.is_empty() {
         true => hub::check_hub(ctx).await,
-        false => stack::check_stack(ctx).await,
+        false => mrs::check_mrs(ctx).await,
     }
 }
 

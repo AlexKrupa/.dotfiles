@@ -102,16 +102,16 @@ fn target(args: &WatchArgs) -> Result<Target, String> {
     }
     let top = worktree_top(&repo)?;
     let slug = repo_slug(&repo)?;
-    // A stack watch with no `--mr` waits for the events of all MRs of the worktree.
+    // An author watch with no `--mr` waits for the events of all MRs of the worktree.
     let mode = match (args.review, args.mrs.is_empty()) {
         (true, _) => Mode::Review,
-        (false, false) => Mode::Stack,
-        (false, true) if has_stack(&top) => Mode::Stack,
+        (false, false) => Mode::Author,
+        (false, true) if has_stack(&top) => Mode::Author,
         (false, true) => Mode::Hub,
     };
     let key_mode = match mode {
         Mode::Hub => KeyMode::Hub,
-        Mode::Stack => KeyMode::Stack,
+        Mode::Author => KeyMode::Author,
         Mode::Review => KeyMode::Review { iid: args.mrs[0] },
     };
     let key = watch_key(&top, &key_mode)?;

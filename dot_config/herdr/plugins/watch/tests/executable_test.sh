@@ -27,7 +27,7 @@ check() { # check <name> <expected> <actual>
 # line <round> <kind> <actor> <detail> [jq filter on the line]: one event line of the log.
 line() {
   jq -nc --arg r "$1" --arg k "$2" --arg a "$3" --arg dt "$4" --argjson t "$now" '{time: $t, round: $r,
-    type: "event", slug: "app", key: "app-x", mode: "stack",
+    type: "event", slug: "app", key: "app-x", mode: "author",
     event: {kind: $k, iid: 5, title: "Add retry banner to login", url: "u", actor: $a,
       detail: $dt, branch: "ABC-1/retry"},
     sound: (if $k | IN("comment", "todo", "note") then "request" else "none" end)}
@@ -232,7 +232,7 @@ check "opened: route in a later sweep gives the notification" \
 
 client "$tmp/t" kind mine
 jq -n --argjson pid $$ --argjson now "$(date +%s)" --arg repo "$tmp/t" '{key: "app-x", slug: "app",
-  repo: $repo, mode: "stack", mrs: [5], interval: 600, session_pid: $pid, client_pid: 0,
+  repo: $repo, mode: "author", mrs: [5], interval: 600, session_pid: $pid, client_pid: 0,
   client_at: $now, replaced_sessions: [], ended_mrs: []}' \
   >"$watchd/subs/app-x.json"
 echo '{"needs": ["failed", "reply"]}' >"$tmp/state/watch-gitlab/app-x.json"

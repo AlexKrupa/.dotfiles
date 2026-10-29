@@ -45,7 +45,7 @@ pub fn first_line(text: &str) -> &str {
 fn kind_of(mode: Mode) -> Kind {
     match mode {
         Mode::Hub => Kind::Hub,
-        Mode::Stack => Kind::Mine,
+        Mode::Author => Kind::Mine,
         Mode::Review => Kind::Review,
     }
 }
@@ -359,7 +359,7 @@ impl Store {
             let _ = std::fs::write(self.dirs.error(&sub.key), text);
             let title = match sub.mode {
                 Mode::Hub => None,
-                Mode::Stack | Mode::Review => sub.mrs.first().and_then(|iid| {
+                Mode::Author | Mode::Review => sub.mrs.first().and_then(|iid| {
                     let engine = self.engine_value(&sub.key)?;
                     engine["mrs"][iid.to_string()]["title"].as_str().map(str::to_string)
                 }),
@@ -369,7 +369,7 @@ impl Store {
         }
         let _ = std::fs::write(self.dirs.owner(&sub.key), format!("{}\n", sub.session_pid));
         match sub.mode {
-            Mode::Stack | Mode::Review => self.move_items(&sub.key, &sub.slug, None),
+            Mode::Author | Mode::Review => self.move_items(&sub.key, &sub.slug, None),
             Mode::Hub => {}
         }
         remove(&self.dirs.sub(&sub.key));
@@ -472,7 +472,7 @@ impl Store {
 
     pub fn assign(&self, target: &Target, events: Vec<Event>, now: i64) -> Vec<RoutedEvent> {
         let owner = match (self.live_agent(&target.key), target.mode) {
-            (false, Mode::Stack | Mode::Review) => {
+            (false, Mode::Author | Mode::Review) => {
                 // The items that an ended agent left in the file of the key.
                 self.move_items(&target.key, &target.slug, None);
                 &target.slug
@@ -513,7 +513,7 @@ impl Store {
     pub fn recipient(&self, target: &Target, routed: &[RoutedEvent]) -> Option<(String, Vec<RoutedEvent>)> {
         match (self.live_agent(&target.key), target.mode) {
             (true, _) => Some((target.key.clone(), routed.to_vec())),
-            (false, Mode::Stack | Mode::Review) if self.live_hub(&target.slug) => {
+            (false, Mode::Author | Mode::Review) if self.live_hub(&target.slug) => {
                 let items = routed
                     .iter()
                     .filter(|event| event.event.item.is_some())
@@ -636,7 +636,7 @@ impl Store {
         if let Ok(Some(mut items)) = self.read_json::<Items>(&path) {
             let hub = match target.mode {
                 Mode::Hub => None,
-                Mode::Stack | Mode::Review => self
+                Mode::Author | Mode::Review => self
                     .engine_value(&target.slug)
                     .and_then(|engine| strings(&engine["present"])),
             };
@@ -681,7 +681,7 @@ impl Store {
         }
         let worktree = self.worktrees().into_iter().find(|state| state.path == target.repo);
         if let Some(mut state) = worktree {
-            if target.mode == Mode::Stack {
+            if target.mode == Mode::Author {
                 state.ended.extend(&ended);
                 state.ended.sort_unstable();
                 state.ended.dedup();
@@ -833,7 +833,7 @@ impl Store {
             return Err(format!("the subscription {key} is of session {}", sub.session_pid));
         }
         match mode {
-            Mode::Stack | Mode::Review => self.move_items(key, slug, None),
+            Mode::Author | Mode::Review => self.move_items(key, slug, None),
             Mode::Hub => {}
         }
         for path in [

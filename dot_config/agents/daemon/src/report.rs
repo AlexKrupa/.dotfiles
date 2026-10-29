@@ -484,7 +484,7 @@ pub fn render(mode: Mode, time: &str, mrs: &[u64], data: &ReportData) -> String 
                 });
             }
         }
-        Mode::Stack | Mode::Review => {
+        Mode::Author | Mode::Review => {
             // A watch with no `--mr` list reports each MR that the check knows.
             let known: Vec<u64> = data.known.keys().copied().collect();
             let mrs = if mrs.is_empty() { known.as_slice() } else { mrs };
@@ -618,7 +618,7 @@ mod tests {
         let titles = BTreeMap::from([(5, "Add foo".to_string()), (6, "Add bar".to_string())]);
         let (_, data) = build_report(&input("{}"), &Items::default(), &delivery, &titles, 200);
         assert_eq!(
-            render(Mode::Stack, "10:00", &[5, 6], &data),
+            render(Mode::Author, "10:00", &[5, 6], &data),
             "10:00
 
 Add foo (!5) u
@@ -641,10 +641,10 @@ Add bar (!6)"
         let (_, data) = build_report(&input("{}"), &Items::default(), &delivery, &titles, 200);
 
         assert_eq!(
-            render(Mode::Stack, "10:00", &[], &data),
-            render(Mode::Stack, "10:00", &[5, 10], &data)
+            render(Mode::Author, "10:00", &[], &data),
+            render(Mode::Author, "10:00", &[5, 10], &data)
         );
-        assert_ne!(render(Mode::Stack, "10:00", &[], &data), "10:00");
+        assert_ne!(render(Mode::Author, "10:00", &[], &data), "10:00");
     }
 
     #[test]

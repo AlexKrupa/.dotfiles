@@ -72,12 +72,12 @@ fn log_and_worktrees() -> &'static Checks {
         drop(w);
 
         let w = Watchd::new();
-        let stack = w.stack_key();
-        w.events(&stack, &[ev("pipeline", 5)]);
+        let author = w.author_key();
+        w.events(&author, &[ev("pipeline", 5)]);
         w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
-        w.events(&stack, &[ev("merged", 5)]);
+        w.events(&author, &[ev("merged", 5)]);
         w.run(w.watch_command(&["--interval", "600", "--once", "--mr", "5"]));
-        wait_for(5, || !w.has_sub(&stack));
+        wait_for(5, || !w.has_sub(&author));
         c.check(
             "all MRs merged: worktree stage done",
             "done",
@@ -87,7 +87,7 @@ fn log_and_worktrees() -> &'static Checks {
         drop(w);
 
         let w = Watchd::new();
-        w.events(&w.stack_key(), &[ev("pipeline", 5)]);
+        w.events(&w.author_key(), &[ev("pipeline", 5)]);
         w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
         w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
         c.check(
@@ -111,13 +111,13 @@ fn log_and_worktrees() -> &'static Checks {
         drop(w);
 
         let w = Watchd::new();
-        let stack = w.stack_key();
-        w.fake(&stack, "state", r#"{"mrs": {"5": {"title": "Add foo"}}, "needs": []}"#);
-        w.fake(&stack, "exit", "5\n");
-        w.fake(&stack, "err", "watchd: HTTP 403 on graphql\n");
+        let author = w.author_key();
+        w.fake(&author, "state", r#"{"mrs": {"5": {"title": "Add foo"}}, "needs": []}"#);
+        w.fake(&author, "exit", "5\n");
+        w.fake(&author, "err", "watchd: HTTP 403 on graphql\n");
         w.watch(&["--mr", "5"]);
         c.check(
-            "permanent error of a stack: stopped line has the MR title",
+            "permanent error of an author watch: stopped line has the MR title",
             r#"["stopped","Add foo"]"#,
             fields(&w.log_last(), &["/type", "/title"]),
         );
@@ -151,7 +151,7 @@ fn log_and_worktrees() -> &'static Checks {
 
         let w = Watchd::new();
         write_work(&w, json!({"kind": "mine", "stage": "done"}));
-        w.events(&w.stack_key(), &[ev("pipeline", 5)]);
+        w.events(&w.author_key(), &[ev("pipeline", 5)]);
         w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
         let run = kind(&w, &w.env.repo, &["review"]);
         c.check(
@@ -164,15 +164,15 @@ fn log_and_worktrees() -> &'static Checks {
         drop(w);
 
         for (name, expected, review, args) in [
-            ("stack", "mine", false, &["--mr", "5"][..]),
+            ("author", "mine", false, &["--mr", "5"][..]),
             ("review", "review", true, &["--review", "--mr", "5"][..]),
             ("hub", "hub", false, &[][..]),
         ] {
             let w = Watchd::new();
             let key = match (review, args.is_empty()) {
-                (true, _) => format!("{}-review-5", w.stack_key()),
+                (true, _) => format!("{}-review-5", w.author_key()),
                 (false, true) => "app".to_string(),
-                (false, false) => w.stack_key(),
+                (false, false) => w.author_key(),
             };
             w.events(&key, &[ev("comment", 5)]);
             let mut watch_args = vec!["--interval", "600"];
@@ -193,7 +193,7 @@ fn log_and_worktrees() -> &'static Checks {
 
         let w = Watchd::new();
         write_work(&w, json!({"kind": "bump"}));
-        w.events(&w.stack_key(), &[ev("pipeline", 5)]);
+        w.events(&w.author_key(), &[ev("pipeline", 5)]);
         w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
         c.check(
             "subscribe keeps an existing kind",
@@ -418,7 +418,7 @@ fn permanent_error_stopped_line() {
 
 #[test]
 fn permanent_error_of_a_stack_stopped_line_has_the_mr_title() {
-    log_and_worktrees().assert("permanent error of a stack: stopped line has the MR title");
+    log_and_worktrees().assert("permanent error of an author watch: stopped line has the MR title");
 }
 
 #[test]
@@ -442,8 +442,8 @@ fn kind_during_a_live_watch_keeps_the_stage() {
 }
 
 #[test]
-fn subscribe_with_no_kind_sets_the_kind_of_the_mode_stack() {
-    log_and_worktrees().assert("subscribe with no kind sets the kind of the mode: stack");
+fn subscribe_with_no_kind_sets_the_kind_of_the_mode_author() {
+    log_and_worktrees().assert("subscribe with no kind sets the kind of the mode: author");
 }
 
 #[test]

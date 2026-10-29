@@ -369,7 +369,7 @@ impl Watchd {
         self.sub_of("app")["client_pid"].clone()
     }
 
-    pub fn stack_key(&self) -> String {
+    pub fn author_key(&self) -> String {
         format!("app-{}", self.env.worktree_hash())
     }
 

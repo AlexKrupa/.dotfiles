@@ -3,8 +3,9 @@ use std::path::Path;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// Files with no `version` field and version 1 files still load: their fields are the same.
-pub const FORMAT_VERSION: u32 = 2;
+/// Files with no `version` field, version 1, and version 2 files still load. Version 2 and older
+/// files name the author mode `stack`.
+pub const FORMAT_VERSION: u32 = 3;
 
 #[derive(Serialize, Deserialize)]
 pub struct Versioned<T> {
@@ -31,7 +32,7 @@ pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, String>
     let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| error.to_string())?;
     let loaded = match value.get("version") {
         None => Load::Converted(serde_json::from_value(value).map_err(|error| error.to_string())?),
-        Some(version) if *version == 1 => {
+        Some(version) if *version == 1 || *version == 2 => {
             let versioned: Versioned<T> = serde_json::from_value(value).map_err(|error| error.to_string())?;
             Load::Converted(versioned.data)
         }
@@ -67,7 +68,7 @@ pub fn write_json<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::subs::Agent;
+    use crate::core::subs::{Agent, Mode};
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("watchd-persist-{}-{name}", std::process::id()));
@@ -97,7 +98,7 @@ mod tests {
         save(&path, &sub).unwrap();
 
         let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.starts_with("{\n  \"version\": 2,\n"), "{text}");
+        assert!(text.starts_with("{\n  \"version\": 3,\n"), "{text}");
         assert!(matches!(load::<Agent>(&path).unwrap(), Some(Load::Current(loaded)) if loaded == sub));
     }
 
@@ -111,6 +112,19 @@ mod tests {
 
         let expected: Agent = serde_json::from_str(BASH_SUB).unwrap();
         assert!(matches!(loaded, Some(Load::Converted(sub)) if sub == expected));
+    }
+
+    #[test]
+    fn version_2_stack_record_loads_as_author() {
+        let path = scratch("version-2").join("app.json");
+        let versioned = BASH_SUB
+            .replacen('{', r#"{"version": 2, "#, 1)
+            .replace(r#""mode":"hub""#, r#""mode":"stack""#);
+        std::fs::write(&path, &versioned).unwrap();
+
+        let loaded = load::<Agent>(&path).unwrap();
+
+        assert!(matches!(loaded, Some(Load::Converted(sub)) if sub.mode == Mode::Author));
     }
 
     #[test]

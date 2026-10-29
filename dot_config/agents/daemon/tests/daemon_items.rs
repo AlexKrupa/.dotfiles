@@ -127,7 +127,7 @@ fn review_moves() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let review = format!("{}-review-5", w.stack_key());
+        let review = format!("{}-review-5", w.author_key());
         write_items(
             &w,
             "app",
@@ -169,7 +169,7 @@ fn review_unsubscribe() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let review = format!("{}-review-5", w.stack_key());
+        let review = format!("{}-review-5", w.author_key());
         write_items(
             &w,
             "app",
@@ -198,19 +198,19 @@ fn review_unsubscribe() -> &'static Checks {
     })
 }
 
-fn stack_rows() -> &'static Checks {
+fn author_rows() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let stack = w.stack_key();
-        w.fake(&stack, "state", r#"{"present": ["thread:d1"]}"#);
+        let author = w.author_key();
+        w.fake(&author, "state", r#"{"present": ["thread:d1"]}"#);
         w.events(
-            &stack,
+            &author,
             &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")],
         );
         let first = rows(&w.watch(&["--mr", "5"]).out);
-        w.events(&stack, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
+        w.events(&author, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
         let mut command = w.watch_command(&["--once", "--mr", "5"]);
         command.stderr(std::process::Stdio::null());
         let second = support::daemon::run_limited(command, &w.env.dir, 5);
@@ -221,32 +221,32 @@ fn stack_rows() -> &'static Checks {
         );
         w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
         c.check(
-            "unsubscribe of a stack: items go to the hub",
+            "unsubscribe of an author watch: items go to the hub",
             r#"["thread:d1"] yes"#,
-            format!("{} {}", item_keys(&w.items_of("app")), gone(&w.items_of(&stack))),
+            format!("{} {}", item_keys(&w.items_of("app")), gone(&w.items_of(&author))),
         );
         c
     })
 }
 
-fn stack_end() -> &'static Checks {
+fn author_end() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let stack = w.stack_key();
+        let author = w.author_key();
         let other = session();
-        w.fake(&stack, "state", r#"{"present": ["thread:d1"]}"#);
-        w.events(&stack, &[iev("comment", 5, "thread:d1")]);
+        w.fake(&author, "state", r#"{"present": ["thread:d1"]}"#);
+        w.events(&author, &[iev("comment", 5, "thread:d1")]);
         let mut command = w.watch_command(&["--mr", "5"]);
         command.env("WATCH_SESSION_PID", other.id().to_string());
         w.run(command);
         end(other);
-        wait_for(10, || w.items_of(&stack).is_null());
+        wait_for(10, || w.items_of(&author).is_null());
         c.check(
-            "ended stack: items go to the hub",
+            "ended author watch: items go to the hub",
             r#"["thread:d1"] yes"#,
-            format!("{} {}", item_keys(&w.items_of("app")), gone(&w.items_of(&stack))),
+            format!("{} {}", item_keys(&w.items_of("app")), gone(&w.items_of(&author))),
         );
         c
     })
@@ -376,16 +376,16 @@ fn work_report() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let stack = w.stack_key();
+        let author = w.author_key();
         let mrs = ["--mr", "123", "--mr", "124"];
-        w.fake(&stack, "state", r#"{"present": ["thread:d1", "thread:d2", "pipeline:123"]}"#);
-        w.events(&stack, &[work_event("comment", 124, "bob", "Is this flow cold?", Some("thread:d2"), None).to_string()]);
+        w.fake(&author, "state", r#"{"present": ["thread:d1", "thread:d2", "pipeline:123"]}"#);
+        w.events(&author, &[work_event("comment", 124, "bob", "Is this flow cold?", Some("thread:d2"), None).to_string()]);
         w.watch(&mrs);
         w.report(r#"{"cells": {"1": "Yes. Answer: it starts on the first collect."}}"#, &mrs);
         let question = "Why not rememberSaveable here?";
         let mut pipeline = work_event("pipeline", 123, "", "pipeline 7 failed", Some("pipeline:123"), None);
         pipeline["jobs"] = json!(["ktlint"]);
-        w.events(&stack, &[
+        w.events(&author, &[
             work_event("comment", 123, "anna", question, Some("thread:d1"), Some(("NoteEditor.kt", 42))).to_string(),
             work_event("unaddressed", 123, "anna", question, Some("thread:d1"), Some(("NoteEditor.kt", 42))).to_string(),
             pipeline.to_string(),
@@ -394,7 +394,7 @@ fn work_report() -> &'static Checks {
         w.watch(&mrs);
         let run = w.report(r#"{"cells": {"2": "Valid. Fix: replace the SavedStateHandle field",
             "3": "Formatted and pushed"}, "agent": ["3"]}"#, &mrs);
-        let items = w.items_of(&stack)["items"].as_array().cloned().unwrap_or_default();
+        let items = w.items_of(&author)["items"].as_array().cloned().unwrap_or_default();
         let since = items.iter().find(|item| item["n"] == 1).and_then(|item| item["since"].as_i64()).map_or(String::new(), local_time);
         c.check("report: work table, 2 MRs", format!("0
 Fix crash on rotation (!123) {MR_URL}/123
@@ -420,13 +420,13 @@ fn mr_with_no_rows() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let stack = w.stack_key();
+        let author = w.author_key();
         w.fake(
-            &stack,
+            &author,
             "state",
             r#"{"mrs": {"5": {"title": "Add foo"}, "6": {"title": "Add bar"}}, "present": []}"#,
         );
-        w.events(&stack, &[ev("approved", 5)]);
+        w.events(&author, &[ev("approved", 5)]);
         w.watch(&["--mr", "5", "--mr", "6"]);
         let run = w.report("{}", &["--mr", "5", "--mr", "6"]);
         c.check(
@@ -464,7 +464,7 @@ fn hub_items_stay() -> &'static Checks {
             "app",
             r#"{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#,
         );
-        w.events(&w.stack_key(), &[ev("approved", 5)]);
+        w.events(&w.author_key(), &[ev("approved", 5)]);
         w.watch(&["--mr", "5"]);
         w.local_rounds(2);
         c.check(
@@ -486,14 +486,14 @@ fn old_thread_since() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let stack = w.stack_key();
-        w.fake(&stack, "state", r#"{"present": ["thread:d1"]}"#);
+        let author = w.author_key();
+        w.fake(&author, "state", r#"{"present": ["thread:d1"]}"#);
         w.events(
-            &stack,
+            &author,
             &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")],
         );
         w.watch(&["--mr", "5"]);
-        w.events(&stack, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
+        w.events(&author, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
         w.watch(&["--mr", "5"]);
         let out = w.report("{}", &["--mr", "5"]).out;
         let since = out
@@ -580,17 +580,17 @@ fn unsubscribe_of_a_review_items_go_back_to_the_hub() {
 
 #[test]
 fn open_item_keeps_its_row_in_a_second_delivery() {
-    stack_rows().assert("open item keeps its row in a second delivery");
+    author_rows().assert("open item keeps its row in a second delivery");
 }
 
 #[test]
 fn unsubscribe_of_a_stack_items_go_to_the_hub() {
-    stack_rows().assert("unsubscribe of a stack: items go to the hub");
+    author_rows().assert("unsubscribe of an author watch: items go to the hub");
 }
 
 #[test]
 fn ended_stack_items_go_to_the_hub() {
-    stack_end().assert("ended stack: items go to the hub");
+    author_end().assert("ended author watch: items go to the hub");
 }
 
 #[test]

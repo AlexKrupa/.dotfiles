@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 use super::event::{Event, EventKind, short};
-use super::stack::{GqlEmoji, Username};
+use super::mrs::{GqlEmoji, Username};
 use super::state::{self, HubMrState, HubState, Need, OwnMr, PipelineState};
 use super::{CheckContext, EngineError, add_jobs, all_ok, api_json, api_pages, uri_encode};
 use crate::glab::{self, Task};

@@ -70,9 +70,9 @@ pub struct HubMrState {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct StackState {
+pub struct MrsState {
     #[serde(default)]
-    pub mrs: BTreeMap<String, StackMrState>,
+    pub mrs: BTreeMap<String, MrState>,
     #[serde(default)]
     pub needs: Vec<Need>,
     #[serde(default)]
@@ -81,7 +81,7 @@ pub struct StackState {
 
 /// A `null` value gives no event for its change.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct StackMrState {
+pub struct MrState {
     pub state: Option<String>,
     pub draft: Option<bool>,
     pub pipeline: Option<PipelineState>,
@@ -149,7 +149,7 @@ mod tests {
         save(&path, &state).unwrap();
 
         let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved["version"], 2);
+        assert_eq!(saved["version"], 3);
         assert_eq!(saved["todos"], serde_json::json!([4]));
         assert_eq!(saved["default_pipeline"], serde_json::Value::Null);
         let again: HubState = load(&path).unwrap().unwrap();

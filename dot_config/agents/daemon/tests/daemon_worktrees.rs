@@ -791,9 +791,9 @@ fn watch_with_no_mr_in_the_main_checkout_on_a_feature_branch_is_a_stack_watch() 
     w.env.git(&w.env.repo, &["switch", "-q", "-c", "feature"]);
 
     let _agent = w.start(w.watch_command(&[]));
-    let stack = wait_for(10, || w.has_sub(&w.stack_key()));
+    let author = wait_for(10, || w.has_sub(&w.author_key()));
 
-    assert!(stack, "no stack record of the main checkout: {}", w.log());
+    assert!(author, "no author record of the main checkout: {}", w.log());
     assert!(!w.has_sub("app"), "a hub record of the main checkout");
 }
 

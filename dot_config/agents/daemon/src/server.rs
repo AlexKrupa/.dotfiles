@@ -177,7 +177,7 @@ fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs, new: bool) -
     let own_round = memory.poked.get(key) == Some(&args.poke_token);
     if !args.once || ended || own_round {
         let filter = match args.mode {
-            Mode::Stack => args.mrs.as_slice(),
+            Mode::Author => args.mrs.as_slice(),
             Mode::Hub | Mode::Review => &[],
         };
         let mut events = daemon.store.take_inbox_of(key, filter);

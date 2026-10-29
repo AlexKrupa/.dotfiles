@@ -129,9 +129,9 @@ flowchart TB
   loop waits: 120 seconds with a live hub agent of the repo, 900 seconds with none. A live agent
   with a shorter `--interval` makes the wait shorter. A poke ends the wait early. After a network
   error or a system sleep, the loop waits for the network.
-- Targets: the hub (the project), each review link, the stack of each worktree and of each live
-  stack agent, and the own open MRs with no worktree (key `<slug>-own`). An MR is in one stack or
-  own target only.
+- Targets: the hub (the project), each review link, the MRs of each worktree and of each live
+  author agent, and the own open MRs with no worktree (key `<slug>-own`). An MR is in one author
+  or own target only.
 - MR lookup: for a branch with no git-spice MR, the loop asks GitLab for the open MR of the branch
   one time. A result is a review link.
 - Check: after a permanent error, or after 5 other errors in a row, the check ends the agent record
@@ -161,7 +161,7 @@ each change, the task sends the `changed` signal, and the waiting connections re
 | `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
 | `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets |
-| `src/engine/` | The GitLab checks. `hub.rs` watches the project. `stack.rs` watches the MRs of a stack or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
+| `src/engine/` | The GitLab checks. `hub.rs` watches the project. `mrs.rs` watches the MRs of a worktree or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
 | `src/workspaces.rs` | The herdr calls: the board pane and the agent starts |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
 | `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
@@ -170,8 +170,8 @@ each change, the task sends the `changed` signal, and the waiting connections re
 
 The base folder is `$XDG_STATE_HOME`, or `~/.local/state`. A client in a repo with
 `watchd.stateHome` uses the value of that key. Each agent record and each target has a
-key. A hub key is the repo slug (the short name of the repo). A stack key also has a hash of the
-worktree. A review key also has `-review-IID` at the end.
+key. A hub key is the repo slug (the short name of the repo). An author key also has a hash of
+the worktree. A review key also has `-review-IID` at the end.
 
 | Path | Content |
 | --- | --- |

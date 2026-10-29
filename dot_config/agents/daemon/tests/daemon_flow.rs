@@ -95,7 +95,7 @@ fn errors() -> &'static Checks {
             "no daemon",
             w.client(&["status"]).out.lines().next().unwrap_or_default().to_string(),
         );
-        w.events(&w.stack_key(), &[ev("pipeline", 5)]);
+        w.events(&w.author_key(), &[ev("pipeline", 5)]);
         let one = w.start(w.watch_command(&[]));
         let two = w.start(w.watch_command(&["--mr", "5"]));
         // A hub check with no hub record keeps no events: the event comes after the record.

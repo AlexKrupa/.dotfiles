@@ -9,7 +9,9 @@ use crate::engine::event::EventKind;
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
     Hub,
-    Stack,
+    // Format version 2 and older clients use the old name.
+    #[serde(alias = "stack")]
+    Author,
     Review,
 }
 
@@ -18,7 +20,7 @@ impl Mode {
     pub fn as_str(self) -> &'static str {
         match self {
             Mode::Hub => "hub",
-            Mode::Stack => "stack",
+            Mode::Author => "author",
             Mode::Review => "review",
         }
     }
@@ -70,7 +72,7 @@ mod tests {
             key: "app-1-review-5".to_string(),
             slug: "app".to_string(),
             repo: "/r".into(),
-            mode: Mode::Stack,
+            mode: Mode::Author,
             mrs,
             interval: 120,
             session_pid: 1,
@@ -107,7 +109,7 @@ mod tests {
 
     #[test]
     fn agent_record_has_the_fields_of_the_bash_client() {
-        let line = r#"{"key":"app-1-review-5","slug":"app","repo":"/r","mode":"stack","mrs":[5],"interval":120,"session_pid":1,"client_pid":2,"client_at":0,"replaced_sessions":[],"ended_mrs":[]}"#;
+        let line = r#"{"key":"app-1-review-5","slug":"app","repo":"/r","mode":"author","mrs":[5],"interval":120,"session_pid":1,"client_pid":2,"client_at":0,"replaced_sessions":[],"ended_mrs":[]}"#;
         let sub: Agent = serde_json::from_str(line).unwrap();
         assert_eq!(serde_json::to_string(&sub).unwrap(), line);
     }

@@ -39,7 +39,7 @@ pub struct WorktreeState {
     /// The end of the last agent.
     #[serde(default)]
     pub stage: Option<Stage>,
-    /// The needs-you values of the last check of each stack or review key, for the sidebar with no
+    /// The needs-you values of the last check of each author or review key, for the sidebar with no
     /// live agent.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub needs: BTreeMap<String, Vec<Need>>,
@@ -107,7 +107,7 @@ pub fn lookup_branch<'a>(state: &'a WorktreeState, default: Option<&str>, review
     }
 }
 
-/// An MR of a stack or own target is in no other target.
+/// An MR of an author or own target is in no other target.
 pub fn targets(
     repo: &Path,
     slug: &str,
@@ -146,7 +146,7 @@ pub fn targets(
         .iter()
         .map(|state| (key_of(&state.path), state.path.clone(), open(&state.mrs, &state.ended)))
         .collect();
-    for agent in agents.iter().filter(|agent| agent.mode == Mode::Stack) {
+    for agent in agents.iter().filter(|agent| agent.mode == Mode::Author) {
         let mrs = open(&agent.mrs, &agent.ended_mrs);
         match stacks.iter_mut().find(|(key, ..)| *key == agent.key) {
             Some((.., known)) => known.extend(mrs),
@@ -162,7 +162,7 @@ pub fn targets(
             }
         }
         if !left.is_empty() {
-            list.push(target(key, Mode::Stack, &folder, left));
+            list.push(target(key, Mode::Author, &folder, left));
         }
     }
     let own: Vec<u64> = own_mrs
@@ -171,7 +171,7 @@ pub fn targets(
         .filter(|iid| !taken.contains(iid))
         .collect();
     if !own.is_empty() {
-        list.push(target(format!("{slug}-own"), Mode::Stack, repo, own));
+        list.push(target(format!("{slug}-own"), Mode::Author, repo, own));
     }
     list
 }
@@ -399,8 +399,8 @@ mod tests {
             summary(&targets),
             [
                 row("app", Mode::Hub, "/r", &[]),
-                row("app-/r/a", Mode::Stack, "/r/a", &[12]),
-                row("app-/r/b", Mode::Stack, "/r/b", &[13, 14]),
+                row("app-/r/a", Mode::Author, "/r/a", &[12]),
+                row("app-/r/b", Mode::Author, "/r/b", &[13, 14]),
             ]
         );
         assert!(targets.iter().all(|target| target.slug == "app"));
@@ -416,7 +416,7 @@ mod tests {
             summary(&targets),
             [
                 row("app", Mode::Hub, "/r", &[]),
-                row("app-/r/b", Mode::Stack, "/r/b", &[14])
+                row("app-/r/b", Mode::Author, "/r/b", &[14])
             ]
         );
     }
@@ -460,8 +460,8 @@ mod tests {
             [
                 row("app", Mode::Hub, "/r", &[]),
                 row("app-/r/c-review-20", Mode::Review, "/r/c", &[20]),
-                row("app-/r/a", Mode::Stack, "/r/a", &[12]),
-                row("app-own", Mode::Stack, "/r", &[30]),
+                row("app-/r/a", Mode::Author, "/r/a", &[12]),
+                row("app-own", Mode::Author, "/r", &[30]),
             ]
         );
     }
@@ -533,8 +533,8 @@ mod tests {
     fn targets_have_the_mrs_of_a_live_agent() {
         let worktrees = [worktree("/r/a", &[12], &[])];
         let agents = [
-            agent("app-/r/a", Mode::Stack, "/r/a", &[12, 13, 9]),
-            agent("app-/r", Mode::Stack, "/r", &[5]),
+            agent("app-/r/a", Mode::Author, "/r/a", &[12, 13, 9]),
+            agent("app-/r", Mode::Author, "/r", &[5]),
             agent("app-/r/c-review-20", Mode::Review, "/r/c", &[20]),
             agent("app", Mode::Hub, "/r", &[]),
         ];
@@ -546,8 +546,8 @@ mod tests {
             [
                 row("app", Mode::Hub, "/r", &[]),
                 row("app-/r/c-review-20", Mode::Review, "/r/c", &[20]),
-                row("app-/r/a", Mode::Stack, "/r/a", &[12, 13]),
-                row("app-/r", Mode::Stack, "/r", &[5]),
+                row("app-/r/a", Mode::Author, "/r/a", &[12, 13]),
+                row("app-/r", Mode::Author, "/r", &[5]),
             ]
         );
     }

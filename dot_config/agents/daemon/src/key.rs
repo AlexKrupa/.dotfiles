@@ -7,7 +7,7 @@ use crate::platform::shasum12;
 
 pub enum KeyMode {
     Hub,
-    Stack,
+    Author,
     Review { iid: u64 },
 }
 
@@ -30,13 +30,13 @@ pub fn worktree_top(repo: &Path) -> Result<PathBuf, String> {
     Ok(PathBuf::from(top.trim_end()))
 }
 
-/// The worktree hash keeps the key of a stack watch apart from the hub watch of the same repo.
-pub fn stack_key(slug: &str, top: &Path) -> Result<String, String> {
+/// The worktree hash keeps the key of an author watch apart from the hub watch of the same repo.
+pub fn author_key(slug: &str, top: &Path) -> Result<String, String> {
     Ok(format!("{slug}-{}", shasum12(&top.to_string_lossy())?))
 }
 
-pub fn review_key(stack_key: &str, iid: u64) -> String {
-    format!("{stack_key}-review-{iid}")
+pub fn review_key(author: &str, iid: u64) -> String {
+    format!("{author}-review-{iid}")
 }
 
 pub fn digits(text: &str) -> bool {
@@ -59,8 +59,8 @@ pub fn watch_key(repo: &Path, mode: &KeyMode) -> Result<String, String> {
     let slug = repo_slug(repo)?;
     match mode {
         KeyMode::Hub => Ok(slug),
-        KeyMode::Stack => stack_key(&slug, &worktree_top(repo)?),
-        KeyMode::Review { iid } => Ok(review_key(&stack_key(&slug, &worktree_top(repo)?)?, *iid)),
+        KeyMode::Author => author_key(&slug, &worktree_top(repo)?),
+        KeyMode::Review { iid } => Ok(review_key(&author_key(&slug, &worktree_top(repo)?)?, *iid)),
     }
 }
 
@@ -104,12 +104,12 @@ mod tests {
     #[test]
     fn watch_key_is_the_slug_then_the_worktree_hash_then_the_reviewed_mr() {
         let repo = temp_repo("match");
-        let stack = format!("app-{}", hash(&repo));
+        let author = format!("app-{}", hash(&repo));
         assert_eq!(watch_key(&repo, &KeyMode::Hub).unwrap(), "app");
-        assert_eq!(watch_key(&repo, &KeyMode::Stack).unwrap(), stack);
+        assert_eq!(watch_key(&repo, &KeyMode::Author).unwrap(), author);
         assert_eq!(
             watch_key(&repo, &KeyMode::Review { iid: 5 }).unwrap(),
-            format!("{stack}-review-5")
+            format!("{author}-review-5")
         );
         std::fs::remove_dir_all(repo.parent().unwrap()).unwrap();
     }

@@ -66,7 +66,7 @@ put "$host/host.md" <<EOF
 
 | Function                              | Command                                             |
 | ------------------------------------- | --------------------------------------------------- |
-| Watch command, stack mode             | \`$host/watch --interval 120 --mr <iid>\`, with one \`--mr\` for each MR |
+| Watch command, author mode            | \`$host/watch --interval 120 --mr <iid>\`, with one \`--mr\` for each MR |
 | Restart command                       | The same watch command                              |
 | Logs of the failed jobs of a pipeline | \`$host/job-log <pipeline-id>\`                     |
 | Retry a job                           | \`$host/retry <job-id>\`                            |
