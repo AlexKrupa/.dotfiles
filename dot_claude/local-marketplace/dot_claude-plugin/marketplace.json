@@ -10,6 +10,11 @@
         "url": "https://github.com/obra/superpowers.git",
         "sha": "8ca22dba9a94f28898bbce59f2537ff4d87c747d"
       }
+    },
+    {
+      "name": "watchd",
+      "description": "Wakes Claude Code with the events of the watchd watch of the session",
+      "source": "./watchd"
     }
   ]
 }
