@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
-# Installs the selected agent skills globally into ~/.claude/skills/.
+# Usage: install-skills.sh <agent>
+# Installs the selected third-party skills globally for <agent>, a `skills` CLI agent name.
 # The skills CLI has no manifest file, so this script is the manifest.
 # Re-run it to reinstall on a new machine. Use `skills update` for upstream changes.
+# Exit codes: 0 ok, or no `skills` on PATH. 2 no <agent>.
 set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "usage: install-skills.sh <agent>" >&2
+  exit 2
+fi
+agent=$1
+
+command -v skills >/dev/null || exit 0
 
 # https://github.com/mattpocock/skills
 # grill-me only calls grilling.
-skills add mattpocock/skills --global --agent claude-code --yes \
+skills add mattpocock/skills --global --agent "$agent" --yes \
   --skill grilling \
   --skill grill-me
 
 # https://github.com/chrisbanes/skills
-skills add chrisbanes/skills --global --agent claude-code --yes \
+skills add chrisbanes/skills --global --agent "$agent" --yes \
   --skill kotlin-api-design \
   --skill kotlin-concurrency-and-flow \
   --skill kotlin-control-flow \
@@ -26,7 +36,7 @@ skills add chrisbanes/skills --global --agent claude-code --yes \
 # Untested: these skills are in nested directories (jetpack-compose/theming/styles). The flat
 # names can fail. The fallback is the Android CLI:
 #   android skills add --skill=r8-analyzer --project=.
-skills add android/skills --global --agent claude-code --yes \
+skills add android/skills --global --agent "$agent" --yes \
   --skill android-cli \
   --skill styles \
   --skill navigation-3 \
@@ -35,6 +45,6 @@ skills add android/skills --global --agent claude-code --yes \
   --skill testing-setup
 
 # https://github.com/gradle/gradle-skills
-skills add gradle/gradle-skills --global --agent claude-code --yes \
+skills add gradle/gradle-skills --global --agent "$agent" --yes \
   --skill gradle-best-practices \
   --skill gradle-wrapper-upgrade

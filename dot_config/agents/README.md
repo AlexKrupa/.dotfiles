@@ -1,13 +1,14 @@
 This directory contains the AI configuration: the agent instructions and the skills.
 
-`claude.sh` makes symlinks in `~/.claude/` to the files in this directory. After a sync, a change to
-these files changes the live behavior of Claude.
+`integrations/claude-code/install.sh` makes symlinks in `~/.claude/` to the files in this directory.
+After a sync, a change to these files changes the live behavior of Claude Code.
 
 ## Sync
 
-Start `./claude.sh` to create the symlinks, or to create them again. You can start it again with
-no risk. If `claude.sh` changes, or if you add or remove a skill folder, `chezmoi apply` runs it.
-For each entry, it shows one of these statuses:
+Start `integrations/claude-code/install.sh` to create the symlinks, or to create them again. You
+can start it again with no risk. If an integration file, the third-party skill list, or the set of
+skill folders changes, `chezmoi apply` runs each `integrations/*/install.sh`. For each entry, the
+script shows one of these statuses:
 
 - `linked`: the link is already correct.
 - `relinked`: the script moved a managed link to the current source.
@@ -19,7 +20,8 @@ After you add or rename a skill, start the script again.
 
 The script makes these links:
 
-- `instructions-agents.md` -> `~/.claude/CLAUDE.md` (the global instructions for all projects)
+- `integrations/claude-code/CLAUDE.md` -> `~/.claude/CLAUDE.md`. This file imports
+  `instructions-agents.md`, the global instructions for all projects.
 - `skills/*/` -> `~/.claude/skills/`
 
 The script does not make a symlink for `instructions-chat.md`. You paste it manually into the custom
@@ -27,12 +29,17 @@ instructions of an AI chat app.
 
 ## Third-party skills
 
-Start `./install-skills.sh` to install the third-party skills with the `skills` CLI. The script
-contains the list of these skills. If the script changes, `chezmoi apply` runs it. The first apply on
-a new machine also runs it.
+`install-skills.sh <agent>` installs the third-party skills for one agent with the `skills` CLI.
+The script contains the list of these skills. The installer of each integration runs it, so
+`chezmoi apply` runs it when the list changes. The first apply on a new machine also runs it.
 
 ## Layout
 
+The core is `instructions-agents.md`, `skills/`, `references/`, `bin/`, and `install-skills.sh`. It
+has no agent-specific text. A new agent is one new folder in `integrations/`.
+
+- `integrations/claude-code/` - the Claude Code integration: the installer `install.sh` and
+  `CLAUDE.md`, the Claude notes for the skills.
 - `skills/<name>/SKILL.md` - one skill for each folder. The skills are not in groups, because
   Claude Code finds skills only at this level. If only one skill uses a script, the script is in
   the folder of that skill, and `SKILL.md` calls it.
@@ -51,7 +58,7 @@ a new machine also runs it.
   herdr plugin `watch` reads its event log with `watchd follow`.
 - `bin/watch/watch-lib.sh` - the sleep, wake, and network rules of `skills/hub/hub-retry.sh`.
 - `references/` - the rules that two or more skills read by absolute path
-  (`~/.config/agents/references/...`). `claude.sh` does not make symlinks for them.
+  (`~/.config/agents/references/...`). The installers do not make symlinks for them.
 - `references/watch/` - the watch rules. `common.md` contains the shared rules. A host file
   (`gitlab.md`) contains the commands of a code host. Each skill has one role file with its events
   and actions.
