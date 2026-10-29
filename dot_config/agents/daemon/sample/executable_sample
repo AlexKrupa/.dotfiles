@@ -235,12 +235,17 @@ select_scenario() {
 }
 
 # Each action runs in its own `sample` process, so that a failed step shows its error here.
+# A `clear` before each draw shows a blank screen while `status` runs. The ui draws over the old
+# text, and only when the text changed.
 ui() {
-  local key message='' scenario
+  local key message='' scenario frame shown=''
+  clear
   while :; do
-    clear
-    "$0" status 2>&1 || true
-    printf '\n%s\nkeys: n next, p back, r reset, s select, q quit\n' "$message"
+    frame="$("$0" status 2>&1 || true)"$'\n\n'"$message"$'\nkeys: n next, p back, r reset, s select, q quit'
+    if [ "$frame" != "$shown" ]; then
+      printf '\033[H%s\033[K\033[J' "${frame//$'\n'/$'\033[K\n'}"
+      shown=$frame
+    fi
     read -rsn1 -t 2 key || continue
     case $key in
       n) message=$("$0" next 2>&1 >/dev/null) || true ;;
@@ -251,7 +256,11 @@ ui() {
           message=$("$0" run "$scenario" 2>&1 >/dev/null) || true
         fi
         ;;
-      s) message=$(select_scenario | tail -n 1) || true ;;
+      s)
+        clear
+        message=$(select_scenario | tail -n 1) || true
+        shown=''
+        ;;
       q) return 0 ;;
     esac
   done
