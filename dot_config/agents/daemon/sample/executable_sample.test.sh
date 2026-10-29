@@ -68,7 +68,7 @@ live_sub() {
   local key pid
   key=$(source "$here/lib.sh" && key_of "$1")
   pid=$(cd "$SAMPLE_ROOT/repo" && "$SAMPLE_ROOT/bin/watchd" debug state \
-    | jq -r --arg key "$key" '.subs[$key].session_pid // empty')
+    | jq -r --arg key "$key" '.subs[$key].session // empty')
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo yes; else echo no; fi
 }
 "$sample" run branch >/dev/null && "$sample" next >/dev/null

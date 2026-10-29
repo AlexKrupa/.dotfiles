@@ -1,3 +1,3 @@
 - Sidebar: the `feature` workspace shows the needs `failed,reply`.
 - Notification: "@anna commented" and "pipeline failed" for MR 5.
-- Agent pane: the two event lines as JSON, then a new `watchd watch`.
+- Agent pane: the two event lines as JSON. Then the loop runs `watchd wait` again.

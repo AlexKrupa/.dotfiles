@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# A fake agent session of `sample`: `watchd watch` again and again, until a watch fails, a new
-# client replaces it, or the daemon ends the agent record.
+# A fake agent session of `sample`: one `watchd watch --session`, then `watchd wait --session` again
+# and again, until a wait fails, the session has no watch, or a new watch replaces it. An agent
+# with no plugin can use watchd in this way.
 # Usage: agent-loop <worktree> <pid file> [<watch argument>...]
 set -u
 
@@ -11,19 +12,22 @@ shift 2
 echo "$$" >"$pid_file"
 trap 'rm -f "$pid_file"' EXIT
 cd "$worktree" || exit 1
-# The agent record ends with this process, as it ends with a Claude Code process.
-export WATCH_SESSION_PID=$$
-echo "agent loop in $worktree: watchd watch $*"
-own_record() {
-  "$watchd" debug state | jq -e --argjson pid "$$" 'any(.subs[]; .session_pid == $pid)' >/dev/null
-}
-code=0
-while [ "$code" = 0 ]; do
-  "$watchd" watch "$@"
+echo "agent loop in $worktree: watchd watch --session $$ $*"
+"$watchd" watch --session "$$" "$@" || { echo "watchd watch: exit $?, the agent loop stops"; exit 1; }
+while true; do
+  events=$("$watchd" wait --session "$$" --owner-pid "$$")
   code=$?
-  if [ "$code" = 0 ] && ! own_record; then
-    echo "the daemon ended the agent record, the agent loop stops"
+  [ -z "$events" ] || echo "$events"
+  if [ "$code" != 0 ]; then
+    echo "watchd wait: exit $code, the agent loop stops"
+    exit 1
+  fi
+  if [ -z "$events" ]; then
+    echo "watchd wait: no events and no error, the session has no watch, the agent loop stops"
+    exit 0
+  fi
+  if jq -e 'select(.kind == "replaced")' <<<"$events" >/dev/null; then
+    echo "watchd wait: a new watch replaced this one, the agent loop stops"
     exit 0
   fi
 done
-echo "watchd watch: exit $code, the agent loop stops"

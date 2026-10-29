@@ -1,3 +1,3 @@
 - Sidebar: a `review-7` workspace below `repo`, with the kind `review` and the stage "watching".
-- Agent pane: `agent loop in .../repo-review: watchd watch --review --mr 7`.
+- Agent pane: `agent loop in .../repo-review: watchd watch --session <PID> --review --mr 7`.
 - `watchd status` in the repo: one live agent record in the mode `review` with MR 7.

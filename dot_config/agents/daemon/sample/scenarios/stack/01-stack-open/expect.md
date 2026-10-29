@@ -1,3 +1,3 @@
 - Sidebar: a `feature-b` workspace below `repo`, with the stage "watching" and the stack token.
-- Agent pane: `agent loop in .../repo-stack: watchd watch`.
+- Agent pane: `agent loop in .../repo-stack: watchd watch --session <PID>`.
 - `watchd status` in the repo: one live agent record with MRs 3 and 4.

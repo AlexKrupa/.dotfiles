@@ -176,7 +176,7 @@ agent_live() { # agent_live <role>: the agent record of the role has the session
   local pid key
   pid=$(cat "$agents/$1.pid" 2>/dev/null) && key=$(key_of "$1") || return 1
   [ "$(cd "$repo" && "$watchd" debug state \
-    | jq -r --arg key "$key" '.subs[$key].session_pid // empty')" = "$pid" ]
+    | jq -r --arg key "$key" '.subs[$key].session // empty')" = "$pid" ]
 }
 
 agent_stop() { # agent_stop <role>: ends the agent session, the workspace stays
