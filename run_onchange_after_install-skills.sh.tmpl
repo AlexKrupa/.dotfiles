@@ -1,4 +1,0 @@
-#!/bin/sh
-# source hash: {{ include "dot_config/agents/executable_install-skills.sh" | sha256sum }}
-command -v skills >/dev/null || exit 0
-exec "$HOME/.config/agents/install-skills.sh"
