@@ -283,6 +283,25 @@ fn the_owner_ends_the_waiter_exits_0() {
 }
 
 #[test]
+fn the_owner_ends_the_events_stay_in_the_inbox() {
+    let w = Watchd::new();
+    assert_eq!(w.watch(&[]).code, 0);
+    let owner = session();
+    let mut command = w.as_session(w.wait_command(), &w.session_id(), owner.id());
+    command.env("WATCH_CLIENT_TICK", "5");
+    let waiter = w.start(command);
+    let connected = wait_for(10, || w.waiting(&w.session_id()));
+
+    end(owner);
+    w.events("app", &[ev("todo", 5)]);
+    let run = waiter.wait(10).expect("the waiter exits at its tick");
+
+    assert!(connected, "{}", w.state());
+    assert_eq!((run.code, run.out.as_str(), run.err.as_str()), (0, "", ""));
+    assert_eq!(w.inbox_of("app"), norm(&ev("todo", 5)));
+}
+
+#[test]
 fn the_parent_of_the_waiter_ends_the_waiter_continues() {
     let w = Watchd::new();
     assert_eq!(w.watch(&[]).code, 0);

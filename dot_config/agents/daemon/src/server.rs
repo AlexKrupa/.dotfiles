@@ -16,7 +16,7 @@ use crate::core::worktrees::{ReviewLink, set_kind};
 use crate::daemon::Daemon;
 use crate::key::worktree_top;
 use crate::local::repo_of;
-use crate::platform::now_seconds;
+use crate::platform::{now_seconds, process_alive};
 use crate::protocol::{
     DebugState, Envelope, KeyedEvent, RepoPoll, RepoTimes, Request, Response, StatusReport, WatchRequest, receive, send,
 };
@@ -190,6 +190,16 @@ async fn watch(daemon: &Arc<Daemon>, request: &WatchRequest) -> Response {
     Response::Ok
 }
 
+/// True if the session has something for `delivery` to take. The owner check runs only then: it
+/// starts a `ps` process.
+fn pending(daemon: &Daemon, session: &str) -> bool {
+    let state = daemon.store.session(session).unwrap_or_default();
+    let records = daemon.store.session_subs(session);
+    !state.ended.is_empty()
+        || !state.replaced.is_empty()
+        || records.iter().any(|sub| daemon.store.inbox_lines(&sub.key) > 0)
+}
+
 /// Returns `None` while the waiter waits. The keys of the session are the keys of its records and
 /// the keys that ended since its last wait. A different session can have a new record of an ended
 /// key: the error stays with the session of the ended record, and the inbox goes to the record.
@@ -281,6 +291,9 @@ async fn wait(
         let answer = {
             let memory = daemon.lock().await;
             match memory.waiters.get(&session) == Some(&number) {
+                // The events of a gone owner stay in the inbox until the session is back. The
+                // client exits at its next owner check.
+                true if pending(&daemon, &session) && !process_alive(owner_pid) => None,
                 true => delivery(&daemon, &session),
                 false => Some(Response::Replaced),
             }
