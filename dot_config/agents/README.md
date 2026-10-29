@@ -86,7 +86,7 @@ scripts, the scripts have no `--help`, no prompts, and no color.
   scripts give some codes a different meaning:
   - `watchd engine`: 4 network, 5 permanent error.
   - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
-  - `bin/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
+  - `integrations/claude-code/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
   - `integrations/claude-code/agent.sh`: 2 usage error, 3 the agent has no such action.
   - `daemon/integrations/claude-code/wait.sh`: 2 wake Claude (the `asyncRewake` code).
 - Before a script rewrites commits, it saves a backup ref. If a conflict or a failure occurs, the

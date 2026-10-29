@@ -128,7 +128,7 @@ function __claude_nono --description 'Run claude in the nono sandbox of profile 
     set -l settings_args --settings ~/.claude/settings.json
 
     # herdr-start-claude is a mediated command, and nono finds it on PATH.
-    set -lx PATH ~/.config/agents/bin $PATH
+    set -lx PATH ~/.config/agents/integrations/claude-code $PATH
 
     # One proxy port per session, so that parallel sessions do not collide. The port is below
     # 49152: the profile opens 49152-65535 to every sandbox for Gradle.
