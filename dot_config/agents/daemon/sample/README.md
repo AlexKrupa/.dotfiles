@@ -25,12 +25,12 @@ Requirements: herdr, cargo, jq, and bash 5. The script is `~/.config/agents/daem
 ```sh
 sample start                 # build the test-support binary, start the test daemon and its herdr watcher
 sample stop                  # stop the agent sessions, the watcher, and the test daemon
-sample run <scenario>        # reset, then apply step 1 of the scenario
+sample run <scenario> [<n>]  # reset, then apply the steps of the scenario up to step n (default 1)
 sample next                  # apply the next step
 sample back                  # replay from the reset to the step before
 sample status                # scenario, step, expect list, daemon PID and binary
 sample list                  # the scenarios and their steps, with a mark on the current step
-sample ui                    # the control pane: keys n next, p back, r reset, s select, q quit
+sample ui                    # the control pane: keys n next, p back, r reset, s select a step, q quit
 sample check [<scenario>]    # run the scenarios with no herdr and look for daemon errors
 ```
 

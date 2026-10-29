@@ -44,6 +44,13 @@ check "check hub: exit 0" 0 "$code"
 check "next after the last step: exit 1" 1 "$?"
 check "next after the last step: the step stays" "hub 3" "$(cat "$SAMPLE_STATE/step")"
 
+"$sample" run hub 2 >/dev/null
+check "run to step 2: the step is 2" "hub 2" "$(cat "$SAMPLE_STATE/step")"
+
+"$sample" run hub 4 >/dev/null 2>"$tmp/err"
+check "run to a step that is not there: exit 1" 1 "$?"
+check "run to a step that is not there: names the step" yes "$(has 'hub has no step 4' <"$tmp/err")"
+
 "$sample" run hub >/dev/null
 "$sample" back >/dev/null 2>&1
 check "back at step 1: exit 1" 1 "$?"

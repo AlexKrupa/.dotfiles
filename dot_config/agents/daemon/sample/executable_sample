@@ -14,12 +14,14 @@ usage() {
 usage: sample start                 build the test-support binary, start the test daemon and
                                     its herdr watcher
        sample stop                  stop the agent sessions, the watcher, and the test daemon
-       sample run <scenario>        reset, then apply step 1 of the scenario
+       sample run <scenario> [<n>]  reset, then apply the steps of the scenario up to step n
+                                    (default 1)
        sample next                  apply the next step
        sample back                  replay from the reset to the step before
        sample status                scenario, step, expect list, daemon PID and binary
        sample list                  the scenarios and their steps, with a mark on the current step
-       sample ui                    the control pane: keys n next, p back, r reset, s select, q quit
+       sample ui                    the control pane: keys n next, p back, r reset, s select a
+                                    step, q quit
        sample check [<scenario>]    run the scenarios with no herdr and look for daemon errors
 EOF
   exit 2
@@ -170,11 +172,12 @@ list() {
 }
 
 # A reset makes the step file of the scenario before wrong.
-run_scenario() { # run_scenario <scenario>
-  steps_of "$1" >/dev/null
+run_scenario() { # run_scenario <scenario> <step number>
+  local index
+  [ "$2" -ge 1 ] && [ "$2" -le "$(steps_of "$1" | wc -l)" ] || die "$1 has no step $2"
   rm -f "$step_file"
   reset
-  apply "$1" 1
+  for index in $(seq "$2"); do apply "$1" "$index"; done
 }
 
 next() {
@@ -219,18 +222,25 @@ check_scenario() { # check_scenario <scenario>
   done
 }
 
-select_scenario() {
-  local names=() index=0 folder number
+# The list goes to stderr, so that the caller gets only the message on stdout.
+select_step() {
+  local targets=() folder scenario step index number
   for folder in "$scenarios"/*/; do
-    names+=("$(basename "$folder")")
-    index=$((index + 1))
-    echo "$index ${names[-1]}" >&2
+    scenario=$(basename "$folder")
+    echo "$scenario" >&2
+    index=0
+    while IFS= read -r step; do
+      index=$((index + 1))
+      targets+=("$scenario $index")
+      echo "  ${#targets[@]} $(basename "$step" | cut -d- -f2-)" >&2
+    done < <(steps_of "$scenario")
   done
-  read -rp "scenario number: " number
-  if [[ $number =~ ^[0-9]+$ ]] && ((number >= 1 && number <= ${#names[@]})); then
-    "$0" run "${names[number - 1]}" 2>&1 >/dev/null
+  read -rp "step number: " number
+  if [[ $number =~ ^[0-9]+$ ]] && ((number >= 1 && number <= ${#targets[@]})); then
+    # shellcheck disable=SC2069,SC2086
+    "$0" run ${targets[number - 1]} 2>&1 >/dev/null
   else
-    echo "no scenario $number"
+    echo "no step $number"
   fi
 }
 
@@ -258,7 +268,7 @@ ui() {
         ;;
       s)
         clear
-        message=$(select_scenario | tail -n 1) || true
+        message=$(select_step | tail -n 1) || true
         shown=''
         ;;
       q) return 0 ;;
@@ -288,7 +298,7 @@ case ${1:-} in
     echo "daemon $(daemon_pid): $watchd"
     ;;
   stop) close_agents; stop_watcher; stop_daemon ;;
-  run) [ $# = 2 ] || usage; require_daemon; run_scenario "$2"; status ;;
+  run) [ $# = 2 ] || [ $# = 3 ] || usage; require_daemon; run_scenario "$2" "${3:-1}"; status ;;
   # A `chezmoi apply` of the plugin stops the sample watcher too.
   next) require_daemon; start_watcher; next; status ;;
   back) require_daemon; back; status ;;
