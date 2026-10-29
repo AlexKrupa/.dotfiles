@@ -9,7 +9,6 @@ pub struct StateDirs {
     pub engine: PathBuf,
 }
 
-/// The state folders of a client, and if the client can start a daemon.
 pub struct ClientDirs {
     pub dirs: StateDirs,
     pub start: bool,
