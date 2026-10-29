@@ -1,8 +1,8 @@
 # Watch: common rules
 
 A watch is a background task that checks the code host. Each check with events gives a result. You
-handle the events and report. The runner file tells how a result arrives, and if you must start the
-watch again. Between events, the user can use the session for other work.
+handle the events and report. The runner file tells how you start the watch and how a result
+arrives. Between events, the user can use the session for other work.
 
 The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply to PRs and checks.
 
@@ -17,8 +17,8 @@ Read this file, the host file, and the role file that the skill names. All files
   `gitlab.md` for GitLab. If the prompt or a wrapper skill names a different host file, use that
   file. If no host file agrees with the host, do not start the watch. Tell it in one line.
 - Role file: the events of the role, and the action for each event.
-- Runner file: how the agent runs the watch command and gets its results. `claude-code.md` for
-  Claude Code.
+- Runner file: how the agent runs the watch command and gets its results. For Claude Code, it is
+  `~/.config/agents/daemon/integrations/claude-code/watch-runner.md`.
 
 | Role file     | Skill       | Watches                                                     |
 | ------------- | ----------- | ----------------------------------------------------------- |
@@ -30,27 +30,26 @@ Read this file, the host file, and the role file that the skill names. All files
 ## Task
 
 - Run the watch command of the host file for the role, as the runner file tells.
-- A session has one watch task. If a watch task runs, do not start a new one. If it watches a
+- A session has one watch. If the session has a watch, do not start a new one. If it watches a
   different MR, tell it in one line.
-- If the user says "watch", start the watch. If the user says "stop watch", stop the task. Then run
-  the unsubscribe command of the host file.
+- If the user says "watch", start the watch. If the user says "stop watch", run the unsubscribe
+  command of the host file.
 - The watch pauses during system sleep. During a network outage, it waits for the network with no
   report.
 - The `watch` herdr plugin sends all notifications of the watch. Do not send a notification.
 
 ## Result
 
-| Exit | Action                                                                                 |
-| ---- | -------------------------------------------------------------------------------------- |
-| `0`  | Handle the events and report, as the role file tells. Then start the watch again.      |
-| `1`  | Report the stderr text. Do not start again. See the host file.                         |
-| `3`  | A new watch replaced this one. Do not start again.                                     |
+| Exit | Action                                                                                            |
+| ---- | ------------------------------------------------------------------------------------------------- |
+| `0`  | Handle the events and report, as the role file tells. The watch continues: do not start it again. |
+| `1`  | Report the stderr text. Do not start again. See the host file.                                    |
 
 On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
-`actor`, `detail`, and `branch`. The role file tells the other fields of its events.
+`actor`, `detail`, `branch`, `key`, and `mode`. The role file tells the other fields of its events.
 
-To start the watch again, do what the runner file tells, with the restart command of the host file.
-If all watched MRs are merged or closed, do not start it again. Tell it in one line.
+If all watched MRs are merged or closed, run the unsubscribe command of the host file. Tell it in
+one line.
 
 ## MR events
 
@@ -77,7 +76,7 @@ is in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`.
 | `unaddressed`      | The thread waits for the user | Needs you         |
 | `title`, `labels`  | None                          | Info              |
 | `description`      | None                          | Info              |
-| `merged`, `closed` | Do not start the watch again  | Info              |
+| `merged`, `closed` | Unsubscribe if all MRs ended  | Info              |
 | all other kinds    | None                          | Info              |
 
 The user does these actions, never you: reply to a comment, resolve a thread, react, approve,

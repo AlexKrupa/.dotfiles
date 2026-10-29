@@ -76,9 +76,9 @@ scripts, the scripts have no `--help`, no prompts, and no color.
   list: 2 not found, 3 ambiguous, 4 missing dependency, auth, or herdr, 5 network, 6 timeout. These
   scripts give some codes a different meaning:
   - `watchd engine`: 4 network, 5 permanent error.
-  - `watchd watch`: 3 a new client or session replaced this one.
   - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
   - `bin/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
+  - `daemon/integrations/claude-code/wait.sh`: 2 wake Claude (the `asyncRewake` code).
 - Before a script rewrites commits, it saves a backup ref. If a conflict or a failure occurs, the
   script resets to the backup and does not leave a partial rebase.
 
