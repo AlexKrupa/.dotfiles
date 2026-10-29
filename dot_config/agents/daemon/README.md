@@ -247,8 +247,9 @@ The folder `integrations/claude-code/` is a Claude Code plugin. It has all Claud
 | `wait.test.sh` | The test of `wait.sh`, with a fake `watchd` on `PATH` |
 | `watch-runner.md` | The runner file: how the agent starts the watch and reads the results |
 
-Claude Code copies a plugin into `~/.claude/plugins/cache/`. A change of a plugin file needs a
-higher `version` in `plugin.json`. Without it, Claude Code keeps the old copy.
+Claude Code reads this local plugin from its folder, through the symlink
+`~/.claude/local-marketplace/watchd` of the marketplace `local-pins`. A change of a plugin file
+takes effect at the next session start or after `/reload-plugins`.
 
 ## Migration
 
