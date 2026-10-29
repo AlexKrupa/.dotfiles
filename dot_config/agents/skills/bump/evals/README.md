@@ -10,7 +10,7 @@ calls, and the transcript with fixed checks.
 - `fixtures/*.sh` - one repo builder per eval. The header comment lists what the eval tests. The
   fixture also writes the fake MR, pipeline, failed jobs, and job log to `<repo>.host/`.
 - `shims/glab` - `run.py` puts it on PATH. It answers from `<repo>.host/` and logs each call to
-  `<repo>.host/calls.log`. At the first GraphQL call, it stops the watch client with exit 3.
+  `<repo>.host/calls.log`. A GraphQL call fails with exit 1. It comes only from the watch engine.
 - `run.py` - builds the repos, runs `claude -p`, writes `outputs/glab-calls.log` and
   `outputs/git-state.txt`, and grades. The runs use a temp `XDG_STATE_HOME`, so their watch daemon
   is not the real daemon.

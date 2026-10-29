@@ -91,7 +91,7 @@
         {"type": "log_not_regex", "patterns": ["^\\+import java\\.util\\.\\*"], "text": "The wildcard import is gone from the branch"},
         {"type": "state_regex", "case": true, "patterns": ["^branch tags-model\\nsubject Add Tag model\\nancestors", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\btags-model\\b"], "text": "tags-model has only its 1 commit, and tags-in-list contains it"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-spice[^|;&]*stack submit[^|;&]*--update-only", "min": 1, "text": "Submits the stack with --update-only"},
-        {"type": "tool_count", "tool": "Bash", "input_regex": "/watch\\b[^\"]*--interval", "max": 0, "text": "Does not start a second watch: the watch continues"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "/watch\\b(?:(?!\\\\n)[^|;&])*--interval", "max": 0, "text": "Does not start a second watch: the watch continues"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
         {"type": "reply_regex", "patterns": ["(?m)^Done$", "!11"], "text": "Reply has a Done section for !11"}

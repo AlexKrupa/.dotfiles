@@ -44,10 +44,8 @@ host="$PWD.host"
 mkdir -p "$host/logs"
 put "$host/watch" <<'EOF'
 #!/bin/sh
-# Fake watch command. It stops at once as "replaced", so the session does not wait for it.
-sleep 2
-echo "watchd: replaced by a new watch" >&2
-exit 3
+# Fake watch command. Like `watchd watch`, it exits 0 at once with no output.
+exit 0
 EOF
 put "$host/job-log" <<'EOF'
 #!/bin/sh
@@ -66,7 +64,7 @@ put "$host/host.md" <<EOF
 
 | Function                              | Command                                             |
 | ------------------------------------- | --------------------------------------------------- |
-| Watch command, author mode            | \`$host/watch --interval 120 --mr <iid>\`, with one \`--mr\` for each MR |
+| Watch command, author mode            | \`$host/watch --session <id> --interval 120 --mr <iid>\`, with one \`--mr\` for each MR |
 | Restart command                       | The same watch command                              |
 | Logs of the failed jobs of a pipeline | \`$host/job-log <pipeline-id>\`                     |
 | Retry a job                           | \`$host/retry <job-id>\`                            |

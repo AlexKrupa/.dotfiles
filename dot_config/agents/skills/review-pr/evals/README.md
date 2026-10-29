@@ -14,8 +14,8 @@ the transcript.
 - `run.py` - builds the repos, runs `claude -p`, copies the reports to `outputs/reviews/`, writes
   `outputs/git-state.txt`, deletes `~/.ai/<repo-slug>/`, and grades. The runs use a temp
   `XDG_STATE_HOME`, so their watch daemon is not the real daemon.
-- `shims/glab` - `run.py` puts it on PATH. It stops each watch at its first GitLab call, with
-  exit 3.
+- `shims/glab` - `run.py` puts it on PATH. It fails each `api` call of the watch engine with
+  exit 1. All other calls fail too, except `auth`.
 - `grade.py` - report and branch-state check types. Writes `grading.json` for skill-creator's
   viewer.
 
