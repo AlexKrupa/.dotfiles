@@ -125,7 +125,7 @@ diff of the backup ref against the branch, or in `git diff` in the working-tree 
    a temp file. Then run:
 
    ```
-   ~/.claude/skills/deslop/git-reword-fixup.sh <parent> <sha> <message-file>
+   <skill folder>/git-reword-fixup.sh <parent> <sha> <message-file>
    ```
 
    The script builds the `amend!` commit. It stops on an out-of-range sha, a duplicate subject, or a

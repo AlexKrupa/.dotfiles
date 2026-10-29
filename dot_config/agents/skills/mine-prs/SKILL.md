@@ -29,7 +29,7 @@ Turn the user's request into options for the helper script:
 | "again", "all", "re-mine"          | `--all` (ignores state) |
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/prs.sh" extract <options>
+<skill folder>/prs.sh extract <options>
 ```
 
 The script uses `glab` (GitLab). It reads the merged MRs of the current repo, newest first, and
@@ -101,7 +101,7 @@ docs can be a better place later. The target stays as the reference says.
 After the file is saved, save the state:
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/prs.sh" save-state
+<skill folder>/prs.sh save-state
 ```
 
 ## 4. Propose the targets and get approval

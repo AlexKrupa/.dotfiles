@@ -6,7 +6,7 @@ description: >-
 argument-hint: "[park] [focus of the next session]"
 disable-model-invocation: true
 allowed-tools:
-  - Bash(~/.claude/skills/handoff/handoff.sh *)
+  - Bash(${CLAUDE_SKILL_DIR}/handoff.sh *)
 ---
 
 # handoff
@@ -14,7 +14,7 @@ allowed-tools:
 Writes a handoff document, so that a fresh agent can continue the same work. A different task in a
 new worktree is `/work split`, not this skill.
 
-Input: `$ARGUMENTS` is optional free text.
+Input: the skill arguments are optional free text.
 
 - The word `park`: write the file and stop. This session stays as it is.
 - Other text: the focus of the next session. Keep only the context for that focus.
@@ -26,13 +26,12 @@ Input: `$ARGUMENTS` is optional free text.
    with an issue key, that key is the ticket id:
 
    ```sh
-   ~/.claude/skills/handoff/handoff.sh path '<topic>' [<ticket-id>]
+   <skill folder>/handoff.sh path '<topic>' [<ticket-id>]
    ```
 
 2. Write the handoff document to that path:
    - Summarize this session so that a fresh agent can continue the work.
-   - Include a "Suggested skills" section with the skills that the next agent must load with the
-     Skill tool.
+   - Include a "Suggested skills" section with the skills that the next agent must load.
    - Do not copy content that other artifacts record (specs, plans, ADRs, issues, commits,
      diffs). Refer to them by path or URL.
    - If the work changed something that a spec or plan records, state the difference and its
@@ -49,18 +48,18 @@ Input: `$ARGUMENTS` is optional free text.
 4. Else, refresh:
 
    ```sh
-   ~/.claude/skills/handoff/handoff.sh refresh <path>
+   <skill folder>/handoff.sh refresh <path>
    ```
 
-   In a `nono` sandbox (`printenv NONO_CAP_FILE` prints a path), run it with the Bash tool option
-   `run_in_background: true`. `nono` blocks `herdr` calls from a detached helper, so there the
-   script runs its helper in the foreground of the background task.
+   In a `nono` sandbox (`printenv NONO_CAP_FILE` prints a path), run it as a background task.
+   `nono` blocks `herdr` calls from a detached helper, so there the script runs its helper in the
+   foreground of the background task.
 
 5. Report the result, then end the turn. Do not call more tools.
    - Exit `0`: "This session clears after this turn and continues from the file. Do not type in
      this pane until the prompt shows." The log of the helper is
      `${TMPDIR:-/tmp}/handoff-refresh.log`. The last line of the reply is
      `` 📄 Handoff: `<path>` ``.
-   - Exit `4` (not in herdr): tell the user to type `/clear`, then send the line that the script
-     printed.
+   - Exit `4` (not in herdr): tell the user to clear the session, then send the line that the
+     script printed.
    - Exit `1`: the stderr text, word for word.

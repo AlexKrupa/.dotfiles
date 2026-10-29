@@ -4,7 +4,7 @@ description: Use when the user asks to check, fix, or make one dependency bump.
 argument-hint: "<PR/MR URL | branch | commit | text>"
 disable-model-invocation: true
 allowed-tools:
-  - Bash(~/.claude/skills/bump/bump-host.sh *)
+  - Bash(${CLAUDE_SKILL_DIR}/bump-host.sh *)
   - Bash(watchd *)
 ---
 
@@ -15,7 +15,7 @@ in the reply: `safe`, `safe after fixes`, or `needs you`.
 
 For more than one bump, run this skill for each bump, one after the other.
 
-The helper `~/.claude/skills/bump/bump-host.sh` does all calls to the code host. Run it with no
+The helper `bump-host.sh` in the skill folder does all calls to the code host. Run it with no
 arguments to see its subcommands. If it exits with code 4 (unsupported host), ask the user for the
 PR description and the CI state.
 
@@ -24,7 +24,7 @@ sidebar. Outside a git repo, it does nothing.
 
 ## Steps
 
-1. Find the bump. `$ARGUMENTS` can be a PR or MR URL, a branch, a commit, or free text.
+1. Find the bump. The skill arguments can be a PR or MR URL, a branch, a commit, or free text.
    - For a URL or a branch, run `bump-host.sh mr <URL or branch>`. It gives the branches and the
      description.
    - For a commit, find its branch with `git branch -a --contains <sha>`.

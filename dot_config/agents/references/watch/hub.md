@@ -87,7 +87,7 @@ result below is its cell, or an `agent` row with `iid` null if it comes after th
 
    Do not wait for the result. When it comes, do step 2.
 2. One debug workspace covers all jobs of one incident. Find the open debug workspace: a line of
-   `~/.claude/skills/hub/hub-status.sh` with a branch that matches
+   `hub-status.sh` in the hub skill folder with a branch that matches
    `*/debug-<branch>-pipeline-*`.
    - No debug workspace is open: start one (see "Debug workspace").
    - A debug workspace is open, and its branch ends with `-pipeline-<pipeline id>`, or `previous`
@@ -99,12 +99,13 @@ result below is its cell, or an `agent` row with `iid` null if it comes after th
 
 ### Debug workspace
 
-1. Find the placeholder id in the repo's `CLAUDE.md`. If there is none, start no agent. The
-   result is `No placeholder id in CLAUDE.md, no debug agent`.
+1. Find the placeholder id in the repo's agent instruction file (`CLAUDE.md` or `AGENTS.md`). If
+   there is none, start no agent. The result is `No placeholder id in the agent instructions, no
+   debug agent`.
 2. Run this command, with the triage lines of all jobs:
 
    ```sh
-   ~/.claude/skills/work/work-start.sh <placeholder> 'debug <branch> pipeline <id>' \
+   <skill folder>/../work/work-start.sh <placeholder> 'debug <branch> pipeline <id>' \
      --placeholder <placeholder> <<'PROMPT'
    Find why the default-branch pipeline <url> fails, and fix it.
 

@@ -10,7 +10,7 @@ description:
   teammate).
 allowed-tools:
   - Bash(~/.config/agents/bin/git-diff-context.sh *)
-  - Bash(~/.claude/skills/review-diff/docs-index.sh *)
+  - Bash(${CLAUDE_SKILL_DIR}/docs-index.sh *)
   - Bash(~/.config/agents/bin/review-report-path.sh *)
 ---
 
@@ -100,9 +100,10 @@ anchored against.
 ### Project docs / conventions
 
 After resolving the diff, gather the project's own documented conventions so findings can be checked
-against them. Run the docs helper (absolute path - skill cwd is the user's repo):
+against them. Run the docs helper `docs-index.sh` in the skill folder (the working folder is the
+user's repo):
 
-    ~/.claude/skills/review-diff/docs-index.sh
+    <skill folder>/docs-index.sh
 
 It lists tracked docs with `git ls-files`. The list has no gitignored paths, for example `build/`,
 `.gradle/`, `node_modules/`, or generated doc output. Thus the script needs no skip list. The list
@@ -188,7 +189,7 @@ Keep the context you already gathered - the agents do not re-run the helpers.
 
 Every agent prompt has the same preamble: the `parent` value, the `diff-command`, the diffstat, in
 the uncommitted scopes the untracked files to audit, and this instruction - "Read
-`~/.claude/skills/review-diff/SKILL.md`. Audit only the checklist items
+`~/.config/agents/skills/review-diff/SKILL.md`. Audit only the checklist items
 named below. Return each finding in the report bullet format with its severity. No ids. Write no
 files."
 
@@ -279,8 +280,8 @@ verify.
 - **Public API / contracts** - breaking signature or schema changes, missing migration notes.
 - **Style & consistency** - matches surrounding code (not personal preference, not lint-fixable
   trivia unless it breaks CI).
-- **Docs & comments** - per `~/.claude/CLAUDE.md` (`### Comments (inline and doc)`) and
-  `~/.claude/skills/documenting/SKILL.md`, scrutinize each comment the branch adds or changes on two
+- **Docs & comments** - per `~/.config/agents/instructions-agents.md` (`### Comments (inline and doc)`) and
+  `~/.config/agents/skills/documenting/SKILL.md`, scrutinize each comment the branch adds or changes on two
   axes:
   - _why not what_: the comment explains the reason for the code, not a restatement of what the code
     does. Flag each comment whose content a reader can infer from the surrounding code itself

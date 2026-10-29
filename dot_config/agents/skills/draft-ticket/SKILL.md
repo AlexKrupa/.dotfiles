@@ -149,7 +149,7 @@ If the two conditions are true, do these steps. Do not ask before you start.
    in the git-spice stack (`git-spice log short --json`). If its name also starts with the
    placeholder id and its commits were a source of the ticket, add it.
 2. Run the script. It renames the branches, puts the id in the commit messages and in the lines
-   that the branches added, and renames the herdr workspace and the Claude session. Put the
+   that the branches added, and renames the herdr workspace and the agent session. Put the
    ticket title in single quotes, with each `'` replaced by a space.
 
    ```sh

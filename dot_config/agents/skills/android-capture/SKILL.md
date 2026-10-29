@@ -7,7 +7,7 @@ description: >-
   user asks for it.
 argument-hint: "[what to capture]"
 allowed-tools:
-  - Bash(bash ~/.claude/skills/android-capture/capture.sh *)
+  - Bash(bash ${CLAUDE_SKILL_DIR}/capture.sh *)
   - Bash(~/.config/agents/bin/git-diff-context.sh *)
 ---
 
@@ -17,7 +17,7 @@ This skill captures screenshots and videos of an Android app for a reviewer. The
 for upload and stay easy to read.
 
 `capture.sh` in this directory does the fixed steps. Its header has the commands and the exit
-codes. Run it as `bash ~/.claude/skills/android-capture/capture.sh <command>`. Use the `android`
+codes. Run it as `bash <skill folder>/capture.sh <command>`. Use the `android`
 CLI first (the `android-cli` skill). Use `adb` and `emulator` for the steps that the CLI does not
 have: recording, input, and device settings.
 

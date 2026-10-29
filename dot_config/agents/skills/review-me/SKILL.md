@@ -36,7 +36,7 @@ finish in the global/user instructions. A direct `/review-me` call is standalone
 `review-diff` checks the branch against the spec when it gets the spec path. Find the paths:
 
 - Auto mode: the caller gives the plan path.
-- Standalone mode: the path in `$ARGUMENTS`. If there is no argument and the conversation has a
+- Standalone mode: the path in the skill arguments. If there is no argument and the conversation has a
   plan path, use that path.
 - A plan gives the spec in its `**Spec:**` line. A spec path alone is also valid.
 

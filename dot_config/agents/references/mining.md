@@ -7,10 +7,11 @@ tells you how to extract and what counts as a signal. This file tells you the re
 ## Limits
 
 - Write only to `~/.ai/<repo>/mined/` and to the target file of an approved finding.
-- Do not edit global files: `~/.config/agents/*`, `~/.claude/CLAUDE.md`, global rules, global
-  skills. When a finding applies to all repos, tell the user and let them edit the global file
-  manually.
-- Do not write `.claude/rules/`. It works only in Claude Code.
+- Do not edit global files: `~/.config/agents/*`, the global agent instruction file, global
+  rules, global skills. When a finding applies to all repos, tell the user and let them edit the
+  global file manually.
+- Do not write the rule folders of one agent, for example `.claude/rules/`. Other agents do not
+  read them.
 - Outside a git repo, stop.
 
 ## Repeats
@@ -44,7 +45,7 @@ source skill defines the IDs and the evidence lines.
 
 - Count: 3 in 2 <sources> (`<id>`, `<id>`)
 - Status: new
-- Target: `CLAUDE.local.md`
+- Target: `<the local agent instruction file of the repo>`
 - Decision: pending
 - Evidence:
   - <evidence line>
@@ -61,9 +62,10 @@ the header and "Seen once".
 
 ## Targets and approval
 
-Default target: `CLAUDE.local.md` in the root of the current worktree. Other targets:
+Default target: the local agent instruction file of the repo, in the root of the current worktree.
+Other targets:
 
-- If all evidence is about one subdir: `<subdir>/CLAUDE.local.md`.
+- If all evidence is about one subdir: the local agent instruction file of the repo in that subdir.
 - If the status is "rule exists": the existing rule.
 - If the finding applies to all repos: the global instructions. Do not write them. Give the user
   the rule text.
@@ -74,7 +76,8 @@ tool. The last line of the reply is `` 📄 Findings: `<path>` ``.
 
 Before you write, run `git ls-files --error-unmatch <target>`. If git tracks the target, tell the
 user that the rule becomes visible to the team, and ask again. If the current worktree is a linked
-worktree, tell the user that an untracked `CLAUDE.local.md` exists only in this worktree.
+worktree, tell the user that an untracked local agent instruction file of the repo exists only in
+this worktree.
 
 Write the approved rules. Keep the style of the target file. Then set `Decision` in the findings
 file to `approved`, `edited`, or `skipped`. Tell the user the path of the findings file and the

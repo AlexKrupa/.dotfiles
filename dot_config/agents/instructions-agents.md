@@ -39,12 +39,12 @@
 - Spec-to-draft pipeline: after I approve a spec, run these steps with no stop, unless I say
   otherwise
   1. superpowers:writing-plans. Do not ask for a plan review or an execution mode.
-  2. Read `~/.claude/skills/exec/SKILL.md` and follow it with the saved plan
+  2. Read `~/.config/agents/skills/exec/SKILL.md` and follow it with the saved plan
   3. The execution session finishes the branch (see below)
 - Git: make commits (vertical slices). The `draft-pr` file is permitted.
 - Finishing a development branch, also in a fresh session with only the plan:
-  1. Read `~/.claude/skills/review-me/SKILL.md` and follow it in auto mode in this session, with the
-     plan path.
+  1. Read `~/.config/agents/skills/review-me/SKILL.md` and follow it in auto mode in this session,
+     with the plan path.
   2. If the `review-me` verdict is "ready to push", run `draft-pr`. If it needs my decision, or the
      validation failed, stop. After I answer and the fixes are in, run `draft-pr`.
   3. If `draft-pr` stops at its preflight (no git repo, mainline branch), end with the `review-me`

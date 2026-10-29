@@ -2,13 +2,13 @@
 name: work
 description: >-
   When the user runs /work, use this skill. It starts a ticket, or work with no ticket: in a new herdr
-  worktree workspace with its own Claude Code agent, or as the next stacked branch in the current
+  worktree workspace with its own agent, or as the next stacked branch in the current
   worktree. Also continues an existing branch, GitLab MR, or MR pipeline in its own workspace.
   Also splits a different issue off the default branch into a new workspace with a handoff.
 argument-hint: "[ticket | branch | MR] [split] [fresh | continue] [from <ref>] [<model> <effort>]"
 disable-model-invocation: true
 allowed-tools:
-  - Bash(~/.claude/skills/work/work-start.sh *)
+  - Bash(${CLAUDE_SKILL_DIR}/work-start.sh *)
   - Bash(~/.config/agents/bin/fetch-gitlab-mr.sh *)
 ---
 
@@ -17,15 +17,13 @@ allowed-tools:
 Starts work on one ticket. The agent that does the work gets the user's message and reads the
 ticket itself.
 
-Input: `$ARGUMENTS` is the user's message, in free text. It can contain a ticket key, a tracker
-URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
+Input: the skill arguments are the user's message, in free text. It can contain a ticket key, a
+tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
 
 ## Prerequisites
 
 - The session runs in a herdr pane (`HERDR_ENV=1`).
 - The current folder is in the repo: the main checkout or one of its worktrees.
-- One-time setup: Claude trusts `~/.herdr/worktrees`. Run `claude` in that folder and accept the
-  prompt.
 
 ## Modes
 
@@ -36,7 +34,7 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
   also from a linked worktree. This session stays as it is. It sends a handoff to the new agent.
   Use it for a different issue that this session found, for example a flaky test on the default
   branch.
-- Else, `~/.claude/skills/work/work-start.sh mode` prints the mode:
+- Else, `work-start.sh mode` in the skill folder prints the mode:
   - `new` (main checkout): the work starts in a new worktree from the default branch, with a new
     agent.
   - `next` (linked worktree): the old work is done. The work starts on a new branch in this
@@ -63,11 +61,12 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      the ticket.
    - Else, in existing mode: if the branch name starts with an issue key, that key is the ticket
      id.
-   - Else, use the placeholder id from the repo's CLAUDE.md, for example `ABC-0`. If the repo has
+   - Else, use the placeholder id from the repo's agent instruction file (`CLAUDE.md` or
+     `AGENTS.md`), for example `ABC-0`. If the repo has
      no placeholder id, ask the user for a ticket id.
 3. Mode: if the message has the word `split` or `fork`, it is split mode. If step 1 found a
-   branch, it is existing mode. Else, run `~/.claude/skills/work/work-start.sh mode`. Next mode: run
-   `~/.claude/skills/work/work-start.sh tops`. Each output line is a top branch of the stack
+   branch, it is existing mode. Else, run `work-start.sh mode` in the skill folder. Next mode:
+   run `work-start.sh tops`. Each output line is a top branch of the stack
    above the current branch. If there is output, ask the user: stack on the current branch, or
    on a top branch? If there is more than one top branch, ask which. Then end the turn and
    continue after the answer.
@@ -106,11 +105,11 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      - Never `max`, unless the user asks for it.
    - If the user gave no model, do not add `--model`.
    - In a `nono` sandbox (`printenv NONO_CAP_FILE` prints a path), `--effort` is the only Claude
-     flag. Do not add `--model`. If the user gave a model, tell the user to set it with `/model`
-     in the new agent.
+     flag. Do not add `--model`. If the user gave a model, tell the user to set the model in the
+     new agent.
 6. Next mode:
    - No base and no Claude flags. If the user gave a model or an effort, tell the user to set it
-     with `/model` after the clear.
+     in the agent after the clear.
    - Handoff: the word `fresh` or `continue` in the message, as an option word like a model
      word. If the message has neither word, use `continue`.
      - `fresh`: the handoff has only the stack base. Add no handoff options.
@@ -128,14 +127,8 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    - the issue: for example the test name, the failure text, a CI job URL
    - what this session found about the cause, and what it did not find
    - the files and the commands that are important
-7. Run the script. The prompt goes on stdin in a quoted heredoc. The prompt starts with the
-   user's message, word for word:
-   - Claude Code loads each slash command that comes after `/work` as a skill in this session. It
-     removes the skill names from `$ARGUMENTS`. If this turn loaded other skills next to `/work`,
-     write their names first. Use the names from the `<command-name>` tags, in the same order,
-     on one line with spaces between them, for example `/plugin:skill-a /skill-b`. Then write
-     `$ARGUMENTS` on the same line. Do not run these skills in this session. They are for the new
-     agent.
+7. Run the script. The prompt goes on stdin in a quoted heredoc. The prompt starts with the skill
+   arguments, word for word:
    - Do not summarize or fix the message. Ticket URLs and option words such as "haiku" or
      "from `origin/release-1.2`" stay in the message.
 
@@ -146,20 +139,20 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    New mode:
 
    ```sh
-   ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' -- --effort low <<'PROMPT'
+   <skill folder>/work-start.sh ABC-123 'Implement foo' -- --effort low <<'PROMPT'
    <the user's message>
    PROMPT
    ```
 
    If the user named a base, add `--base <ref>` before `--`. In new, split, and next mode,
-   if the repo's CLAUDE.md has a placeholder id, add `--placeholder <id>` before `--`. Split
-   mode: the new mode command with `--split` before `--`. With `continue`, also add
+   if the repo's agent instruction file has a placeholder id, add `--placeholder <id>` before
+   `--`. Split mode: the new mode command with `--split` before `--`. With `continue`, also add
    `--continue <session id>`, and the summary goes on fd 3 as in next mode. Next mode: the same
    command with the ticket id, the slug text, and the handoff options from step 6, and no
    `--base` and no `--` part. With `continue`, the summary goes on fd 3 in a second quoted heredoc:
 
    ```sh
-   ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' --continue <session id> \
+   <skill folder>/work-start.sh ABC-123 'Implement foo' --continue <session id> \
      --placeholder ABC-0 <<'PROMPT' 3<<'SUMMARY'
    <the user's message>
    PROMPT
@@ -168,17 +161,17 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
    ```
 
    Next mode in a `nono` sandbox: first run `printenv NONO_CAP_FILE`. If it prints a path, run
-   the script with the Bash tool option `run_in_background: true`. `nono` blocks `herdr` calls
-   from a detached helper, so there the script runs its helper in the foreground of the
-   background task. Then read the output file of the task once, with the Read tool. If the file
-   is empty, read it again. JSON is exit `0`. A line that starts with `work-start:` is an error.
-   If the line has `agent not ready`, it is exit `4`. Else, it is exit `1`.
+   the script as a background task. `nono` blocks `herdr` calls from a detached helper, so there
+   the script runs its helper in the foreground of the background task. Then read the output file
+   of the task once. If the file is empty, read it again. JSON is exit `0`. A line that starts
+   with `work-start:` is an error. If the line has `agent not ready`, it is exit `4`. Else, it is
+   exit `1`.
 
    Existing mode: if the slug text is an MR title or a ticket title, add it. Then add `--branch <name>`. Do not
    add `--base`:
 
    ```sh
-   ~/.claude/skills/work/work-start.sh ABC-123 'Implement foo' --branch 'ABC-123/foo' \
+   <skill folder>/work-start.sh ABC-123 'Implement foo' --branch 'ABC-123/foo' \
      -- --effort low <<'PROMPT'
    <the user's message>
    PROMPT
@@ -211,4 +204,4 @@ URL, a branch, a GitLab MR, a base, a model, and an effort, in any order.
      gone.
 
 If the new prompt does not show in next mode, the log is `${TMPDIR:-/tmp}/work-next.log`. The user
-can type `/clear`, then send the message by hand.
+can clear the session, then send the message by hand.

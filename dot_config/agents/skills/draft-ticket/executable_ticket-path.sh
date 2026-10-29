@@ -5,7 +5,7 @@
 # Exit codes: 0 ok, 1 no title.
 set -euo pipefail
 
-# pwd -P: ~/.claude/skills/<name> is a symlink to the skill folder.
+# pwd -P: the skill folder of an agent can be a link to this folder.
 here=$(cd "$(dirname "$0")" && pwd -P)
 bin=$here/../../bin
 # shellcheck source=../../bin/git-lib.sh

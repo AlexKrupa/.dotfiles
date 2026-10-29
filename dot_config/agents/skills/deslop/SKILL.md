@@ -11,7 +11,7 @@ description:
   "deslop the README intro", "clean up the writing", "fix the wording on this branch".
 allowed-tools:
   - Bash(~/.config/agents/bin/git-diff-context.sh *)
-  - Bash(~/.claude/skills/deslop/git-reword-fixup.sh *)
+  - Bash(${CLAUDE_SKILL_DIR}/git-reword-fixup.sh *)
   - Bash(~/.config/agents/bin/git-absorb-fixes.sh *)
   - Bash(~/.config/agents/bin/git-squash-fixups.sh *)
 ---
@@ -35,7 +35,7 @@ tool, not with Bash:
 
 In all modes except reply mode, also read these files in the same step:
 
-- `~/.claude/skills/deslop/git-modes.md` - the scope, the judgment call, the comment pass, the
+- `git-modes.md` in the skill folder - the scope, the judgment call, the comment pass, the
   loops, and the summary.
 - `~/.config/agents/instructions-agents.md` - the `### Comments (inline and doc)` section of
   `## Code`. The comment pass applies these rules.

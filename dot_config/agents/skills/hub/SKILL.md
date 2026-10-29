@@ -7,13 +7,14 @@ description: >-
   its agents.
 disable-model-invocation: true
 allowed-tools:
-  - Bash(~/.claude/skills/hub/hub-status.sh *)
+  - Bash(${CLAUDE_SKILL_DIR}/hub-status.sh *)
+  - Bash(${CLAUDE_SKILL_DIR}/../work/work-start.sh *)
   - Bash(watchd *)
 ---
 
 # hub
 
-This session is the hub of the repo. The hub manages the Claude agents in the repo's herdr worktree
+This session is the hub of the repo. The hub manages the agents in the repo's herdr worktree
 workspaces, and tells the user about GitLab events for MRs of other people and the default branch.
 The draft-pr watch reports the user's own MRs. The hub reports the open items of own worktrees with
 no agent. The session runs in the main checkout, which stays on the default branch. The watch daemon
@@ -36,7 +37,7 @@ git repo, it does nothing.
 
 Give the status when `/hub` starts, and each time the user asks for it.
 
-1. Run `~/.claude/skills/hub/hub-status.sh`. Each output line is TSV: pane id, status, branch,
+1. Run `hub-status.sh` in the skill folder. Each output line is TSV: pane id, status, branch,
    cwd, title. If the script exits `1`, report its stderr text.
 2. For each agent, find what it does:
    - If the title tells it, use the title.
