@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 # Eval shim for glab. The fixture repos have no GitLab. `auth status` succeeds. An `api` call comes
-# from the watch engine. It stops the waiting watch clients of the repo with exit 3 ("replaced"),
-# and no run waits for the watch. All other calls fail.
+# from the watch engine and fails. All other calls fail.
 case "$1" in
   auth) exit 0 ;;
-  api)
-    "$HOME/.local/bin/watchd" debug replace-clients --repo "$(git rev-parse --show-toplevel)" \
-      >/dev/null
-    exit 1 ;;
+  api) exit 1 ;;
 esac
 echo "glab eval shim: no GitLab in the fixture repos" >&2
 exit 1

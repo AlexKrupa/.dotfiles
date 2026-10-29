@@ -20,7 +20,7 @@ import grade  # noqa: E402
 HOME = Path.home()
 SHIMS = HERE / "shims"
 # Edit rules also cover Write. The skill adds an update to the report in ~/.ai/.
-ALLOWED_TOOLS = "Bash ToolSearch Monitor TaskStop Read Grep Glob Skill Edit(~/.ai/**)"
+ALLOWED_TOOLS = "Bash ToolSearch Read Grep Glob Skill Edit(~/.ai/**)"
 
 
 def setup(ev, k, repos, run_dir):
@@ -45,7 +45,7 @@ def collect(ev, ctx, run_dir):
 
 
 if __name__ == "__main__":
-    # The glab shim stops each watch client at its first GitLab call, with exit 3.
+    # The glab shim fails each GitLab call of the watch engine.
     os.environ["PATH"] = f"{SHIMS}:{os.environ['PATH']}"
     # Own watch daemon state: no run joins the real daemon. The eval daemon exits 60 seconds after
     # its last subscription ends.

@@ -85,13 +85,13 @@
       "name": "watch-lint",
       "fixture": "fixtures/watch-lint.sh",
       "common": false,
-      "prompt": "{intro}\n\nThe watch monitor sent a notification. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
       "expected_output": "The session reads the log, removes the wildcard import, folds the fix into Add Tag model, restacks, submits with --update-only, does not start a second watch, and reports the fix under Done.",
       "checks": [
         {"type": "log_not_regex", "patterns": ["^\\+import java\\.util\\.\\*"], "text": "The wildcard import is gone from the branch"},
         {"type": "state_regex", "case": true, "patterns": ["^branch tags-model\\nsubject Add Tag model\\nancestors", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\btags-model\\b"], "text": "tags-model has only its 1 commit, and tags-in-list contains it"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-spice[^|;&]*stack submit[^|;&]*--update-only", "min": 1, "text": "Submits the stack with --update-only"},
-        {"type": "tool_count", "tool": "Bash|Monitor", "input_regex": "/watch\\b[^\"]*--interval", "max": 0, "text": "Does not start a second watch: the stream continues"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "/watch\\b[^\"]*--interval", "max": 0, "text": "Does not start a second watch: the watch continues"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
         {"type": "reply_regex", "patterns": ["(?m)^Done$", "!11"], "text": "Reply has a Done section for !11"}
@@ -102,7 +102,7 @@
       "name": "watch-busy",
       "fixture": "fixtures/watch-busy.sh",
       "common": false,
-      "prompt": "{intro}\n\nThe watch monitor sent a notification. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
       "expected_output": "The working tree has a change, so the session does not fix. It reports the lint failure under Needs you as a fix that waits.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
@@ -116,7 +116,7 @@
       "name": "watch-test-failure",
       "fixture": "fixtures/watch-test-failure.sh",
       "common": false,
-      "prompt": "{intro}\n\nThe watch monitor sent a notification. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 502 failed\",\"branch\":\"tags-model\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 502 failed\",\"branch\":\"tags-model\"}\n```",
       "expected_output": "A unit test fails. That is not trivial. The session reports the cause and a proposed fix under Needs you. It does not change the branch.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
@@ -130,7 +130,7 @@
       "name": "watch-runner-failure",
       "fixture": "fixtures/watch-runner-failure.sh",
       "common": false,
-      "prompt": "{intro}\n\nThe watch monitor sent a notification. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"\",\"detail\":\"pipeline 503 failed\",\"branch\":\"tags-in-list\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"\",\"detail\":\"pipeline 503 failed\",\"branch\":\"tags-in-list\"}\n```",
       "expected_output": "The runner failed. The session retries job 9003 once and reports it under Done.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
@@ -145,7 +145,7 @@
       "name": "watch-comments",
       "fixture": "fixtures/watch-comments.sh",
       "common": false,
-      "prompt": "{intro}\n\nThe watch monitor sent a notification. Output:\n```\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_701\",\"actor\":\"anna\",\"detail\":\"Why Long and not Int for the color? Int is enough for ARGB.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n{\"kind\":\"reaction\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"bob\",\"detail\":\":thumbsup: on the MR\",\"branch\":\"tags-in-list\"}\n{\"kind\":\"approved\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"bob\",\"detail\":\"approved\",\"branch\":\"tags-in-list\"}\n{\"kind\":\"unaddressed\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_701\",\"actor\":\"anna\",\"detail\":\"Why Long and not Int for the color? Int is enough for ARGB.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_701\",\"actor\":\"anna\",\"detail\":\"Why Long and not Int for the color? Int is enough for ARGB.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n{\"kind\":\"reaction\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"bob\",\"detail\":\":thumbsup: on the MR\",\"branch\":\"tags-in-list\"}\n{\"kind\":\"approved\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"bob\",\"detail\":\"approved\",\"branch\":\"tags-in-list\"}\n{\"kind\":\"unaddressed\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_701\",\"actor\":\"anna\",\"detail\":\"Why Long and not Int for the color? Int is enough for ARGB.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
       "expected_output": "The session assesses the question of @anna (Int holds ARGB, so the comment is valid) and proposes an answer or fix under Needs you, one item for the thread. The reaction and the approval are under Info. Groups in stack order: !11 before !12.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
@@ -173,7 +173,7 @@
       "name": "watch-suggestion",
       "fixture": "fixtures/watch-suggestion.sh",
       "common": false,
-      "prompt": "{intro}\n\nThe watch monitor sent a notification. Output:\n```\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_702\",\"actor\":\"anna\",\"detail\":\"A raw Long for the color is easy to mix up with other numbers. Give it its own type.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_702\",\"actor\":\"anna\",\"detail\":\"A raw Long for the color is easy to mix up with other numbers. Give it its own type.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
       "expected_output": "The session assesses the suggestion of @anna and shows the probable change as code: a value class for the color in Tag.kt. No code change, no host write.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
