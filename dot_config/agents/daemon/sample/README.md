@@ -18,12 +18,12 @@ no GitLab and no Claude. The test daemon runs next to your real daemon and does 
   and again.
 - `SAMPLE_ROOT` and `SAMPLE_STATE` change the two base folders.
 
-Requirements: herdr, cargo, jq, and bash 5.
+Requirements: herdr, cargo, jq, and bash 5. The script is `~/.config/agents/daemon/sample/sample`.
 
 ## Commands
 
 ```sh
-sample start                 # build the test-support binary, start the test daemon and its watcher
+sample start                 # build the test-support binary, start the test daemon and its herdr watcher
 sample stop                  # stop the agent sessions, the watcher, and the test daemon
 sample run <scenario>        # reset, then apply step 1 of the scenario
 sample next                  # apply the next step

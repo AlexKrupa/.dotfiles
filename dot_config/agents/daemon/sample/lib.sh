@@ -5,6 +5,10 @@
 sample_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 export SAMPLE_ROOT=${SAMPLE_ROOT:-$HOME/.local/share/watchd-sample}
 export SAMPLE_STATE=${SAMPLE_STATE:-$HOME/.local/state/watchd-sample}
+# The daemon hashes the physical path of a worktree, with no symlinks.
+mkdir -p "$SAMPLE_ROOT" "$SAMPLE_STATE"
+SAMPLE_ROOT=$(cd "$SAMPLE_ROOT" && pwd -P)
+SAMPLE_STATE=$(cd "$SAMPLE_STATE" && pwd -P)
 repo=$SAMPLE_ROOT/repo
 origin=$SAMPLE_ROOT/origin.git
 watchd=$SAMPLE_ROOT/bin/watchd
@@ -82,7 +86,7 @@ commit() { # commit <folder> <file> <text>: writes the text to the file and comm
   printf '%s\n' "$3" >"$1/$2" && git -C "$1" add "$2" && git -C "$1" commit -q -m "$3"
 }
 
-origin_commit() { # origin_commit <branch> <file> <text>: a commit of another person, pushed to origin
+origin_commit() { # origin_commit <branch> <file> <text>: a commit of another person in origin
   local clone=$SAMPLE_ROOT/clone
   rm -rf "$clone"
   git clone -q "$origin" "$clone" || return 1
@@ -129,13 +133,17 @@ settle() { # waits until the daemon takes all event files of the fake engine
 }
 
 # A fake agent session is the agent loop in the root pane of the worktree workspace, or with
-# SAMPLE_NO_HERDR=1 a background process. The files $SAMPLE_STATE/agents/<role>.<name> keep the
+# SAMPLE_NO_HERDR=1 a background process. The main checkout has the workspace of `sample ui`, so
+# its loop is also a background process. The files $SAMPLE_STATE/agents/<role>.<name> keep the
 # herdr workspace and pane, and the PID of the loop.
 agents=$SAMPLE_STATE/agents
 
 agent_open() { # agent_open <role>: opens the worktree workspace in herdr
   local branch opened workspace pane
-  if [ "${SAMPLE_NO_HERDR:-}" = 1 ] || [ -s "$agents/$1.pane" ]; then return 0; fi
+  if [ "${SAMPLE_NO_HERDR:-}" = 1 ] || [ "$(worktree_of "$1")" = "$repo" ] \
+    || [ -s "$agents/$1.pane" ]; then
+    return 0
+  fi
   branch=$(git -C "$(worktree_of "$1")" symbolic-ref --short HEAD) || return 1
   opened=$("$HOME/.config/agents/skills/work/herdr-worktree.sh" "$branch" --repo "$repo") || return 1
   workspace=$(jq -r .workspace_id <<<"$opened")
@@ -154,13 +162,13 @@ agent_run() { # agent_run <role> [<watch argument>...]: starts the loop, waits f
   shift
   key=$(key_of "$role") || return 1
   rm -f "$agents/$role.pid"
-  if [ "${SAMPLE_NO_HERDR:-}" = 1 ]; then
-    nohup "$sample_dir/agent-loop" "$(worktree_of "$role")" "$agents/$role.pid" "$@" \
-      >>"$agents/$role.log" 2>&1 </dev/null &
-  else
+  if [ -s "$agents/$role.pane" ]; then
     herdr pane run "$(cat "$agents/$role.pane")" "$(printf '%q ' env SAMPLE_ROOT="$SAMPLE_ROOT" \
       SAMPLE_STATE="$SAMPLE_STATE" "$sample_dir/agent-loop" "$(worktree_of "$role")" \
       "$agents/$role.pid" "$@")" >/dev/null
+  else
+    nohup "$sample_dir/agent-loop" "$(worktree_of "$role")" "$agents/$role.pid" "$@" \
+      >>"$agents/$role.log" 2>&1 </dev/null &
   fi
   wait_until "the agent record $key of the loop of $role" agent_live "$role"
 }
@@ -182,13 +190,13 @@ agent_stop() { # agent_stop <role>: ends the agent session, the workspace stays
 
 agent_close() { # agent_close <role>: ends the agent session and closes the workspace
   agent_stop "$1"
+  # A workspace that you closed, or of an earlier herdr server, is gone, and its close fails.
   if [ -s "$agents/$1.workspace" ]; then
-    herdr workspace close "$(cat "$agents/$1.workspace")" >/dev/null || return 1
+    herdr workspace close "$(cat "$agents/$1.workspace")" >/dev/null 2>&1 || true
   fi
   rm -f "$agents/$1.workspace" "$agents/$1.pane"
 }
 
-# A review agent watches its MR in review mode.
 agent() { # agent open|start|stop|close <role>
   mkdir -p "$agents"
   case $1 in

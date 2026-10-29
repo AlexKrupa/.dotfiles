@@ -14,7 +14,9 @@ check() {
   else printf 'FAIL %s\n  expected: %s\n  actual:   %s\n' "$1" "$2" "$3"; fail=1; fi
 }
 
-has() { if grep -q -- "$1"; then echo yes; else echo no; fi; } # has <text>, stdin: the text
+has() { # has <text>, stdin: the text
+  if grep -q -- "$1"; then echo yes; else echo no; fi
+}
 
 "$sample" status >/dev/null 2>"$tmp/err"
 check "status with no daemon: exit 1" 1 "$?"
@@ -47,12 +49,7 @@ check "next after the last step: the step stays" "hub 3" "$(cat "$SAMPLE_STATE/s
 check "back at step 1: exit 1" 1 "$?"
 check "back at step 1: the step stays" "hub 1" "$(cat "$SAMPLE_STATE/step")"
 
-"$sample" check branch >"$tmp/check.log" 2>&1
-code=$?
-check "check branch: exit 0" 0 "$code"
-[ "$code" = 0 ] || cat "$tmp/check.log"
-
-for scenario in stack review errors daemon; do
+for scenario in branch stack review errors daemon; do
   "$sample" check "$scenario" >"$tmp/check.log" 2>&1
   code=$?
   check "check $scenario: exit 0" 0 "$code"

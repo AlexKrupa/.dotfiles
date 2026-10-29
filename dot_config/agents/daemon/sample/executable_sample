@@ -19,9 +19,9 @@ usage: sample start                 build the test-support binary, start the tes
        sample next                  apply the next step
        sample back                  replay from the reset to the step before
        sample status                scenario, step, expect list, daemon PID and binary
-       sample list                  the scenarios and their steps
-       sample ui                    the control pane: keys n next, p back, r reset, s select
-       sample check [<scenario>]    run the scenarios with no herdr, look for daemon errors
+       sample list                  the scenarios and their steps, with a mark on the current step
+       sample ui                    the control pane: keys n next, p back, r reset, s select, q quit
+       sample check [<scenario>]    run the scenarios with no herdr and look for daemon errors
 EOF
   exit 2
 }
@@ -56,11 +56,13 @@ start_daemon() {
     WATCHD_TICK=1 WATCHD_MANAGED_SECONDS=2 WATCHD_RETRY_INTERVAL=2 \
     perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$watchd" daemon \
     >>"$log" 2>&1 </dev/null &
-  for _ in $(seq 50); do
-    if test_daemon && [ -S "$SAMPLE_STATE/watchd/daemon.sock" ]; then return 0; fi
-    sleep 0.2
-  done
-  die "the test daemon did not start, see $log"
+  wait_until "the test daemon starts" daemon_ready || die "see $log"
+}
+
+daemon_ready() { test_daemon && [ -S "$SAMPLE_STATE/watchd/daemon.sock" ]; }
+
+gone() { # gone <pid>
+  ! kill -0 "$1" 2>/dev/null
 }
 
 stop_daemon() {
@@ -68,11 +70,7 @@ stop_daemon() {
   test_daemon || return 0
   pid=$(daemon_pid)
   kill "$pid"
-  for _ in $(seq 50); do
-    if ! kill -0 "$pid" 2>/dev/null; then return 0; fi
-    sleep 0.2
-  done
-  die "the test daemon $pid did not stop, see $log"
+  wait_until "the test daemon $pid stops" gone "$pid" || die "see $log"
 }
 
 # The second watcher of the herdr plugin shows the sample workspaces. Its plugin state is in
@@ -85,17 +83,24 @@ start_watcher() {
 }
 
 # The watcher and its child processes hold the lock file while they live.
+watcher_pids() { lsof -t "$plugin_state/watch.lock" 2>/dev/null; }
+
+watcher_gone() { ! watcher_pids >/dev/null; }
+
 stop_watcher() {
   local pids
-  pids=$(lsof -t "$plugin_state/watch.lock" 2>/dev/null) || return 0
+  pids=$(watcher_pids) || return 0
   # shellcheck disable=SC2086
   kill $pids 2>/dev/null || true
+  wait_until "the sample watcher stops" watcher_gone || die "the sample watcher $pids did not stop"
 }
 
-# The state folder keeps the step file, because a failed step does not move it. The watcher keeps
-# its lock and its written tokens, but it reads the new event log from the start.
+# With no daemon, a `watchd follow` of the watcher starts a daemon with no fake engine, so the
+# watcher stops first. A failed `back` leaves the step file at the last step that ran. The watcher
+# keeps its lock and its written tokens, but it reads the new event log from the start.
 reset() {
   close_agents
+  stop_watcher
   stop_daemon
   if [ -d "$SAMPLE_STATE" ]; then
     find "$SAMPLE_STATE" -mindepth 1 -maxdepth 1 ! -name step ! -name herdr-watch -exec rm -rf {} +
@@ -110,6 +115,7 @@ reset() {
   git -C "$repo" remote set-head origin main
   git -C "$repo" config watchd.stateHome "$SAMPLE_STATE"
   start_daemon
+  start_watcher
   # A client request adds the repo of its folder to the managed set.
   (cd "$repo" && "$watchd" status >/dev/null)
 }
@@ -163,8 +169,10 @@ list() {
   done
 }
 
+# A reset makes the step file of the scenario before wrong.
 run_scenario() { # run_scenario <scenario>
   steps_of "$1" >/dev/null
+  rm -f "$step_file"
   reset
   apply "$1" 1
 }
@@ -273,7 +281,8 @@ case ${1:-} in
     ;;
   stop) close_agents; stop_watcher; stop_daemon ;;
   run) [ $# = 2 ] || usage; require_daemon; run_scenario "$2"; status ;;
-  next) require_daemon; next; status ;;
+  # A `chezmoi apply` of the plugin stops the sample watcher too.
+  next) require_daemon; start_watcher; next; status ;;
   back) require_daemon; back; status ;;
   status) require_daemon; status ;;
   list) require_daemon; list ;;
