@@ -54,7 +54,7 @@ start_daemon() {
   XDG_STATE_HOME=$SAMPLE_STATE WATCHD_FAKE_ENGINE=$engine \
     WATCHD_FAKE_WORKSPACES=$SAMPLE_STATE/workspaces PATH=$sample_dir/bin:$PATH \
     MOCK_DIR=$SAMPLE_STATE/spice MOCK_LOG=$SAMPLE_STATE/spice.log \
-    WATCHD_TICK=1 WATCHD_MANAGED_SECONDS=2 WATCHD_RETRY_INTERVAL=2 \
+    WATCHD_TICK=1 WATCHD_MANAGED_SECONDS=2 WATCHD_RETRY_INTERVAL=2 WATCHD_GRACE_SECONDS=3 \
     perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$watchd" daemon \
     >>"$log" 2>&1 </dev/null &
   wait_until "the test daemon starts" daemon_ready || die "see $log"

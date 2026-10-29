@@ -16,6 +16,7 @@ no GitLab and no Claude. The test daemon runs next to your real daemon and does 
 - A second `watch.sh` watcher shows the sample workspaces in the herdr sidebar.
 - An agent session is `agent-loop` in the root pane of the worktree workspace: one
   `watchd watch --session`, then `watchd wait --session` again and again.
+- The test daemon ends the record of an away session after 3 seconds (`WATCHD_GRACE_SECONDS`).
 - `SAMPLE_ROOT` and `SAMPLE_STATE` change the two base folders.
 
 Requirements: herdr, cargo, jq, and bash 5. The script is `~/.config/agents/daemon/sample/sample`.
