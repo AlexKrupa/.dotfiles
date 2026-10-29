@@ -80,4 +80,12 @@ check "events of a key with no target: exit 1" 1 "$?"
 check "events of a key with no target: names the key" yes \
   "$(has 'events not taken: nobody' <"$tmp/err")"
 
+# A fake watcher with the process tree of `watch.sh ensure`: lockf, its child shell, and a child of
+# that shell.
+mkdir -p "$SAMPLE_STATE/herdr-watch"
+lockf -s -k -t 0 "$SAMPLE_STATE/herdr-watch/watch.lock" bash -c 'sleep 4321 & wait' &
+for _ in $(seq 20); do pgrep -f 'sleep 4321' >/dev/null && break; sleep 0.1; done
+"$sample" stop >/dev/null 2>&1
+check "stop: no process of the watcher stays" '' "$(pgrep -f 'sleep 4321')"
+
 exit "$fail"

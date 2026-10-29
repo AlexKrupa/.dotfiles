@@ -85,11 +85,14 @@ watcher_pids() { lsof -t "$plugin_state/watch.lock" 2>/dev/null; }
 
 watcher_gone() { ! watcher_pids >/dev/null; }
 
+# Only lockf holds the lock. Its child watch.sh and the children of that shell do not stop with it.
 stop_watcher() {
-  local pids
+  local pids shells
   pids=$(watcher_pids) || return 0
+  shells=$(pgrep -P "$(paste -sd, - <<<"$pids")" | paste -sd, -) || shells=
+  if [ -n "$shells" ]; then pkill -P "$shells" 2>/dev/null || true; fi
   # shellcheck disable=SC2086
-  kill $pids 2>/dev/null || true
+  kill $pids ${shells//,/ } 2>/dev/null || true
   wait_until "the sample watcher stops" watcher_gone || die "the sample watcher $pids did not stop"
 }
 
