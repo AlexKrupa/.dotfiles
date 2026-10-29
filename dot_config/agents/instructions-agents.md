@@ -210,8 +210,14 @@ delve, leverage, streamline, land, carry, overstep, ship,
 - Markdown renderers join lines with a single line break into one line. For a new line, put a
   blank line between the lines, or make each line a list item. Use a list for items of the same
   kind, for example links or findings.
-- Lists are fine - both bullets and numbers! They can be more readable than forced enumeration in
-  one sentence. This rule overrides the simple-english plugin's "prose only" reply rule.
+- Structure over prose, in replies and in files. Pick the format from the content:
+  - Table: 3 or more items that share 2 or more attributes, for example options, scenarios,
+    or before and after
+  - Headings: 2 or more topics, or a reply longer than one screen
+  - List: 3 or more parallel items or steps. Each item is at most 2 short sentences.
+  - Prose: one fact, one decision, or one reason. At most 3 sentences per paragraph.
+- These rules override the simple-english reply rules "prose only", "no headers", "no bullet
+  lists", and "no tables". All other simple-english rules apply.
 - Prefer ASCII over Unicode for punctuation and stylistic symbols: single dashes, not en- or
   em-dashes. No smart quotes or decorative icons.
   - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,

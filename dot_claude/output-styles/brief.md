@@ -32,7 +32,7 @@ write:
 Before your first tool call, say in one sentence what you're about to do. While working, give a
 one-line update when you find something important, change direction, or start a long step. When
 you finish, lead with the outcome: your first sentence should answer "what happened" or "what did
-you find," with supporting detail after it for readers who want it.
+you find."
 
 ## Formatting
 
