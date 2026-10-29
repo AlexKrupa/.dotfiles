@@ -4,9 +4,10 @@ description:
   Audits a git diff and writes a read-only Markdown report under ~/.ai/<repo>/reviews/. The diff is
   the current branch vs its parent (default), uncommitted or staged changes (optionally with the
   branch), or a commit or commit range. Called as a sub-skill by review-me (self-review + fixes) and
-  review-pr (MR context). Run directly only when the user names it. Do not pick it for a plain
+  review-pr (MR context). If the user names it, run it directly. Do not pick it for a plain
   "review my branch" or "review my changes" request - use review-me or review-pr, which call
-  it themselves. Platform-agnostic (GitHub/GitLab/etc.) and author-agnostic (self or teammate).
+  it themselves. Platform-agnostic (GitHub, GitLab, and others) and author-agnostic (self or
+  teammate).
 allowed-tools:
   - Bash(~/.config/agents/bin/git-diff-context.sh *)
   - Bash(~/.claude/skills/review-diff/docs-index.sh *)
@@ -68,16 +69,16 @@ prints a keyed metadata block. Use an absolute path (skill cwd is the user's rep
     ~/.config/agents/bin/git-diff-context.sh --rev <rev | A..B>
 
 It runs cheap guards before any diff, in fail-fast order: repo check, branch name, parent detection,
-the empty-diff guard, `git status`, diffstat, commit log, and author shortlog. It
-aborts (exit 1, message on stderr) when not in a repo, when the diff scope is empty, or when parent
-is unresolved - relay that message and stop.
+the empty-diff guard, `git status`, diffstat, commit log, and author shortlog. It aborts with exit 1
+and a message on stderr in three cases: no repo, an empty diff scope, or an unresolved parent. If it
+aborts, relay that message and stop.
 
 Parent detection (`branch` and the `branch-*` scopes, no override arg): if git-spice tracks the
 current branch, its base branch is the immediate stack parent. Else the nearest local branch that
 is a strict ancestor of HEAD is the immediate stack parent. If that branch is mainline
-(`main`/`master`/`develop` or a remote default branch), the base is mainline: the script anchors on
-the remote-tracking ref from the last fetch (e.g. `origin/main`), so a stale local mainline does not
-pollute the diff with other people's commits. It does not fetch. If the remote-tracking ref does
+(`main`/`master`/`develop` or a remote default branch), the base is mainline. Then the script
+anchors on the remote-tracking ref from the last fetch, for example `origin/main`. Thus a stale
+local mainline does not add the commits of other people to the diff. It does not fetch. If the remote-tracking ref does
 not exist, it falls back to the local mainline ref. An intermediate stack parent stays anchored on
 its local tip (its split point is your local tip).
 
@@ -103,33 +104,37 @@ against them. Run the docs helper (absolute path - skill cwd is the user's repo)
 
     ~/.claude/skills/review-diff/docs-index.sh
 
-It enumerates tracked docs via `git ls-files` (so gitignored `build/`, `.gradle/`, `node_modules/`,
-and generated doc output are excluded automatically - no hardcoded skip list) across three groups:
-doc dirs (`docs/`, `documentation/`, `doc/`), root convention files (`CONTRIBUTING*`, `README*`,
-`ARCHITECTURE*`, `STYLE*`, `docs/adr/**`), and agent instruction files (`CLAUDE.md`, `AGENTS.md`,
-`GEMINI.md`, `.cursorrules`). It emits a cheap index - a `docs-found: N` count, then per doc a
-`file:` line with that file's headings indented beneath it. It reads no file bodies and is
-read-only.
+It lists tracked docs with `git ls-files`. The list has no gitignored paths, for example `build/`,
+`.gradle/`, `node_modules/`, or generated doc output. Thus the script needs no skip list. The list
+has three groups:
 
-Then **select, don't read everything**: match the index headings and paths against the branch's
-changed files and diff topics. Open in full only the docs that plausibly govern what the branch
-touched (e.g. skip a snapshot-testing doc when the branch has no snapshot tests). `docs-found: 0`
-means the repo has no discoverable conventions - skip the docs-alignment check entirely and produce
-no docs-related findings.
+- doc dirs: `docs/`, `documentation/`, `doc/`
+- root convention files: `CONTRIBUTING*`, `README*`, `ARCHITECTURE*`, `STYLE*`, `docs/adr/**`
+- agent instruction files: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursorrules`
+
+It prints a cheap index: a `docs-found: N` count, then a `file:` line for each doc, with the
+headings of that file indented below it. It reads no file bodies and is read-only.
+
+Then **select, do not read everything**: match the index headings and paths against the changed
+files and the topics of the diff. Open in full only the docs that can apply to the code that the
+branch changed. An example: a branch with no snapshot tests does not need a snapshot-testing doc.
+`docs-found: 0` means that the repo has no discoverable conventions. In that case, skip the
+docs-alignment check and write no docs-related findings.
 
 Record which docs you actually opened in the report's required `Convention docs consulted:` header
-line (see "Report structure"). Use `none found` only when the helper reported `docs-found: 0`.
+line (see "Report structure"). If the helper reported `docs-found: 0`, write `none found`.
 
 ### Existing implementations
 
-Only when the diff adds something meant for reuse (shared helper, extension function, base class,
-interface, generic wrapper): search the repo for equivalent behavior before treating it as new - by
-name, by signature, and in the module where such a thing would already live. A duplication finding
-requires the existing symbol's `file:line`. If you did not find one, there is no finding. Skip this
-step entirely when the diff adds no reusable symbol.
+If the diff adds a symbol for reuse, search the repo for the same behavior before you treat it as
+new. Examples of such symbols: a shared helper, an extension function, a base class, an interface,
+or a generic wrapper. Search by name,
+by signature, and in the module that is the usual place for such a symbol. A duplication finding
+needs the `file:line` of the existing symbol. If you did not find one, there is no finding. If the
+diff adds no reusable symbol, skip this step.
 
 **Parent override:** pass the parent branch as the last arg (callers like `review-pr` do this).
-The script validates the ref exists locally and reports `parent-source: override`.
+The script verifies that the ref exists locally and reports `parent-source: override`.
 
 ### Spec and plan
 
@@ -203,7 +208,7 @@ the report item format.
 ### Merge
 
 1. Verify every returned finding and high-impact item yourself against the diff: the `file:line`
-   exists and the claim holds. Agent output is unverified. Drop what you cannot confirm.
+   exists and the claim holds. Agent output is unverified. Drop what you cannot verify.
 2. Two findings on the same `file:line` with the same claim are one finding. Keep the higher
    severity and the clearer text.
 3. Assign ids after dedup, per "Report structure".
@@ -214,23 +219,23 @@ the report item format.
 Group findings under these. Each finding cites `file:line`. Before writing any finding, verify it
 against the actual diff/code: the cited `file:line` exists, the operator or condition is as
 claimed, and the code is in audit scope. Audit scope is the branch's diff, plus the adjacent radius
-that **Simplicity** defines below - that radius is the only reach outside the diff, and no other
+that **Simplicity** defines below. That radius is the only reach outside the diff. No other
 checklist item uses it. Code outside audit scope goes to "Out of scope". Drop any finding you cannot
-confirm.
+verify.
 
 - **Correctness** - off-by-one, wrong conditions, null/undefined, wrong operator (`<` vs `<=`).
 - **Concurrency & data races** - shared mutable state without sync, lock ordering / deadlock,
   check-then-act atomicity, missing memory visibility, blocking call inside an async/coroutine
-  context, unbounded parallelism. Always checked. Go deeper when the diff touches core
-  concurrency code (lock primitives, coroutine/async infrastructure, low-level shared utilities,
-  caches, channels). Only races that can actually happen - do not manufacture findings.
+  context, unbounded parallelism. Always checked. If the diff touches core concurrency code (lock
+  primitives, coroutine/async infrastructure, low-level shared utilities, caches, channels), go
+  deeper. Only races that can actually happen - do not manufacture findings.
 - **Conventions & docs alignment** - check the branch against the docs selected in "Gather context":
   (1) code contradicts a documented convention (naming, layering, error-handling pattern, "always
   use util X"). (2) The branch changes behavior a doc describes without updating that doc. (3) The
   branch adds a pattern or public API the docs say must be documented, but no doc was added. Cite
-  the doc source in the finding, e.g. `violates docs/testing.md:L20`. Only when docs were found.
-  Never invent a convention the docs do not state.
-- **Spec alignment** - only when the caller gave a spec. Large drift is a `high` finding: a spec
+  the doc source in the finding, for example `violates docs/testing.md:L20`. If the helper found no
+  docs, skip this item. Never invent a convention the docs do not state.
+- **Spec alignment** - if the caller gave no spec, skip this item. Large drift is a `high` finding: a spec
   requirement is missing or behaves differently, or the branch adds behavior or scope that the
   spec does not have. Cite the spec section. Small drift from the plan is not a finding: other
   names, file layout, task order, or a different approach with the same behavior. Write at most one
@@ -244,27 +249,33 @@ confirm.
 - **Performance** - N+1, accidental quadratics, blocking I/O on hot paths, unbounded allocations.
 - **Dead code** - unused imports/exports/vars, unreachable branches, leftover
   `console.log`/`print`/debug.
-- **Simplicity** - avoidable complexity in code that works (YAGNI): single-use methods/vars/consts
-  clearer inlined, wrappers/indirection/file splits with one caller, single-impl interface within
-  the same module (cross-module `api`/`impl` splits can be fine), speculative params/config/hooks
-  for futures that don't exist, flag-argument functions, deep nesting that collapses to guard
-  clauses, reinventing stdlib or an existing util instead of reusing it (cite the existing symbol's
-  `file:line` - no citation, no finding), a new shared or public utility with one caller that
-  belongs private to it, a shallow type or layer whose methods only forward to one collaborator and
-  add no behavior. Flag only when the simpler form is clearly better, not preference.
+- **Simplicity** - avoidable complexity in code that works (YAGNI):
+  - single-use methods, vars, or consts that are clearer inlined
+  - wrappers, indirection, or file splits with one caller
+  - a single-impl interface in the same module. Cross-module `api`/`impl` splits can be fine.
+  - speculative params, config, or hooks for futures that do not exist
+  - flag-argument functions
+  - deep nesting that collapses to guard clauses
+  - a new copy of stdlib or of an existing util. Cite the `file:line` of the existing symbol. No
+    citation, no finding.
+  - a new shared or public utility with one caller, which belongs private to that caller
+  - a shallow type or layer whose methods only forward to one collaborator and add no behavior
+
+  If the simpler form is clearly better, flag it. Do not flag a preference.
 
   _Adjacent scope._ These criteria apply one hop out from the diff as well as inside it. In scope:
   (1) the whole body of every file in the diffstat, not only the changed hunks. (2) Direct callees -
   the functions and types the changed lines call. (3) Direct callers of the symbols the branch
   changed. Stop there. A callee of a callee is out.
 
-  Widen to the enclosing module or package only when the branch already changes the architecture
-  there: it adds or removes a layer, moves a boundary, or changes a public interface or its
-  implementations. A branch that only edits function bodies stays at one hop.
+  If the branch already changes the architecture of the enclosing module or package, widen to that
+  module or package. A change to the architecture adds or removes a layer, moves a boundary, or
+  changes a public interface or its implementations. A branch that only edits function bodies stays
+  at one hop.
 
-  A finding outside the diff takes the `(adjacent)` suffix in its title, is capped at `medium`, and
-  states its count as evidence - callers, implementations, or forwarding methods. No count, no
-  finding.
+  A finding outside the diff gets the `(adjacent)` suffix in its title. Its maximum severity is
+  `medium`. It states a count as evidence: callers, implementations, or forwarding methods. No
+  count, no finding.
 - **Public API / contracts** - breaking signature or schema changes, missing migration notes.
 - **Style & consistency** - matches surrounding code (not personal preference, not lint-fixable
   trivia unless it breaks CI).
@@ -272,7 +283,7 @@ confirm.
   `~/.claude/skills/documenting/SKILL.md`, scrutinize each comment the branch adds or changes on two
   axes:
   - _why not what_: the comment explains the reason for the code, not a restatement of what the code
-    does. Flag any comment whose content a reader could infer from the surrounding code itself
+    does. Flag each comment whose content a reader can infer from the surrounding code itself
     (paraphrased control flow, obvious assignments, method-name echoes). A comment is justified only
     by a non-obvious choice, constraint, or workaround.
   - _brevity_: the comment is short enough to grasp at a glance - no wall-of-text, no inflated
@@ -285,7 +296,7 @@ confirm.
 ## Severity
 
 - `critical` - must fix before merge: bugs, security holes, broken tests, data loss risk.
-- `high` - should fix: likely bug, missing test for new behavior, perf regression, breaking change
+- `high` - fix it: likely bug, missing test for new behavior, perf regression, breaking change
   without migration.
 - `medium` - worth fixing: small bug in unlikely edge case, mild duplication, unclear naming on a
   public symbol.
@@ -303,15 +314,15 @@ and the soft limit.
 
 Findings are defects. High-impact items are correct and intended changes. An intended change is not
 a finding only because it is hard to undo or affects many places. Put it here, not under a
-severity. When the change also has a defect (for example, a renamed stored field with no
-migration), write the finding too, and cite its id in the item.
+severity. If the change also has a defect, write the finding too, and cite its id in the item. An
+example is a renamed stored field with no migration.
 
 A new shared symbol with few callers is not wide reach. Simplicity covers it.
 
-When the diff has no item, omit the section.
+If the diff has no item, omit the section.
 
-In re-review mode, copy the previous report's items. Change an item only when a modified file
-changes it.
+In re-review mode, copy the previous report's items. If a modified file changes an item, change
+that item.
 
 ## Boundary changes
 
@@ -405,14 +416,19 @@ this dir). Do not re-implement repo / author / branch resolution inline.
 
     path="$(~/.config/agents/bin/review-report-path.sh <log-range> [report-prefix])"
 
-Use the `log-range` and `report-prefix` values. Omit the prefix when `report-prefix` is empty.
+Use the `log-range` and `report-prefix` values. If `report-prefix` is empty, omit the prefix.
 
-The helper handles: worktree-aware main-repo name (via `--git-common-dir`, so every worktree of
-`foo` writes under one directory regardless of the worktree folder's own name), slugification
-(including diacritic transliteration, e.g. `Józef Mąka` -> `jozef-maka`), branch-name `/`->`-`
-flattening, majority-author detection (the current git user when the range has no commits), a
-leading `<date>` prefix (today, ISO), and `mkdir -p` of the parent. Prints the absolute path on
-stdout. A cross-day re-run gets a new dated file. A same-day re-run resolves to the identical path
+The helper does these steps:
+
+- It finds the worktree-aware main-repo name with `--git-common-dir`. Thus every worktree of `foo`
+  writes under one directory, whatever the name of the worktree folder is.
+- It slugifies names, with diacritic transliteration: `Józef Mąka` -> `jozef-maka`.
+- It flattens `/` to `-` in the branch name.
+- It finds the majority author. If the range has no commits, the author is the current git user.
+- It adds a leading `<date>` prefix: today, ISO.
+- It runs `mkdir -p` on the parent.
+
+It prints the absolute path on stdout. A cross-day re-run gets a new dated file. A same-day re-run resolves to the identical path
 and overwrites (re-runs supersede within a day).
 
 Optional second arg `prefix` -> `<date>-<prefix>-<branch>-<author>.md` (the prefix is slugified
@@ -495,12 +511,12 @@ Simplicity findings outside the diff take the `(adjacent)` suffix in the title a
 
 ## Out of scope / mentions
 
-Pre-existing issues noticed but not introduced by this branch - mention, don't fix.
+Pre-existing issues noticed but not introduced by this branch - mention, do not fix.
 ```
 
-Omit the High-impact changes section, the Boundary changes section, and empty severity sections
-when they have no items. Reference `file:line`, do not paste surrounding context. Snippets only when
-prose is unclear.
+If the High-impact changes section, the Boundary changes section, or a severity section has no
+items, omit it. Reference `file:line`, do not paste surrounding context. If the prose is not clear,
+add a snippet.
 
 ## Final reply
 
@@ -529,13 +545,13 @@ Review guide:
 📄 Report: `<path>`
 ```
 
-- Copy the high-impact items, without their `Impact:` lines. Omit the block when the report has no
-  items.
-- Copy the Boundary changes lines as they are. Omit the block when the report has no Boundary
-  changes section.
+- Copy the high-impact items, without their `Impact:` lines. If the report has no items, omit the
+  block.
+- Copy the Boundary changes lines as they are. If the report has no Boundary changes section, omit
+  the block.
 - Copy the guide's numbered list, or its one-line simple-change form. Omit the `Then:` line.
 - List all findings, one line each.
-- No counts. Add a line only when the user must act on it.
+- No counts. If the user must act on something, add a line for it. Add no other lines.
 
 ## Hard constraints
 
@@ -557,7 +573,7 @@ Review guide:
 - A finding whose only claim is that an intended change is hard to undo or affects many places.
   That is a high-impact item.
 - A high-impact item without its evidence, or one for a local, compatible, or easy-to-undo change.
-- Writing a finding without confirming its `file:line` and claim against the actual diff. Unverified
+- Writing a finding without verifying its `file:line` and claim against the actual diff. Unverified
   findings are fabrications - drop them.
 - Dispatching review agents for a diff of 20 files or fewer, or in re-review mode. Audit it
   yourself.
