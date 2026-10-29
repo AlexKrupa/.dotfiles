@@ -219,13 +219,17 @@ def load_transcript(run_dir):
 
 
 def tool_uses(transcript):
-    """Yield (name, input, is_subagent, message_index) for each tool call in the transcript."""
+    """Yield (name, input, is_subagent, message_key) for each tool call in the transcript.
+
+    The stream writes each content block of one message as its own event, so the key is the
+    message id. An event with no id falls back to its index."""
     for i, event in enumerate(transcript):
         if event.get("type") != "assistant":
             continue
-        for item in event.get("message", {}).get("content", []):
+        message = event.get("message", {})
+        for item in message.get("content", []):
             if item.get("type") == "tool_use":
-                yield item["name"], item.get("input", {}), bool(event.get("parent_tool_use_id")), i
+                yield item["name"], item.get("input", {}), bool(event.get("parent_tool_use_id")), message.get("id", i)
 
 
 def load_common(run_dir):
