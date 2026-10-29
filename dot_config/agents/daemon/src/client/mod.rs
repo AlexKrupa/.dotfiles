@@ -16,7 +16,7 @@ use crate::engine::mr_number;
 use crate::key::{KeyMode, digits, repo_slug, watch_key, worktree_top};
 use crate::local::{git, repo_of, shared_refs};
 use crate::paths::{ClientDirs, StateDirs};
-use crate::platform::{local_time, spawn_detached, terminal_columns};
+use crate::platform::{local_time, process_alive, spawn_detached, terminal_columns};
 use crate::protocol::{Envelope, Request, Response, StatusReport, WatchRequest, receive, send};
 use crate::workspaces::workspaces_of;
 
@@ -236,18 +236,43 @@ pub async fn wait(args: Vec<String>) -> i32 {
     let Some(owner_pid) = owner_pid else {
         return die("wait needs --owner-pid");
     };
+    let tick = std::env::var("WATCH_CLIENT_TICK")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .map_or(Duration::from_secs(3), Duration::from_secs);
     let client = current_client();
     let request = envelope(Request::Wait { session, owner_pid });
     loop {
+        // A gone owner reads no events: they stay in the inbox for the next waiter.
+        if !process_alive(owner_pid) {
+            return 0;
+        }
         let stream = match connect(&client, true).await {
             Ok(stream) => stream,
             Err(message) => return die(&message),
         };
         let (read, mut write) = stream.into_split();
-        if send(&mut write, &request).await.is_ok()
-            && let Ok(Some(response)) = receive(&mut BufReader::new(read)).await
-        {
-            return deliver(response);
+        if send(&mut write, &request).await.is_ok() {
+            let mut reader = BufReader::new(read);
+            let receiving = receive(&mut reader);
+            tokio::pin!(receiving);
+            let mut ticks = tokio::time::interval(tick);
+            ticks.tick().await;
+            let received = loop {
+                // An answer that came is not lost: the daemon took its events from the inbox.
+                tokio::select! {
+                    biased;
+                    received = &mut receiving => break received,
+                    _ = ticks.tick() => {
+                        if !process_alive(owner_pid) {
+                            return 0;
+                        }
+                    }
+                }
+            };
+            if let Ok(Some(response)) = received {
+                return deliver(response);
+            }
         }
         // The daemon closed the socket, for example for a restart.
         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -525,7 +550,7 @@ pub async fn status() -> i32 {
         let sub = &status.sub;
         let mrs: Vec<String> = sub.mrs.iter().map(u64::to_string).collect();
         let mrs = if mrs.is_empty() { "-".to_string() } else { mrs.join(",") };
-        let live = if status.live { "live" } else { "dead" };
+        let live = if status.live { "live" } else { "away" };
         println!(
             "{}\t{}\t{mrs}\t{live}\t{}",
             sub.key,

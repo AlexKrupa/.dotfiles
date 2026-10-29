@@ -74,6 +74,8 @@ pub struct Daemon {
     stop: Notify,
     pub tick: Duration,
     idle_seconds: u64,
+    /// An away session ends after this time with no waiter.
+    grace_seconds: u64,
     /// The test value of both intervals of the managed loops.
     test_interval: Option<Duration>,
     pub engine: Box<dyn Engine>,
@@ -117,6 +119,7 @@ impl Daemon {
             stop: Notify::new(),
             tick: env_duration("WATCHD_TICK").unwrap_or(Duration::from_secs(5)),
             idle_seconds: env_seconds("WATCHD_IDLE_SECONDS", 600),
+            grace_seconds: env_seconds("WATCHD_GRACE_SECONDS", 1800),
             test_interval: env_duration("WATCHD_MANAGED_SECONDS"),
             engine,
             workspaces,
@@ -819,6 +822,10 @@ async fn run(daemon: &Arc<Daemon>) -> End {
         if now - pruned_at >= 3600 {
             daemon.store.prune(now);
             pruned_at = now;
+        }
+        let ended = daemon.store.end_sessions(now, daemon.grace_seconds as i64);
+        for key in ended.iter().chain(&daemon.store.end_gone_worktrees()) {
+            daemon.forget(&mut memory, key);
         }
         daemon.store.sweep();
         for repo in daemon.store.drop_gone_repos() {

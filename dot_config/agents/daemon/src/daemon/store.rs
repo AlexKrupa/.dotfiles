@@ -20,7 +20,7 @@ use crate::key::is_worktree_key;
 use crate::local::repo_of;
 use crate::paths::StateDirs;
 use crate::persist::{Load, load, save, write_json};
-use crate::platform::{local_time, now_seconds, utc_timestamp};
+use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
 use crate::protocol::{DebugState, SubStatus, WatchRequest};
 use crate::report::{ReportInput, build_report, render};
 
@@ -169,6 +169,48 @@ impl Store {
 
     pub fn remove_session(&self, id: &str) {
         remove(&self.dirs.session(id));
+    }
+
+    /// A session is away from the end of its owner to the next wait.
+    pub fn live_session(&self, id: &str) -> bool {
+        self.session(id).is_some_and(|session| session.owner_gone_at.is_none())
+    }
+
+    /// Ends the records of the sessions that are away for the grace period, and the sessions.
+    /// Returns the keys of the ended records.
+    pub fn end_sessions(&self, now: i64, grace_seconds: i64) -> Vec<String> {
+        let mut keys = Vec::new();
+        for (id, mut session) in self.sessions() {
+            let gone_at = match session.owner_gone_at {
+                Some(gone_at) => gone_at,
+                None if session.owner_pid.is_some_and(process_alive) => continue,
+                None => {
+                    session.owner_gone_at = Some(now);
+                    self.write_session(&id, &session);
+                    now
+                }
+            };
+            if now - gone_at < grace_seconds {
+                continue;
+            }
+            for sub in self.session_subs(&id) {
+                self.remove_record(&sub, &format!("session {id} is gone"), None);
+                keys.push(sub.key);
+            }
+            self.remove_session(&id);
+        }
+        keys
+    }
+
+    /// Returns the keys of the ended records.
+    pub fn end_gone_worktrees(&self) -> Vec<String> {
+        let mut keys = Vec::new();
+        for sub in self.subs().into_iter().filter(|sub| !sub.repo.is_dir()) {
+            let error = format!("watchd: the worktree is gone: {}\n", sub.repo.display());
+            self.remove_record(&sub, "worktree gone", Some(&error));
+            keys.push(sub.key);
+        }
+        keys
     }
 
     pub fn write_sub(&self, sub: &Agent) {
@@ -795,9 +837,9 @@ impl Store {
         }
     }
 
-    /// A new hub gets the open items of the hub first. The records of a session have no owner
-    /// before its first wait.
-    pub fn watch(&self, request: &WatchRequest, _now: i64) {
+    /// A new hub gets the open items of the hub first. A new session is away until its first
+    /// wait: with no waiter, its records end after the grace period.
+    pub fn watch(&self, request: &WatchRequest, now: i64) {
         let old = self.sub(&request.key);
         if old.is_none() && request.mode == Mode::Hub && !self.inbox_has_events(&request.key) {
             self.append_lines(&self.dirs.inbox(&request.key), &self.open_events(&request.key));
@@ -822,7 +864,11 @@ impl Store {
         };
         self.write_sub(&sub);
         if self.session(&sub.session).is_none() {
-            self.write_session(&sub.session, &Session::default());
+            let session = Session {
+                owner_gone_at: Some(now),
+                ..Session::default()
+            };
+            self.write_session(&sub.session, &session);
         }
         let kind = kind_of(sub.mode);
         self.update_worktree(&sub.repo, |state| {
@@ -846,6 +892,7 @@ impl Store {
         let sub = self.sub(key);
         if let Some(sub) = &sub
             && sub.session != session
+            && self.live_session(&sub.session)
         {
             return Err(format!("the subscription {key} is of session {}", sub.session));
         }
@@ -952,8 +999,9 @@ impl Store {
             .subs()
             .into_iter()
             .map(|sub| {
+                let live = self.live_session(&sub.session);
                 let mut value = serde_json::to_value(sub).expect("a record serializes");
-                value["live"] = serde_json::Value::Bool(true);
+                value["live"] = serde_json::Value::Bool(live);
                 value
             })
             .collect();
@@ -1021,7 +1069,7 @@ impl Store {
         self.subs()
             .into_iter()
             .map(|sub| SubStatus {
-                live: true,
+                live: self.live_session(&sub.session),
                 inbox_lines: self.inbox_lines(&sub.key),
                 sub,
             })

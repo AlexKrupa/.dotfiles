@@ -270,6 +270,8 @@ async fn wait(
         memory.waiters.insert(session.clone(), number);
         number
     };
+    // An older waiter of the session gets its answer.
+    daemon.changed.notify_waiters();
     let mut line = String::new();
     let (response, delivering) = loop {
         let changed = daemon.changed.notified();
@@ -277,8 +279,11 @@ async fn wait(
         changed.as_mut().enable();
         let delivering = daemon.delivering.read().await;
         let answer = {
-            let _memory = daemon.lock().await;
-            delivery(&daemon, &session)
+            let memory = daemon.lock().await;
+            match memory.waiters.get(&session) == Some(&number) {
+                true => delivery(&daemon, &session),
+                false => Some(Response::Replaced),
+            }
         };
         if let Some(answer) = answer {
             break (Some(answer), Some(delivering));
