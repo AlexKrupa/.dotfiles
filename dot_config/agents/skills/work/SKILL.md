@@ -104,26 +104,25 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
        Investigation alone, or a design choice in one module, is `high` at most.
      - Never `max`, unless the user asks for it.
    - If the user gave no model, do not add `--model`.
-   - In a `nono` sandbox (`printenv NONO_CAP_FILE` prints a path), `--effort` is the only Claude
+   - In a `nono` sandbox (`printenv NONO_CAP_FILE` prints a path), `--effort` is the only agent
      flag. Do not add `--model`. If the user gave a model, tell the user to set the model in the
      new agent.
 6. Next mode:
-   - No base and no Claude flags. If the user gave a model or an effort, tell the user to set it
+   - No base and no agent flags. If the user gave a model or an effort, tell the user to set it
      in the agent after the clear.
    - Handoff: the word `fresh` or `continue` in the message, as an option word like a model
      word. If the message has neither word, use `continue`.
      - `fresh`: the handoff has only the stack base. Add no handoff options.
-     - `continue`: add `--continue ${CLAUDE_SESSION_ID}`. If the MR URL of the current branch
-       is in this session, add `--mr <URL>`. Else the script finds it with `glab`. Write a
-       summary of this session for the new agent:
+     - `continue`: add `--continue`. If the MR URL of the current branch is in this session,
+       add `--mr <URL>`. Else the script finds it with `glab`. Write a summary of this session
+       for the new agent:
        - the status of the current branch: done, pushed, or with open items
        - decisions, with their reasons
        - facts that this session found and the next work needs
        - the related spec and plan files that are important, and why
    - If the user selected a top branch in step 3, add `--onto <branch>`.
    Split mode: add `--split`. The words `fresh` and `continue` work as in next mode. With
-   `continue`, add `--continue ${CLAUDE_SESSION_ID}` and no `--mr`. The summary tells only what
-   the new work needs:
+   `continue`, add `--continue` and no `--mr`. The summary tells only what the new work needs:
    - the issue: for example the test name, the failure text, a CI job URL
    - what this session found about the cause, and what it did not find
    - the files and the commands that are important
@@ -147,12 +146,12 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
    If the user named a base, add `--base <ref>` before `--`. In new, split, and next mode,
    if the repo's agent instruction file has a placeholder id, add `--placeholder <id>` before
    `--`. Split mode: the new mode command with `--split` before `--`. With `continue`, also add
-   `--continue <session id>`, and the summary goes on fd 3 as in next mode. Next mode: the same
+   `--continue`, and the summary goes on fd 3 as in next mode. Next mode: the same
    command with the ticket id, the slug text, and the handoff options from step 6, and no
    `--base` and no `--` part. With `continue`, the summary goes on fd 3 in a second quoted heredoc:
 
    ```sh
-   <skill folder>/work-start.sh ABC-123 'Implement foo' --continue <session id> \
+   <skill folder>/work-start.sh ABC-123 'Implement foo' --continue \
      --placeholder ABC-0 <<'PROMPT' 3<<'SUMMARY'
    <the user's message>
    PROMPT

@@ -15,7 +15,9 @@ check() {
 }
 
 # Fake herdr: answers the calls work-start.sh makes and logs each call. MOCK_START_FAIL is the
-# error text of a failed `agent start`. MOCK_WT_LIST is the output of `worktree list`.
+# error text of a failed `agent start`. MOCK_WT_LIST is the output of `worktree list`. `agent get`
+# gives the kind MOCK_KIND (default fake) and the session id MOCK_SESSION (default sid-1). An
+# empty value gives null.
 mkdir -p "$tmp/bin" "$tmp/wt-path"
 cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
@@ -37,6 +39,11 @@ case "$1 $2" in
     printf '%s' "$4" >"$MOCK_PROMPT"; echo '{}' ;;
   "pane current")
     echo '{"result":{"pane":{"pane_id":"wL:p1"}}}' ;;
+  "agent get")
+    kind=${MOCK_KIND-fake} session=${MOCK_SESSION-sid-1}
+    if [ -n "$kind" ]; then kind="\"$kind\""; else kind=null; fi
+    if [ -n "$session" ]; then session="{\"value\":\"$session\"}"; else session=null; fi
+    echo '{"result":{"agent":{"agent":'"$kind"',"agent_session":'"$session"'}}}' ;;
   *) echo "unexpected herdr call: $*" >&2; exit 2 ;;
 esac
 EOF
@@ -70,10 +77,10 @@ printf 'glab %s\n' "$*" >>"$MOCK_LOG"
 if [ "$1 $2" = "mr list" ] && [ -n "${MOCK_GLAB_MRS:-}" ]; then echo "$MOCK_GLAB_MRS"; exit 0; fi
 echo "unexpected glab call: $*" >&2; exit 2
 EOF
-# Fake herdr-start-claude, the mediated command in a nono sandbox: logs each call.
-cat >"$tmp/bin/herdr-start-claude" <<'EOF'
+# Fake mediated start command of the fake integration in a nono sandbox: logs each call.
+cat >"$tmp/bin/herdr-start-fake" <<'EOF'
 #!/bin/sh
-printf 'herdr-start-claude'  >>"$MOCK_LOG"
+printf 'herdr-start-fake'  >>"$MOCK_LOG"
 printf ' [%s]' "$@" >>"$MOCK_LOG"
 echo >>"$MOCK_LOG"
 EOF
@@ -83,9 +90,33 @@ printf 'watchd %s\n' "$*" >>"$MOCK_LOG"
 pwd -P >"$MOCK_LOG.folder"
 EOF
 chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab" \
-  "$tmp/bin/herdr-start-claude" "$tmp/bin/watchd"
+  "$tmp/bin/herdr-start-fake" "$tmp/bin/watchd"
+# Fake integrations. The fake adapter prints --fake-name, the title, then the flags, one on each
+# line, and refuses a flag that is not --model or --effort. herdr-start-fake marks the sandbox
+# start command of the folder. The plain integration has no sandbox start command.
+mkdir -p "$tmp/integrations/fake" "$tmp/integrations/plain"
+cat >"$tmp/integrations/fake/agent.sh" <<'EOF'
+#!/usr/bin/env bash
+case $1 in
+  kind) echo fake ;;
+  start-args)
+    title=$2; shift 2
+    for arg in "$@"; do
+      case $arg in
+        --*) [[ $arg == --model || $arg == --effort ]] \
+          || { echo "fake: no start flag $arg" >&2; exit 2; } ;;
+      esac
+    done
+    printf '%s\n' --fake-name "$title" "$@" ;;
+  *) exit 3 ;;
+esac
+EOF
+printf '#!/bin/sh\necho plain\n' >"$tmp/integrations/plain/agent.sh"
+: >"$tmp/integrations/fake/herdr-start-fake"
+: >"$tmp/integrations/fake/herdr-start-fake.test.sh"
+chmod +x "$tmp/integrations/fake/agent.sh" "$tmp/integrations/plain/agent.sh"
 export PATH="$tmp/bin:$PATH" WORK_NEXT="$tmp/bin/work-next" TMPDIR="$tmp" HERDR_ENV=1 \
-  WATCHD="$tmp/bin/watchd"
+  WATCHD="$tmp/bin/watchd" AGENT_INTEGRATIONS="$tmp/integrations"
 unset NONO_CAP_FILE
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$tmp/gitconfig"
 git config --global user.name tester
@@ -140,6 +171,11 @@ push_branch() {
 
 remote_tip() { git -C "$d/remote.git" rev-parse "refs/heads/$1"; }
 
+# side_calls: the logged calls without the read-only agent lookup of this pane.
+side_calls() {
+  grep -v -e '^herdr pane current --current$' -e '^herdr agent get wL:p1$' "$MOCK_LOG"
+}
+
 # wait_next: waits up to 5 s for the fake herdr-after-turn.sh, then prints what it got.
 wait_next() {
   for _ in $(seq 50); do [ -f "$MOCK_NEXT" ] && break; sleep 0.1; done
@@ -172,11 +208,12 @@ check "new: worktree opened from the main checkout" \
   "herdr worktree create --cwd $work --branch ABC-0/fix-readme-typo --no-focus" \
   "$(grep '^herdr worktree create' "$MOCK_LOG")"
 check "new: agent started with the slug text as session name for a placeholder ticket" \
-  "herdr agent start abc-0-fix-readme-typo --kind claude --pane wT:p1 -- --name Fix README typo!" \
+  "herdr agent start abc-0-fix-readme-typo --kind fake --pane wT:p1 -- --fake-name \
+Fix README typo!" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "new: prompt from stdin" "ABC-0 fix the typo" "$(cat "$MOCK_PROMPT")"
 check "new: prompt pasted with no typed line before it" \
-  "herdr agent start abc-0-fix-readme-typo --kind claude --pane wT:p1 -- --name Fix README typo!
+  "herdr agent start abc-0-fix-readme-typo --kind fake --pane wT:p1 -- --fake-name Fix README typo!
 herdr agent prompt wT:p1 ABC-0 fix the typo" "$(grep -B1 '^herdr agent prompt' "$MOCK_LOG")"
 check "new: output has pane, worktree, and agent" "wT:p1 $tmp/wt-path abc-0-fix-readme-typo" \
   "$(jq -r '"\(.pane_id) \(.worktree) \(.agent)"' <<<"$out")"
@@ -195,36 +232,36 @@ check "default branch dev/x: base and tracked" "dev/x true" \
 check "default branch dev/x: git-spice base" \
   "git-spice -C $work branch track ABC-0/fix-it --base dev/x" "$(grep '^git-spice' "$MOCK_LOG")"
 
-# Claude flags, symbols in the slug text, a multi-line prompt with shell characters.
+# Agent flags, symbols in the slug text, a multi-line prompt with shell characters.
 fresh
 run $'ABC-7\n\nFix `x` in "$HOME" dir' ABC-7 'Add: --base support (v2)' \
   -- --model opus --effort high
 check "flags: slug drops symbols" "ABC-7/add-base-support-v2" "$(jq -r .branch <<<"$out")"
-check "flags: session name with the ticket and claude flags passed" \
-  "herdr agent start abc-7-add-base-support-v2 --kind claude --pane wT:p1 -- --name [ABC-7] Add: \
---base support (v2) --model opus --effort high" \
+check "flags: session name with the ticket and agent flags passed" \
+  "herdr agent start abc-7-add-base-support-v2 --kind fake --pane wT:p1 -- --fake-name \
+[ABC-7] Add: --base support (v2) --model opus --effort high" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "flags: prompt arrives with no changes" $'ABC-7\n\nFix `x` in "$HOME" dir' \
   "$(cat "$MOCK_PROMPT")"
 
-# In a nono sandbox, herdr-start-claude starts the agent, and --effort is the only claude flag.
+# In a nono sandbox, herdr-start-fake starts the agent, and --effort is the only agent flag.
 fresh
 NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it' -- --effort high
 check "sandbox flags: exit 0" 0 "$code"
-check "sandbox flags: herdr-start-claude gets name, pane, title, effort" \
-  "herdr-start-claude [abc-7-add-it] [wT:p1] [[ABC-7] Add it] [high]" \
-  "$(grep -e '^herdr-start-claude' -e '^herdr agent start' "$MOCK_LOG")"
+check "sandbox flags: herdr-start-fake gets name, pane, title, effort" \
+  "herdr-start-fake [abc-7-add-it] [wT:p1] [[ABC-7] Add it] [high]" \
+  "$(grep -e '^herdr-start-fake' -e '^herdr agent start' "$MOCK_LOG")"
 check "sandbox flags: prompt sent" p "$(cat "$MOCK_PROMPT")"
 fresh
 NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it'
-check "sandbox no flags: herdr-start-claude gets no effort" \
-  "herdr-start-claude [abc-7-add-it] [wT:p1] [[ABC-7] Add it]" \
-  "$(grep '^herdr-start-claude' "$MOCK_LOG")"
+check "sandbox no flags: herdr-start-fake gets no effort" \
+  "herdr-start-fake [abc-7-add-it] [wT:p1] [[ABC-7] Add it]" \
+  "$(grep '^herdr-start-fake' "$MOCK_LOG")"
 fresh
 NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it' -- --model opus --effort high
 check "sandbox model: exit 1" 1 "$code"
 check "sandbox model: error names the flags" \
-  "work-start: in a nono sandbox, the only claude flag is --effort <level>, not: --model opus \
+  "work-start: in a nono sandbox, the only agent flag is --effort <level>, not: --model opus \
 --effort high" "$err"
 check "sandbox model: no branch" no "$(has_branch ABC-7/add-it)"
 
@@ -242,7 +279,7 @@ run p ABC-9 '!!!'
 check "no slug: exit 1" 1 "$code"
 run '' ABC-9 'typo'
 check "no prompt: exit 1" 1 "$code"
-check "bad input: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "bad input: no herdr call" "" "$(side_calls)"
 
 # Branch exists.
 fresh
@@ -269,7 +306,7 @@ run p ABC-0 'typo'
 check "diverged: exit 1" 1 "$code"
 check "diverged: main unchanged" "$before" "$(git -C "$work" rev-parse main)"
 check "diverged: no branch" no "$(has_branch ABC-0/typo)"
-check "diverged: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "diverged: no herdr call" "" "$(side_calls)"
 
 # Untracked file in the main checkout.
 fresh
@@ -336,11 +373,11 @@ check "next: git-spice creates the branch" \
   "git-spice branch create ABC-2/second-part --no-commit" "$(grep '^git-spice' "$MOCK_LOG")"
 check "next: worktree now on the new branch" ABC-2/second-part \
   "$(git -C "$d/linked" branch --show-current)"
-check "next: herdr-after-turn.sh gets pane, --clear old branch, /rename, prompt, fresh handoff" \
+check "next: herdr-after-turn.sh gets pane, --clear old branch, rename, prompt, fresh handoff" \
   "wL:p1
 --clear
 ABC-1/old
-/rename [ABC-2] Second part
+rename [ABC-2] Second part
 ABC-2
 
 Fix \`x\` in \"\$HOME\"
@@ -370,8 +407,8 @@ check "next sandbox: exit 0 after herdr-after-turn.sh ends" "0 yes" \
   "$code $([ -f "$MOCK_NEXT" ] && echo yes || echo no)"
 check "next sandbox: JSON" "next ABC-2/second-part ABC-1/old wL:p1" \
   "$(jq -r '"\(.mode) \(.branch) \(.base) \(.pane_id)"' <<<"$out")"
-check "next sandbox: herdr-after-turn.sh gets pane, --clear old branch, /rename" \
-  $'wL:p1\n--clear\nABC-1/old\n/rename [ABC-2] Second part' "$(head -n4 "$MOCK_NEXT")"
+check "next sandbox: herdr-after-turn.sh gets pane, --clear old branch, rename" \
+  $'wL:p1\n--clear\nABC-1/old\nrename [ABC-2] Second part' "$(head -n4 "$MOCK_NEXT")"
 
 # Stack tops above the current branch.
 fresh
@@ -412,7 +449,7 @@ mkdir -p "$ai/specs" "$ai/plans" "$ai/reviews"
 touch "$ai/specs/2026-09-30-ABC-1-foo-design.md" "$ai/plans/2026-09-30-ABC-1-foo.md" \
   "$ai/plans/2026-09-30-ABC-12-other.md" "$ai/reviews/2026-09-29-bar.md"
 HOME="$tmp/home$n" summary=$'Done: foo.\nOpen: bar.' cwd="$d/linked" run p ABC-2 'Second part' \
-  --continue sid-1 --mr https://gl/x/-/merge_requests/7
+  --continue --mr https://gl/x/-/merge_requests/7
 check "continue: exit 0" 0 "$code"
 check "continue: handoff" "p
 
@@ -435,7 +472,7 @@ check "continue: no glab call with --mr" "" "$(grep '^glab' "$MOCK_LOG")"
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 MOCK_GLAB_MRS='[{"iid":7,"web_url":"https://gl/x/-/merge_requests/7"}]' HOME="$tmp/home$n" \
-  summary=s cwd="$d/linked" run p ABC-2 'Second part' --continue sid-1
+  summary=s cwd="$d/linked" run p ABC-2 'Second part' --continue
 check "continue glab: exit 0" 0 "$code"
 check "continue glab: MR line, no related files" \
   $'- MR of `ABC-1/old`: https://gl/x/-/merge_requests/7\n\nSummary of the previous session:\ns' \
@@ -450,9 +487,9 @@ ai="$tmp/home$n/.ai/work"
 mkdir -p "$ai/plans"
 touch "$ai/plans/2026-09-30-ABC-0-foo.md"
 HOME="$tmp/home$n" summary=s cwd="$d/linked" run p ABC-0 'Second part' \
-  --continue sid-1 --placeholder ABC-0
+  --continue --placeholder ABC-0
 check "continue placeholder: exit 0" 0 "$code"
-check "continue placeholder: /rename with the slug text only" "/rename Second part" \
+check "continue placeholder: rename with the slug text only" "rename Second part" \
   "$(wait_next | sed -n 4p)"
 check "continue placeholder: no MR line, no related files" \
   $'- Previous session: "ABC-0/old", id sid-1\n\nSummary of the previous session:\ns' \
@@ -461,25 +498,25 @@ check "continue placeholder: no MR line, no related files" \
 # Next mode, continue with no summary on fd 3.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
-cwd="$d/linked" run p ABC-2 'Second part' --continue sid-1
+cwd="$d/linked" run p ABC-2 'Second part' --continue
 check "continue no summary: exit 1" 1 "$code"
 check "continue no summary: message" "work-start: --continue needs the summary on fd 3" "$err"
 check "continue no summary: no branch" no "$(has_branch ABC-2/second-part)"
 
 # Next-mode options in new mode.
 fresh
-run p ABC-0 'typo' --continue sid-1
+run p ABC-0 'typo' --continue
 check "new --continue: exit 1" 1 "$code"
 run p ABC-0 'typo' --onto main
 check "new --onto: exit 1" 1 "$code"
-check "new next options: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "new next options: no herdr call" "" "$(side_calls)"
 
 # Split: new mode from a linked worktree with changes, with a handoff from this session.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 echo draft >"$d/linked/draft.txt"
 summary=$'FooTest is flaky on main.' cwd="$d/linked" run p ABC-0 'Fix flaky FooTest' --split \
-  --continue sid-1 --placeholder ABC-0 -- --effort low
+  --continue --placeholder ABC-0 -- --effort low
 check "split: exit 0" 0 "$code"
 check "split: mode, base, tracked" "new main true" \
   "$(jq -r '"\(.mode) \(.base) \(.tracked)"' <<<"$out")"
@@ -510,7 +547,7 @@ check "split fresh: prompt from stdin only" p "$(cat "$MOCK_PROMPT")"
 # Split, continue with no summary on fd 3.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
-cwd="$d/linked" run p ABC-0 'Fix flaky FooTest' --split --continue sid-1
+cwd="$d/linked" run p ABC-0 'Fix flaky FooTest' --split --continue
 check "split no summary: exit 1" 1 "$code"
 check "split no summary: message" "work-start: --continue needs the summary on fd 3" "$err"
 check "split no summary: no branch" no "$(has_branch ABC-0/fix-flaky-footest)"
@@ -520,11 +557,11 @@ fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 cwd="$d/linked" run p ABC-0 'typo' --split --onto ABC-1/old
 check "split --onto: exit 1" 1 "$code"
-cwd="$d/linked" summary=s run p ABC-0 'typo' --split --continue sid-1 --mr https://gl/x
+cwd="$d/linked" summary=s run p ABC-0 'typo' --split --continue --mr https://gl/x
 check "split --mr: exit 1" 1 "$code"
 cwd="$d/linked" run p ABC-0 --split --branch ABC-1/old
 check "split --branch: exit 1" 1 "$code"
-check "split bad options: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "split bad options: no herdr call" "" "$(side_calls)"
 
 # Next mode with changes in the worktree. The 5 s wait for herdr-after-turn.sh is expected here.
 fresh
@@ -536,7 +573,7 @@ check "next dirty: message" "work-start: the worktree has changes: the old work 
 check "next dirty: no branch" no "$(has_branch ABC-2/second-part)"
 check "next dirty: no herdr-after-turn.sh" "" "$(wait_next)"
 
-# Next mode with --base or claude flags.
+# Next mode with --base or agent flags.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 cwd="$d/linked" run p ABC-2 'Second part' --base origin/main
@@ -568,7 +605,7 @@ check "existing: worktree opened for the branch" \
   "herdr worktree create --cwd $work --branch ABC-5/review-me --no-focus" \
   "$(grep '^herdr worktree create' "$MOCK_LOG")"
 check "existing: agent started in the root pane, with the ticket title as session name" \
-  "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name [ABC-5] Review me" \
+  "herdr agent start abc-5-review-me --kind fake --pane wT:p1 -- --fake-name [ABC-5] Review me" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "existing: prompt from stdin" $'ABC-5\n\nReview it' "$(cat "$MOCK_PROMPT")"
 check "existing: output has pane, worktree, and workspace" "wT:p1 $tmp/wt-path wT" \
@@ -593,7 +630,7 @@ push_branch ABC-5/review-me
 run p 'Draft: Review me' --branch ABC-5/review-me --no-track
 check "existing no ticket id: exit 0" 0 "$code"
 check "existing no ticket id: the title is the session name" \
-  "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name Review me" \
+  "herdr agent start abc-5-review-me --kind fake --pane wT:p1 -- --fake-name Review me" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 
 # An MR title with the ticket id or the draft marker in front: the session name has the id once.
@@ -603,7 +640,7 @@ for mr_title in '[ABC-5] Review me' 'Draft: [ABC-5] Review me' 'ABC-5: Review me
   push_branch ABC-5/review-me
   run p ABC-5 "$mr_title" --branch ABC-5/review-me
   check "existing MR title '$mr_title': ticket id once in the session name" \
-    "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name [ABC-5] Review me" \
+    "herdr agent start abc-5-review-me --kind fake --pane wT:p1 -- --fake-name [ABC-5] Review me" \
     "$(grep '^herdr agent start' "$MOCK_LOG")"
 done
 
@@ -617,7 +654,7 @@ MOCK_SPICE_FAIL=1 run p ABC-5 'Review me' --branch ABC-5/review-me
 check "existing track fails: exit 1" 1 "$code"
 check "existing track fails: message names the step" \
   "work-start: git-spice branch track failed (branch ABC-5/review-me stays)" "$err"
-check "existing track fails: no herdr call" "" "$(grep '^herdr' "$MOCK_LOG")"
+check "existing track fails: no herdr call" "" "$(side_calls | grep '^herdr')"
 
 # Existing local branch behind origin.
 fresh
@@ -644,7 +681,7 @@ check "existing diverged: exit 1" 1 "$code"
 check "existing diverged: message" "work-start: cannot update ABC-5/review-me: fetch-gitlab-mr: local \
 ABC-5/review-me and origin/ABC-5/review-me diverged, reconcile them and re-run" "$err"
 check "existing diverged: branch not moved" "$before" "$(git -C "$work" rev-parse ABC-5/review-me)"
-check "existing diverged: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "existing diverged: no herdr call" "" "$(side_calls)"
 
 # Existing local branch diverged from origin, with --reset-local.
 fresh
@@ -686,7 +723,7 @@ check "existing reset dirty: message" \
   "work-start: cannot reset ABC-5/review-me: $d/old has local changes" "$err"
 check "existing reset dirty: branch not moved" \
   "$before" "$(git -C "$work" rev-parse ABC-5/review-me)"
-check "existing reset dirty: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "existing reset dirty: no herdr call" "" "$(side_calls)"
 
 # Existing branch only in the local repo: no fetch.
 fresh
@@ -702,7 +739,7 @@ run p ABC-5 --branch ABC-5/nope
 check "existing not found: exit 1" 1 "$code"
 check "existing not found: message" \
   "work-start: branch not found in the local repo or on origin: ABC-5/nope" "$err"
-check "existing not found: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "existing not found: no herdr call" "" "$(side_calls)"
 
 # Existing branch open in a herdr workspace already.
 fresh
@@ -723,7 +760,7 @@ check "existing closed: exit 0" 0 "$code"
 check "existing closed: worktree opened" "herdr worktree open --cwd $work --path /wt/old --no-focus" \
   "$(grep '^herdr worktree open' "$MOCK_LOG")"
 check "existing closed: agent started in the root pane, with the branch as session name" \
-  "herdr agent start abc-5-review-me --kind claude --pane wO:p1 -- --name ABC-5/review-me" \
+  "herdr agent start abc-5-review-me --kind fake --pane wO:p1 -- --fake-name ABC-5/review-me" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "existing closed: output has the worktree" "/wt/old wO" \
   "$(jq -r '"\(.worktree) \(.workspace_id)"' <<<"$out")"
@@ -738,8 +775,8 @@ check "existing from linked: mode" existing "$(jq -r .mode <<<"$out")"
 check "existing from linked: worktree opened from the main checkout" \
   "herdr worktree create --cwd $work --branch ABC-5/review-me --no-focus" \
   "$(grep '^herdr worktree create' "$MOCK_LOG")"
-check "existing from linked: claude flags passed" \
-  "herdr agent start abc-5-review-me --kind claude --pane wT:p1 -- --name ABC-5/review-me \
+check "existing from linked: agent flags passed" \
+  "herdr agent start abc-5-review-me --kind fake --pane wT:p1 -- --fake-name ABC-5/review-me \
 --effort low" \
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "existing from linked: linked worktree stays on its branch" ABC-1/old \
@@ -750,6 +787,36 @@ fresh
 push_branch ABC-5/review-me
 run p ABC-5 --branch ABC-5/review-me --base origin/main
 check "existing with --base: exit 1" 1 "$code"
-check "existing bad options: no herdr call" "" "$(cat "$MOCK_LOG")"
+check "existing bad options: no herdr call" "" "$(side_calls)"
+
+
+# Agent lookup in the pane of this script. Each failure stops the script before the branch.
+fresh
+MOCK_KIND=none run p ABC-0 'typo'
+check "unknown kind: exit 1" 1 "$code"
+check "unknown kind: message" "work-start: no agent integration for herdr kind 'none'" "$err"
+check "unknown kind: no branch" no "$(has_branch ABC-0/typo)"
+fresh
+MOCK_KIND= run p ABC-0 'typo'
+check "no agent: exit 1" 1 "$code"
+check "no agent: message" "work-start: no agent in pane wL:p1" "$err"
+check "no agent: no branch" no "$(has_branch ABC-0/typo)"
+fresh
+git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
+MOCK_SESSION= summary=s cwd="$d/linked" run p ABC-2 'Second part' --continue
+check "no session id: exit 1" 1 "$code"
+check "no session id: message" "work-start: no session id for the agent in pane wL:p1" "$err"
+check "no session id: no branch" no "$(has_branch ABC-2/second-part)"
+fresh
+MOCK_KIND=plain NONO_CAP_FILE="$tmp/cap" run p ABC-0 'typo'
+check "no sandbox start command: exit 1" 1 "$code"
+check "no sandbox start command: message" \
+  "work-start: no sandbox start command in $tmp/integrations/plain" "$err"
+check "no sandbox start command: no branch" no "$(has_branch ABC-0/typo)"
+fresh
+run p ABC-0 'typo' -- --dangerous
+check "bad agent flag: exit 1" 1 "$code"
+check "bad agent flag: adapter message" "work-start: fake: no start flag --dangerous" "$err"
+check "bad agent flag: no branch" no "$(has_branch ABC-0/typo)"
 
 exit $fail
