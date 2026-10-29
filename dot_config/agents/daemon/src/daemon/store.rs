@@ -202,6 +202,27 @@ impl Store {
         keys
     }
 
+    /// After `/clear` the agent has a new session ID and the same owner process. The watches of the
+    /// old ID move to the new ID. Returns the old ID.
+    pub fn rename_session(&self, id: &str, owner_pid: u32) -> Option<String> {
+        if self.session(id).is_some() {
+            return None;
+        }
+        let (old, state) = self
+            .sessions()
+            .into_iter()
+            .find(|(_, state)| state.owner_pid == Some(owner_pid))?;
+        for sub in self.session_subs(&old) {
+            self.write_sub(&Agent {
+                session: id.to_string(),
+                ..sub
+            });
+        }
+        self.write_session(id, &state);
+        self.remove_session(&old);
+        Some(old)
+    }
+
     /// Returns the keys of the ended records.
     pub fn end_gone_worktrees(&self) -> Vec<String> {
         let mut keys = Vec::new();
@@ -841,6 +862,19 @@ impl Store {
     /// wait: with no waiter, its records end after the grace period.
     pub fn watch(&self, request: &WatchRequest, now: i64) {
         let old = self.sub(&request.key);
+        let replaced = old.as_ref().filter(|old| old.session != request.session);
+        if let Some(old) = replaced
+            && let Some(mut first) = self.session(&old.session)
+        {
+            let taken = SessionKey {
+                key: old.key.clone(),
+                mode: old.mode,
+            };
+            if !first.replaced.contains(&taken) {
+                first.replaced.push(taken);
+                self.write_session(&old.session, &first);
+            }
+        }
         if old.is_none() && request.mode == Mode::Hub && !self.inbox_has_events(&request.key) {
             self.append_lines(&self.dirs.inbox(&request.key), &self.open_events(&request.key));
         }

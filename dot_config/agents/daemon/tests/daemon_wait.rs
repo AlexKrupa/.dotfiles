@@ -179,3 +179,47 @@ fn subscribe_request_gets_the_error_text() {
     );
     end(follow);
 }
+
+#[test]
+fn a_wait_with_a_new_id_and_the_same_owner_takes_the_watches_of_the_old_id() {
+    let w = Watchd::new();
+    let old = w.session_id();
+    assert_eq!(w.watch(&[]).code, 0);
+    let first = w.start(w.wait_command());
+    let connected = wait_for(10, || w.waiting(&old));
+
+    let second = w.start(w.as_session(w.wait_command(), "cleared", w.session_pid()));
+    let first = first.wait(10).expect("the waiter of the old ID exits");
+    let taken = wait_for(10, || w.sub_of("app")["session"] == json!("cleared"));
+    w.events("app", &[ev("todo", 5)]);
+    let second = second.wait(10).expect("the waiter of the new ID exits");
+
+    assert!(connected, "{}", w.state());
+    assert_eq!((first.code, first.out.as_str(), first.err.as_str()), (0, "", ""));
+    assert!(taken, "{}", w.state());
+    let sessions = w.state()["sessions"].clone();
+    assert!(
+        !sessions[&old].is_object() && sessions["cleared"].is_object(),
+        "{sessions}"
+    );
+    assert_eq!((second.code, norow(&second.out)), (0, ev("todo", 5)), "{}", second.err);
+}
+
+#[test]
+fn a_second_session_takes_the_key_and_the_first_gets_one_replaced_event() {
+    let w = Watchd::new();
+    assert_eq!(w.watch(&[]).code, 0);
+
+    let second = w.run(w.as_session(w.watch_command(&[]), "second", w.session_pid()));
+    let first = w.wait();
+    let again = w.wait();
+
+    assert_eq!(second.code, 0, "{}", second.err);
+    assert_eq!(
+        (first.code, first.out.as_str()),
+        (0, r#"{"kind":"replaced","key":"app","mode":"hub"}"#),
+        "{}",
+        first.err
+    );
+    assert_eq!((again.code, again.out.as_str(), again.err.as_str()), (0, "", ""));
+}

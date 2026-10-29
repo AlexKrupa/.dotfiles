@@ -271,6 +271,9 @@ async fn wait(
 ) {
     let number = {
         let mut memory = daemon.lock().await;
+        if let Some(old) = daemon.store.rename_session(&session, owner_pid) {
+            memory.waiters.remove(&old);
+        }
         let mut state = daemon.store.session(&session).unwrap_or_default();
         state.owner_pid = Some(owner_pid);
         state.owner_gone_at = None;
@@ -314,8 +317,8 @@ async fn wait(
         None => false,
     };
     let mut memory = daemon.lock().await;
-    if let (Some(Response::Events { events, .. }), false) = (&response, sent) {
-        put_back(&daemon, &session, events);
+    if let (Some(Response::Events { events, replaced }), false) = (&response, sent) {
+        put_back(&daemon, &session, events, replaced);
     }
     drop(delivering);
     if memory.waiters.get(&session) == Some(&number) {
@@ -323,12 +326,18 @@ async fn wait(
     }
 }
 
-/// The events of an ended key wait for the next wait of the session again.
-fn put_back(daemon: &Daemon, session: &str, events: &[KeyedEvent]) {
+/// The events of an ended key and the moved keys wait for the next wait of the session again.
+fn put_back(daemon: &Daemon, session: &str, events: &[KeyedEvent], replaced: &[SessionKey]) {
     let mut keys: Vec<(&str, Mode)> = events.iter().map(|event| (event.key.as_str(), event.mode)).collect();
     keys.dedup();
     let mut state = daemon.store.session(session).unwrap_or_default();
     let count = state.ended.len();
+    let moved = state.replaced.len();
+    for taken in replaced {
+        if !state.replaced.contains(taken) {
+            state.replaced.push(taken.clone());
+        }
+    }
     for (key, mode) in keys {
         let routed: Vec<_> = events
             .iter()
@@ -344,7 +353,7 @@ fn put_back(daemon: &Daemon, session: &str, events: &[KeyedEvent]) {
             state.ended.push(ended);
         }
     }
-    if state.ended.len() > count {
+    if state.ended.len() > count || state.replaced.len() > moved {
         daemon.store.write_session(session, &state);
     }
 }
