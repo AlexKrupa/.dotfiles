@@ -1,7 +1,7 @@
 # The order of the worktree workspaces in each herdr worktree group: my work with no live watcher,
 # my watched work, debugging, bumps, code reviews, then other kinds. Alphabetical by label in each
-# part. The parent rows stay in place. A group with no tokens belongs to the watcher of another
-# daemon, which sorts it.
+# part. The parent rows stay in place. A group with no tokens is not of this daemon: it stays, or
+# the watcher of its daemon sorts it.
 #
 #   in:  {workspaces: [<herdr workspace>], tokens: {<id>: {watch_kind, watch_stage}}}
 #        workspaces: in sidebar order, from `herdr api snapshot`

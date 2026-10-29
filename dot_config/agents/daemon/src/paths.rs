@@ -24,7 +24,7 @@ impl StateDirs {
         StateDirs::from_base(&base)
     }
 
-    pub fn from_base(base: &Path) -> StateDirs {
+    fn from_base(base: &Path) -> StateDirs {
         StateDirs {
             watchd: base.join("watchd"),
             engine: base.join("watch-gitlab"),
@@ -34,7 +34,7 @@ impl StateDirs {
     /// A repo with the git configuration key `watchd.stateHome` has its own daemon. A client
     /// there starts no daemon, because its binary can have a different engine.
     pub fn for_client(folder: &Path) -> ClientDirs {
-        let value = git(folder, &["config", "--get", "watchd.stateHome"]).unwrap_or_default();
+        let value = git(folder, &["config", "--type=path", "--get", "watchd.stateHome"]).unwrap_or_default();
         match value.trim_end() {
             "" => ClientDirs {
                 dirs: StateDirs::from_env(),

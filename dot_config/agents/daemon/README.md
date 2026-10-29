@@ -27,6 +27,7 @@ One binary has three roles:
   (`src/protocol.rs`).
 - Daemon: `watchd daemon` is one process for each user. It reads git and git-spice, polls GitLab,
   writes all state files, and answers the clients. If no daemon runs, the first client starts it.
+  A repo with `watchd.stateHome` has its own daemon (see "Managed repos").
 - Engine: the daemon calls the engine through the `Engine` trait for each check. The engine runs
   `glab api` child processes. `watchd engine` runs one check, for debugging.
 
@@ -55,8 +56,8 @@ The managed set (`repos.json`) has the repos that the daemon watches:
 - At start, the daemon adds the repo of each agent record.
 - If the folder of a repo is gone, the main loop removes the repo.
 
-A repo with the git configuration key `watchd.stateHome` has its own daemon: its clients use the
-socket and the state in that folder, and they start no daemon. The
+A repo with the git configuration key `watchd.stateHome` has its own daemon. Its clients use the
+value as the base folder of the state files, and they start no daemon. The
 [sample](sample/README.md) uses it for its test daemon.
 
 The daemon makes no herdr calls.
@@ -167,7 +168,8 @@ each change, the task sends the `changed` signal, and the waiting connections re
 
 ## State files
 
-The base folder is `$XDG_STATE_HOME`, or `~/.local/state`. Each agent record and each target has a
+The base folder is `$XDG_STATE_HOME`, or `~/.local/state`. A client in a repo with
+`watchd.stateHome` uses the value of that key. Each agent record and each target has a
 key. A hub key is the repo slug (the short name of the repo). A stack key also has a hash of the
 worktree. A review key also has `-review-IID` at the end.
 

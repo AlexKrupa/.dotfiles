@@ -118,10 +118,8 @@ fn target(args: &WatchArgs) -> Result<Target, String> {
     Ok(Target { top, slug, key, mode })
 }
 
-/// The folder of a client is its `--repo` folder, else the current folder.
-fn client_dirs(repo: Option<&PathBuf>) -> ClientDirs {
-    let current = std::env::current_dir().unwrap_or_default();
-    StateDirs::for_client(&repo.map_or(current.clone(), |repo| current.join(repo)))
+fn current_client() -> ClientDirs {
+    StateDirs::for_client(&std::env::current_dir().unwrap_or_default())
 }
 
 async fn connect(client: &ClientDirs, start: bool) -> Result<UnixStream, String> {
@@ -189,7 +187,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
-    let client = client_dirs(args.repo.as_ref());
+    let client = StateDirs::for_client(&target.top);
     let _ = std::fs::create_dir_all(&client.dirs.watchd);
     let session_pid = session(&Store::new(client.dirs.clone()));
     let client_pid = std::process::id();
@@ -295,7 +293,7 @@ pub async fn unsubscribe(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
-    let client = client_dirs(args.repo.as_ref());
+    let client = StateDirs::for_client(&target.top);
     let session_pid = session(&Store::new(client.dirs.clone()));
     let request = Request::Unsubscribe {
         key: target.key,
@@ -326,7 +324,7 @@ pub async fn kind(args: Vec<String>) -> i32 {
     let Some(kind) = Kind::parse(&kind) else {
         return die(&format!("unknown kind: {kind}"));
     };
-    let code = ask_ok(&client_dirs(None), &Request::Kind { kind }).await;
+    let code = ask_ok(&current_client(), &Request::Kind { kind }).await;
     if code == 0 && kind == Kind::Hub {
         // The board is display only: its error does not fail the command.
         let opened = std::env::current_dir()
@@ -369,7 +367,6 @@ pub async fn route(args: Vec<String>) -> i32 {
     let Some(action) = RouteAction::parse(&action_text) else {
         return die(&format!("unknown action: {action_text}"));
     };
-    let client = client_dirs(repo.as_ref());
     let target = match target(&WatchArgs {
         repo,
         ..WatchArgs::default()
@@ -377,6 +374,7 @@ pub async fn route(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
+    let client = StateDirs::for_client(&target.top);
     let request = Request::Route {
         key: target.key,
         iid,
@@ -412,7 +410,7 @@ pub async fn report(args: Vec<String>) -> i32 {
         mrs: args.mrs.clone(),
         input,
     };
-    match ask(&client_dirs(args.repo.as_ref()), &request, true).await {
+    match ask(&StateDirs::for_client(&target.top), &request, true).await {
         Ok(Response::Report { text }) => {
             println!("{text}");
             0
@@ -435,7 +433,6 @@ pub async fn board(args: Vec<String>) -> i32 {
             _ => return die(&format!("unexpected argument: {arg}")),
         }
     }
-    let client = client_dirs(repo.as_ref());
     let target = match target(&WatchArgs {
         repo,
         ..WatchArgs::default()
@@ -443,6 +440,7 @@ pub async fn board(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
+    let client = StateDirs::for_client(&target.top);
     let path = client.dirs.board(&target.slug);
     let mut shown = None;
     loop {
@@ -487,7 +485,7 @@ fn draw_board(path: &Path, shown: &mut Option<String>) {
 }
 
 pub async fn status() -> i32 {
-    let client = client_dirs(None);
+    let client = current_client();
     let report = match ask(&client, &Request::Status, false).await {
         Ok(Response::Status(report)) => report,
         Err(message) if !client.start => return die(&message),
@@ -521,7 +519,7 @@ pub async fn status() -> i32 {
 }
 
 pub async fn debug_state() -> i32 {
-    let client = client_dirs(None);
+    let client = current_client();
     let state = match ask(&client, &Request::DebugState, false).await {
         Ok(Response::State(state)) => *state,
         Err(message) if !client.start => return die(&message),
@@ -541,6 +539,7 @@ pub async fn replace_clients(repo: &Path) -> i32 {
 }
 
 pub async fn follow(after: Option<u64>) -> i32 {
+    // A follower has no repo. The sample watcher selects its daemon with `XDG_STATE_HOME`.
     let client = ClientDirs {
         dirs: StateDirs::from_env(),
         start: true,
