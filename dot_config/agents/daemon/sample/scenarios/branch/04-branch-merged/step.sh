@@ -1,4 +1,4 @@
-# MR 5 merges into main. The daemon fast-forwards the main checkout.
+# The push to main makes the daemon fast-forward the main checkout.
 git -C "$SAMPLE_ROOT/repo-branch" push -q origin HEAD:main
 engine_state branch '{"needs": []}'
 event branch '{"kind": "merged", "iid": 5, "title": "Add feature",

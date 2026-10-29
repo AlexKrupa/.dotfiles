@@ -1,5 +1,4 @@
-# A failed pipeline on the default branch, with a job that fails in its script: the router asks
-# the model, and the hub item stays open.
+# A job that fails in its script makes the router ask the model, so the hub item stays open.
 engine_state hub '{"needs": ["main-failed"]}'
 event hub '{"kind": "default-failed", "iid": null, "title": null,
   "url": "https://gitlab.example.com/sample/repo/-/pipelines/88", "actor": "",

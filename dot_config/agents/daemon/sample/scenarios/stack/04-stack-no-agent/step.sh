@@ -1,4 +1,4 @@
-# The agent session ends. A new comment on MR 4 goes to the hub as an open item.
+# With no live agent session, the comment goes to the hub as an open item.
 agent stop stack
 event stack '{"kind": "comment", "iid": 4, "title": "Add part B",
   "url": "https://gitlab.example.com/sample/repo/-/merge_requests/4#note_21", "actor": "anna",

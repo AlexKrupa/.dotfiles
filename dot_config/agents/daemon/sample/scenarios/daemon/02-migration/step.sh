@@ -1,5 +1,4 @@
-# State files of format version 1: the new daemon loads them. It writes version 2 when a state
-# changes, for example after a new commit in the worktree.
+# The daemon loads version 1 files, and writes version 2 only when a state changes: a new commit.
 "$sample_dir/sample" stop
 while IFS= read -r file; do
   jq '.version = 1' "$file" >"$file.tmp" && mv "$file.tmp" "$file"

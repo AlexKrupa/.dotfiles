@@ -1,4 +1,3 @@
-# anna pushes a new commit to MR 7 and replies to a comment.
 old=$(git -C "$SAMPLE_ROOT/repo-review" rev-parse HEAD)
 origin_commit review-7 r.txt "Fix part R"
 new=$(git -C "$origin" rev-parse review-7)

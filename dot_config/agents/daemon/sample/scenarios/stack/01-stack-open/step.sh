@@ -1,4 +1,3 @@
-# A stack of two branches in one worktree, MRs 3 and 4, and a watching agent session.
 git -C "$repo" worktree add -q -b feature-a "$SAMPLE_ROOT/repo-stack"
 commit "$SAMPLE_ROOT/repo-stack" a.txt "Add part A"
 git -C "$SAMPLE_ROOT/repo-stack" switch -q -c feature-b

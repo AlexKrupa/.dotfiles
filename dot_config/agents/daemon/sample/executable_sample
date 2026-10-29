@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Moves a test daemon and a generated sample repo through fixed scenarios, one step at a time, with
-# no GitLab and no Claude. See README.md.
+# Moves a test daemon and a generated sample repo through fixed scenarios. See README.md.
 set -euo pipefail
 
 source "$(dirname "$0")/lib.sh"
@@ -73,8 +72,7 @@ stop_daemon() {
   wait_until "the test daemon $pid stops" gone "$pid" || die "see $log"
 }
 
-# The second watcher of the herdr plugin shows the sample workspaces. Its plugin state is in
-# $SAMPLE_STATE/herdr-watch, apart from the state of the real watcher.
+# The plugin state of the sample watcher is apart from the state of the real watcher.
 plugin_state=$SAMPLE_STATE/herdr-watch
 
 start_watcher() {
@@ -95,9 +93,8 @@ stop_watcher() {
   wait_until "the sample watcher stops" watcher_gone || die "the sample watcher $pids did not stop"
 }
 
-# With no daemon, a `watchd follow` of the watcher starts a daemon with no fake engine, so the
-# watcher stops first. A failed `back` leaves the step file at the last step that ran. The watcher
-# keeps its lock and its written tokens, but it reads the new event log from the start.
+# The watcher stops first: with no daemon, its `watchd follow` starts one with no fake engine. The
+# step file stays, so a failed `back` keeps the last step that ran. The new event log starts at 1.
 reset() {
   close_agents
   stop_watcher
@@ -194,8 +191,7 @@ back() {
   for index in $(seq $((number - 1))); do apply "$scenario" "$index"; done
 }
 
-# A step fails when it fails, when the daemon stops, or when the log has a new error line. The
-# file `errors` of a step has the patterns of its expected error lines, one on each line.
+# The file `errors` of a step has the patterns of its expected error lines, one on each line.
 check_scenario() { # check_scenario <scenario>
   local count index before errors folder failed=0
   steps_of "$1" >/dev/null

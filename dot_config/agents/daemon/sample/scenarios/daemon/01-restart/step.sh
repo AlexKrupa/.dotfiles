@@ -1,5 +1,4 @@
-# A new test binary while an agent session waits: the daemon calls exec and keeps its PID, and the
-# client of the agent connects again.
+# A new binary makes the daemon call exec with the same PID, and the waiting client connects again.
 open_branch
 agent start branch
 pid=$(cat "$SAMPLE_STATE/watchd/daemon.pid")

@@ -132,10 +132,9 @@ settle() { # waits until the daemon takes all event files of the fake engine
   return 1
 }
 
-# A fake agent session is the agent loop in the root pane of the worktree workspace, or with
-# SAMPLE_NO_HERDR=1 a background process. The main checkout has the workspace of `sample ui`, so
-# its loop is also a background process. The files $SAMPLE_STATE/agents/<role>.<name> keep the
-# herdr workspace and pane, and the PID of the loop.
+# The agent loop runs in the root pane of the worktree workspace. With SAMPLE_NO_HERDR=1, or in the
+# main checkout, which has the pane of `sample ui`, it runs in the background. The files
+# $SAMPLE_STATE/agents/<role>.<name> keep the herdr workspace, the pane, and the loop PID.
 agents=$SAMPLE_STATE/agents
 
 agent_open() { # agent_open <role>: opens the worktree workspace in herdr
@@ -190,7 +189,7 @@ agent_stop() { # agent_stop <role>: ends the agent session, the workspace stays
 
 agent_close() { # agent_close <role>: ends the agent session and closes the workspace
   agent_stop "$1"
-  # A workspace that you closed, or of an earlier herdr server, is gone, and its close fails.
+  # The workspace can be gone: you closed it, or herdr started again.
   if [ -s "$agents/$1.workspace" ]; then
     herdr workspace close "$(cat "$agents/$1.workspace")" >/dev/null 2>&1 || true
   fi

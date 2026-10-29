@@ -1,4 +1,4 @@
-# MR 9 is mine and has no worktree: the hub state lists it, and the own target checks it.
+# An MR of mine with no worktree in the hub state makes the daemon check the own target.
 engine_state hub '{"needs": [], "own_mrs": [{"iid": 9}]}'
 settle
 event own '{"kind": "comment", "iid": 9, "title": "Fix the login timeout",

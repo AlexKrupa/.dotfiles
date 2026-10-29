@@ -1,5 +1,4 @@
-# A default-branch job fails with a runner failure. The router of the live hub agent retries it 2
-# times, and it passes at the second retry. No job fails in its script, so no agent starts.
+# The router runs only for a live hub agent. Runner failures get retries and no agent start.
 agent start hub
 retry 601 '{"id": 602, "name": "unit-tests", "status": "pending", "failure_reason": null}'
 job 602 '{"id": 602, "name": "unit-tests", "status": "running", "failure_reason": null}' \

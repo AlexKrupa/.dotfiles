@@ -1,4 +1,3 @@
-# A comment and a failed MR pipeline on MR 5.
 engine_state branch '{"needs": ["failed", "reply"]}'
 event branch '{"kind": "comment", "iid": 5, "title": "Add feature",
   "url": "https://gitlab.example.com/sample/repo/-/merge_requests/5#note_11", "actor": "anna",

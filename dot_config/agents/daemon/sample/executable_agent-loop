@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# A fake agent session of `sample`: runs `watchd watch` in the worktree again and again, and prints
-# each event line, as an agent gets them. A failed watch, a new client, or the end of the agent
-# record, for example after the last MR merged, stops the loop.
+# A fake agent session of `sample`: `watchd watch` again and again, until a watch fails, a new
+# client replaces it, or the daemon ends the agent record.
 # Usage: agent-loop <worktree> <pid file> [<watch argument>...]
 set -u
 
