@@ -63,9 +63,8 @@ impl StateDirs {
         self.watchd.join(format!("inbox/{key}.error"))
     }
 
-    /// The session of the results of an ended subscription.
-    pub fn owner(&self, key: &str) -> PathBuf {
-        self.watchd.join(format!("inbox/{key}.owner"))
+    pub fn session(&self, id: &str) -> PathBuf {
+        self.watchd.join(format!("sessions/{id}.json"))
     }
 
     pub fn last(&self, key: &str) -> PathBuf {

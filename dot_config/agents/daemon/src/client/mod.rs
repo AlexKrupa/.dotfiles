@@ -1,5 +1,5 @@
-//! The client commands, with the exit codes 0 for events, 1 for an error, and 3 when a new client
-//! or session replaced this one. A `watch --stream` client does not exit for events.
+//! The client commands. `watch` saves the watch of a session and exits. `wait` waits for the events
+//! of the watches of the session, with the exit codes 0 for events or no watch, and 1 for an error.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -16,10 +16,8 @@ use crate::engine::mr_number;
 use crate::key::{KeyMode, digits, repo_slug, watch_key, worktree_top};
 use crate::local::{git, repo_of, shared_refs};
 use crate::paths::{ClientDirs, StateDirs};
-use crate::platform::{
-    ancestors, local_time, now_seconds, process_alive, session_pid, spawn_detached, terminal_columns,
-};
-use crate::protocol::{Envelope, Request, Response, StatusReport, SubscribeArgs, receive, send};
+use crate::platform::{local_time, spawn_detached, terminal_columns};
+use crate::protocol::{Envelope, Request, Response, StatusReport, WatchRequest, receive, send};
 use crate::workspaces::workspaces_of;
 
 fn die(message: &str) -> i32 {
@@ -27,12 +25,23 @@ fn die(message: &str) -> i32 {
     1
 }
 
+/// The ID is also a file name of the daemon.
+fn session_id(value: Option<String>) -> Result<String, String> {
+    let valid = |id: &String| {
+        !id.is_empty()
+            && !id.starts_with('.')
+            && id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+    };
+    value.filter(valid).ok_or_else(|| "--session needs an ID".to_string())
+}
+
 #[derive(Default)]
 struct WatchArgs {
     repo: Option<PathBuf>,
     interval: u64,
-    once: bool,
-    stream: bool,
+    session: Option<String>,
     fresh: bool,
     review: bool,
     mrs: Vec<u64>,
@@ -54,8 +63,7 @@ impl WatchArgs {
                         .and_then(|value| value.parse().ok())
                         .ok_or("--interval needs seconds")?;
                 }
-                "--once" => parsed.once = true,
-                "--stream" => parsed.stream = true,
+                "--session" => parsed.session = Some(session_id(args.next())?),
                 "--fresh" => parsed.fresh = true,
                 "--review" => parsed.review = true,
                 "--mr" => parsed
@@ -66,9 +74,6 @@ impl WatchArgs {
         }
         if parsed.review && parsed.mrs.len() != 1 {
             return Err("--review needs exactly one --mr".to_string());
-        }
-        if parsed.once && parsed.stream {
-            return Err("--stream does not work with --once".to_string());
         }
         Ok(parsed)
     }
@@ -178,107 +183,88 @@ async fn ask(client: &ClientDirs, request: &Request, start: bool) -> Result<Resp
     }
 }
 
-fn session(store: &Store) -> u32 {
-    let (pid, message) = session_pid();
-    if let Some(message) = message {
-        store.log("", "", &message);
-    }
-    pid
-}
-
 pub async fn watch(args: Vec<String>) -> i32 {
     let args = match WatchArgs::parse(args) {
         Ok(args) => args,
         Err(message) => return die(&message),
+    };
+    let Some(session) = args.session.clone() else {
+        return die("watch needs --session");
     };
     let target = match target(&args) {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
     let client = StateDirs::for_client(&target.top);
-    let _ = std::fs::create_dir_all(&client.dirs.watchd);
-    let session_pid = session(&Store::new(client.dirs.clone()));
-    let client_pid = std::process::id();
-    // The check covers all ancestors: the parent can be a wrapper shell that stays alive after the
-    // agent is killed.
-    let parents = ancestors();
-    let mut subscribe = SubscribeArgs {
-        key: target.key.clone(),
-        slug: target.slug.clone(),
-        repo: target.top.clone(),
+    let request = Request::Watch(WatchRequest {
+        key: target.key,
+        slug: target.slug,
+        repo: target.top,
         mode: target.mode,
-        mrs: args.mrs.clone(),
+        mrs: args.mrs,
         interval: args.interval,
-        session_pid,
-        client_pid,
-        once: args.once,
+        session,
         fresh: args.fresh,
-        again: false,
-        poke_token: format!("{client_pid}-{}", now_seconds()),
+    });
+    ask_ok(&client, &request).await
+}
+
+pub async fn wait(args: Vec<String>) -> i32 {
+    let mut session = None;
+    let mut owner_pid = None;
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--session" => match session_id(args.next()) {
+                Ok(id) => session = Some(id),
+                Err(message) => return die(&message),
+            },
+            "--owner-pid" => match args
+                .next()
+                .filter(|value| digits(value))
+                .and_then(|value| value.parse().ok())
+            {
+                Some(pid) => owner_pid = Some(pid),
+                None => return die("--owner-pid needs a PID"),
+            },
+            _ => return die(&format!("unexpected argument: {arg}")),
+        }
+    }
+    let Some(session) = session else {
+        return die("wait needs --session");
     };
-    let tick = std::env::var("WATCH_CLIENT_TICK")
-        .ok()
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(3);
-    'connection: loop {
+    let Some(owner_pid) = owner_pid else {
+        return die("wait needs --owner-pid");
+    };
+    let client = current_client();
+    let request = envelope(Request::Wait { session, owner_pid });
+    loop {
         let stream = match connect(&client, true).await {
             Ok(stream) => stream,
             Err(message) => return die(&message),
         };
         let (read, mut write) = stream.into_split();
-        let mut reader = BufReader::new(read);
-        let sent = send(&mut write, &envelope(Request::Subscribe(subscribe.clone())))
-            .await
-            .is_ok();
-        // `--fresh` applies to the first subscribe only.
-        subscribe.fresh = false;
-        if sent {
-            loop {
-                tokio::select! {
-                    response = receive::<_, Response>(&mut reader) => match response {
-                        Ok(Some(response @ Response::Events { ended: false, .. })) if args.stream => match deliver(response) {
-                            0 => {
-                                subscribe.again = false;
-                                continue 'connection;
-                            }
-                            code => return code,
-                        },
-                        Ok(Some(response)) => return deliver(response),
-                        Ok(None) | Err(_) => break,
-                    },
-                    _ = tokio::time::sleep(Duration::from_secs(tick)) => {
-                        if let Some(code) = orphaned(&parents, &target.top) {
-                            return code;
-                        }
-                    }
-                }
-            }
+        if send(&mut write, &request).await.is_ok()
+            && let Ok(Some(response)) = receive(&mut BufReader::new(read)).await
+        {
+            return deliver(response);
         }
-        subscribe.again = true;
-        if let Some(code) = orphaned(&parents, &target.top) {
-            return code;
-        }
+        // The daemon closed the socket, for example for a restart.
         tokio::time::sleep(Duration::from_millis(200)).await;
-    }
-}
-
-fn orphaned(parents: &[u32], top: &Path) -> Option<i32> {
-    if parents.iter().any(|pid| !process_alive(*pid)) {
-        return Some(die("the parent process is gone"));
-    }
-    match top.is_dir() {
-        true => None,
-        false => Some(die(&format!("the worktree is gone: {}", top.display()))),
     }
 }
 
 fn deliver(response: Response) -> i32 {
     match response {
-        Response::Events { events, .. } => {
-            let lines: String = events
+        Response::Events { events, replaced } => {
+            let replaced = replaced.iter().map(|key| {
+                let name = serde_json::to_string(&key.key).expect("a key serializes");
+                format!(r#"{{"kind":"replaced","key":{name},"mode":"{}"}}"#, key.mode.as_str())
+            });
+            let events = events
                 .iter()
-                .map(|event| serde_json::to_string(event).expect("an event serializes") + "\n")
-                .collect();
+                .map(|event| serde_json::to_string(event).expect("an event serializes"));
+            let lines: String = replaced.chain(events).map(|line| line + "\n").collect();
             match std::io::Write::write_all(&mut std::io::stdout(), lines.as_bytes()) {
                 Ok(()) => 0,
                 Err(error) => die(&format!("stdout: {error}")),
@@ -288,11 +274,7 @@ fn deliver(response: Response) -> i32 {
             eprint!("{text}");
             1
         }
-        Response::Replaced => {
-            eprintln!("watchd: a new client or session replaced this one");
-            3
-        }
-        Response::Ended => die("the subscription ended"),
+        Response::Replaced => 0,
         Response::Status(_) | Response::Ok | Response::Report { .. } | Response::State(_) => {
             die("unexpected answer of the daemon")
         }
@@ -304,17 +286,19 @@ pub async fn unsubscribe(args: Vec<String>) -> i32 {
         Ok(args) => args,
         Err(message) => return die(&message),
     };
+    let Some(session) = args.session.clone() else {
+        return die("unsubscribe needs --session");
+    };
     let target = match target(&args) {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
     let client = StateDirs::for_client(&target.top);
-    let session_pid = session(&Store::new(client.dirs.clone()));
     let request = Request::Unsubscribe {
         key: target.key,
         slug: target.slug,
         mode: target.mode,
-        session_pid,
+        session,
     };
     ask_ok(&client, &request).await
 }
@@ -372,6 +356,12 @@ pub async fn route(args: Vec<String>) -> i32 {
                 Some(value) => action = Some(value),
                 None => return die("--action needs an action"),
             },
+            // The host file gives the flags of the watch command.
+            "--session" => {
+                if let Err(message) = session_id(args.next()) {
+                    return die(&message);
+                }
+            }
             _ => return die(&format!("unexpected argument: {arg}")),
         }
     }
@@ -445,6 +435,12 @@ pub async fn board(args: Vec<String>) -> i32 {
                 Some(path) => repo = Some(PathBuf::from(path)),
                 None => return die("--repo needs a path"),
             },
+            // The host file gives the flags of the watch command.
+            "--session" => {
+                if let Err(message) = session_id(args.next()) {
+                    return die(&message);
+                }
+            }
             _ => return die(&format!("unexpected argument: {arg}")),
         }
     }
@@ -554,12 +550,6 @@ pub async fn debug_state() -> i32 {
     0
 }
 
-/// Only for the eval shims, so that an eval run does not wait for its watch.
-pub async fn replace_clients(repo: &Path) -> i32 {
-    let top = worktree_top(repo).unwrap_or_else(|_| repo.to_path_buf());
-    ask_ok(&StateDirs::for_client(repo), &Request::ReplaceClients { repo: top }).await
-}
-
 pub async fn follow(after: Option<u64>) -> i32 {
     // A follower has no repo. The sample watcher selects its daemon with `XDG_STATE_HOME`.
     let client = ClientDirs {
@@ -601,5 +591,12 @@ mod tests {
 
         assert_eq!(parse("!5"), Ok(vec![5]));
         assert_eq!(parse("!!5"), Err("--mr needs an MR number".to_string()));
+    }
+
+    #[test]
+    fn watch_flags_with_session_parse_for_report() {
+        let args = WatchArgs::parse(["--session", "s", "--mr", "5"].map(String::from).to_vec());
+
+        assert_eq!(args.map(|args| args.mrs), Ok(vec![5]));
     }
 }

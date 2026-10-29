@@ -19,14 +19,19 @@ enum Commands {
     },
     /// The daemon, which a client starts.
     Daemon,
-    /// Subscribe and wait: [--repo PATH] [--interval SECONDS] [--once] [--stream] [--fresh] [--review] [--mr IID]...
-    /// With --stream, the client prints each delivery and waits for the next one.
+    /// Save the watch of the session and exit: --session ID [--repo PATH] [--interval SECONDS] [--fresh] [--review] [--mr IID]...
     #[command(disable_help_flag = true)]
     Watch {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    /// End the subscription of the repo and mode of this session: [--repo PATH] [--review] [--mr IID]...
+    /// Wait for the events of the watches of the session, one JSON line each: --session ID --owner-pid PID.
+    #[command(disable_help_flag = true)]
+    Wait {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// End the watch of the session for the repo and mode: --session ID [--repo PATH] [--review] [--mr IID]...
     #[command(disable_help_flag = true)]
     Unsubscribe {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -75,11 +80,6 @@ enum Commands {
 enum DebugCommand {
     /// All state as JSON, also the parts in memory only.
     State,
-    /// The waiting clients of the repo exit 3, for the eval shims.
-    ReplaceClients {
-        #[arg(long)]
-        repo: std::path::PathBuf,
-    },
 }
 
 #[tokio::main]
@@ -88,6 +88,7 @@ async fn main() {
         Commands::Engine { args } => engine::main(args).await,
         Commands::Daemon => daemon::main().await,
         Commands::Watch { args } => client::watch(args).await,
+        Commands::Wait { args } => client::wait(args).await,
         Commands::Unsubscribe { args } => client::unsubscribe(args).await,
         Commands::Status => client::status().await,
         Commands::Kind { args } => client::kind(args).await,
@@ -97,9 +98,6 @@ async fn main() {
         Commands::Debug {
             command: DebugCommand::State,
         } => client::debug_state().await,
-        Commands::Debug {
-            command: DebugCommand::ReplaceClients { repo },
-        } => client::replace_clients(&repo).await,
         Commands::Follow { after } => client::follow(after).await,
     };
     std::process::exit(code);

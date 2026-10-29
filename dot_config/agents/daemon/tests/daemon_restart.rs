@@ -27,7 +27,16 @@ fn install_copy(copy: &Path) {
 
 fn watch_copy(w: &Watchd, copy: &Path, args: &[&str]) -> Command {
     let mut command = w.command_of(copy);
-    command.args(["watch", "--interval", "1"]).args(args);
+    command
+        .args(["watch", "--interval", "1", "--session", &w.session_id()])
+        .args(args);
+    command
+}
+
+fn wait_copy(w: &Watchd, copy: &Path) -> Command {
+    let mut command = w.command_of(copy);
+    let pid = w.session_pid().to_string();
+    command.args(["wait", "--session", &w.session_id(), "--owner-pid", &pid]);
     command
 }
 
@@ -53,11 +62,13 @@ fn new_binary() -> &'static Checks {
         let copy = copy_binary(&w);
         w.events("app", &[ev("todo", 5)]);
         w.run(watch_copy(&w, &copy, &[]));
+        w.run(wait_copy(&w, &copy));
         let old = w.daemon_pid();
         install_copy(&copy);
         wait_for(10, || starts_of(&w, old) == 2);
         w.events("app", &[ev("todo", 6)]);
-        let run = w.run(watch_copy(&w, &copy, &[]));
+        w.run(watch_copy(&w, &copy, &[]));
+        let run = w.run(wait_copy(&w, &copy));
         c.check(
             "a new binary is installed: the daemon restarts with the same PID",
             format!("0 {} 2 yes", ev("todo", 6)),
@@ -79,13 +90,12 @@ fn new_binary_client() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         let copy = copy_binary(&w);
-        let client = w.start(watch_copy(&w, &copy, &["--interval", "600", "--fresh"]));
-        wait_for(10, || w.has_sub("app") && w.rounds_of("app") >= 1);
+        w.run(watch_copy(&w, &copy, &["--interval", "600", "--fresh"]));
+        let client = w.start(wait_copy(&w, &copy));
+        wait_for(10, || w.rounds_of("app") >= 1 && w.waiting(&w.session_id()));
         let old = w.daemon_pid();
-        let client_pid = w.client_is();
         w.env.write_engine_state("app", r#"{"todo": 1}"#);
-        // The interval is long: the round of this event comes from the new subscription of the
-        // waiting client.
+        // The interval is long: the round of this event is the first round of the new daemon.
         w.events("app", &[ev("todo", 5)]);
         install_copy(&copy);
         let run = client.wait(10).unwrap();
@@ -97,9 +107,9 @@ fn new_binary_client() -> &'static Checks {
         let sub = w.sub_of("app");
         let fresh = w.state()["engine"]["app"]["todo"].is_null();
         c.check(
-            "a new binary: the client keeps its process and its flags, not --fresh",
-            format!("{client_pid} 600 no"),
-            format!("{} {} {}", sub["client_pid"], sub["interval"], yes_no(fresh)),
+            "a new binary: the record keeps its flags, and the engine state stays",
+            "600 no",
+            format!("{} {}", sub["interval"], yes_no(fresh)),
         );
         c
     })
@@ -110,8 +120,9 @@ fn daemon_killed() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let client = w.start(w.watch_command(&[]));
-        wait_for(10, || w.has_sub("app"));
+        w.watch(&[]);
+        let client = w.start(w.wait_command());
+        wait_for(10, || w.waiting(&w.session_id()));
         let old = w.daemon_pid();
         kill(old, libc::SIGKILL);
         w.events("app", &[ev("todo", 7)]);
@@ -132,10 +143,11 @@ fn daemon_killed() -> &'static Checks {
 
 fn slow_check(w: &Watchd) -> support::daemon::Background {
     w.events("app", &[ev("todo", 5)]);
-    w.watch(&["--interval", "600"]);
+    w.watch_wait(&["--interval", "600"]);
     w.fake("app", "sleep", "3\n");
     w.events("app", &[ev("todo", 6)]);
-    let client = w.start(w.watch_command(&["--interval", "600", "--once"]));
+    w.watch(&["--interval", "600"]);
+    let client = w.start(w.wait_command());
     wait_for(5, || events_taken(w));
     client
 }
@@ -166,7 +178,7 @@ fn leftover_socket() -> &'static Checks {
         std::fs::create_dir_all(&w.watchd).unwrap();
         std::fs::write(w.watchd.join("daemon.sock"), "").unwrap();
         w.events("app", &[ev("todo", 5)]);
-        let run = w.watch(&[]);
+        let run = w.watch_wait(&[]);
         c.check(
             "leftover socket file with no daemon: client gets events",
             format!("0 {}", ev("todo", 5)),
@@ -218,24 +230,6 @@ fn sigterm_during_check() -> &'static Checks {
     })
 }
 
-fn once_after_poke() -> &'static Checks {
-    static CHECKS: OnceLock<Checks> = OnceLock::new();
-    CHECKS.get_or_init(|| {
-        let w = Watchd::new();
-        let mut c = Checks::default();
-        let client = slow_check(&w);
-        w.events("app", &[ev("todo", 7)]);
-        let run = w.watch(&["--interval", "600", "--once"]);
-        c.check(
-            "--once: waits for a round that starts after the poke",
-            format!("0 {}\n{}", ev("todo", 6), ev("todo", 7)),
-            format!("{} {}", run.code, norow(&run.out)),
-        );
-        client.wait(10);
-        c
-    })
-}
-
 fn network_down() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
@@ -243,10 +237,11 @@ fn network_down() -> &'static Checks {
         let mut c = Checks::default();
         let nc = w.env.dir.join("bin/nc");
         w.events("app", &[ev("todo", 5)]);
-        w.watch(&[]);
+        w.watch_wait(&[]);
         std::fs::write(&nc, "#!/bin/sh\nexit 1\n").unwrap();
         w.fake("app", "exit", "4\n");
-        let client = w.start(w.watch_command(&[]));
+        w.watch(&[]);
+        let client = w.start(w.wait_command());
         wait_for(5, || w.log_count("network error") > 0);
         w.local_rounds(2);
         c.check(
@@ -258,7 +253,7 @@ fn network_down() -> &'static Checks {
                 w.sub_gone("app")
             ),
         );
-        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
+        w.unsubscribe(&["--repo", w.env.repo.to_str().unwrap()]);
         client.code();
         std::fs::write(&nc, "#!/bin/sh\nexit 0\n").unwrap();
         c
@@ -276,8 +271,8 @@ fn a_new_binary_the_client_connects_again_and_gets_the_events_once() {
 }
 
 #[test]
-fn a_new_binary_the_client_keeps_its_process_and_its_flags_not_fresh() {
-    new_binary_client().assert("a new binary: the client keeps its process and its flags, not --fresh");
+fn a_new_binary_the_record_keeps_its_flags_and_the_engine_state_stays() {
+    new_binary_client().assert("a new binary: the record keeps its flags, and the engine state stays");
 }
 
 #[test]
@@ -316,39 +311,6 @@ fn the_daemon_gets_sigterm_during_a_check_daemon_gone() {
 }
 
 #[test]
-fn once_waits_for_a_round_that_starts_after_the_poke() {
-    once_after_poke().assert("--once: waits for a round that starts after the poke");
-}
-
-#[test]
 fn network_down_no_client_error_subscription_stays() {
     network_down().assert("network down: no client error, subscription stays");
-}
-
-#[test]
-fn old_subscribe_message_is_read() {
-    use std::io::{BufRead, Write};
-    let w = Watchd::new();
-    w.events("app", &[ev("todo", 5)]);
-    let follow = w.follower(&w.env.dir);
-    let line = serde_json::json!({
-        "type": "subscribe", "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub",
-        "mrs": [], "interval": 1, "session_pid": w.session_pid(), "client_pid": std::process::id(),
-        "herdr_workspace": "w1", "once": false, "fresh": false, "again": false, "poke_token": "t",
-    });
-
-    let mut stream = std::os::unix::net::UnixStream::connect(w.watchd.join("daemon.sock")).unwrap();
-    stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(15)))
-        .unwrap();
-    stream.write_all(format!("{line}\n").as_bytes()).unwrap();
-    let mut answer = String::new();
-    std::io::BufReader::new(&stream).read_line(&mut answer).unwrap();
-
-    let answer: serde_json::Value = serde_json::from_str(&answer).unwrap();
-    assert_eq!(
-        (answer["type"].clone(), answer["events"][0]["kind"].clone()),
-        (serde_json::json!("events"), serde_json::json!("todo"))
-    );
-    support::daemon::end(follow);
 }

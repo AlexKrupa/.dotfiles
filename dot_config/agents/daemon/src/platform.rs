@@ -13,53 +13,6 @@ pub fn process_alive(pid: u32) -> bool {
         .is_ok_and(|status| status.success())
 }
 
-fn ps_field(field: &str, pid: u32) -> Option<String> {
-    let output = Command::new("ps")
-        .args(["-o", &format!("{field}="), "-p", &pid.to_string()])
-        .stderr(Stdio::null())
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    match output.status.success() && !text.is_empty() {
-        true => Some(text),
-        false => None,
-    }
-}
-
-fn parent_of(pid: u32) -> Option<u32> {
-    ps_field("ppid", pid)?.parse().ok()
-}
-
-pub fn ancestors() -> Vec<u32> {
-    let mut pids = Vec::new();
-    let mut pid = std::os::unix::process::parent_id();
-    while pid > 1 {
-        pids.push(pid);
-        match parent_of(pid) {
-            Some(parent) => pid = parent,
-            None => break,
-        }
-    }
-    pids
-}
-
-/// The Claude Code process that runs the caller, whose life is the life of the subscription.
-pub fn session_pid() -> (u32, Option<String>) {
-    if let Some(pid) = std::env::var("WATCH_SESSION_PID").ok().and_then(|pid| pid.parse().ok()) {
-        return (pid, None);
-    }
-    let parent = std::os::unix::process::parent_id();
-    for pid in ancestors() {
-        let command = ps_field("comm", pid).unwrap_or_default();
-        if command.rsplit('/').next() == Some("claude") {
-            return (pid, None);
-        }
-    }
-    // The parent dies with the client: the subscription ends soon after each client.
-    let message = format!("no claude process above PID {parent}: the session is PID {parent}");
-    (parent, Some(message))
-}
-
 /// A maintenance wake during system sleep has no Graphics capability.
 pub async fn full_wake() -> bool {
     let output = tokio::process::Command::new("pmset")

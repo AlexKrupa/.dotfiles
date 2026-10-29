@@ -44,7 +44,7 @@ fn hub_todo() -> &'static Checks {
         w.env.fixture("todos", &json!([{"id": 11, "action_name": "review_requested", "author": {"username": "anna"},
             "target": {"iid": 5, "title": "Add foo", "source_branch": "ABC-1/foo"},
             "target_url": format!("{URL}/5")}]).to_string());
-        let run = w.watch(&[]);
+        let run = w.watch_wait(&[]);
         c.check("e2e: real engine and fake glab give a todo event",
             format!(r#"0 {{"kind":"todo","iid":5,"title":"Add foo","url":"{URL}/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11"}}"#),
             format!("{} {}", run.code, norow(&run.out)));
@@ -64,8 +64,12 @@ fn review_and_hub() -> &'static Checks {
             r#"[{"project_id": 7, "note": {"id": 300, "noteable_type": "MergeRequest", "noteable_iid": 5}}]"#,
         );
         w.env.fixture("commented", &commented("t1"));
-        let review = w.start(w.watch_command(&["--review", "--mr", "5"]));
-        let hub = w.start(w.watch_command(&[]));
+        // Two sessions, so that the review client gets no hub event.
+        let other = "session-hub";
+        w.watch(&["--review", "--mr", "5"]);
+        w.run(w.as_session(w.watch_command(&[]), other, w.session_pid()));
+        let review = w.start(w.wait_command());
+        let hub = w.start(w.as_session(w.wait_command(), other, w.session_pid()));
         wait_for(10, || w.rounds_of("app") >= 1 && w.rounds_of(&review_key) >= 1);
         w.env.fixture("commented", &commented("t2"));
         w.env.fixture("notes_5", &json!([anna_note(301)]).to_string());
@@ -90,7 +94,15 @@ fn review_and_hub() -> &'static Checks {
                 w.inbox_of("app")
             ),
         );
-        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
+        let mut unsubscribe = w.command();
+        unsubscribe.args([
+            "unsubscribe",
+            "--session",
+            other,
+            "--repo",
+            w.env.repo.to_str().unwrap(),
+        ]);
+        w.run(unsubscribe);
         hub.code();
         c
     })
@@ -133,11 +145,11 @@ fn shared_fetch() -> &'static Checks {
             &String::from_utf8_lossy(&hasher.wait_with_output().unwrap().stdout)[..12]
         );
         w.env.clear_calls();
-        let review = w.start(w.watch_command(&["--interval", "600", "--review", "--mr", "5"]));
+        w.watch(&["--interval", "600", "--review", "--mr", "5"]);
         wait_for(10, || w.rounds_of(&first) >= 1);
         let mut command = w.watch_command(&["--interval", "600", "--review", "--mr", "5"]);
         command.current_dir(&app2);
-        let bump = w.start(command);
+        w.run(command);
         wait_for(10, || w.rounds_of(&second) >= 1 && w.rounds_of(&first) >= 2);
         let fetches = w.env.calls().lines().filter(|line| line.ends_with(" iid=5")).count();
         c.check(
@@ -145,17 +157,8 @@ fn shared_fetch() -> &'static Checks {
             "2 2",
             format!("{} {fetches}", w.rounds_of(&first)),
         );
-        w.client(&[
-            "unsubscribe",
-            "--repo",
-            w.env.repo.to_str().unwrap(),
-            "--review",
-            "--mr",
-            "5",
-        ]);
-        w.client(&["unsubscribe", "--repo", app2.to_str().unwrap(), "--review", "--mr", "5"]);
-        review.code();
-        bump.wait(20);
+        w.unsubscribe(&["--repo", w.env.repo.to_str().unwrap(), "--review", "--mr", "5"]);
+        w.unsubscribe(&["--repo", app2.to_str().unwrap(), "--review", "--mr", "5"]);
         c
     })
 }
@@ -166,7 +169,8 @@ fn author_pipeline() -> &'static Checks {
         let w = Watchd::with_gitlab_engine();
         let mut c = Checks::default();
         gql(&w, 5, |_| {});
-        let author = w.start(w.watch_command(&["--mr", "5"]));
+        w.watch(&["--mr", "5"]);
+        let author = w.start(w.wait_command());
         wait_for(10, || w.rounds_of(&w.author_key()) >= 1);
         gql(&w, 5, |mr| {
             mr["headPipeline"] = json!({"id": "gid://gitlab/Ci::Pipeline/50", "status": "FAILED"})

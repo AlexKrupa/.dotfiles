@@ -74,7 +74,6 @@ pub struct Daemon {
     stop: Notify,
     pub tick: Duration,
     idle_seconds: u64,
-    pub client_seconds: u64,
     /// The test value of both intervals of the managed loops.
     test_interval: Option<Duration>,
     pub engine: Box<dyn Engine>,
@@ -87,10 +86,8 @@ pub struct Daemon {
 
 #[derive(Default)]
 pub struct Memory {
-    /// The slug and the client token of the poke of each key.
-    pokes: HashMap<String, (String, String)>,
-    /// The token of the last poke that a check of the key handled.
-    pub poked: HashMap<String, String>,
+    /// The slug of each poked key.
+    pokes: HashMap<String, String>,
     pub rounds: HashMap<String, u64>,
     fails: HashMap<String, u32>,
     pub last_poll: BTreeMap<String, i64>,
@@ -98,7 +95,9 @@ pub struct Memory {
     /// The daemon does not exit while a `follow` client is connected.
     pub followers: usize,
     managed: HashMap<PathBuf, ManagedTask>,
-    pub clients: HashMap<String, u32>,
+    /// The number of the connected waiter of each session.
+    pub waiters: HashMap<String, u64>,
+    pub next_waiter: u64,
 }
 
 struct ManagedTask {
@@ -118,7 +117,6 @@ impl Daemon {
             stop: Notify::new(),
             tick: env_duration("WATCHD_TICK").unwrap_or(Duration::from_secs(5)),
             idle_seconds: env_seconds("WATCHD_IDLE_SECONDS", 600),
-            client_seconds: env_seconds("WATCHD_CLIENT_SECONDS", 1800),
             test_interval: env_duration("WATCHD_MANAGED_SECONDS"),
             engine,
             workspaces,
@@ -135,10 +133,8 @@ impl Daemon {
         self.memory.lock().await
     }
 
-    pub fn poke(&self, memory: &mut Memory, key: &str, slug: &str, token: &str) {
-        memory
-            .pokes
-            .insert(key.to_string(), (slug.to_string(), token.to_string()));
+    pub fn poke(&self, memory: &mut Memory, key: &str, slug: &str) {
+        memory.pokes.insert(key.to_string(), slug.to_string());
         for task in memory.managed.values().filter(|task| task.slug == slug) {
             task.wake.notify_one();
         }
@@ -146,7 +142,6 @@ impl Daemon {
 
     pub fn forget(&self, memory: &mut Memory, key: &str) {
         memory.pokes.remove(key);
-        memory.poked.remove(key);
         memory.rounds.remove(key);
         memory.fails.remove(key);
     }
@@ -196,7 +191,7 @@ impl Daemon {
     /// Returns true for a network error. A permanent error, or 5 other errors in a row, ends the agent
     /// record of the key, if any.
     async fn check(self: &Arc<Self>, target: Target, skip: Vec<u64>, cache: Arc<MrCache>) -> bool {
-        let poke = self.lock().await.pokes.remove(&target.key).map(|(_, token)| token);
+        self.lock().await.pokes.remove(&target.key);
         let args = EngineArgs {
             repo: Some(target.repo.clone()),
             fresh: false,
@@ -263,9 +258,6 @@ impl Daemon {
         if self.store.sub(key).is_some() {
             let rounds = memory.rounds.get(key).copied().unwrap_or(0) + 1;
             memory.rounds.insert(key.to_string(), rounds);
-            if let Some(token) = poke {
-                memory.poked.insert(key.to_string(), token);
-            }
         }
         drop(memory);
         self.changed.notify_waiters();
@@ -314,7 +306,7 @@ impl Daemon {
     }
 
     async fn interrupted(&self, slug: &str) -> bool {
-        self.stopping() || self.lock().await.pokes.values().any(|(poked, _)| poked == slug)
+        self.stopping() || self.lock().await.pokes.values().any(|poked| poked == slug)
     }
 
     async fn live_subs(&self, slug: &str) -> Vec<Agent> {
@@ -564,17 +556,9 @@ impl Daemon {
         let _ = std::fs::remove_dir_all(&round);
         let mut memory = self.lock().await;
         // No check takes the poke of a key with no target: the round is its answer.
-        let orphans: Vec<String> = memory
+        memory
             .pokes
-            .iter()
-            .filter(|(key, (poked, _))| poked == slug && targets.iter().all(|target| target.key != **key))
-            .map(|(key, _)| key.clone())
-            .collect();
-        for key in orphans {
-            if let Some((_, token)) = memory.pokes.remove(&key) {
-                memory.poked.insert(key, token);
-            }
-        }
+            .retain(|key, poked| poked != slug || targets.iter().any(|target| target.key == *key));
         memory.last_poll.insert(slug.to_string(), now_seconds());
         self.store
             .log(slug, "", &format!("round done: {} target(s)", targets.len()));
@@ -814,6 +798,7 @@ async fn run(daemon: &Arc<Daemon>) -> End {
     let mut pruned_at = 0;
     {
         let _memory = daemon.lock().await;
+        daemon.store.end_old_records();
         for sub in daemon.store.subs() {
             if let Some(repo) = repo_of(&sub.repo) {
                 daemon.store.add_repo(&repo);
@@ -834,11 +819,6 @@ async fn run(daemon: &Arc<Daemon>) -> End {
         if now - pruned_at >= 3600 {
             daemon.store.prune(now);
             pruned_at = now;
-        }
-        for sub in daemon.store.subs() {
-            if daemon.store.end_if_due(&sub, now, daemon.client_seconds as i64) {
-                daemon.forget(&mut memory, &sub.key);
-            }
         }
         daemon.store.sweep();
         for repo in daemon.store.drop_gone_repos() {

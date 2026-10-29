@@ -4,7 +4,7 @@ use std::os::unix::process::CommandExt;
 use std::sync::OnceLock;
 
 use support::Checks;
-use support::daemon::{Watchd, alive, end, ev, is_daemon, norow, session, wait_for};
+use support::daemon::{Watchd, alive, ev, is_daemon, norow, wait_for};
 
 fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
@@ -16,7 +16,7 @@ fn hub_client() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         w.events("app", &[ev("todo", 5)]);
-        let run = w.watch(&[]);
+        let run = w.watch_wait(&[]);
         c.check(
             "hub: event comes out of the client, exit 0",
             format!("0 {}", ev("todo", 5)),
@@ -26,7 +26,7 @@ fn hub_client() -> &'static Checks {
         let sub = w.sub_of("app");
         c.check(
             "subscription: record",
-            format!("app app hub [] 1 {}", w.session_pid()),
+            format!("app app hub [] 1 {}", w.session_id()),
             format!(
                 "{} {} {} {} {} {}",
                 sub["key"].as_str().unwrap_or_default(),
@@ -34,14 +34,14 @@ fn hub_client() -> &'static Checks {
                 sub["mode"].as_str().unwrap_or_default(),
                 sub["mrs"],
                 sub["interval"],
-                sub["session_pid"]
+                sub["session"].as_str().unwrap_or_default()
             ),
         );
 
         w.events("app", &[ev("todo", 6)]);
         wait_for(5, || !w.inbox_of("app").is_empty());
         w.local_rounds(2);
-        let run = w.watch(&[]);
+        let run = w.wait();
         c.check(
             "events with no client wait in the inbox",
             format!("0 {}", ev("todo", 6)),
@@ -75,11 +75,7 @@ fn hub_client() -> &'static Checks {
         );
 
         let repo = w.env.repo.to_str().unwrap().to_string();
-        c.check(
-            "unsubscribe: exit 0",
-            0,
-            w.client(&["unsubscribe", "--repo", &repo]).code,
-        );
+        c.check("unsubscribe: exit 0", 0, w.unsubscribe(&["--repo", &repo]).code);
         c.check("unsubscribe removes the subscription", "yes", w.sub_gone("app"));
         c
     })
@@ -96,10 +92,14 @@ fn errors() -> &'static Checks {
             w.client(&["status"]).out.lines().next().unwrap_or_default().to_string(),
         );
         w.events(&w.author_key(), &[ev("pipeline", 5)]);
+        let other = "session-other";
         let one = w.start(w.watch_command(&[]));
-        let two = w.start(w.watch_command(&["--mr", "5"]));
+        let two = w.start(w.as_session(w.watch_command(&["--mr", "5"]), other, w.session_pid()));
+        one.wait(20);
+        two.wait(20);
+        let one = w.start(w.wait_command());
+        let two = w.start(w.as_session(w.wait_command(), other, w.session_pid()));
         // A hub check with no hub record keeps no events: the event comes after the record.
-        wait_for(10, || w.has_sub("app"));
         w.events("app", &[ev("todo", 5)]);
         let (one, two) = (one.wait(20).unwrap(), two.wait(20).unwrap());
         let combined = |run: &support::Run| norow(&[run.out.as_str(), run.err.as_str()].concat());
@@ -123,7 +123,7 @@ fn errors() -> &'static Checks {
 
         w.fake("app", "exit", "4\n");
         w.events("app", &[ev("todo", 7)]);
-        let run = w.watch(&[]);
+        let run = w.watch_wait(&[]);
         c.check(
             "network error: no client error, event comes",
             format!("0 {}", ev("todo", 7)),
@@ -138,7 +138,7 @@ fn errors() -> &'static Checks {
 
         w.fake("app", "exit", "5\n");
         w.fake("app", "err", "watchd: HTTP 403 on todos\n");
-        let run = w.watch(&[]);
+        let run = w.watch_wait(&[]);
         c.check(
             "HTTP 403: client exit 1 with the text",
             "1 watchd: HTTP 403 on todos",
@@ -147,10 +147,10 @@ fn errors() -> &'static Checks {
         c.check("HTTP 403: no subscription", "yes", w.sub_gone("app"));
 
         w.events("app", &[ev("todo", 9)]);
-        w.watch(&[]);
+        w.watch_wait(&[]);
         w.fake("app", "exit", "5\n");
         wait_for(5, || w.has_error("app"));
-        let run = w.watch(&[]);
+        let run = w.wait();
         c.check(
             "HTTP 403 with no client: next client exit 1, no subscription",
             "1 watchd: HTTP 403 on todos yes",
@@ -160,7 +160,7 @@ fn errors() -> &'static Checks {
         w.fake("app", "exit", "1\n1\n1\n1\n1\n");
         w.fake("app", "err", "watchd: boom\n");
         w.clear_args();
-        let run = w.watch(&[]);
+        let run = w.watch_wait(&[]);
         c.check(
             "5 other errors: exit 1",
             "1 watchd: boom",
@@ -172,15 +172,6 @@ fn errors() -> &'static Checks {
             5,
             w.args().lines().filter(|line| line.ends_with(&repo_args)).count(),
         );
-
-        let other = session();
-        w.events("app", &[ev("todo", 8)]);
-        let mut command = w.watch_command(&[]);
-        command.env("WATCH_SESSION_PID", other.id().to_string());
-        w.run(command);
-        end(other);
-        wait_for(5, || !w.has_sub("app"));
-        c.check("dead session: subscription removed", "yes", w.sub_gone("app"));
         c
     })
 }
@@ -195,7 +186,7 @@ fn idle_stop() -> &'static Checks {
         command.env("WATCHD_IDLE_SECONDS", "2");
         w.run(command);
         let pid = w.daemon_pid().unwrap_or(0);
-        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap()]);
+        w.unsubscribe(&["--repo", w.env.repo.to_str().unwrap()]);
         wait_for(6, || !alive(pid));
         c.check(
             "idle stop: daemon gone",
@@ -216,14 +207,15 @@ fn process_group() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         // Claude Code TaskStop stops the process group of the client.
-        let mut command = w.watch_command(&[]);
+        assert_eq!(w.watch(&[]).code, 0);
+        let mut command = w.wait_command();
         command
             .process_group(0)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null());
         let mut client = command.spawn().unwrap();
         let group = client.id();
-        wait_for(10, || w.has_sub("app"));
+        wait_for(10, || w.waiting(&w.session_id()));
         let daemon = w.daemon_pid();
         unsafe { libc::kill(-(group as i32), libc::SIGTERM) };
         let _ = client.wait();
@@ -232,118 +224,6 @@ fn process_group() -> &'static Checks {
             "the process group of the client gets SIGTERM: the daemon stays",
             "yes yes",
             format!("{} {}", yes_no(is_daemon(daemon)), yes_no(!alive(group))),
-        );
-        c
-    })
-}
-
-fn client_ends() -> &'static Checks {
-    static CHECKS: OnceLock<Checks> = OnceLock::new();
-    CHECKS.get_or_init(|| {
-        let w = Watchd::new();
-        let mut c = Checks::default();
-        let gone = w.env.dir.join("gone");
-        w.env.git_repo(&gone, "https://gitlab.example.com/group/sub/app.git");
-        let mut command = w.watch_command(&[]);
-        command.current_dir(&gone);
-        let client = w.start(command);
-        wait_for(10, || w.has_sub("gone"));
-        std::fs::remove_dir_all(&gone).unwrap();
-        let run = client.wait(20).unwrap();
-        c.check(
-            "client: worktree gone: exit 1",
-            format!("1 watchd: the worktree is gone: {}", gone.display()),
-            format!("{} {}", run.code, run.err.lines().last().unwrap_or_default()),
-        );
-
-        let (err, pid) = (w.env.dir.join("orphan.err"), w.env.dir.join("orphan.pid"));
-        let mut shell = std::process::Command::new("bash");
-        shell
-            .arg("-c")
-            .arg(r#""$0" watch --interval 1 >/dev/null 2>"$1" & echo $! >"$2"; sleep 1"#)
-            .arg(env!("CARGO_BIN_EXE_watchd"))
-            .arg(&err)
-            .arg(&pid);
-        let client = w.command();
-        shell
-            .current_dir(&w.env.repo)
-            .envs(client.get_envs().filter_map(|(key, value)| Some((key, value?))));
-        for (key, value) in client.get_envs() {
-            if value.is_none() {
-                shell.env_remove(key);
-            }
-        }
-        shell.status().unwrap();
-        let orphan: u32 = std::fs::read_to_string(&pid).unwrap().trim().parse().unwrap();
-        wait_for(10, || !alive(orphan));
-        c.check(
-            "client: parent gone: client stops",
-            "no watchd: the parent process is gone",
-            format!(
-                "{} {}",
-                yes_no(alive(orphan)),
-                std::fs::read_to_string(&err).unwrap_or_default().trim_end()
-            ),
-        );
-        if alive(orphan) {
-            unsafe { libc::kill(orphan as i32, libc::SIGTERM) };
-        }
-        c
-    })
-}
-
-fn stream() -> &'static Checks {
-    static CHECKS: OnceLock<Checks> = OnceLock::new();
-    CHECKS.get_or_init(|| {
-        let w = Watchd::new();
-        let mut c = Checks::default();
-        let key = w.author_key();
-        w.events(&key, &[ev("pipeline", 5)]);
-        let client = w.start(w.watch_command(&["--stream", "--mr", "5"]));
-        wait_for(10, || w.log_count("subscribed: author") >= 2);
-        w.events(&key, &[ev("approved", 5)]);
-        wait_for(10, || w.log_count("subscribed: author") >= 3);
-        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
-        let run = client.wait(20).unwrap();
-        c.check(
-            "stream: one client gives the events of each delivery",
-            format!("1 {}\n{}", ev("pipeline", 5), ev("approved", 5)),
-            format!("{} {}", run.code, norow(&run.out)),
-        );
-        drop(w);
-
-        let w = Watchd::new();
-        let key = w.author_key();
-        w.events(&key, &[ev("pipeline", 5)]);
-        let client = w.start(w.watch_command(&["--stream", "--fresh", "--mr", "5"]));
-        wait_for(10, || w.log_count("subscribed: author") >= 2);
-        let state = w.env.engine_state(&key);
-        std::fs::create_dir_all(state.parent().unwrap()).unwrap();
-        std::fs::write(&state, "{}").unwrap();
-        w.events(&key, &[ev("approved", 5)]);
-        wait_for(10, || w.log_count("subscribed: author") >= 3);
-        c.check(
-            "stream: --fresh applies to the first subscribe only",
-            "yes",
-            yes_no(state.exists()),
-        );
-        w.client(&["unsubscribe", "--repo", w.env.repo.to_str().unwrap(), "--mr", "5"]);
-        client.wait(20);
-        drop(w);
-
-        let w = Watchd::new();
-        w.events(&w.author_key(), &[ev("merged", 5)]);
-        let run = w.watch(&["--stream", "--mr", "5"]);
-        c.check(
-            "stream: the delivery that ends all MRs ends the client",
-            format!("0 {} 1 yes", ev("merged", 5)),
-            format!(
-                "{} {} {} {}",
-                run.code,
-                norow(&run.out),
-                w.log_count("subscribed: author"),
-                w.sub_gone(&w.author_key())
-            ),
         );
         c
     })
@@ -455,11 +335,6 @@ fn check_5_other_errors_5_tries() {
 }
 
 #[test]
-fn dead_session_subscription_removed() {
-    errors().assert("dead session: subscription removed");
-}
-
-#[test]
 fn idle_stop_daemon_gone() {
     idle_stop().assert("idle stop: daemon gone");
 }
@@ -469,38 +344,13 @@ fn the_process_group_of_the_client_gets_sigterm_the_daemon_stays() {
     process_group().assert("the process group of the client gets SIGTERM: the daemon stays");
 }
 
-#[test]
-fn client_worktree_gone_exit_1() {
-    client_ends().assert("client: worktree gone: exit 1");
-}
-
-#[test]
-fn client_parent_gone_client_stops() {
-    client_ends().assert("client: parent gone: client stops");
-}
-
-#[test]
-fn stream_one_client_gives_the_events_of_each_delivery() {
-    stream().assert("stream: one client gives the events of each delivery");
-}
-
-#[test]
-fn stream_the_delivery_that_ends_all_mrs_ends_the_client() {
-    stream().assert("stream: the delivery that ends all MRs ends the client");
-}
-
-#[test]
-fn stream_fresh_applies_to_the_first_subscribe_only() {
-    stream().assert("stream: --fresh applies to the first subscribe only");
-}
-
 const PULL_BLOCKED: &str = r#"{"kind":"pull-blocked","iid":null,"title":null,"url":"","actor":"","detail":"changes in tracked files","branch":"main","item":"pull:main"}"#;
 const DEFAULT_FAILED: &str = r#"{"kind":"default-failed","iid":null,"title":null,"url":"u/-/pipelines/88","actor":"","detail":"pipeline 88 failed","branch":"main","previous":"success","item":"main-failed:main"}"#;
 
-/// A hub subscription whose session stays, with no waiting client.
+/// A hub record with no waiting client.
 fn live_hub(w: &Watchd) {
     w.events("app", &[ev("todo", 5)]);
-    assert_eq!(w.watch(&[]).code, 0);
+    assert_eq!(w.watch_wait(&[]).code, 0);
 }
 
 fn board(w: &Watchd) -> String {
@@ -517,17 +367,17 @@ fn handled_round_wakes_no_hub() {
 
     assert!(drawn, "{}", board(&w));
     assert_eq!(w.inbox_of("app"), "");
-    let run = w.watch(&["--once"]);
-    assert_eq!((run.code, run.out.as_str()), (0, ""), "{}", run.err);
+    assert_eq!(w.watch(&[]).code, 0);
+    w.managed_rounds(2);
+    assert_eq!(w.inbox_of("app"), "");
 }
 
 #[test]
 fn mixed_round_gives_the_model_only_its_events() {
     let w = Watchd::new();
     live_hub(&w);
-    let client = w.client_is();
-    let hub = w.start(w.watch_command(&[]));
-    wait_for(5, || w.client_is() != client);
+    let hub = w.start(w.wait_command());
+    wait_for(5, || w.waiting(&w.session_id()));
 
     w.events("app", &[PULL_BLOCKED.to_string(), DEFAULT_FAILED.to_string()]);
     let run = hub.wait(10).expect("the hub client gets the events");

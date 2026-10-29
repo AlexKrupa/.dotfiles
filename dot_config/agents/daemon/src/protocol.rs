@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::core::eventlog::RouteAction;
 use crate::core::items::{Items, RoutedEvent};
-use crate::core::subs::{Agent, Mode};
+use crate::core::subs::{Agent, Mode, Session, SessionKey};
 use crate::core::worktrees::Kind;
 use crate::core::worktrees::WorktreeState;
 use crate::report::ReportInput;
@@ -27,12 +27,18 @@ pub struct Envelope {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Request {
-    Subscribe(SubscribeArgs),
+    Watch(WatchRequest),
+    Wait {
+        session: String,
+        owner_pid: u32,
+    },
+    /// The request of an older client. The daemon answers it with an error.
+    Subscribe(serde_json::Value),
     Unsubscribe {
         key: String,
         slug: String,
         mode: Mode,
-        session_pid: u32,
+        session: String,
     },
     Status,
     Kind {
@@ -53,43 +59,43 @@ pub enum Request {
     Follow {
         after: Option<u64>,
     },
-    ReplaceClients {
-        repo: PathBuf,
-    },
 }
 
-/// `again`: the client connects again after the daemon closed the socket.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SubscribeArgs {
+pub struct WatchRequest {
     pub key: String,
     pub slug: String,
     pub repo: PathBuf,
     pub mode: Mode,
     pub mrs: Vec<u64>,
     pub interval: u64,
-    pub session_pid: u32,
-    pub client_pid: u32,
-    pub once: bool,
+    pub session: String,
     pub fresh: bool,
-    pub again: bool,
-    pub poke_token: String,
+}
+
+/// An event of one watch of a session, which can have more than one watch.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyedEvent {
+    pub key: String,
+    pub mode: Mode,
+    #[serde(flatten)]
+    pub routed: RoutedEvent,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Response {
     Events {
-        events: Vec<RoutedEvent>,
-        /// The subscription ended with this delivery.
+        events: Vec<KeyedEvent>,
+        /// The keys that a different session took.
         #[serde(default)]
-        ended: bool,
+        replaced: Vec<SessionKey>,
     },
     /// The text for stderr, with its newline.
     Error {
         text: String,
     },
     Replaced,
-    Ended,
     Status(StatusReport),
     Ok,
     Report {
@@ -108,9 +114,11 @@ pub struct DebugState {
     pub items: BTreeMap<String, Items>,
     pub engine: BTreeMap<String, serde_json::Value>,
     pub worktrees: BTreeMap<String, WorktreeState>,
+    pub sessions: BTreeMap<String, Session>,
     pub repos: Option<BTreeMap<String, RepoTimes>>,
     pub rounds: Option<BTreeMap<String, u64>>,
-    pub clients: Option<BTreeMap<String, u32>>,
+    /// The number of the connected waiter of each session.
+    pub waiters: Option<BTreeMap<String, u64>>,
     pub followers: Option<usize>,
 }
 

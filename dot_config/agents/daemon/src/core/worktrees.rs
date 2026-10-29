@@ -521,10 +521,7 @@ mod tests {
             mode,
             mrs: mrs.to_vec(),
             interval: 120,
-            session_pid: 1,
-            client_pid: 2,
-            client_at: 0,
-            replaced_sessions: Vec::new(),
+            session: "s".to_string(),
             ended_mrs: vec![9],
         }
     }

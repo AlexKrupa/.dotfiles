@@ -222,8 +222,8 @@ fn daemon_start_adds_the_repo_of_each_subscription() {
     let w = Watchd::new();
     std::fs::create_dir_all(w.watchd.join("subs")).unwrap();
     let sub = json!({
-        "version": 1, "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub", "mrs": [],
-        "interval": 120, "session_pid": w.session_pid(), "client_pid": 1, "client_at": 0,
+        "version": 4, "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub", "mrs": [],
+        "interval": 120, "session": w.session_id(),
     });
     std::fs::write(w.watchd.join("subs/app.json"), sub.to_string()).unwrap();
 
@@ -385,7 +385,7 @@ fn managed_loop_wakes_for_a_new_hub() {
     wait_for(5, || w.log_count("round done:") > 0);
     push(&w, &pusher, "two");
 
-    let mut hub = w.watch_command(&["--once"]);
+    let mut hub = w.watch_command(&[]);
     hub.current_dir(&work);
     w.run(hub);
     wait_for(5, || head(&w, &work) == head(&w, &pusher));
@@ -550,7 +550,7 @@ fn poke_of_a_key_with_no_target_ends_with_the_round() {
     w.client_in(&wt, &["status"]);
     wait_for(5, || !w.worktree_state(&wt).is_null());
 
-    let run = w.watch(&["--interval", "600", "--once", "--mr", "12"]);
+    let run = w.watch(&["--interval", "600", "--mr", "12"]);
     let rounds = w.log_count("round done");
     w.local_rounds(3);
 
@@ -597,16 +597,15 @@ fn hub_items() -> &'static Checks {
             items(&w, "app"),
         );
 
-        let run = w.watch(&[]);
+        let run = w.watch_wait(&[]);
         c.check(
             "new hub: the open items come first",
             "0 comment:1",
             format!("{} {}", run.code, support::each(&run.out, "item")),
         );
 
-        let client = w.client_is();
-        let hub = w.start(w.watch_command(&[]));
-        wait_for(5, || w.client_is() != client);
+        let hub = w.start(w.wait_command());
+        wait_for(5, || w.waiting(&w.session_id()));
         w.events(&key, &[comment(12, "comment:2")]);
         let board = || std::fs::read_to_string(w.watchd.join("items/app.board")).unwrap_or_default();
         let drawn = wait_for(10, || board().contains(r#"@anna: \"d\""#));
@@ -696,7 +695,8 @@ fn worktree_agents() -> &'static Checks {
             command
         };
         let after_record = |args: &[&str], lines: &[String]| {
-            let agent = w.start(in_wt(args));
+            w.run(in_wt(args));
+            let agent = w.start(w.wait_command());
             wait_for(10, || w.has_sub(&key));
             w.events(&key, lines);
             agent.wait(15).map_or("timeout".to_string(), |run| {
@@ -790,7 +790,7 @@ fn watch_with_no_mr_in_the_main_checkout_on_a_feature_branch_is_an_author_watch(
     );
     w.env.git(&w.env.repo, &["switch", "-q", "-c", "feature"]);
 
-    let _agent = w.start(w.watch_command(&[]));
+    w.watch(&[]);
     let author = wait_for(10, || w.has_sub(&w.author_key()));
 
     assert!(author, "no author record of the main checkout: {}", w.log());
@@ -822,13 +822,15 @@ fn review_link_stays_after_the_agent_ends() {
     let wr = review_worktree(&w, "r");
     let follow = w.follower(&w.env.dir);
     let key = format!("app-{}-review-20", support::hash12(&wr));
-    let other = support::daemon::session();
-    let mut agent = w.watch_command(&["--review", "--mr", "20", "--once"]);
-    agent.current_dir(&wr).env("WATCH_SESSION_PID", other.id().to_string());
+    let mut agent = w.watch_command(&["--review", "--mr", "20"]);
+    agent.current_dir(&wr);
     w.run(agent);
     let linked = reviews(&w);
 
-    end(other);
+    w.client_in(
+        &wr,
+        &["unsubscribe", "--session", &w.session_id(), "--review", "--mr", "20"],
+    );
     wait_for(10, || !w.has_sub(&key));
     w.clear_args();
     let line = format!("--repo {} --review --mr 20", wr.display());

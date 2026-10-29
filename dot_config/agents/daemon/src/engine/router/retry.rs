@@ -356,10 +356,7 @@ mod tests {
             mode: Mode::Hub,
             mrs: Vec::new(),
             interval: 120,
-            session_pid: std::process::id(),
-            client_pid: 0,
-            client_at: 0,
-            replaced_sessions: Vec::new(),
+            session: "s".to_string(),
             ended_mrs: Vec::new(),
         });
         setup.job("retry-11.json", &["21 pending"]);

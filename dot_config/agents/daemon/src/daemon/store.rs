@@ -1,7 +1,7 @@
 //! The daemon state files, with the daemon as the only writer: each function runs under its state
 //! lock.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -11,7 +11,7 @@ use serde::de::DeserializeOwned;
 use crate::board::Board;
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
 use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
-use crate::core::subs::{Agent, Mode, add_ended};
+use crate::core::subs::{Agent, Mode, Session, SessionKey, add_ended};
 use crate::core::worktrees::{Kind, Repos, ReviewLink, Reviews, Stage, Target, WorktreeState};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::router::Routing;
@@ -20,8 +20,8 @@ use crate::key::is_worktree_key;
 use crate::local::repo_of;
 use crate::paths::StateDirs;
 use crate::persist::{Load, load, save, write_json};
-use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
-use crate::protocol::{DebugState, SubStatus, SubscribeArgs};
+use crate::platform::{local_time, now_seconds, utc_timestamp};
+use crate::protocol::{DebugState, SubStatus, WatchRequest};
 use crate::report::{ReportInput, build_report, render};
 
 pub const ALL_ENDED: &str = "all MRs merged or closed";
@@ -72,7 +72,7 @@ impl Store {
     }
 
     pub fn ensure_dirs(&self) -> std::io::Result<()> {
-        for dir in ["subs", "inbox", "items", "worktrees"] {
+        for dir in ["subs", "sessions", "inbox", "items", "worktrees"] {
             std::fs::create_dir_all(self.dirs.watchd.join(dir))?;
         }
         Ok(())
@@ -139,12 +139,36 @@ impl Store {
         keys.iter().filter_map(|key| self.sub(key)).collect()
     }
 
+    /// A record stays while its session is away: the events of the key wait in its inbox.
     pub fn live_subs(&self, slug: Option<&str>) -> Vec<Agent> {
         self.subs()
             .into_iter()
             .filter(|sub| slug.is_none_or(|slug| sub.slug == slug))
-            .filter(|sub| process_alive(sub.session_pid))
             .collect()
+    }
+
+    pub fn session_subs(&self, id: &str) -> Vec<Agent> {
+        self.subs().into_iter().filter(|sub| sub.session == id).collect()
+    }
+
+    pub fn session(&self, id: &str) -> Option<Session> {
+        self.read_json(&self.dirs.session(id)).ok().flatten()
+    }
+
+    pub fn sessions(&self) -> Vec<(String, Session)> {
+        self.json_files(&self.dirs.watchd.join("sessions"), ".json")
+            .into_iter()
+            .collect()
+    }
+
+    pub fn write_session(&self, id: &str, session: &Session) {
+        if let Err(error) = save(&self.dirs.session(id), session) {
+            self.log("", "", &format!("session {id} not written: {error}"));
+        }
+    }
+
+    pub fn remove_session(&self, id: &str) {
+        remove(&self.dirs.session(id));
     }
 
     pub fn write_sub(&self, sub: &Agent) {
@@ -353,7 +377,7 @@ impl Store {
         self.read_json(&self.dirs.engine_state(key)).ok().flatten()
     }
 
-    /// Writes the error before it removes the record: the next client of the session must see the
+    /// Writes the error before it removes the record: the next wait of the session must see the
     /// error first.
     pub fn remove_record(&self, sub: &Agent, reason: &str, error: Option<&str>) {
         if let Some(text) = error {
@@ -368,7 +392,16 @@ impl Store {
             let line = stopped_line(&sub.slug, &sub.key, sub.mode, now_seconds(), title, first_line(text));
             self.event_log(vec![LogLine::Stopped(line)]);
         }
-        let _ = std::fs::write(self.dirs.owner(&sub.key), format!("{}\n", sub.session_pid));
+        if let Some(mut session) = self.session(&sub.session) {
+            let ended = SessionKey {
+                key: sub.key.clone(),
+                mode: sub.mode,
+            };
+            if !session.ended.contains(&ended) {
+                session.ended.push(ended);
+                self.write_session(&sub.session, &session);
+            }
+        }
         match sub.mode {
             Mode::Author | Mode::Review => self.move_items(&sub.key, &sub.slug, None),
             Mode::Hub => {}
@@ -411,19 +444,33 @@ impl Store {
         }
     }
 
-    pub fn end_if_due(&self, sub: &Agent, now: i64, client_seconds: i64) -> bool {
-        let reason = if !process_alive(sub.session_pid) {
-            format!("session {} is gone", sub.session_pid)
-        } else if !process_alive(sub.client_pid) && now - sub.client_at > client_seconds {
-            format!("no client for {client_seconds} seconds")
-        } else {
-            return false;
-        };
-        self.remove_record(sub, &reason, None);
-        true
+    /// The records of an older format have no session. Returns the count of ended records.
+    pub fn end_old_records(&self) -> usize {
+        let mut count = 0;
+        for entry in std::fs::read_dir(self.dirs.watchd.join("subs"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            if let Ok(Some(Load::Converted(sub))) = load::<Agent>(&entry.path()) {
+                self.remove_record(&sub, "old format", None);
+                count += 1;
+            }
+        }
+        for entry in std::fs::read_dir(self.dirs.watchd.join("inbox"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            if entry.file_name().to_string_lossy().ends_with(".owner") {
+                remove(&entry.path());
+            }
+        }
+        count
     }
 
     /// The hub keeps its items: the present rules close them, and a new hub session gets them.
+    /// An ended key keeps its results until the next wait of its session.
     pub fn sweep(&self) {
         let mut keys = Vec::new();
         for (dir, suffixes) in [("inbox", &[".jsonl", ".error"][..]), ("items", &[".json"][..])] {
@@ -445,23 +492,17 @@ impl Store {
         }
         keys.sort();
         keys.dedup();
+        let ended: HashSet<String> = self
+            .sessions()
+            .into_iter()
+            .flat_map(|(_, session)| session.ended)
+            .map(|ended| ended.key)
+            .collect();
         for key in keys {
-            if self.dirs.sub(&key).exists() {
+            if self.dirs.sub(&key).exists() || ended.contains(&key) {
                 continue;
             }
-            let owner = std::fs::read_to_string(self.dirs.owner(&key)).ok();
-            let owner_alive = owner
-                .and_then(|owner| owner.trim().parse().ok())
-                .is_some_and(process_alive);
-            if owner_alive {
-                continue;
-            }
-            for path in [
-                self.dirs.inbox(&key),
-                self.dirs.error(&key),
-                self.dirs.owner(&key),
-                self.dirs.last(&key),
-            ] {
+            for path in [self.dirs.inbox(&key), self.dirs.error(&key), self.dirs.last(&key)] {
                 remove(&path);
             }
             if is_worktree_key(&key) {
@@ -655,7 +696,7 @@ impl Store {
     }
 
     pub fn live_agent(&self, key: &str) -> bool {
-        self.sub(key).is_some_and(|sub| process_alive(sub.session_pid))
+        self.sub(key).is_some()
     }
 
     /// The merged and closed MRs leave the polling of the worktree. Returns true if this ended
@@ -754,41 +795,35 @@ impl Store {
         }
     }
 
-    /// Returns true if the key needs a first check now.
-    pub fn subscribe(&self, args: &SubscribeArgs, old: Option<&Agent>, now: i64) -> bool {
-        let mut replaced: Vec<u32> = old.map(|old| old.replaced_sessions.clone()).unwrap_or_default();
-        if let Some(old) = old
-            && old.session_pid != args.session_pid
-            && process_alive(old.session_pid)
-        {
-            replaced.push(old.session_pid);
+    /// A new hub gets the open items of the hub first. The records of a session have no owner
+    /// before its first wait.
+    pub fn watch(&self, request: &WatchRequest, _now: i64) {
+        let old = self.sub(&request.key);
+        if old.is_none() && request.mode == Mode::Hub && !self.inbox_has_events(&request.key) {
+            self.append_lines(&self.dirs.inbox(&request.key), &self.open_events(&request.key));
         }
-        replaced.sort_unstable();
-        replaced.dedup();
         let ended: Vec<u64> = old
             .map(|old| {
                 old.ended_mrs
-                    .iter()
-                    .copied()
-                    .filter(|iid| args.mrs.contains(iid))
+                    .into_iter()
+                    .filter(|iid| request.mrs.contains(iid))
                     .collect()
             })
             .unwrap_or_default();
         let sub = Agent {
-            key: args.key.clone(),
-            slug: args.slug.clone(),
-            repo: args.repo.clone(),
-            mode: args.mode,
-            mrs: args.mrs.clone(),
-            interval: args.interval,
-            session_pid: args.session_pid,
-            client_pid: args.client_pid,
-            client_at: now,
-            replaced_sessions: replaced,
+            key: request.key.clone(),
+            slug: request.slug.clone(),
+            repo: request.repo.clone(),
+            mode: request.mode,
+            mrs: request.mrs.clone(),
+            interval: request.interval,
+            session: request.session.clone(),
             ended_mrs: ended,
         };
         self.write_sub(&sub);
-        remove(&self.dirs.owner(&sub.key));
+        if self.session(&sub.session).is_none() {
+            self.write_session(&sub.session, &Session::default());
+        }
         let kind = kind_of(sub.mode);
         self.update_worktree(&sub.repo, |state| {
             state.kind.get_or_insert(kind);
@@ -799,39 +834,20 @@ impl Store {
             &sub.key,
             &format!("subscribed: {} {}", sub.mode.as_str(), mrs.join(" ")),
         );
-        old.is_none() || args.once || args.again
-    }
-
-    /// Returns true if the results of an ended subscription wait for this client, which then does
-    /// not subscribe again.
-    pub fn ended_with_result(&self, key: &str, session_pid: u32) -> bool {
-        let owner = std::fs::read_to_string(self.dirs.owner(key)).unwrap_or_default();
-        if owner.trim() != session_pid.to_string() {
-            for path in [self.dirs.inbox(key), self.dirs.error(key), self.dirs.owner(key)] {
-                remove(&path);
-            }
-        }
-        self.dirs.error(key).exists() || self.inbox_has_events(key)
     }
 
     pub fn take_error(&self, key: &str) -> Option<String> {
         let text = std::fs::read_to_string(self.dirs.error(key)).ok()?;
         remove(&self.dirs.error(key));
-        remove(&self.dirs.owner(key));
         Some(text)
     }
 
-    pub fn remove_owner(&self, key: &str) {
-        remove(&self.dirs.owner(key));
-    }
-
-    pub fn unsubscribe(&self, key: &str, slug: &str, mode: Mode, session_pid: u32) -> Result<(), String> {
+    pub fn unsubscribe(&self, key: &str, slug: &str, mode: Mode, session: &str) -> Result<(), String> {
         let sub = self.sub(key);
         if let Some(sub) = &sub
-            && sub.session_pid != session_pid
-            && process_alive(sub.session_pid)
+            && sub.session != session
         {
-            return Err(format!("the subscription {key} is of session {}", sub.session_pid));
+            return Err(format!("the subscription {key} is of session {}", sub.session));
         }
         match mode {
             Mode::Author | Mode::Review => self.move_items(key, slug, None),
@@ -841,7 +857,6 @@ impl Store {
             self.dirs.sub(key),
             self.dirs.inbox(key),
             self.dirs.error(key),
-            self.dirs.owner(key),
             self.dirs.last(key),
         ] {
             remove(&path);
@@ -937,9 +952,8 @@ impl Store {
             .subs()
             .into_iter()
             .map(|sub| {
-                let live = process_alive(sub.session_pid);
                 let mut value = serde_json::to_value(sub).expect("a record serializes");
-                value["live"] = serde_json::Value::Bool(live);
+                value["live"] = serde_json::Value::Bool(true);
                 value
             })
             .collect();
@@ -998,26 +1012,16 @@ impl Store {
                 .into_iter()
                 .map(|state| (state.path.display().to_string(), state))
                 .collect(),
+            sessions: self.json_files(&self.dirs.watchd.join("sessions"), ".json"),
             ..DebugState::default()
         }
-    }
-
-    /// The waiting clients of the repo stop with exit 3: their record gets another client.
-    pub fn replace_clients(&self, repo: &Path) -> usize {
-        let mut count = 0;
-        for mut sub in self.subs().into_iter().filter(|sub| sub.repo == repo) {
-            sub.client_pid = 0;
-            self.write_sub(&sub);
-            count += 1;
-        }
-        count
     }
 
     pub fn sub_status(&self) -> Vec<SubStatus> {
         self.subs()
             .into_iter()
             .map(|sub| SubStatus {
-                live: process_alive(sub.session_pid),
+                live: true,
                 inbox_lines: self.inbox_lines(&sub.key),
                 sub,
             })

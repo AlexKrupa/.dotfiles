@@ -1,5 +1,5 @@
-//! The socket server of the daemon: a `watch` client keeps its connection until its delivery, an
-//! error, or the end.
+//! The socket server of the daemon: a `wait` client keeps its connection until its delivery or an
+//! error.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -11,16 +11,17 @@ use tokio::io::BufReader;
 use tokio::net::{UnixListener, UnixStream};
 
 use crate::core::eventlog::{LogLine, id_of, route_line};
-use crate::core::items::RoutedEvent;
-use crate::core::subs::Mode;
+use crate::core::subs::{Mode, SessionKey};
 use crate::core::worktrees::{ReviewLink, set_kind};
-use crate::daemon::{Daemon, Memory};
+use crate::daemon::Daemon;
 use crate::key::worktree_top;
 use crate::local::repo_of;
 use crate::platform::now_seconds;
 use crate::protocol::{
-    DebugState, Envelope, RepoPoll, RepoTimes, Request, Response, StatusReport, SubscribeArgs, receive, send,
+    DebugState, Envelope, KeyedEvent, RepoPoll, RepoTimes, Request, Response, StatusReport, WatchRequest, receive, send,
 };
+
+const OLD_CLIENT: &str = "watchd: this watch client is older than the daemon. Start the watch again.\n";
 
 pub async fn serve(daemon: Arc<Daemon>, listener: UnixListener) {
     loop {
@@ -48,14 +49,23 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
             return;
         }
     };
-    // A follower reads all state and uses no repo.
-    let folder = folder.filter(|_| !matches!(request, Request::Follow { .. }));
+    // A follower reads all state, and a waiter reads the state of its session: they use no repo.
+    let folder = folder.filter(|_| {
+        !matches!(
+            request,
+            Request::Follow { .. } | Request::Wait { .. } | Request::Subscribe(_)
+        )
+    });
     if let Some(repo) = folder.as_deref().and_then(repo_of) {
         let _memory = daemon.lock().await;
         daemon.store.add_repo(&repo);
     }
     let response = match request {
-        Request::Subscribe(args) => return subscribe(daemon, args, reader, write).await,
+        Request::Watch(request) => watch(&daemon, &request).await,
+        Request::Wait { session, owner_pid } => return wait(daemon, session, owner_pid, reader, write).await,
+        Request::Subscribe(_) => Response::Error {
+            text: OLD_CLIENT.to_string(),
+        },
         Request::Follow { after } => return follow(daemon, after, reader, write).await,
         Request::DebugState => {
             let memory = daemon.lock().await;
@@ -77,29 +87,25 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
                 pid: Some(std::process::id()),
                 repos: Some(repos),
                 rounds: Some(memory.rounds.iter().map(|(key, count)| (key.clone(), *count)).collect()),
-                clients: Some(memory.clients.iter().map(|(key, pid)| (key.clone(), *pid)).collect()),
+                waiters: Some(
+                    memory
+                        .waiters
+                        .iter()
+                        .map(|(id, number)| (id.clone(), *number))
+                        .collect(),
+                ),
                 followers: Some(memory.followers),
                 ..daemon.store.debug_disk()
             }))
-        }
-        Request::ReplaceClients { repo } => {
-            let memory = daemon.lock().await;
-            let count = daemon.store.replace_clients(&repo);
-            drop(memory);
-            daemon
-                .store
-                .log("", "", &format!("clients of {} replaced: {count}", repo.display()));
-            daemon.changed.notify_waiters();
-            Response::Ok
         }
         Request::Unsubscribe {
             key,
             slug,
             mode,
-            session_pid,
+            session,
         } => {
             let mut memory = daemon.lock().await;
-            let result = daemon.store.unsubscribe(&key, &slug, mode, session_pid);
+            let result = daemon.store.unsubscribe(&key, &slug, mode, &session);
             if result.is_ok() {
                 daemon.forget(&mut memory, &key);
             }
@@ -159,86 +165,111 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
     let _ = send(&mut write, &response).await;
 }
 
-/// Returns `None` while the client waits. `new` is a hub with no record before this client: it gets
-/// the open items of the hub when its inbox is empty.
-fn delivery(daemon: &Daemon, memory: &Memory, args: &SubscribeArgs, new: bool) -> Option<Response> {
-    let key = args.key.as_str();
-    let sub = daemon.store.sub(key);
-    if let Some(text) = daemon.store.take_error(key) {
-        return Some(Response::Error { text });
-    }
-    if let Some(sub) = &sub
-        && (sub.client_pid, sub.session_pid) != (args.client_pid, args.session_pid)
-    {
-        return Some(Response::Replaced);
-    }
-    let ended = sub.is_none();
-    // With `--once`, a check that started before the poke of the client does not count.
-    let own_round = memory.poked.get(key) == Some(&args.poke_token);
-    if !args.once || ended || own_round {
-        let filter = match args.mode {
-            Mode::Author => args.mrs.as_slice(),
-            Mode::Hub | Mode::Review => &[],
-        };
-        let mut events = daemon.store.take_inbox_of(key, filter);
-        if events.is_empty() && new && args.mode == Mode::Hub {
-            events = daemon.store.open_events(key);
-        }
-        // The report shows all rows, and the model gets the rows that the router did not handle.
-        let handled = daemon.store.routing(key).handled;
-        let shown: Vec<RoutedEvent> = events
-            .iter()
-            .filter(|event| !handled.contains(&event.row))
-            .cloned()
-            .collect();
-        if !shown.is_empty() || (args.once && own_round) {
-            daemon.store.write_last(key, &events);
-            return Some(Response::Events { events: shown, ended });
-        }
-    }
-    ended.then_some(Response::Ended)
-}
-
-async fn subscribe(
-    daemon: Arc<Daemon>,
-    args: SubscribeArgs,
-    mut reader: BufReader<tokio::net::unix::OwnedReadHalf>,
-    mut write: tokio::net::unix::OwnedWriteHalf,
-) {
+async fn watch(daemon: &Arc<Daemon>, request: &WatchRequest) -> Response {
     // `--repo` can name a repo other than the folder of the client.
-    let repo = repo_of(&args.repo);
-    let new = {
+    let repo = repo_of(&request.repo);
+    {
         let mut memory = daemon.lock().await;
-        if args.fresh {
-            let _ = std::fs::remove_file(daemon.store.dirs.engine_state(&args.key));
+        if request.fresh {
+            let _ = std::fs::remove_file(daemon.store.dirs.engine_state(&request.key));
         }
-        let old = daemon.store.sub(&args.key);
-        if old
-            .as_ref()
-            .is_some_and(|old| old.replaced_sessions.contains(&args.session_pid))
-        {
-            drop(memory);
-            let _ = send(&mut write, &Response::Replaced).await;
-            return;
-        }
-        // No record, but an error or events: the subscription ended with no client, and this client
-        // gives the result.
-        let ended_with_result = old.is_none() && daemon.store.ended_with_result(&args.key, args.session_pid);
-        if !ended_with_result && daemon.store.subscribe(&args, old.as_ref(), now_seconds()) {
-            daemon.poke(&mut memory, &args.key, &args.slug, &args.poke_token);
-        }
-        memory.clients.insert(args.key.clone(), args.client_pid);
+        daemon.store.watch(request, now_seconds());
+        daemon.poke(&mut memory, &request.key, &request.slug);
         if let Some(repo) = repo.filter(|_| !daemon.stopping()) {
             daemon.store.add_repo(&repo);
             daemon.ensure_managed(&mut memory, &repo);
         }
         // The polling of a reviewed MR goes on after the agent ends.
-        if let (Mode::Review, Some(iid), Ok(worktree)) = (args.mode, args.mrs.first(), args.repo.canonicalize()) {
+        if let (Mode::Review, Some(iid), Ok(worktree)) =
+            (request.mode, request.mrs.first(), request.repo.canonicalize())
+        {
             daemon.store.add_review(ReviewLink { worktree, iid: *iid });
         }
-        old.is_none()
-    };
+    }
     daemon.changed.notify_waiters();
+    Response::Ok
+}
+
+/// Returns `None` while the waiter waits. The keys of the session are the keys of its records and
+/// the keys that ended since its last wait. A different session can have a new record of an ended
+/// key: the error stays with the session of the ended record, and the inbox goes to the record.
+fn delivery(daemon: &Daemon, session: &str) -> Option<Response> {
+    let records = daemon.store.session_subs(session);
+    let mut state = daemon.store.session(session).unwrap_or_default();
+    if let Some((key, text)) = state
+        .ended
+        .iter()
+        .find_map(|ended| Some((ended.key.clone(), daemon.store.take_error(&ended.key)?)))
+    {
+        state.ended.retain(|ended| ended.key != key);
+        daemon.store.write_session(session, &state);
+        return Some(Response::Error { text });
+    }
+    let ended = state
+        .ended
+        .iter()
+        .filter(|ended| daemon.store.sub(&ended.key).is_none())
+        .map(|ended| (ended.key.clone(), ended.mode, &[][..]));
+    let keys: Vec<(String, Mode, &[u64])> = records
+        .iter()
+        .map(|sub| {
+            let filter = match sub.mode {
+                Mode::Author => sub.mrs.as_slice(),
+                Mode::Hub | Mode::Review => &[],
+            };
+            (sub.key.clone(), sub.mode, filter)
+        })
+        .chain(ended)
+        .collect();
+    let mut events = Vec::new();
+    for (key, mode, filter) in &keys {
+        let taken = daemon.store.take_inbox_of(key, filter);
+        if taken.is_empty() {
+            continue;
+        }
+        daemon.store.write_last(key, &taken);
+        // The report shows all rows, and the model gets the rows that the router did not handle.
+        let handled = daemon.store.routing(key).handled;
+        events.extend(
+            taken
+                .into_iter()
+                .filter(|event| !handled.contains(&event.row))
+                .map(|routed| KeyedEvent {
+                    key: key.clone(),
+                    mode: *mode,
+                    routed,
+                }),
+        );
+    }
+    let replaced = std::mem::take(&mut state.replaced);
+    if !replaced.is_empty() || !state.ended.is_empty() {
+        state.ended.clear();
+        daemon.store.write_session(session, &state);
+    }
+    match (events.is_empty() && replaced.is_empty(), records.is_empty()) {
+        (false, _) | (true, true) => Some(Response::Events { events, replaced }),
+        (true, false) => None,
+    }
+}
+
+async fn wait(
+    daemon: Arc<Daemon>,
+    session: String,
+    owner_pid: u32,
+    mut reader: BufReader<tokio::net::unix::OwnedReadHalf>,
+    mut write: tokio::net::unix::OwnedWriteHalf,
+) {
+    let number = {
+        let mut memory = daemon.lock().await;
+        let mut state = daemon.store.session(&session).unwrap_or_default();
+        state.owner_pid = Some(owner_pid);
+        state.owner_gone_at = None;
+        daemon.store.write_session(&session, &state);
+        memory.next_waiter += 1;
+        let number = memory.next_waiter;
+        memory.waiters.insert(session.clone(), number);
+        number
+    };
     let mut line = String::new();
     let (response, delivering) = loop {
         let changed = daemon.changed.notified();
@@ -246,8 +277,8 @@ async fn subscribe(
         changed.as_mut().enable();
         let delivering = daemon.delivering.read().await;
         let answer = {
-            let memory = daemon.lock().await;
-            delivery(&daemon, &memory, &args, new)
+            let _memory = daemon.lock().await;
+            delivery(&daemon, &session)
         };
         if let Some(answer) = answer {
             break (Some(answer), Some(delivering));
@@ -265,23 +296,38 @@ async fn subscribe(
         None => false,
     };
     let mut memory = daemon.lock().await;
-    if let Some(Response::Events { events, .. }) = &response {
-        match sent {
-            true if daemon.store.sub(&args.key).is_none() => daemon.store.remove_owner(&args.key),
-            true => {}
-            false => daemon.store.put_back_inbox(&args.key, events),
-        }
+    if let (Some(Response::Events { events, .. }), false) = (&response, sent) {
+        put_back(&daemon, &session, events);
     }
     drop(delivering);
-    if memory.clients.get(&args.key) == Some(&args.client_pid) {
-        memory.clients.remove(&args.key);
+    if memory.waiters.get(&session) == Some(&number) {
+        memory.waiters.remove(&session);
     }
-    // The limit of the time with no client starts now.
-    if let Some(mut sub) = daemon.store.sub(&args.key)
-        && sub.client_pid == args.client_pid
-    {
-        sub.client_at = now_seconds();
-        daemon.store.write_sub(&sub);
+}
+
+/// The events of an ended key wait for the next wait of the session again.
+fn put_back(daemon: &Daemon, session: &str, events: &[KeyedEvent]) {
+    let mut keys: Vec<(&str, Mode)> = events.iter().map(|event| (event.key.as_str(), event.mode)).collect();
+    keys.dedup();
+    let mut state = daemon.store.session(session).unwrap_or_default();
+    let count = state.ended.len();
+    for (key, mode) in keys {
+        let routed: Vec<_> = events
+            .iter()
+            .filter(|event| event.key == key)
+            .map(|event| event.routed.clone())
+            .collect();
+        daemon.store.put_back_inbox(key, &routed);
+        let ended = SessionKey {
+            key: key.to_string(),
+            mode,
+        };
+        if daemon.store.sub(key).is_none() && !state.ended.contains(&ended) {
+            state.ended.push(ended);
+        }
+    }
+    if state.ended.len() > count {
+        daemon.store.write_session(session, &state);
     }
 }
 

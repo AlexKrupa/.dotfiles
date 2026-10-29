@@ -33,12 +33,19 @@ pub fn ev(kind: &str, iid: u64) -> String {
     format!(r#"{{"kind":"{kind}","iid":{iid},"title":"Add foo","url":"u","actor":"anna","detail":"d","branch":"b"}}"#)
 }
 
-/// The daemon adds `row` as the last field.
+/// The daemon adds `key` and `mode` as the first fields, and `row` as the last field.
 pub fn norow(text: &str) -> String {
     text.lines()
-        .map(|line| match line.rfind(r#","row":"#) {
-            Some(start) if line.ends_with('}') => format!("{}}}", &line[..start]),
-            _ => line.to_string(),
+        .map(|line| {
+            let event = line.strip_prefix(r#"{"key":"#).and_then(|rest| {
+                rest.find(r#","kind":"#)
+                    .map(|start| format!("{{{}", &rest[start + 1..]))
+            });
+            let line = event.unwrap_or_else(|| line.to_string());
+            match line.rfind(r#","row":"#) {
+                Some(start) if line.ends_with('}') => format!("{}}}", &line[..start]),
+                _ => line,
+            }
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -76,7 +83,7 @@ pub fn sleep(seconds: u64) {
     std::thread::sleep(Duration::from_secs(seconds));
 }
 
-/// A stand-in session process for `WATCH_SESSION_PID`.
+/// A stand-in owner process of a session.
 pub fn session() -> Child {
     Command::new("sleep").arg("600").spawn().unwrap()
 }
@@ -177,13 +184,17 @@ impl Watchd {
         self.session.id()
     }
 
+    pub fn session_id(&self) -> String {
+        format!("session-{}", self.session_pid())
+    }
+
     pub fn command(&self) -> Command {
         self.command_of(Path::new(env!("CARGO_BIN_EXE_watchd")))
     }
 
     pub fn command_of(&self, program: &Path) -> Command {
         let mut command = self.env.command_of(program);
-        for name in ["WATCHD_FAKE_ENGINE", "WATCHD_IDLE_SECONDS", "WATCHD_CLIENT_SECONDS"] {
+        for name in ["WATCHD_FAKE_ENGINE", "WATCHD_IDLE_SECONDS"] {
             command.env_remove(name);
         }
         if self.fake_engine {
@@ -192,8 +203,7 @@ impl Watchd {
         command
             .env("WATCHD_TICK", "0.2")
             .env("WATCH_CLIENT_TICK", "1")
-            .env("WATCHD_FAKE_WORKSPACES", self.workspaces())
-            .env("WATCH_SESSION_PID", self.session_pid().to_string());
+            .env("WATCHD_FAKE_WORKSPACES", self.workspaces());
         command
     }
 
@@ -204,8 +214,72 @@ impl Watchd {
 
     pub fn watch_command(&self, args: &[&str]) -> Command {
         let mut command = self.command();
-        command.args(["watch", "--interval", "1"]).args(args);
         command
+            .args(["watch", "--interval", "1", "--session", &self.session_id()])
+            .args(args);
+        command
+    }
+
+    pub fn wait_command(&self) -> Command {
+        let mut command = self.command();
+        let pid = self.session_pid().to_string();
+        command.args(["wait", "--session", &self.session_id(), "--owner-pid", &pid]);
+        command
+    }
+
+    pub fn wait(&self) -> Run {
+        self.run(self.wait_command())
+    }
+
+    /// The `watch` must exit 0. Returns the run of the `wait` after it.
+    pub fn watch_wait(&self, args: &[&str]) -> Run {
+        let watch = self.watch(args);
+        assert_eq!(watch.code, 0, "watch {args:?}: {}", watch.err);
+        self.wait()
+    }
+
+    /// The same command with the values of `--session` and `--owner-pid` of a different session.
+    pub fn as_session(&self, command: Command, id: &str, pid: u32) -> Command {
+        let mut changed = Command::new(command.get_program());
+        let mut args = command.get_args();
+        while let Some(arg) = args.next() {
+            changed.arg(arg);
+            match arg.to_str() {
+                Some("--session") => {
+                    args.next();
+                    changed.arg(id);
+                }
+                Some("--owner-pid") => {
+                    args.next();
+                    changed.arg(pid.to_string());
+                }
+                _ => {}
+            }
+        }
+        for (key, value) in command.get_envs() {
+            match value {
+                Some(value) => changed.env(key, value),
+                None => changed.env_remove(key),
+            };
+        }
+        if let Some(folder) = command.get_current_dir() {
+            changed.current_dir(folder);
+        }
+        changed.stdin(std::process::Stdio::null());
+        changed
+    }
+
+    pub fn unsubscribe(&self, args: &[&str]) -> Run {
+        let mut command = self.command();
+        command
+            .args(["unsubscribe", "--session", &self.session_id()])
+            .args(args);
+        self.run(command)
+    }
+
+    /// A `wait` of the session is connected.
+    pub fn waiting(&self, id: &str) -> bool {
+        !self.state()["waiters"][id].is_null()
     }
 
     pub fn run(&self, command: Command) -> Run {
@@ -363,10 +437,6 @@ impl Watchd {
 
     pub fn rounds_of(&self, key: &str) -> u64 {
         self.state()["rounds"][key].as_u64().unwrap_or(0)
-    }
-
-    pub fn client_is(&self) -> Value {
-        self.sub_of("app")["client_pid"].clone()
     }
 
     pub fn author_key(&self) -> String {

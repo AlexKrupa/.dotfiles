@@ -58,25 +58,25 @@ fn log_and_worktrees() -> &'static Checks {
 
         let w = Watchd::new();
         w.events("app", &[ev("todo", 5)]);
-        w.watch(&[]);
+        w.watch_wait(&[]);
         c.check(
             "routed event: log line",
             r#"["event","app","todo","request"]"#,
             fields(&w.log_last(), &["/type", "/key", "/event/kind", "/sound"]),
         );
         w.events("app", &[ev("reaction", 5)]);
-        w.watch(&[]);
+        w.watch_wait(&[]);
         c.check("reaction: sound none", "none", support::raw(&w.log_last()["sound"]));
-        w.client(&["unsubscribe", "--repo", &repo_of(&w)]);
+        w.unsubscribe(&["--repo", &repo_of(&w)]);
         herdr |= w.herdr_called();
         drop(w);
 
         let w = Watchd::new();
         let author = w.author_key();
         w.events(&author, &[ev("pipeline", 5)]);
-        w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
+        w.watch_wait(&["--interval", "600", "--mr", "5"]);
         w.events(&author, &[ev("merged", 5)]);
-        w.run(w.watch_command(&["--interval", "600", "--once", "--mr", "5"]));
+        w.watch(&["--interval", "600", "--mr", "5"]);
         wait_for(5, || !w.has_sub(&author));
         c.check(
             "all MRs merged: worktree stage done",
@@ -88,8 +88,8 @@ fn log_and_worktrees() -> &'static Checks {
 
         let w = Watchd::new();
         w.events(&w.author_key(), &[ev("pipeline", 5)]);
-        w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
-        w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
+        w.watch_wait(&["--interval", "600", "--mr", "5"]);
+        w.unsubscribe(&["--repo", &repo_of(&w), "--mr", "5"]);
         c.check(
             "unsubscribe: worktree stage stopped",
             "stopped",
@@ -101,7 +101,7 @@ fn log_and_worktrees() -> &'static Checks {
         let w = Watchd::new();
         w.fake("app", "exit", "5\n");
         w.fake("app", "err", "watchd: HTTP 403 on todos\n");
-        w.watch(&[]);
+        w.watch_wait(&[]);
         c.check(
             "permanent error: stopped line",
             r#"["stopped","watchd: HTTP 403 on todos",null]"#,
@@ -115,7 +115,7 @@ fn log_and_worktrees() -> &'static Checks {
         w.fake(&author, "state", r#"{"mrs": {"5": {"title": "Add foo"}}, "needs": []}"#);
         w.fake(&author, "exit", "5\n");
         w.fake(&author, "err", "watchd: HTTP 403 on graphql\n");
-        w.watch(&["--mr", "5"]);
+        w.watch_wait(&["--mr", "5"]);
         c.check(
             "permanent error of an author watch: stopped line has the MR title",
             r#"["stopped","Add foo"]"#,
@@ -152,14 +152,14 @@ fn log_and_worktrees() -> &'static Checks {
         let w = Watchd::new();
         write_work(&w, json!({"kind": "mine", "stage": "done"}));
         w.events(&w.author_key(), &[ev("pipeline", 5)]);
-        w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
+        w.watch_wait(&["--interval", "600", "--mr", "5"]);
         let run = kind(&w, &w.env.repo, &["review"]);
         c.check(
             "kind during a live watch keeps the stage",
             format!("0 {}", norm(r#"{"kind":"review","stage":"done"}"#)),
             format!("{} {}", run.code, work_of(&w)),
         );
-        w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
+        w.unsubscribe(&["--repo", &repo_of(&w), "--mr", "5"]);
         herdr |= w.herdr_called();
         drop(w);
 
@@ -177,30 +177,29 @@ fn log_and_worktrees() -> &'static Checks {
             w.events(&key, &[ev("comment", 5)]);
             let mut watch_args = vec!["--interval", "600"];
             watch_args.extend(args);
-            w.run(w.watch_command(&watch_args));
+            w.watch_wait(&watch_args);
             c.check(
                 &format!("subscribe with no kind sets the kind of the mode: {name}"),
                 expected,
                 support::raw(&work_of(&w)["kind"]),
             );
-            let mut unsubscribe = vec!["unsubscribe", "--repo"];
             let repo = repo_of(&w);
-            unsubscribe.push(&repo);
+            let mut unsubscribe = vec!["--repo", repo.as_str()];
             unsubscribe.extend(args);
-            w.client(&unsubscribe);
+            w.unsubscribe(&unsubscribe);
             herdr |= w.herdr_called();
         }
 
         let w = Watchd::new();
         write_work(&w, json!({"kind": "bump"}));
         w.events(&w.author_key(), &[ev("pipeline", 5)]);
-        w.run(w.watch_command(&["--interval", "600", "--mr", "5"]));
+        w.watch_wait(&["--interval", "600", "--mr", "5"]);
         c.check(
             "subscribe keeps an existing kind",
             "bump",
             support::raw(&work_of(&w)["kind"]),
         );
-        w.client(&["unsubscribe", "--repo", &repo_of(&w), "--mr", "5"]);
+        w.unsubscribe(&["--repo", &repo_of(&w), "--mr", "5"]);
         herdr |= w.herdr_called();
         drop(w);
 
@@ -253,7 +252,7 @@ fn prune() -> &'static Checks {
         old.set_modified(SystemTime::now() - Duration::from_secs(8 * 86400))
             .unwrap();
         w.events("app", &[ev("todo", 5)]);
-        w.watch(&[]);
+        w.watch_wait(&[]);
         let log = std::fs::read_to_string(w.watchd.join("events.jsonl")).unwrap();
         let routes: Vec<Value> = log
             .lines()
@@ -291,12 +290,12 @@ fn follow() -> &'static Checks {
             w.spawn_logged(command, name)
         };
         w.events("app", &[ev("todo", 5)]);
-        w.watch(&[]);
+        w.watch_wait(&[]);
         let first = w.log_last()["id"].as_u64().unwrap();
         let (follower, out) = follow(first, "follow.out");
         wait_for(5, || std::fs::metadata(&out).is_ok_and(|meta| meta.len() > 0));
         w.events("app", &[ev("note", 6)]);
-        w.watch(&[]);
+        w.watch_wait(&[]);
         wait_for(5, || {
             std::fs::read_to_string(&out).unwrap_or_default().contains(r#""note""#)
         });
@@ -324,7 +323,7 @@ fn follow() -> &'static Checks {
         end(follower);
         w.stop_daemon();
         w.events("app", &[ev("todo", 7)]);
-        w.watch(&[]);
+        w.watch_wait(&[]);
         let (follower, out) = follow(last, "follow2.out");
         wait_for(5, || {
             std::fs::read_to_string(&out).unwrap_or_default().contains(r#""todo""#)
@@ -374,19 +373,6 @@ fn follow_idle() -> &'static Checks {
             "no",
             if alive(pid) { "yes" } else { "no" },
         );
-        c
-    })
-}
-
-fn replace_clients() -> &'static Checks {
-    static CHECKS: OnceLock<Checks> = OnceLock::new();
-    CHECKS.get_or_init(|| {
-        let w = Watchd::new();
-        let mut c = Checks::default();
-        let client = w.start(w.watch_command(&[]));
-        wait_for(10, || w.has_sub("app"));
-        w.client(&["debug", "replace-clients", "--repo", w.env.repo.to_str().unwrap()]);
-        c.check("replace-clients: the waiting client exits 3", "3", client.code());
         c
     })
 }
@@ -504,9 +490,4 @@ fn a_follow_client_keeps_the_daemon_alive_past_the_idle_limit() {
 #[test]
 fn with_no_follow_client_the_daemon_stops_at_the_idle_limit() {
     follow_idle().assert("with no follow client, the daemon stops at the idle limit");
-}
-
-#[test]
-fn replace_clients_the_waiting_client_exits_3() {
-    replace_clients().assert("replace-clients: the waiting client exits 3");
 }

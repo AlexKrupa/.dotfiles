@@ -3,8 +3,8 @@ use std::path::Path;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// Files with no `version` field, version 1, and version 2 files still load: their fields are the same.
-pub const FORMAT_VERSION: u32 = 3;
+/// Files with no `version` field, and version 1, 2, and 3 files still load as converted.
+pub const FORMAT_VERSION: u32 = 4;
 
 #[derive(Serialize, Deserialize)]
 pub struct Versioned<T> {
@@ -31,7 +31,7 @@ pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, String>
     let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| error.to_string())?;
     let loaded = match value.get("version") {
         None => Load::Converted(serde_json::from_value(value).map_err(|error| error.to_string())?),
-        Some(version) if *version == 1 || *version == 2 => {
+        Some(version) if version.as_u64().is_some_and(|version| (1..=3).contains(&version)) => {
             let versioned: Versioned<T> = serde_json::from_value(value).map_err(|error| error.to_string())?;
             Load::Converted(versioned.data)
         }
@@ -76,7 +76,8 @@ mod tests {
         dir
     }
 
-    const BASH_SUB: &str = r#"{"key":"app","slug":"app","repo":"/r","mode":"hub","mrs":[],"interval":120,"session_pid":1,"client_pid":2,"client_at":0,"replaced_sessions":[],"ended_mrs":[]}"#;
+    const BASH_SUB: &str =
+        r#"{"key":"app","slug":"app","repo":"/r","mode":"hub","mrs":[],"interval":120,"session":"s","ended_mrs":[]}"#;
 
     #[test]
     fn bash_subscription_file_without_version_loads_as_converted() {
@@ -97,7 +98,7 @@ mod tests {
         save(&path, &sub).unwrap();
 
         let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.starts_with("{\n  \"version\": 3,\n"), "{text}");
+        assert!(text.starts_with("{\n  \"version\": 4,\n"), "{text}");
         assert!(matches!(load::<Agent>(&path).unwrap(), Some(Load::Current(loaded)) if loaded == sub));
     }
 
@@ -111,6 +112,17 @@ mod tests {
 
         let expected: Agent = serde_json::from_str(BASH_SUB).unwrap();
         assert!(matches!(loaded, Some(Load::Converted(sub)) if sub == expected));
+    }
+
+    #[test]
+    fn version_3_record_with_a_session_pid_loads_as_converted() {
+        let path = scratch("version-3").join("app.json");
+        let line = r#"{"version": 3, "key":"app","slug":"app","repo":"/r","mode":"hub","mrs":[],"interval":120,"session_pid":1,"client_pid":2,"client_at":0,"replaced_sessions":[],"ended_mrs":[]}"#;
+        std::fs::write(&path, line).unwrap();
+
+        let loaded = load::<Agent>(&path).unwrap();
+
+        assert!(matches!(loaded, Some(Load::Converted(sub)) if sub.session.is_empty()));
     }
 
     #[test]

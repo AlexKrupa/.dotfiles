@@ -26,7 +26,7 @@ impl Mode {
     }
 }
 
-/// The newest session owns the key: `replaced_sessions` has the live sessions that it replaced.
+/// The session of the last watch owns the key.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Agent {
     pub key: String,
@@ -35,13 +35,29 @@ pub struct Agent {
     pub mode: Mode,
     pub mrs: Vec<u64>,
     pub interval: u64,
-    pub session_pid: u32,
-    pub client_pid: u32,
-    pub client_at: i64,
+    /// A record of format version 3 has no session: the daemon ends it at start.
     #[serde(default)]
-    pub replaced_sessions: Vec<u32>,
+    pub session: String,
     #[serde(default)]
     pub ended_mrs: Vec<u64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SessionKey {
+    pub key: String,
+    pub mode: Mode,
+}
+
+/// An agent conversation, with its owner process. `ended` has the keys whose record ended while
+/// the session had them: the next wait of the session takes their error or inbox.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Session {
+    pub owner_pid: Option<u32>,
+    pub owner_gone_at: Option<i64>,
+    #[serde(default)]
+    pub replaced: Vec<SessionKey>,
+    #[serde(default)]
+    pub ended: Vec<SessionKey>,
 }
 
 /// Returns true if this made all MRs of the agent end. With no `--mr` list, the MRs of the
@@ -75,10 +91,7 @@ mod tests {
             mode: Mode::Author,
             mrs,
             interval: 120,
-            session_pid: 1,
-            client_pid: 2,
-            client_at: 0,
-            replaced_sessions: Vec::new(),
+            session: "s".to_string(),
             ended_mrs: Vec::new(),
         }
     }
@@ -114,7 +127,7 @@ mod tests {
 
     #[test]
     fn agent_record_has_the_fields_of_the_bash_client() {
-        let line = r#"{"key":"app-1-review-5","slug":"app","repo":"/r","mode":"author","mrs":[5],"interval":120,"session_pid":1,"client_pid":2,"client_at":0,"replaced_sessions":[],"ended_mrs":[]}"#;
+        let line = r#"{"key":"app-1-review-5","slug":"app","repo":"/r","mode":"author","mrs":[5],"interval":120,"session":"s","ended_mrs":[]}"#;
         let sub: Agent = serde_json::from_str(line).unwrap();
         assert_eq!(serde_json::to_string(&sub).unwrap(), line);
     }

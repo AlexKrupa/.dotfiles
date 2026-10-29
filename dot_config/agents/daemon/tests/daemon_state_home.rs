@@ -40,7 +40,7 @@ fn client_with_repo_flag_uses_the_state_home_of_that_repo() {
     set_state_home(&w, &other);
     let repo = w.env.repo.to_str().unwrap();
 
-    let run = w.client_in(&w.env.dir, &["watch", "--once", "--repo", repo]);
+    let run = w.client_in(&w.env.dir, &["watch", "--session", "s", "--repo", repo]);
 
     assert_fails_and_starts_none(&w, &other, &run);
 }
