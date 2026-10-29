@@ -40,6 +40,8 @@ has no agent-specific text. A new agent is one new folder in `integrations/`.
 
 - `integrations/claude-code/` - the Claude Code integration: the installer `install.sh` and
   `CLAUDE.md`, the Claude notes for the skills.
+- `integrations/<agent>/agent.sh` - the runtime adapter. It is the only place with the commands and
+  flags of an agent.
 - `skills/<name>/SKILL.md` - one skill for each folder. The skills are not in groups, because
   Claude Code finds skills only at this level. If only one skill uses a script, the script is in
   the folder of that skill, and `SKILL.md` calls it.
@@ -85,6 +87,7 @@ scripts, the scripts have no `--help`, no prompts, and no color.
   - `watchd engine`: 4 network, 5 permanent error.
   - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
   - `bin/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
+  - `integrations/claude-code/agent.sh`: 2 usage error, 3 the agent has no such action.
   - `daemon/integrations/claude-code/wait.sh`: 2 wake Claude (the `asyncRewake` code).
 - Before a script rewrites commits, it saves a backup ref. If a conflict or a failure occurs, the
   script resets to the backup and does not leave a partial rebase.
