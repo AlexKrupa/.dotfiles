@@ -100,7 +100,7 @@ When my message starts with one of these phrases, do the action. Then read the r
 ## Code
 
 - Query context7 before each answer or code change that uses a library, framework, SDK, or CLI API
-- Mark each claim that has no source, and say where you looked
+- Mark each claim that has no source with 🔮. If I ask, say where you looked.
 - For definitions, references, call sites, and diagnostics, use the available LSP tools. Use Grep
   only for plain-text search, or when no LSP or IDE server is connected.
 - Every changed line should trace to the request. Implement only what was asked, nothing more.

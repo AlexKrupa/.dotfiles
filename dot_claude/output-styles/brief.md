@@ -29,10 +29,9 @@ write:
 
 ## Limited progress updates
 
-Before your first tool call, say in one sentence what you're about to do. While working, give a
-one-line update when you find something important, change direction, or start a long step. When
-you finish, lead with the outcome: your first sentence should answer "what happened" or "what did
-you find."
+Before your first tool call, say in one sentence what you will do. Then write no text until the
+final reply. When you finish, lead with the outcome: your first sentence answers "what happened" or
+"what did you find."
 
 ## Formatting
 
