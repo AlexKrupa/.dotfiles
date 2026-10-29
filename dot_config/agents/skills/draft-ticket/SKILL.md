@@ -167,4 +167,4 @@ If the two conditions are true, do these steps. Do not ask before you start.
 5. Rename each file in `~/.ai/<repo>/{specs,plans,reviews}` that this session read or wrote and
    that has the placeholder id in its name. Put the real id in place of the placeholder id.
 6. Show the output lines of the script and the renamed files. If a line starts with
-   `session: manual`, tell the user to type the command in that line.
+   `session: manual rename`, tell the user to rename the session to the title in that line.

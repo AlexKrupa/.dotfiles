@@ -6,9 +6,9 @@
 # - Commits: the id in each message, and in each line that the chain adds to its base. Lines from
 #   the base and the author and committer data stay. Branches above the chain get a restack.
 # - Herdr: a label with the placeholder id, of a workspace that has a worktree of a branch.
-# - --title: after the turn of the calling Claude session, bin/herdr-after-turn.sh submits
-#   "/rename [<ticket-id>] <title>" in its pane. Outside Herdr, the script prints the command.
-# - Worktree directories: the names do not change. The calling Claude session runs in one of them.
+# - --title: after the turn of the calling agent session, bin/herdr-after-turn.sh submits the
+#   action "rename [<ticket-id>] <title>" in its pane. Outside Herdr, the script prints the action.
+# - Worktree directories: the names do not change. The calling agent session runs in one of them.
 # A branch with an upstream stops the script before it changes anything, with a "pushed:" line
 # for each branch, and the MR URL when git-spice knows it. With --push, the script pushes each
 # new name and deletes the old remote branch.
@@ -19,7 +19,7 @@
 # Exit codes: 0 ok, 1 usage/other, 2 branches are pushed (no --push), 3 restack failed
 set -euo pipefail
 
-# pwd -P: ~/.claude/skills/<name> is a symlink to the skill folder.
+# pwd -P: the skill folder of an agent can be a link to this folder.
 here=$(cd "$(dirname "$0")" && pwd -P)
 bin=$here/../../bin
 # shellcheck source=../../bin/git-lib.sh
@@ -221,13 +221,13 @@ if [[ -n $ups ]]; then
 fi
 
 if [[ -n $title ]]; then
-  command="/rename [$ticket] $title"
+  action="rename [$ticket] $title"
   if $in_herdr; then
     pane=$(herdr pane current --current | jq -r '.result.pane.pane_id')
-    nohup "$bin/herdr-after-turn.sh" "$pane" "$command" </dev/null \
+    nohup "$bin/herdr-after-turn.sh" "$pane" "$action" </dev/null \
       >>"${TMPDIR:-/tmp}/ticket-id-rename.log" 2>&1 &
-    echo "session: queued $command"
+    echo "session: queued $action"
   else
-    echo "session: manual $command"
+    echo "session: manual $action"
   fi
 fi

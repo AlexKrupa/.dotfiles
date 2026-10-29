@@ -45,7 +45,7 @@ check "fresh subagent: pane, clear name, effort, plan command" \
   "w1:p2
 --clear
 2026-09-30-foo
-/effort medium
+effort medium
 ---
 /superpowers:subagent-driven-development $plan" "$(got)"
 
@@ -53,7 +53,7 @@ check "fresh subagent: pane, clear name, effort, plan command" \
 check "same session native: exit 0" 0 "$code"
 check "same session native: no clear" \
   "w1:p2
-/effort high
+effort high
 ---
 /superpowers:executing-plans $plan" "$(got)"
 
@@ -78,7 +78,7 @@ check "sandbox: pane, clear name, effort, plan command" \
   "w1:p2
 --clear
 2026-09-30-foo
-/effort medium
+effort medium
 ---
 /superpowers:subagent-driven-development $plan" "$(got)"
 

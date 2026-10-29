@@ -3,11 +3,11 @@
 #        handoff.sh refresh <file>
 # "path" makes the folder ~/.ai/<repo>/handoffs/ and prints the path of a new handoff file:
 # YYYY-MM-DD-HHMM-[<ticket-id>-]<topic slug>.md.
-# "refresh" starts bin/herdr-after-turn.sh, which clears this Claude session after the turn and
-# submits "Continue from `<file>`." The old conversation gets the file name as its /resume title.
+# "refresh" starts bin/herdr-after-turn.sh, which clears this agent session after the turn and
+# submits "Continue from `<file>`." The old conversation gets the file name as its title.
 # In a nono sandbox (NONO_CAP_FILE is set), runs the helper in the foreground: nono denies herdr
-# calls from a detached process. Claude runs the script as a background task there.
-# Exit codes: 0 ok, 1 error, 4 not in herdr (prints the line to paste after /clear)
+# calls from a detached process. The agent runs the script as a background task there.
+# Exit codes: 0 ok, 1 error, 4 not in herdr (prints the line to paste after a clear of the session)
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd -P)

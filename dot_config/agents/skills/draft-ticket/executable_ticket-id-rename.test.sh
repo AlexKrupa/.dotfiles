@@ -167,7 +167,8 @@ check "failed rename: backup refs" "$tips_before" \
 check "failed rename: message" "ticket-id-rename: git-spice branch rename failed: AB-0/top. Branches restored. Backup: $backup" \
   "$(cat "$tmp/err")"
 
-# Fake herdr: logs each call. The worktree of AB-0/feat is open in workspace w9.
+# Fake herdr: logs each call. The worktree of AB-0/feat is open in workspace w9, and its pane has
+# an agent of the kind fake.
 mkdir -p "$tmp/bin"
 cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
@@ -176,14 +177,26 @@ case "$1 $2" in
   "worktree list") echo '{"result":{"worktrees":[{"branch":"AB-0/feat","open_workspace_id":"w9"}]}}' ;;
   "workspace get") echo '{"result":{"workspace":{"label":"AB-0/feat"}}}' ;;
   "pane current") echo '{"result":{"pane":{"pane_id":"w9:p1"}}}' ;;
+  "agent get") echo '{"result":{"agent":{"agent":"fake"}}}' ;;
   *) echo '{}' ;;
 esac
 EOF
 chmod +x "$tmp/bin/herdr"
 
+# Fake adapter: prints "FAKE <action> <argument>".
+mkdir -p "$tmp/integrations/fake"
+cat >"$tmp/integrations/fake/agent.sh" <<'EOF'
+#!/bin/sh
+case $1 in
+  kind) echo fake ;;
+  *) echo "FAKE $1 $2" ;;
+esac
+EOF
+chmod +x "$tmp/integrations/fake/agent.sh"
+
 feat_repo herdr
 (cd "$repo" && PATH="$tmp/bin:$PATH" MOCK_LOG="$tmp/herdr.log" HERDR_ENV=1 \
-  HERDR_AFTER_TURN_SLEEP=0 "$script" AB-0 AB-17 --title 'Add `f` for $HOME') \
+  HERDR_AFTER_TURN_SLEEP=0 AGENT_INTEGRATIONS="$tmp/integrations" "$script" AB-0 AB-17 --title 'Add `f` for $HOME') \
   >"$tmp/out" 2>"$tmp/err"; code=$?
 for _ in 1 2 3 4 5 6 7 8 9 10; do
   grep -q '^herdr agent prompt' "$tmp/herdr.log" && break
@@ -192,13 +205,14 @@ done
 check "herdr: exit 0" 0 "$code"
 check "herdr: workspace renamed" "herdr workspace rename w9 AB-17/feat" \
   "$(grep '^herdr workspace rename' "$tmp/herdr.log")"
-check "herdr: session renamed after the turn" "herdr agent prompt w9:p1 /rename [AB-17] Add \`f\` for \$HOME" \
+check "herdr: session renamed after the turn" \
+  "herdr agent prompt w9:p1 FAKE rename [AB-17] Add \`f\` for \$HOME" \
   "$(grep '^herdr agent prompt' "$tmp/herdr.log")"
-check "herdr: report" "session: queued /rename [AB-17] Add \`f\` for \$HOME" \
+check "herdr: report" "session: queued rename [AB-17] Add \`f\` for \$HOME" \
   "$(grep '^session:' "$tmp/out")"
 
 feat_repo no-herdr
 run AB-0 AB-17 --title 'Add f'
-check "no herdr: report" "session: manual /rename [AB-17] Add f" "$(grep '^session:' "$tmp/out")"
+check "no herdr: report" "session: manual rename [AB-17] Add f" "$(grep '^session:' "$tmp/out")"
 
 exit "$fail"
