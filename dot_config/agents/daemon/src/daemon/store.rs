@@ -923,6 +923,18 @@ impl Store {
         Some(text)
     }
 
+    /// The error of an ended key waits for the next wait of the session again.
+    pub fn put_back_error(&self, session: &str, ended: &SessionKey, text: &str) {
+        if let Err(error) = std::fs::write(self.dirs.error(&ended.key), text) {
+            self.log("", &ended.key, &format!("error file not written: {error}"));
+        }
+        let mut state = self.session(session).unwrap_or_default();
+        if !state.ended.contains(ended) {
+            state.ended.push(ended.clone());
+            self.write_session(session, &state);
+        }
+    }
+
     pub fn unsubscribe(&self, key: &str, slug: &str, mode: Mode, session: &str) -> Result<(), String> {
         let sub = self.sub(key);
         if let Some(sub) = &sub
@@ -1160,6 +1172,30 @@ mod tests {
 
         let rows: Vec<u64> = store.take_inbox("app").iter().map(|event| event.row).collect();
         assert_eq!(rows, [1, 2, 3]);
+    }
+
+    #[test]
+    fn put_back_error_gives_the_error_to_the_next_wait_of_the_session() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-put-back-error", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
+        store.ensure_dirs().unwrap();
+        let ended = SessionKey {
+            key: "app".to_string(),
+            mode: Mode::Hub,
+        };
+        store.write_session("s1", &Session::default());
+        std::fs::write(store.dirs.error("app"), "watchd: HTTP 403\n").unwrap();
+        let text = store.take_error("app").unwrap();
+
+        store.put_back_error("s1", &ended, &text);
+        store.put_back_error("s1", &ended, &text);
+
+        assert_eq!(store.take_error("app").as_deref(), Some("watchd: HTTP 403\n"));
+        assert_eq!(store.session("s1").unwrap().ended, [ended]);
     }
 
     #[test]

@@ -85,6 +85,24 @@ fn wait_after_a_permanent_error_exits_1_with_the_error_text() {
 }
 
 #[test]
+fn wait_after_an_error_with_events_in_the_inbox_gives_the_error_then_the_events() {
+    let w = Watchd::new();
+    w.events("app", &[ev("todo", 5)]);
+    assert_eq!(w.watch(&["--interval", "1"]).code, 0);
+    let filled = wait_for(10, || !w.inbox_of("app").is_empty());
+    w.fake("app", "err", "watchd: HTTP 403 on todos\n");
+    w.fake("app", "exit", "5\n");
+    let ended = wait_for(10, || !w.has_sub("app"));
+
+    let first = w.wait();
+    let second = w.wait();
+
+    assert!(filled && ended, "{}", w.log());
+    assert_eq!((first.code, first.err.as_str()), (1, "watchd: HTTP 403 on todos"));
+    assert_eq!((second.code, norow(&second.out)), (0, ev("todo", 5)), "{}", second.err);
+}
+
+#[test]
 fn wait_after_all_mrs_merged_gives_the_merged_events() {
     let w = Watchd::new();
     let author = w.author_key();

@@ -204,20 +204,20 @@ fn pending(daemon: &Daemon, session: &str) -> bool {
         || records.iter().any(|sub| daemon.store.inbox_lines(&sub.key) > 0)
 }
 
-/// Returns `None` while the waiter waits. The keys of the session are the keys of its records and
-/// the keys that ended since its last wait. A different session can have a new record of an ended
-/// key: the error stays with the session of the ended record, and the inbox goes to the record.
-fn delivery(daemon: &Daemon, session: &str) -> Option<Response> {
+/// Returns `None` while the waiter waits, and the ended key of an `Error`. The keys of the session
+/// are the keys of its records and the keys that ended since its last wait. A different session can
+/// have a new record of an ended key: the error stays with the session of the ended record, and the
+/// inbox goes to the record. An ended key stays in `ended` after its error, so that the next
+/// delivery takes its inbox.
+fn delivery(daemon: &Daemon, session: &str) -> Option<(Response, Option<SessionKey>)> {
     let records = daemon.store.session_subs(session);
     let mut state = daemon.store.session(session).unwrap_or_default();
-    if let Some((key, text)) = state
+    if let Some((ended, text)) = state
         .ended
         .iter()
-        .find_map(|ended| Some((ended.key.clone(), daemon.store.take_error(&ended.key)?)))
+        .find_map(|ended| Some((ended.clone(), daemon.store.take_error(&ended.key)?)))
     {
-        state.ended.retain(|ended| ended.key != key);
-        daemon.store.write_session(session, &state);
-        return Some(Response::Error { text });
+        return Some((Response::Error { text }, Some(ended)));
     }
     let ended = state
         .ended
@@ -261,7 +261,7 @@ fn delivery(daemon: &Daemon, session: &str) -> Option<Response> {
         daemon.store.write_session(session, &state);
     }
     match (events.is_empty() && replaced.is_empty(), records.is_empty()) {
-        (false, _) | (true, true) => Some(Response::Events { events, replaced }),
+        (false, _) | (true, true) => Some((Response::Events { events, replaced }, None)),
         (true, false) => None,
     }
 }
@@ -291,7 +291,7 @@ async fn wait(
     // An older waiter of the session gets its answer.
     daemon.changed.notify_waiters();
     let mut line = String::new();
-    let (response, delivering) = loop {
+    let (response, error_key, delivering) = loop {
         let changed = daemon.changed.notified();
         tokio::pin!(changed);
         changed.as_mut().enable();
@@ -303,18 +303,18 @@ async fn wait(
                 // client exits at its next owner check.
                 true if pending(&daemon, &session) && !process_alive(owner_pid) => None,
                 true => delivery(&daemon, &session),
-                false => Some(Response::Replaced),
+                false => Some((Response::Replaced, None)),
             }
         };
-        if let Some(answer) = answer {
-            break (Some(answer), Some(delivering));
+        if let Some((answer, error_key)) = answer {
+            break (Some(answer), error_key, Some(delivering));
         }
         drop(delivering);
         tokio::select! {
             _ = &mut changed => {}
             _ = tokio::time::sleep(Duration::from_secs(1)) => {}
             // The client sends nothing more: a read is the end of its connection.
-            _ = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line) => break (None, None),
+            _ = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line) => break (None, None, None),
         }
     };
     let sent = match &response {
@@ -322,8 +322,10 @@ async fn wait(
         None => false,
     };
     let mut memory = daemon.lock().await;
-    if let (Some(Response::Events { events, replaced }), false) = (&response, sent) {
-        put_back(&daemon, &session, events, replaced);
+    match (&response, &error_key, sent) {
+        (Some(Response::Events { events, replaced }), _, false) => put_back(&daemon, &session, events, replaced),
+        (Some(Response::Error { text }), Some(ended), false) => daemon.store.put_back_error(&session, ended, text),
+        _ => {}
     }
     drop(delivering);
     if memory.waiters.get(&session) == Some(&number) {
