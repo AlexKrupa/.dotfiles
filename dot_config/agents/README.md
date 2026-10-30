@@ -6,9 +6,9 @@ After a sync, a change to these files changes the live behavior of Claude Code.
 ## Sync
 
 Start `integrations/claude-code/install.sh` to create the symlinks, or to create them again. You
-can start it again with no risk. If an integration file, the third-party skill list, or the set of
-skill folders changes, `chezmoi apply` runs each `integrations/*/install.sh`. For each entry, the
-script shows one of these statuses:
+can start it again with no risk. If an integration file or the set of skill folders changes,
+`chezmoi apply` runs each `integrations/*/install.sh`. For each entry, the script shows one of
+these statuses:
 
 - `linked`: the link is already correct.
 - `relinked`: the script moved a managed link to the current source.
@@ -30,8 +30,9 @@ instructions of an AI chat app.
 ## Third-party skills
 
 `install-skills.sh <agent>` installs the third-party skills for one agent with the `skills` CLI.
-The script contains the list of these skills. The installer of each integration runs it, so
-`chezmoi apply` runs it when the list changes. The first apply on a new machine also runs it.
+The script contains the list of these skills. When the list changes, `chezmoi apply` runs it one
+time for each folder in `integrations/`. The folder name is the `skills` CLI agent name. The first
+apply on a new machine also runs it.
 
 ## Layout
 

@@ -1,7 +1,7 @@
 #!/bin/sh
-# The links follow the file contents, so only the integration files, the third-party skill list,
-# and the set of skill folders matter.
-# source hash: {{ output "sh" "-c" "cd \"$1\" && { find integrations -type f | sort | xargs shasum; shasum executable_install-skills.sh; find skills -mindepth 1 -maxdepth 2 -type d | sort; } | shasum" "sh" (joinPath .chezmoi.sourceDir "dot_config/agents") }}
+# The links follow the file contents, so only the integration files and the set of skill folders
+# matter.
+# source hash: {{ output "sh" "-c" "cd \"$1\" && { find integrations -type f | sort | xargs shasum; find skills -mindepth 1 -maxdepth 2 -type d | sort; } | shasum" "sh" (joinPath .chezmoi.sourceDir "dot_config/agents") }}
 for install in "$HOME"/.config/agents/integrations/*/install.sh; do
   "$install" || exit
 done

@@ -19,3 +19,6 @@
 .config/agents/bin/watch/watchd-test-lib.sh
 .config/agents/bin/watch/watchd.sh
 .config/agents/references/watch/claude-code.md
+.config/agents/claude.sh
+.config/agents/bin/herdr-start-claude
+.config/agents/bin/herdr-start-claude.test.sh

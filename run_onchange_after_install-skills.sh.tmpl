@@ -1,0 +1,7 @@
+#!/bin/sh
+# Runs after the agent integrations. The name of each integration folder is a `skills` CLI agent
+# name.
+# source hash: {{ include "dot_config/agents/executable_install-skills.sh" | sha256sum }}
+for integration in "$HOME"/.config/agents/integrations/*/; do
+  "$HOME/.config/agents/install-skills.sh" "$(basename "$integration")" || exit
+done

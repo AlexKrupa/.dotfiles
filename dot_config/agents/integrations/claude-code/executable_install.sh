@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: integrations/claude-code/install.sh
 # Links CLAUDE.md of this folder to ~/.claude/CLAUDE.md and the skills/*/ of the core into
-# ~/.claude/skills/, and prints the status of each entry (see README.md, section Sync). Then runs
-# install-skills.sh claude-code. If claude is not on PATH, prints a skip line and does nothing.
+# ~/.claude/skills/, and prints the status of each entry (see README.md, section Sync). If claude
+# is not on PATH, prints a skip line and does nothing.
 # Exit codes: 0 ok or skipped, 1 error.
 set -euo pipefail
 
@@ -125,5 +125,3 @@ for line in "${entries[@]}"; do
     printf "%-${max_path}s  %-${max_status}s\n" "$path" "$status"
   fi
 done
-
-"$core/install-skills.sh" claude-code
