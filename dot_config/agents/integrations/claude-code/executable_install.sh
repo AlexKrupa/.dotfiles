@@ -2,7 +2,8 @@
 # Usage: integrations/claude-code/install.sh
 # Links CLAUDE.md of this folder to ~/.claude/CLAUDE.md and the skills/*/ of the core into
 # ~/.claude/skills/, and prints the status of each entry (see README.md, section Sync). Then runs
-# install-skills.sh claude-code.
+# install-skills.sh claude-code. If claude is not on PATH, prints a skip line and does nothing.
+# Exit codes: 0 ok or skipped, 1 error.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
