@@ -104,14 +104,15 @@ sequenceDiagram
 
 - Between turns, no waiter is connected. The events wait in the inbox. The `Stop` hook of the next
   turn starts a new waiter. The new waiter replaces the old one of the session.
-- `watchd wait` checks the owner PID each 3 seconds, only that PID. It exits 0 with no output when
-  the owner ends, when the session has no watch, or when a newer waiter replaces it.
+- `watchd wait` checks the owner PID each 3 seconds, only that PID. In three cases it exits 0 with
+  no output: the owner ends, the session has no watch, or a newer waiter replaces it.
 - If the daemon closes the socket, for example at a restart, `watchd wait` connects again. If the
   send of the events fails, the server puts the events back in the inbox.
 - Replace: a `watch` of a second session for a key with a record takes the record. The next `wait`
   of the first session gets one `replaced` event for the key.
-- Rename: after `/clear`, a `wait` with a new session ID and the same owner PID takes the watches
-  of the old ID.
+- Rename: a `wait` with `--rename-owner-session` and a new session ID takes the watches of the live
+  session with the same owner PID. An away session keeps its watches. The Claude Code plugin sets
+  the flag only after `/clear`.
 
 ## Inside the daemon
 

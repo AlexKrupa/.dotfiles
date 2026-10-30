@@ -25,7 +25,7 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    /// Wait for the events of the watches of the session, one JSON line each: --session ID --owner-pid PID.
+    /// Wait for the events of the watches of the session, one JSON line each: --session ID --owner-pid PID [--rename-owner-session].
     #[command(disable_help_flag = true)]
     Wait {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]

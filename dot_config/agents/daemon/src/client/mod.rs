@@ -212,6 +212,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
 pub async fn wait(args: Vec<String>) -> i32 {
     let mut session = None;
     let mut owner_pid = None;
+    let mut rename_owner_session = false;
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -227,6 +228,7 @@ pub async fn wait(args: Vec<String>) -> i32 {
                 Some(pid) => owner_pid = Some(pid),
                 None => return die("--owner-pid needs a PID"),
             },
+            "--rename-owner-session" => rename_owner_session = true,
             _ => return die(&format!("unexpected argument: {arg}")),
         }
     }
@@ -241,7 +243,11 @@ pub async fn wait(args: Vec<String>) -> i32 {
         .and_then(|value| value.parse().ok())
         .map_or(Duration::from_secs(3), Duration::from_secs);
     let client = current_client();
-    let request = envelope(Request::Wait { session, owner_pid });
+    let request = envelope(Request::Wait {
+        session,
+        owner_pid,
+        rename_owner_session,
+    });
     loop {
         // A gone owner reads no events: they stay in the inbox for the next waiter.
         if !process_alive(owner_pid) {

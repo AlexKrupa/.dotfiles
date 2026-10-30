@@ -1,6 +1,7 @@
 mod support;
 
 use std::io::{BufRead, Write};
+use std::process::Command;
 use std::time::Instant;
 
 use serde_json::{Value, json};
@@ -180,6 +181,13 @@ fn subscribe_request_gets_the_error_text() {
     end(follow);
 }
 
+/// A `wait` of the session `id` with the owner of the test session and `--rename-owner-session`.
+fn rename_wait(w: &Watchd, id: &str) -> Command {
+    let mut command = w.as_session(w.wait_command(), id, w.session_pid());
+    command.arg("--rename-owner-session");
+    command
+}
+
 #[test]
 fn a_wait_with_a_new_id_and_the_same_owner_takes_the_watches_of_the_old_id() {
     let w = Watchd::new();
@@ -188,7 +196,7 @@ fn a_wait_with_a_new_id_and_the_same_owner_takes_the_watches_of_the_old_id() {
     let first = w.start(w.wait_command());
     let connected = wait_for(10, || w.waiting(&old));
 
-    let second = w.start(w.as_session(w.wait_command(), "cleared", w.session_pid()));
+    let second = w.start(rename_wait(&w, "cleared"));
     let first = first.wait(10).expect("the waiter of the old ID exits");
     let taken = wait_for(10, || w.sub_of("app")["session"] == json!("cleared"));
     w.events("app", &[ev("todo", 5)]);
@@ -203,6 +211,44 @@ fn a_wait_with_a_new_id_and_the_same_owner_takes_the_watches_of_the_old_id() {
         "{sessions}"
     );
     assert_eq!((second.code, norow(&second.out)), (0, ev("todo", 5)), "{}", second.err);
+}
+
+#[test]
+fn a_wait_with_a_new_id_and_the_same_owner_and_no_rename_flag_takes_no_watch() {
+    let w = Watchd::new();
+    let old = w.session_id();
+    assert_eq!(w.watch(&[]).code, 0);
+    let first = w.start(w.wait_command());
+    let connected = wait_for(10, || w.waiting(&old));
+
+    let other = w.run(w.as_session(w.wait_command(), "resumed", w.session_pid()));
+    w.events("app", &[ev("todo", 5)]);
+    let first = first.wait(10).expect("the waiter of the old ID exits");
+
+    assert!(connected, "{}", w.state());
+    assert_eq!((other.code, other.out.as_str(), other.err.as_str()), (0, "", ""));
+    assert_eq!(w.sub_of("app")["session"], json!(old));
+    assert_eq!((first.code, norow(&first.out)), (0, ev("todo", 5)), "{}", first.err);
+}
+
+#[test]
+fn a_rename_wait_takes_no_watch_of_an_away_session_with_the_same_owner_pid() {
+    let w = Watchd::new();
+    let old = w.session_id();
+    assert_eq!(w.watch(&[]).code, 0);
+    let record = w.watchd.join(format!("sessions/{old}.json"));
+    let now = std::time::UNIX_EPOCH.elapsed().unwrap().as_secs();
+    let away = json!({"version": 4, "owner_pid": w.session_pid(), "owner_gone_at": now, "replaced": [], "ended": []});
+    let temp = record.with_extension("tmp");
+    std::fs::write(&temp, away.to_string()).unwrap();
+    std::fs::rename(&temp, &record).unwrap();
+
+    let run = w.run(rename_wait(&w, "cleared"));
+
+    assert_eq!((run.code, run.out.as_str(), run.err.as_str()), (0, "", ""));
+    assert_eq!(w.sub_of("app")["session"], json!(old));
+    let sessions = w.state()["sessions"].clone();
+    assert_eq!(sessions[&old]["owner_gone_at"], json!(now), "{sessions}");
 }
 
 #[test]

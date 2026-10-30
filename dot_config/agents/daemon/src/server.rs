@@ -62,7 +62,11 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
     }
     let response = match request {
         Request::Watch(request) => watch(&daemon, &request).await,
-        Request::Wait { session, owner_pid } => return wait(daemon, session, owner_pid, reader, write).await,
+        Request::Wait {
+            session,
+            owner_pid,
+            rename_owner_session,
+        } => return wait(daemon, session, owner_pid, rename_owner_session, reader, write).await,
         Request::Subscribe(_) => Response::Error {
             text: OLD_CLIENT.to_string(),
         },
@@ -266,12 +270,13 @@ async fn wait(
     daemon: Arc<Daemon>,
     session: String,
     owner_pid: u32,
+    rename_owner_session: bool,
     mut reader: BufReader<tokio::net::unix::OwnedReadHalf>,
     mut write: tokio::net::unix::OwnedWriteHalf,
 ) {
     let number = {
         let mut memory = daemon.lock().await;
-        if let Some(old) = daemon.store.rename_session(&session, owner_pid) {
+        if rename_owner_session && let Some(old) = daemon.store.rename_session(&session, owner_pid) {
             memory.waiters.remove(&old);
         }
         let mut state = daemon.store.session(&session).unwrap_or_default();

@@ -31,6 +31,9 @@ pub enum Request {
     Wait {
         session: String,
         owner_pid: u32,
+        /// The live session of the same owner process gives its watches to this session.
+        #[serde(default)]
+        rename_owner_session: bool,
     },
     /// The request of an older client. The daemon answers it with an error.
     Subscribe(serde_json::Value),

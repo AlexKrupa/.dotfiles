@@ -202,8 +202,9 @@ impl Store {
         keys
     }
 
-    /// After `/clear` the agent has a new session ID and the same owner process. The watches of the
-    /// old ID move to the new ID. Returns the old ID.
+    /// A new conversation in the same owner process has a new session ID. The watches of the live
+    /// session of the owner move to the new ID. An away session keeps its watches: a different
+    /// process can have its PID now. Returns the old ID.
     pub fn rename_session(&self, id: &str, owner_pid: u32) -> Option<String> {
         if self.session(id).is_some() {
             return None;
@@ -211,7 +212,7 @@ impl Store {
         let (old, state) = self
             .sessions()
             .into_iter()
-            .find(|(_, state)| state.owner_pid == Some(owner_pid))?;
+            .find(|(_, state)| state.owner_pid == Some(owner_pid) && state.owner_gone_at.is_none())?;
         for sub in self.session_subs(&old) {
             self.write_sub(&Agent {
                 session: id.to_string(),
