@@ -84,8 +84,8 @@ check "sandbox config directory is set and allowed"
 test (readlink ~/.claude-sandbox/config/skills) = $HOME/.claude/skills
 and test (readlink ~/.claude-sandbox/config/CLAUDE.md) = $HOME/.claude/CLAUDE.md
 check "sandbox config directory links to ~/.claude"
-grep -q "^PATH1=$HOME/.config/agents/bin\$" $log
-check "PATH starts with ~/.config/agents/bin"
+grep -q "^PATH1=$HOME/.config/agents/integrations/claude-code\$" $log
+check "PATH starts with ~/.config/agents/integrations/claude-code"
 
 # Case 2d: switch not on -> claude binary, no nono, also with a repo file
 for value in off ''
