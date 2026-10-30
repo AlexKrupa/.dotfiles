@@ -280,9 +280,9 @@ verify.
 - **Public API / contracts** - breaking signature or schema changes, missing migration notes.
 - **Style & consistency** - matches surrounding code (not personal preference, not lint-fixable
   trivia unless it breaks CI).
-- **Docs & comments** - per `~/.config/agents/instructions-agents.md` (`### Comments (inline and doc)`) and
-  `~/.config/agents/skills/documenting/SKILL.md`, scrutinize each comment the branch adds or changes on two
-  axes:
+- **Docs & comments** - per `~/.config/agents/instructions-agents.md`
+  (`### Comments (inline and doc)`) and `~/.config/agents/skills/documenting/SKILL.md`, scrutinize
+  each comment the branch adds or changes on two axes:
   - _why not what_: the comment explains the reason for the code, not a restatement of what the code
     does. Flag each comment whose content a reader can infer from the surrounding code itself
     (paraphrased control flow, obvious assignments, method-name echoes). A comment is justified only

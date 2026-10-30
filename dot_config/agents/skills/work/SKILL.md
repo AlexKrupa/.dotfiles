@@ -62,14 +62,13 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
    - Else, in existing mode: if the branch name starts with an issue key, that key is the ticket
      id.
    - Else, use the placeholder id from the repo's agent instruction file (`CLAUDE.md` or
-     `AGENTS.md`), for example `ABC-0`. If the repo has
-     no placeholder id, ask the user for a ticket id.
+     `AGENTS.md`), for example `ABC-0`. If the repo has no placeholder id, ask the user for a
+     ticket id.
 3. Mode: if the message has the word `split` or `fork`, it is split mode. If step 1 found a
    branch, it is existing mode. Else, run `work-start.sh mode` in the skill folder. Next mode:
-   run `work-start.sh tops`. Each output line is a top branch of the stack
-   above the current branch. If there is output, ask the user: stack on the current branch, or
-   on a top branch? If there is more than one top branch, ask which. Then end the turn and
-   continue after the answer.
+   run `work-start.sh tops`. Each output line is a top branch of the stack above the current
+   branch. If there is output, ask the user: stack on the current branch, or on a top branch? If
+   there is more than one top branch, ask which. Then end the turn and continue after the answer.
 4. Slug text, in English words. The script also makes the session name from it.
    - An MR from step 1: the slug text is the MR title.
    - Real ticket id: read only the ticket title, with the tracker tool from the project
