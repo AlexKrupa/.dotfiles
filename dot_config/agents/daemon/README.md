@@ -222,7 +222,7 @@ the worktree. A review key also has `-review-IID` at the end.
 | `watchd/worktrees/HASH.json` | The state of one worktree: branch, key, stack, MRs, conflict, kind, stage. `HASH` is the first 12 characters of the SHA-1 of the path. |
 | `watchd/reviews.json` | The review links: a worktree and the MR that it reviews |
 | `watchd/subs/KEY.json` | One agent record, with the ID of its session |
-| `watchd/sessions/ID.json` | One session: the owner PID, `owner_gone_at`, the keys that a different session took (`replaced`), and the keys whose record ended while the session had them (`ended`) |
+| `watchd/sessions/ID.json` | One session: the owner PID and `owner_gone_at`. `replaced` has the keys that a different session took. `ended` has the keys whose record ended while the session had them. |
 | `watchd/inbox/KEY.jsonl` | Events that no waiter took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The open items of the key |
