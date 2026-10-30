@@ -819,4 +819,23 @@ check "bad agent flag: exit 1" 1 "$code"
 check "bad agent flag: adapter message" "work-start: fake: no start flag --dangerous" "$err"
 check "bad agent flag: no branch" no "$(has_branch ABC-0/typo)"
 
+# --kind: a caller out of an agent pane gives the kind. No lookup of the pane of this script.
+fresh
+push_branch ABC-5/review-me
+MOCK_KIND= run p ABC-5 'Review me' --branch ABC-5/review-me --no-track --kind fake
+check "given kind: exit 0" 0 "$code"
+check "given kind: agent of that kind started" \
+  "herdr agent start abc-5-review-me --kind fake --pane wT:p1 -- --fake-name [ABC-5] Review me" \
+  "$(grep '^herdr agent start' "$MOCK_LOG")"
+check "given kind: no pane lookup" "" \
+  "$(grep -e '^herdr pane current' -e '^herdr agent get' "$MOCK_LOG")"
+fresh
+MOCK_KIND=plain run p ABC-5 --branch ABC-5/review-me --kind none
+check "given unknown kind: exit 1" 1 "$code"
+check "given unknown kind: message" "work-start: no agent integration for herdr kind 'none'" "$err"
+fresh
+run p ABC-0 'typo' --kind fake
+check "given kind in new mode: exit 1" 1 "$code"
+check "given kind in new mode: no branch" no "$(has_branch ABC-0/typo)"
+
 exit $fail

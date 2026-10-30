@@ -66,6 +66,9 @@ impl Workspaces for HerdrWorkspaces {
             "--branch".as_ref(),
             start.branch.as_ref(),
             "--no-track".as_ref(),
+            // The daemon runs out of an agent pane, so work-start.sh cannot find the kind there.
+            "--kind".as_ref(),
+            "claude".as_ref(),
         ];
         run_skill_script("work/work-start.sh", &args, repo, &start.prompt)
             .map(|_| ())

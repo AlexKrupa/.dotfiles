@@ -6,15 +6,16 @@
 #        work-start.sh <ticket-id> <slug-text> [--onto BRANCH] [--placeholder ID]
 #          [--continue [--mr URL]]
 #        work-start.sh [<ticket-id>] [<title>] --branch NAME [--reset-local] [--no-track]
-#          [-- <agent flags>...]
+#          [--kind KIND] [-- <agent flags>...]
 # Starts work on a ticket. Reads the first prompt on stdin. Branch: <ticket-id>/<slug>.
 # Session name: "[<ticket-id>] <slug-text>", only "<slug-text>" for the placeholder ID. In
 # existing mode: "[<ticket-id>] <title>", "<title>" with no ticket id (one positional argument is
 # the title), or NAME with no title. A leading "Draft: " and ticket id ("[<ticket-id>] ",
 # "<ticket-id>: ", "<ticket-id> ") of the title go.
-# The agent in the herdr pane of this script gives the kind of the new agent. bin/agent-lib.sh
-# finds the integration of that kind, and its adapter gives the agent arguments. --continue puts
-# the session id of that agent in the handoff.
+# The agent in the herdr pane of this script gives the kind of the new agent. In existing mode,
+# --kind KIND gives it instead, with no pane lookup. bin/agent-lib.sh finds the integration of that
+# kind, and its adapter gives the agent arguments. --continue puts the session id of the agent in
+# the pane in the handoff.
 # Mode "new" (main checkout): creates the branch from the default branch of origin (origin/HEAD)
 # after a fast-forward, or from the remote ref REF. Tracks it on the default branch with
 # git-spice. Opens it as a new herdr worktree workspace, starts an agent there, and submits the
@@ -95,7 +96,7 @@ if [[ ${1:-} == tops && $# -eq 1 ]]; then
 fi
 
 ticket="" text="" base="" existing="" onto="" continue="" mr="" placeholder="" split=""
-reset_local="" no_track=""
+reset_local="" no_track="" kind=""
 agent_args=()
 while (($#)); do
   case "$1" in
@@ -108,6 +109,7 @@ while (($#)); do
     --split) split=1; shift ;;
     --reset-local) reset_local=1; shift ;;
     --no-track) no_track=1; shift ;;
+    --kind) [[ $# -ge 2 ]] || die "--kind needs a kind"; kind=$2; shift 2 ;;
     --) shift; agent_args=("$@"); break ;;
     -*) die "unknown option: $1" ;;
     *)
@@ -121,7 +123,7 @@ done
 if [[ -n $existing ]]; then
   [[ -z $base$split ]] \
     || die "usage: work-start.sh [<ticket-id>] [<title>] --branch NAME [--reset-local] [--no-track]\
- [-- <agent flags>...]"
+ [--kind KIND] [-- <agent flags>...]"
   branch=$existing
   # One positional argument is the title.
   if [[ -n $ticket && -z $text ]]; then text=$ticket; ticket=""; fi
@@ -134,7 +136,7 @@ if [[ -n $existing ]]; then
   elif [[ -n $ticket ]]; then title="[$ticket] $text"
   else title=$text; fi
 else
-  [[ -n $ticket && -n $text && -z $reset_local$no_track ]] \
+  [[ -n $ticket && -n $text && -z $reset_local$no_track$kind ]] \
     || die "usage: work-start.sh <ticket-id> <slug-text> [--base REF] [-- <agent flags>...]"
   slug=$(short_slug "$text" 40)
   [[ -n $slug ]] || die "slug text has no letters or digits: $text"
@@ -151,9 +153,12 @@ if [[ -n ${NONO_CAP_FILE:-} ]] && ((${#agent_args[@]})); then
   start_effort=${agent_args[1]}
 fi
 
-pane=$(herdr pane current --current | jq -r '.result.pane.pane_id // empty') || true
-[[ -n $pane ]] || die "cannot find the herdr pane of this session"
-kind=$(agent_kind "$pane") || exit 1
+pane=""
+if [[ -z $kind || -n $continue ]]; then
+  pane=$(herdr pane current --current | jq -r '.result.pane.pane_id // empty') || true
+  [[ -n $pane ]] || die "cannot find the herdr pane of this session"
+fi
+[[ -n $kind ]] || kind=$(agent_kind "$pane") || exit 1
 adapter=$(agent_adapter "$kind") || exit 1
 session=""
 if [[ -n $continue ]]; then
