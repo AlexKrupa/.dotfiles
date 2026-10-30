@@ -194,8 +194,7 @@ async fn watch(daemon: &Arc<Daemon>, request: &WatchRequest) -> Response {
     Response::Ok
 }
 
-/// True if the session has something for `delivery` to take. The owner check runs only then: it
-/// starts a `ps` process.
+/// True if the session has something for `delivery` to take.
 fn pending(daemon: &Daemon, session: &str) -> bool {
     let state = daemon.store.session(session).unwrap_or_default();
     let records = daemon.store.session_subs(session);
