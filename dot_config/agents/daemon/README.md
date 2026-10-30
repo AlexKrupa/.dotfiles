@@ -147,17 +147,14 @@ flowchart TB
   minutes with no agent record and no follower. The session rules:
   - Live: the owner process is alive.
   - Away: the owner process is gone. The loop sets `owner_gone_at`. The agent records and the
-    inbox stay, so the events wait for the return of the session. A `wait` of a different session
+    inbox stay. The events wait for the return of the session. A `wait` of a different session
     with the same owner PID also makes a live session away, for example after `/resume`.
-  - Back: a `wait` of the same session ID, with a new owner PID, clears `owner_gone_at`.
+  - Back: a `wait` of the session ID clears `owner_gone_at`, also with a new owner PID.
   - Ended: the session is away for the grace period (`WATCHD_GRACE_SECONDS`, default 1800 s). The
     loop ends each agent record of the session, and the open items go to the hub. Then it removes
     the session record.
   - Worktree gone: the loop ends the record with the error `the worktree is gone: PATH`. The next
     `wait` of the session gets the error.
-  - Error text: `watchd: MODE watch KEY: TEXT`. A session can have more than one watch.
-  - No client limit: during a turn that a delivery started, no waiter is connected, and that is
-    normal.
 - Local round: for each managed repo, one `git worktree list` and one read of the shared refs
   (`refs/spice/data` and `origin/HEAD`). The key of a worktree is its HEAD, its branch, and the
   shared refs. When the key changes, the round reads the git-spice stack
@@ -180,6 +177,8 @@ flowchart TB
   of its key.
 - Events: the events of a key with an agent record go to its inbox, also while its session is
   away. The events of a key with no agent record go to the hub as open items.
+- Errors: the error text of an ended agent record is `watchd: MODE watch KEY: TEXT`, because a
+  session can have more than one watch. The next `wait` of the session gets it.
 - Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
   event, and starts the review and bump agents. The lock is free during the agent starts. A failed
   default-branch job with a runner failure gets 2 retries at most, in a task of its own. A handled
@@ -270,5 +269,5 @@ new daemon. It keeps no second code path for the old format.
   time.
 - State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the version
   and convert the version before it at start. At the first start with a new version, the daemon
-  ends each old agent record, so its open items go to the hub. It removes the old owner files
+  ends each old agent record, and its open items go to the hub. It removes the old owner files
   (`inbox/KEY.owner`).
