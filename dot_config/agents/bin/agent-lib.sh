@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Sourced. Finds the agent integration of a herdr pane. Writes nothing.
 # - agent_kind <pane>: prints the herdr agent kind of the agent in <pane>. If the pane has no
 #   agent, prints an error and returns 1.

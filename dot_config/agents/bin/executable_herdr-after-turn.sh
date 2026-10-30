@@ -11,6 +11,7 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=agent-lib.sh
 source "$here/agent-lib.sh"
 
 die() { echo "herdr-after-turn: $1" >&2; exit 1; }

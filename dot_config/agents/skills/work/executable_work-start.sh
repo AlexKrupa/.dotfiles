@@ -50,6 +50,7 @@ here=$(cd "$(dirname "$0")" && pwd -P)
 bin=$(cd "$here/../../bin" && pwd)
 # shellcheck source=../../bin/git-lib.sh
 source "$bin/git-lib.sh"
+# shellcheck source=../../bin/agent-lib.sh
 source "$bin/agent-lib.sh"
 WORK_NEXT=${WORK_NEXT:-$bin/herdr-after-turn.sh}
 watch_client=${WATCHD:-$HOME/.local/bin/watchd}
