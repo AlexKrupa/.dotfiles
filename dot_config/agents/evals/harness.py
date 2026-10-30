@@ -111,7 +111,7 @@ def isolation_settings(keep):
                           "--verbose", "--no-session-persistence"], cwd)
     missing = [s for s in keep if s not in init["skills"]]
     if missing:
-        sys.exit(f"skill(s) {missing} not loaded. Run ~/.config/agents/claude.sh")
+        sys.exit(f"skill(s) {missing} not loaded. Run ~/.config/agents/integrations/claude-code/install.sh")
     # Built-in plugins have no install source to turn off. Their skills are turned off below.
     plugins = [p["source"] for p in init["plugins"] if p.get("path") != "builtin"]
     return json.dumps({
