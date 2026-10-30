@@ -30,9 +30,9 @@ instructions of an AI chat app.
 ## Third-party skills
 
 `install-skills.sh <agent>` installs the third-party skills for one agent with the `skills` CLI.
-The script contains the list of these skills. When the list changes, `chezmoi apply` runs it one
-time for each folder in `integrations/`. The folder name is the `skills` CLI agent name. The first
-apply on a new machine also runs it.
+The script contains the list of these skills. When the list or the set of folders in
+`integrations/` changes, `chezmoi apply` runs it one time for each folder in `integrations/`. The
+folder name is the `skills` CLI agent name. The first apply on a new machine also runs it.
 
 ## Layout
 
