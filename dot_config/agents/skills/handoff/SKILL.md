@@ -52,7 +52,7 @@ Input: the skill arguments are optional free text.
    ```
 
    In a `nono` sandbox (`printenv NONO_CAP_FILE` prints a path), run it as a background task.
-   `nono` blocks `herdr` calls from a detached helper, so there the script runs its helper in the
+   `nono` blocks `herdr` calls from a detached helper. There, the script runs its helper in the
    foreground of the background task.
 
 5. Report the result, then end the turn. Do not call more tools.

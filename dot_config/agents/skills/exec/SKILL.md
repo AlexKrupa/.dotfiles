@@ -42,8 +42,8 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
         `native` can run a longer plan than the planning session assumed.
       - With `keep`, the execution has only the context that is left in this session.
    2. Else: `subagent`.
-3. Effort, if the skill arguments have no effort. The plan did the design, so the executor needs
-   less reasoning:
+3. Effort, if the skill arguments have no effort. The plan did the design. The executor needs less
+   reasoning:
    - `medium`: most steps are exact. They give the full code, or a mechanical edit at a named
      location, and the commands.
    - `high`: most steps leave design choices open, or one step needs design work or an
@@ -58,7 +58,7 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
    ```
 
    In a `nono` sandbox, run it as a background task. `nono` blocks `herdr` calls from a detached
-   helper, so there the script runs its helper in the foreground of the background task. Then read
+   helper. There, the script runs its helper in the foreground of the background task. Then read
    the output file of the task once. If the file is empty, read it again. A first line
    `<skill> - <effort> - <plan>` is exit `0`. A line that starts with `exec:` is exit `1`.
 

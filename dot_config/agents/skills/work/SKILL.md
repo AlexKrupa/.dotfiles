@@ -159,7 +159,7 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
    ```
 
    Next mode in a `nono` sandbox: first run `printenv NONO_CAP_FILE`. If it prints a path, run
-   the script as a background task. `nono` blocks `herdr` calls from a detached helper, so there
+   the script as a background task. `nono` blocks `herdr` calls from a detached helper. There,
    the script runs its helper in the foreground of the background task. Then read the output file
    of the task once. If the file is empty, read it again. JSON is exit `0`. A line that starts
    with `work-start:` is an error. If the line has `agent not ready`, it is exit `4`. Else, it is

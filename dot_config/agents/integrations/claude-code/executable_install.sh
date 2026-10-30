@@ -36,7 +36,6 @@ target="$CLAUDE_DIR/CLAUDE.md"
 if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
   add_entry "CLAUDE.md" "linked" "$(tilde_path "$source")"
 elif [ -L "$target" ] && [[ "$(readlink "$target")" == "$core/"* ]]; then
-  # Points into the core, but to an old file (e.g. after a rename)
   ln -sfn "$source" "$target"
   add_entry "CLAUDE.md" "relinked" "$(tilde_path "$source")"
 elif [ -e "$target" ] || [ -L "$target" ]; then

@@ -819,7 +819,7 @@ check "bad agent flag: exit 1" 1 "$code"
 check "bad agent flag: adapter message" "work-start: fake: no start flag --dangerous" "$err"
 check "bad agent flag: no branch" no "$(has_branch ABC-0/typo)"
 
-# --kind: a caller out of an agent pane gives the kind. No lookup of the pane of this script.
+# --kind: a caller outside an agent pane gives the kind. No lookup of the pane of this script.
 fresh
 push_branch ABC-5/review-me
 MOCK_KIND= run p ABC-5 'Review me' --branch ABC-5/review-me --no-track --kind fake

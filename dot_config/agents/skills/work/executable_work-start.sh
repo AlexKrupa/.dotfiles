@@ -145,8 +145,6 @@ else
   if [[ $ticket == "$placeholder" ]]; then title=$text; else title="[$ticket] $text"; fi
 fi
 git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "not a valid branch name: $branch"
-# In a nono sandbox, the herdr-start-* command of the integration starts the agent, and it takes
-# only --effort.
 start_effort=""
 if [[ -n ${NONO_CAP_FILE:-} ]] && ((${#agent_args[@]})); then
   [[ ${#agent_args[@]} -eq 2 && ${agent_args[0]} == --effort ]] \
@@ -356,8 +354,7 @@ fi
 name=$(short_slug "$branch" 32)
 
 if [[ -n ${NONO_CAP_FILE:-} ]]; then
-  # nono denies `herdr agent start` in the sandbox. This mediated command starts only the agent of
-  # its integration. nono finds it by name on PATH.
+  # nono denies `herdr agent start` in the sandbox, and finds this mediated command by name on PATH.
   start=("$(basename "$starter")" "$name" "$pane" "$title" ${start_effort:+"$start_effort"})
 else
   start=(herdr agent start "$name" --kind "$kind" --pane "$pane" -- "${start_args[@]}")
