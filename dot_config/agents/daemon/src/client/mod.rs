@@ -231,6 +231,9 @@ pub async fn wait(args: Vec<String>) -> i32 {
         .and_then(|value| value.parse().ok())
         .map_or(Duration::from_secs(3), Duration::from_secs);
     let client = current_client();
+    // A session with no record has no watch. It does not start the daemon: with no daemon, no
+    // session has a watch.
+    let start = rename_owner_session || client.dirs.session(&session).exists();
     let request = envelope(Request::Wait {
         session,
         owner_pid,
@@ -241,8 +244,9 @@ pub async fn wait(args: Vec<String>) -> i32 {
         if !process_alive(owner_pid) {
             return 0;
         }
-        let stream = match connect(&client, true).await {
+        let stream = match connect(&client, start).await {
             Ok(stream) => stream,
+            Err(_) if !start => return 0,
             Err(message) => return die(&message),
         };
         let (read, mut write) = stream.into_split();

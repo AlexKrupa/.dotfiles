@@ -300,10 +300,12 @@ async fn wait(
         if rename_owner_session && let Some(old) = daemon.store.rename_session(&session, owner_pid) {
             memory.waiters.remove(&old);
         }
-        let mut state = daemon.store.session(&session).unwrap_or_default();
-        state.owner_pid = Some(owner_pid);
-        state.owner_gone_at = None;
-        daemon.store.write_session(&session, &state);
+        // A session with no watch gets no record: its next wait does not start the daemon.
+        if let Some(mut state) = daemon.store.session(&session) {
+            state.owner_pid = Some(owner_pid);
+            state.owner_gone_at = None;
+            daemon.store.write_session(&session, &state);
+        }
         for other in daemon.store.leave_other_sessions(&session, owner_pid, now_seconds()) {
             memory.waiters.remove(&other);
         }

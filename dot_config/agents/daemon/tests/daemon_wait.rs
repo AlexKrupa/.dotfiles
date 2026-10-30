@@ -72,7 +72,7 @@ fn wait_gives_the_events_of_all_keys_of_the_session_with_key_and_mode() {
 }
 
 #[test]
-fn wait_with_no_watch_exits_0_with_no_output() {
+fn wait_with_no_watch_exits_0_with_no_output_and_starts_no_daemon() {
     let w = Watchd::new();
     let started = Instant::now();
 
@@ -80,6 +80,18 @@ fn wait_with_no_watch_exits_0_with_no_output() {
 
     assert_eq!((run.code, run.out.as_str(), run.err.as_str()), (0, "", ""));
     assert!(started.elapsed().as_secs() <= 10, "{:?}", started.elapsed());
+    assert_eq!(w.daemon_pid(), None);
+}
+
+#[test]
+fn wait_of_a_session_with_no_watch_writes_no_session_record() {
+    let w = Watchd::new();
+    assert_eq!(w.watch(&[]).code, 0);
+
+    let run = w.run(w.as_session(w.wait_command(), "new-session", w.session_pid()));
+
+    assert_eq!((run.code, run.out.as_str(), run.err.as_str()), (0, "", ""));
+    assert!(!w.watchd.join("sessions/new-session.json").exists(), "{}", w.state());
 }
 
 #[test]
@@ -302,7 +314,7 @@ fn a_rename_wait_after_a_resume_takes_the_resumed_id_and_not_the_old_id() {
     assert_eq!(w.sub_of("app")["session"], json!(old));
     let sessions = w.state()["sessions"].clone();
     assert!(
-        sessions[&old].is_object() && !sessions["resumed"].is_object() && sessions["cleared"].is_object(),
+        sessions[&old].is_object() && !sessions["resumed"].is_object() && !sessions["cleared"].is_object(),
         "{sessions}"
     );
 }

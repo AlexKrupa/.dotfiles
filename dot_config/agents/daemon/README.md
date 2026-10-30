@@ -65,7 +65,9 @@ The managed set (`repos.json`) has the repos that the daemon watches:
 
 A repo with the git configuration key `watchd.stateHome` has its own daemon. Its clients use the
 value as the base folder of the state files, and they start no daemon. The
-[sample](sample/README.md) uses it for its test daemon.
+[sample](sample/README.md) uses it for its test daemon. A `wait` selects the daemon from its
+working folder, not from the watched repo: an agent in a different folder waits on the default
+daemon and gets no event of a `watchd.stateHome` watch.
 
 The daemon makes no herdr calls.
 
@@ -91,8 +93,8 @@ sequenceDiagram
   S-->>C: ok
   C-->>A: exit 0
   H->>W: watchd wait --session ID --owner-pid PID
-  W->>S: connect (start the daemon if needed), send wait
-  S->>F: write sessions/ID.json
+  W->>S: connect (start the daemon if sessions/ID.json exists), send wait
+  S->>F: update sessions/ID.json
   R->>E: check(target)
   E-->>R: new events
   R->>F: write items, inbox, and events.jsonl
