@@ -287,3 +287,24 @@ fn a_second_session_takes_the_key_and_the_first_gets_one_replaced_event() {
     );
     assert_eq!((again.code, again.out.as_str(), again.err.as_str()), (0, "", ""));
 }
+
+#[test]
+fn a_session_that_takes_its_key_back_gets_no_replaced_event() {
+    let w = Watchd::new();
+    assert_eq!(w.watch(&[]).code, 0);
+    let second = w.run(w.as_session(w.watch_command(&[]), "second", w.session_pid()));
+    w.events("app", &[ev("todo", 5)]);
+
+    let back = w.watch(&[]);
+    let first = w.wait();
+    let other = w.run(w.as_session(w.wait_command(), "second", w.session_pid()));
+
+    assert_eq!((second.code, back.code), (0, 0), "{}\n{}", second.err, back.err);
+    assert_eq!((first.code, norow(&first.out)), (0, ev("todo", 5)), "{}", first.err);
+    assert_eq!(
+        (other.code, other.out.as_str()),
+        (0, r#"{"kind":"replaced","key":"app","mode":"hub"}"#),
+        "{}",
+        other.err
+    );
+}

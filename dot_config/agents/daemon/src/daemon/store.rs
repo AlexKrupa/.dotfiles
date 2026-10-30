@@ -876,6 +876,13 @@ impl Store {
                 self.write_session(&old.session, &first);
             }
         }
+        // A session that takes its key back has the watch again.
+        if let Some(mut own) = self.session(&request.session)
+            && own.replaced.iter().any(|taken| taken.key == request.key)
+        {
+            own.replaced.retain(|taken| taken.key != request.key);
+            self.write_session(&request.session, &own);
+        }
         if old.is_none() && request.mode == Mode::Hub && !self.inbox_has_events(&request.key) {
             self.append_lines(&self.dirs.inbox(&request.key), &self.open_events(&request.key));
         }
