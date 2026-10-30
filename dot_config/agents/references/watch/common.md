@@ -48,8 +48,9 @@ Read this file, the host file, and the role file that the skill names. All files
 On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
 `actor`, `detail`, `branch`, `key`, and `mode`. The role file tells the other fields of its events.
 
-If all watched MRs are merged or closed, run the unsubscribe command of the host file. Tell it in
-one line.
+If all watched MRs are merged or closed, first write the report of the events. Then run the
+unsubscribe command of the host file, because it deletes the events of the report. Tell it in one
+line.
 
 ## MR events
 
@@ -76,7 +77,7 @@ is in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`.
 | `unaddressed`      | The thread waits for the user | Needs you         |
 | `title`, `labels`  | None                          | Info              |
 | `description`      | None                          | Info              |
-| `merged`, `closed` | Unsubscribe if all MRs ended  | Info              |
+| `merged`, `closed` | See "Result"                  | Info              |
 | all other kinds    | None                          | Info              |
 
 The user does these actions, never you: reply to a comment, resolve a thread, react, approve,

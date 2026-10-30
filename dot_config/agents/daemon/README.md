@@ -57,7 +57,8 @@ Callers:
 
 The managed set (`repos.json`) has the repos that the daemon watches:
 
-- A client request from a folder in a git repo adds the repo. A `follow` request adds no repo.
+- A client request from a folder in a git repo adds the repo. A `follow` or `wait` request adds no
+  repo.
   `watchd watch --repo PATH` adds the repo of `PATH`.
 - At start, the daemon adds the repo of each agent record.
 - If the folder of a repo is gone, the main loop removes the repo.
@@ -102,8 +103,9 @@ sequenceDiagram
   H-->>A: wake with the lines on stderr, exit 2
 ```
 
-- Between turns, no waiter is connected. The events wait in the inbox. The `Stop` hook of the next
-  turn starts a new waiter. The new waiter replaces the old one of the session.
+- An idle session has a connected waiter. A delivery ends the waiter. During the turn that the
+  delivery starts, no waiter is connected, and the events wait in the inbox. The `Stop` hook at the
+  end of that turn starts the next waiter. A new waiter replaces the old one of the session.
 - `watchd wait` checks the owner PID each 3 seconds, only that PID. In three cases it exits 0 with
   no output: the owner ends, the session has no watch, or a newer waiter replaces it.
 - If the daemon closes the socket, for example at a restart, `watchd wait` connects again. If the
@@ -150,7 +152,8 @@ flowchart TB
     the session record.
   - Worktree gone: the loop ends the record with the error `watchd: the worktree is gone: PATH`.
     The next `wait` of the session gets the error.
-  - No client limit: between turns no waiter is connected, and that is normal.
+  - No client limit: during a turn that a delivery started, no waiter is connected, and that is
+    normal.
 - Local round: for each managed repo, one `git worktree list` and one read of the shared refs
   (`refs/spice/data` and `origin/HEAD`). The key of a worktree is its HEAD, its branch, and the
   shared refs. When the key changes, the round reads the git-spice stack
@@ -219,7 +222,7 @@ the worktree. A review key also has `-review-IID` at the end.
 | `watchd/worktrees/HASH.json` | The state of one worktree: branch, key, stack, MRs, conflict, kind, stage. `HASH` is the first 12 characters of the SHA-1 of the path. |
 | `watchd/reviews.json` | The review links: a worktree and the MR that it reviews |
 | `watchd/subs/KEY.json` | One agent record, with the ID of its session |
-| `watchd/sessions/ID.json` | One session: the owner PID, `owner_gone_at`, and the keys that a different session took |
+| `watchd/sessions/ID.json` | One session: the owner PID, `owner_gone_at`, the keys that a different session took (`replaced`), and the keys whose record ended while the session had them (`ended`) |
 | `watchd/inbox/KEY.jsonl` | Events that no waiter took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The open items of the key |
