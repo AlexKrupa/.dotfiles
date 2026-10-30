@@ -247,8 +247,8 @@ The folder `integrations/claude-code/` is a Claude Code plugin. It has all Claud
 | --- | --- |
 | `.claude-plugin/plugin.json` | The name `watchd` and the `version` |
 | `hooks/hooks.json` | The `SessionStart` and `Stop` hooks. Both run `wait.sh` with `asyncRewake` and a timeout of one week. |
-| `wait.sh` | Runs `watchd wait` with `CLAUDE_CODE_SESSION_ID` and `CLAUDE_PID`. Exit 2 wakes Claude with the events or `watchd error: <text>` on stderr. |
-| `wait.test.sh` | The test of `wait.sh`, with a fake `watchd` on `PATH` |
+| `wait.sh` | Runs `watchd wait` with `CLAUDE_CODE_SESSION_ID` and `CLAUDE_PID`. For the `SessionStart` source `clear`, it adds `--rename-owner-session`. Exit 2 wakes Claude with the events or `watchd error: <text>` on stderr. |
+| `wait.test.sh` | The test of `wait.sh`, with a fake `watchd` in `WATCHD` |
 | `watch-runner.md` | The runner file: how the agent starts the watch and reads the results |
 
 Claude Code reads this local plugin from its folder, through the symlink

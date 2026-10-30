@@ -23,25 +23,26 @@ echo "$*" >>"$FAKE_LOG"
 exit "${FAKE_CODE:-0}"
 FAKE
 chmod +x "$tmp/bin/watchd"
-export PATH="$tmp/bin:$PATH" TMPDIR="$tmp" FAKE_LOG="$tmp/calls.log"
+export WATCHD="$tmp/bin/watchd" TMPDIR="$tmp" FAKE_LOG="$tmp/calls.log"
 export CLAUDE_CODE_SESSION_ID=session-1 CLAUDE_PID=4242
 
-# run <env assignments...>: runs wait.sh, sets code, stdout, and stderr.
+# run <env assignments...>: runs wait.sh with the hook input of $tmp/stdin, sets code, stdout, and
+# stderr.
 run() {
-  env "$@" "$script" >"$tmp/stdout" 2>"$tmp/stderr"
+  env "$@" "$script" <"$tmp/stdin" >"$tmp/stdout" 2>"$tmp/stderr"
   code=$?
   stdout=$(cat "$tmp/stdout")
   stderr=$(cat "$tmp/stderr")
 }
 
-fresh() { rm -rf "$tmp/watchd-wait" "$FAKE_LOG"; : >"$FAKE_LOG"; }
+fresh() { rm -rf "$tmp/watchd-wait" "$FAKE_LOG"; : >"$FAKE_LOG"; : >"$tmp/stdin"; }
 
 fresh
 run FAKE_CODE=0
 check "exit 0, no output: exit 0" 0 "$code"
 check "exit 0, no output: no stderr" "" "$stderr"
 check "exit 0, no output: no stdout" "" "$stdout"
-check "the arguments: wait --session <id> --owner-pid <pid>" \
+check "empty input: wait --session <id> --owner-pid <pid>, no rename flag" \
   "wait --session session-1 --owner-pid 4242" "$(cat "$FAKE_LOG")"
 
 fresh
@@ -84,6 +85,38 @@ fresh
 run FAKE_CODE=1
 check "exit 1, no text: exit 2" 2 "$code"
 check "exit 1, no text: error row with the code" "watchd error: exit code 1, no message" "$stderr"
+
+args="wait --session session-1 --owner-pid 4242"
+for source in startup resume compact fork; do
+  fresh
+  printf '{"session_id":"session-1","hook_event_name":"SessionStart","source":"%s"}' "$source" >"$tmp/stdin"
+  run FAKE_CODE=0
+  check "SessionStart source $source: no rename flag" "$args" "$(cat "$FAKE_LOG")"
+done
+
+fresh
+printf '{"session_id":"session-1","hook_event_name":"SessionStart","source":"clear"}' >"$tmp/stdin"
+run FAKE_CODE=0
+check "SessionStart source clear: the rename flag" "$args --rename-owner-session" "$(cat "$FAKE_LOG")"
+
+fresh
+printf '{"session_id":"session-1","hook_event_name":"Stop","stop_hook_active":false}' >"$tmp/stdin"
+run FAKE_CODE=0
+check "Stop input: no rename flag" "$args" "$(cat "$FAKE_LOG")"
+
+fresh
+printf 'not json' >"$tmp/stdin"
+run FAKE_CODE=0
+check "input that is not JSON: exit 0" 0 "$code"
+check "input that is not JSON: no stderr" "" "$stderr"
+check "input that is not JSON: no rename flag" "$args" "$(cat "$FAKE_LOG")"
+
+fresh
+mkdir -p "$tmp/home/.local/bin"
+cp "$tmp/bin/watchd" "$tmp/home/.local/bin/watchd"
+run -u WATCHD HOME="$tmp/home" PATH=/usr/bin:/bin FAKE_CODE=0
+check "no WATCHD: exit 0" 0 "$code"
+check "no WATCHD: runs ~/.local/bin/watchd" "$args" "$(cat "$FAKE_LOG")"
 
 fresh
 env -u CLAUDE_CODE_SESSION_ID "$script" >"$tmp/stdout" 2>"$tmp/stderr"; code=$?
