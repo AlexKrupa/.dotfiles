@@ -3,10 +3,10 @@ use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-/// `EPERM` is a live process of a different user, for example root. A PID that does not fit in
-/// `pid_t` is not a process: a negative `pid_t` names a process group.
+/// `EPERM` is a live process of a different user, for example root. A PID of 0 or a PID that does
+/// not fit in `pid_t` is not a process: `kill` reads 0 and a negative `pid_t` as a process group.
 pub fn process_alive(pid: u32) -> bool {
-    let Ok(pid) = libc::pid_t::try_from(pid) else {
+    let Some(pid) = libc::pid_t::try_from(pid).ok().filter(|pid| *pid > 0) else {
         return false;
     };
     match unsafe { libc::kill(pid, 0) } {
@@ -151,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn process_alive_is_true_for_a_process_of_root_and_false_for_an_ended_process() {
+    fn process_alive_is_true_for_a_process_of_root_and_false_for_an_ended_process_or_a_group() {
         let mut child = Command::new("true").spawn().unwrap();
         let ended = child.id();
         child.wait().unwrap();
@@ -159,6 +159,7 @@ mod tests {
         assert!(process_alive(std::process::id()));
         assert!(process_alive(1));
         assert!(!process_alive(ended));
+        assert!(!process_alive(0));
         assert!(!process_alive(u32::MAX));
     }
 }
