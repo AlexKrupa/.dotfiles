@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Usage: integrations/claude-code/install.sh
 # Links CLAUDE.md of this folder to ~/.claude/CLAUDE.md and the skills/*/ of the core into
-# ~/.claude/skills/, and prints the status of each entry (see README.md, section Sync). If claude
-# is not on PATH, prints a skip line and does nothing.
-# Exit codes: 0 ok or skipped, 1 error.
+# ~/.claude/skills/. Installs the plugins that ~/.claude/settings.json enables, from the
+# marketplaces that it declares. Prints the status of each entry (see README.md, section Sync). If
+# claude is not on PATH, prints a skip line and does nothing.
+# Exit codes: 0 ok or skipped, 1 error or a failed plugin install.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -108,6 +109,29 @@ unlink_deprecated() {
 unlink_deprecated skills "skills/deprecated/*/"
 link_entries      skills "skills/*/"
 
+failed=0
+settings="$CLAUDE_DIR/settings.json"
+if [ -f "$settings" ]; then
+  while IFS=$'\t' read -r name source; do
+    claude plugin marketplace add "$source" --scope user >/dev/null && continue
+    add_entry "marketplaces/$name" "FAILED" "$source"
+    failed=1
+  done < <(jq -r '.extraKnownMarketplaces // {} | to_entries[]
+    | [.key, (.value.source | .repo // .path // .url)] | @tsv' "$settings")
+
+  installed="$(claude plugin list --json | jq -r '.[] | select(.scope == "user") | .id')"
+  for plugin in $(jq -r '.enabledPlugins // {} | to_entries[] | select(.value) | .key' "$settings"); do
+    if grep -qxF "$plugin" <<< "$installed"; then
+      add_entry "plugins/$plugin" "installed"
+    elif claude plugin install "$plugin" --scope user >/dev/null; then
+      add_entry "plugins/$plugin" "NEW"
+    else
+      add_entry "plugins/$plugin" "FAILED"
+      failed=1
+    fi
+  done
+fi
+
 max_path=0
 max_status=0
 for line in "${entries[@]}"; do
@@ -124,3 +148,5 @@ for line in "${entries[@]}"; do
     printf "%-${max_path}s  %-${max_status}s\n" "$path" "$status"
   fi
 done
+
+exit "$failed"

@@ -5,8 +5,9 @@ After a sync, a change to these files changes the live behavior of Claude Code.
 
 ## Sync
 
-Start `integrations/claude-code/install.sh` to create the symlinks, or to create them again. You
-can start it again with no risk. If an integration file or the set of skill folders changes,
+Start `integrations/claude-code/install.sh` to create the symlinks and install the plugins, or to
+do it again. You can start it again with no risk. If an integration file, the set of skill folders,
+the plugin entries of `~/.claude/settings.json`, or the `local-pins` marketplace changes,
 `chezmoi apply` runs each `integrations/*/install.sh`. For each entry, the script shows one of
 these statuses:
 
@@ -15,6 +16,8 @@ these statuses:
 - `NEW`: the script created the link.
 - `local`: a real file is at the target. The script does not change it.
 - `removed`: the script removed a stale managed link.
+- `installed`: the plugin is already installed.
+- `FAILED`: the script could not add the marketplace or install the plugin. The exit code is 1.
 
 After you add or rename a skill, start the script again.
 
@@ -23,6 +26,13 @@ The script makes these links:
 - `integrations/claude-code/CLAUDE.md` -> `~/.claude/CLAUDE.md`. This file imports
   `instructions-agents.md`, the global instructions for all projects.
 - `skills/*/` -> `~/.claude/skills/`
+
+The script installs the plugins that have the value `true` in `enabledPlugins` of
+`~/.claude/settings.json`. Before that, it adds each marketplace of `extraKnownMarketplaces`. It does
+not install other plugins and does not remove plugins. The `local-pins` marketplace is in
+`~/.claude/local-marketplace/`. Its `watchd` plugin is a symlink to
+`daemon/integrations/claude-code/`, and Claude Code loads it in place. A change to it applies at the
+next session start.
 
 The script does not make a symlink for `instructions-chat.md`. You paste it manually into the custom
 instructions of an AI chat app.
