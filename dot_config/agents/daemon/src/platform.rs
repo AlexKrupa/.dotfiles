@@ -3,14 +3,16 @@ use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-/// `ps`, not `kill(pid, 0)`: `kill` fails on processes of root.
+/// `EPERM` is a live process of a different user, for example root. A PID that does not fit in
+/// `pid_t` is not a process: a negative `pid_t` names a process group.
 pub fn process_alive(pid: u32) -> bool {
-    Command::new("ps")
-        .args(["-p", &pid.to_string()])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
+    let Ok(pid) = libc::pid_t::try_from(pid) else {
+        return false;
+    };
+    match unsafe { libc::kill(pid, 0) } {
+        0 => true,
+        _ => std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM),
+    }
 }
 
 /// A maintenance wake during system sleep has no Graphics capability.
@@ -146,5 +148,17 @@ mod tests {
         assert_eq!(utc_date(0), "1970-01-01");
         assert_eq!(utc_date(951_782_400), "2000-02-29");
         assert_eq!(utc_timestamp(1_793_000_000), "2026-10-26T07:33:20Z");
+    }
+
+    #[test]
+    fn process_alive_is_true_for_a_process_of_root_and_false_for_an_ended_process() {
+        let mut child = Command::new("true").spawn().unwrap();
+        let ended = child.id();
+        child.wait().unwrap();
+
+        assert!(process_alive(std::process::id()));
+        assert!(process_alive(1));
+        assert!(!process_alive(ended));
+        assert!(!process_alive(u32::MAX));
     }
 }
