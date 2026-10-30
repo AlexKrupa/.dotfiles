@@ -15,7 +15,7 @@ of the watch daemon, on PATH.
 | MR details: branches, author, labels  | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`                                        |
 | Logs of the failed jobs of a pipeline | `~/.config/agents/bin/gitlab-pipeline.sh failed-logs <pipeline id>`                            |
 | Retry a job                           | `glab ci retry <job id>`                                                                       |
-| Retry a job and wait for the new job  | `~/.claude/skills/hub/hub-retry.sh <job id>`                                                   |
+| Retry a job and wait for the new job  | `~/.config/agents/skills/hub/hub-retry.sh <job id>`                                            |
 
 - `<id>` is the session ID. The runner file tells how to get it.
 - `--fresh` deletes the state of an earlier review watch of the MR. Use it only at the first start.
