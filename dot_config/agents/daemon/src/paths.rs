@@ -124,6 +124,18 @@ impl StateDirs {
     }
 }
 
+/// The ID is also a file name of the daemon.
+pub fn session_id(value: Option<String>) -> Result<String, String> {
+    let valid = |id: &String| {
+        !id.is_empty()
+            && !id.starts_with('.')
+            && id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+    };
+    value.filter(valid).ok_or_else(|| "--session needs an ID".to_string())
+}
+
 pub fn home() -> PathBuf {
     PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
 }

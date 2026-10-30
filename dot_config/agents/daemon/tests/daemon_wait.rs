@@ -7,6 +7,18 @@ use std::time::Instant;
 use serde_json::{Value, json};
 use support::daemon::{Watchd, end, ev, norow, wait_for};
 
+/// Sends one request line to the daemon socket and returns the answer.
+fn raw_request(w: &Watchd, request: &Value) -> Value {
+    let mut stream = std::os::unix::net::UnixStream::connect(w.watchd.join("daemon.sock")).unwrap();
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(15)))
+        .unwrap();
+    stream.write_all(format!("{request}\n").as_bytes()).unwrap();
+    let mut answer = String::new();
+    std::io::BufReader::new(&stream).read_line(&mut answer).unwrap();
+    serde_json::from_str(&answer).unwrap()
+}
+
 #[test]
 fn watch_exits_0_at_once_and_writes_the_record_with_the_session() {
     let w = Watchd::new();
@@ -143,6 +155,28 @@ fn session_id_with_a_slash_is_an_error() {
 }
 
 #[test]
+fn the_daemon_answers_a_request_with_a_bad_session_id_with_the_error() {
+    let w = Watchd::new();
+    let follow = w.follower(&w.env.dir);
+    let requests = [
+        json!({"type": "wait", "session": "../x", "owner_pid": w.session_pid()}),
+        json!({
+            "type": "watch", "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub", "mrs": [],
+            "interval": 1, "session": "../x", "fresh": false,
+        }),
+        json!({"type": "unsubscribe", "key": "app", "slug": "app", "mode": "hub", "session": ""}),
+    ];
+
+    let answers: Vec<Value> = requests.iter().map(|request| raw_request(&w, request)).collect();
+
+    let error = json!({"type": "error", "text": "watchd: --session needs an ID\n"});
+    assert_eq!(answers, [error.clone(), error.clone(), error]);
+    assert!(!w.watchd.join("x.json").exists());
+    assert!(!w.has_sub("app"));
+    end(follow);
+}
+
+#[test]
 fn old_records_end_at_start_and_their_items_go_to_the_hub() {
     let w = Watchd::new();
     let author = w.author_key();
@@ -183,15 +217,8 @@ fn subscribe_request_gets_the_error_text() {
         "herdr_workspace": "w1", "once": false, "fresh": false, "again": false, "poke_token": "t",
     });
 
-    let mut stream = std::os::unix::net::UnixStream::connect(w.watchd.join("daemon.sock")).unwrap();
-    stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(15)))
-        .unwrap();
-    stream.write_all(format!("{line}\n").as_bytes()).unwrap();
-    let mut answer = String::new();
-    std::io::BufReader::new(&stream).read_line(&mut answer).unwrap();
+    let answer = raw_request(&w, &line);
 
-    let answer: Value = serde_json::from_str(&answer).unwrap();
     assert_eq!(
         answer,
         json!({"type": "error", "text": "watchd: this watch client is older than the daemon. Start the watch again.\n"})

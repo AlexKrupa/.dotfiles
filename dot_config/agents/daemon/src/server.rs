@@ -16,6 +16,7 @@ use crate::core::worktrees::{ReviewLink, set_kind};
 use crate::daemon::Daemon;
 use crate::key::worktree_top;
 use crate::local::repo_of;
+use crate::paths::session_id;
 use crate::platform::{now_seconds, process_alive};
 use crate::protocol::{
     DebugState, Envelope, KeyedEvent, RepoPoll, RepoTimes, Request, Response, StatusReport, WatchRequest, receive, send,
@@ -49,6 +50,11 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
             return;
         }
     };
+    if let Some(Err(message)) = session_of(&request).map(|id| session_id(Some(id.to_string()))) {
+        let text = format!("watchd: {message}\n");
+        let _ = send(&mut write, &Response::Error { text }).await;
+        return;
+    }
     // A follower reads all state, and a waiter reads the state of its session: they use no repo.
     let folder = folder.filter(|_| {
         !matches!(
@@ -167,6 +173,22 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
         }
     };
     let _ = send(&mut write, &response).await;
+}
+
+/// The session ID is a file name of the daemon. A request that does not come from the client can
+/// have any text.
+fn session_of(request: &Request) -> Option<&str> {
+    match request {
+        Request::Watch(watch) => Some(&watch.session),
+        Request::Wait { session, .. } | Request::Unsubscribe { session, .. } => Some(session),
+        Request::Subscribe(_)
+        | Request::Status
+        | Request::Kind { .. }
+        | Request::Route { .. }
+        | Request::Report { .. }
+        | Request::DebugState
+        | Request::Follow { .. } => None,
+    }
 }
 
 async fn watch(daemon: &Arc<Daemon>, request: &WatchRequest) -> Response {

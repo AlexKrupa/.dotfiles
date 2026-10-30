@@ -15,7 +15,7 @@ use crate::daemon::store::Store;
 use crate::engine::mr_number;
 use crate::key::{KeyMode, digits, repo_slug, watch_key, worktree_top};
 use crate::local::{git, repo_of, shared_refs};
-use crate::paths::{ClientDirs, StateDirs};
+use crate::paths::{ClientDirs, StateDirs, session_id};
 use crate::platform::{local_time, process_alive, spawn_detached, terminal_columns};
 use crate::protocol::{Envelope, Request, Response, StatusReport, WatchRequest, receive, send};
 use crate::workspaces::workspaces_of;
@@ -23,18 +23,6 @@ use crate::workspaces::workspaces_of;
 fn die(message: &str) -> i32 {
     eprintln!("watchd: {message}");
     1
-}
-
-/// The ID is also a file name of the daemon.
-fn session_id(value: Option<String>) -> Result<String, String> {
-    let valid = |id: &String| {
-        !id.is_empty()
-            && !id.starts_with('.')
-            && id
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
-    };
-    value.filter(valid).ok_or_else(|| "--session needs an ID".to_string())
 }
 
 #[derive(Default)]
