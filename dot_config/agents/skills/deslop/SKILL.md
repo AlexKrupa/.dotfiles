@@ -26,8 +26,8 @@ the files in place and uses no git.
 
 ## Rules source - read, do not recall
 
-Open these files at the start of **every** run, before you edit anything. Read them with the Read
-tool, not with Bash:
+Open these files at the start of **every** run, before you edit anything. Read them with a file
+read, not with a shell command:
 
 - `~/.config/agents/instructions-agents.md` - the `## Written communication` section. It has the
   simple language, banned words, and formatting rules.

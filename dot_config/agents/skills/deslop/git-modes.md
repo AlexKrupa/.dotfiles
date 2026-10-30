@@ -81,7 +81,7 @@ these questions in sequence. Stop at the first question that gives a decision.
 
 Never run question 2 or question 3 on a comment that failed question 1.
 
-Restore or write a comment with the Edit tool. Never use git to restore it.
+Restore or write a comment with a file edit. Never use git to restore it.
 
 A comment passes question 1 only for data that the code cannot show:
 
@@ -215,7 +215,7 @@ other lists. The fixups or `git diff` show each edit.
 
 - You judge comments in place instead of deleting them first. Pass 1 has no exceptions.
 - You restore a comment because deletion feels risky. This is not a sufficient reason.
-- You restore a comment with `git checkout` or `git restore`. Use the Edit tool.
+- You restore a comment with `git checkout` or `git restore`. Use a file edit.
 - You make an edit outside prose: a renamed symbol, a changed condition, moved code.
 - You delete a fact to make a sentence shorter. Make the sentence shorter instead.
 - You edit files outside the mode's target.
