@@ -216,7 +216,6 @@ async fn watch(daemon: &Arc<Daemon>, request: &WatchRequest) -> Response {
     Response::Ok
 }
 
-/// True if the session has something for `delivery` to take.
 fn pending(daemon: &Daemon, session: &str) -> bool {
     let state = daemon.store.session(session).unwrap_or_default();
     let records = daemon.store.session_subs(session);
@@ -225,11 +224,10 @@ fn pending(daemon: &Daemon, session: &str) -> bool {
         || records.iter().any(|sub| daemon.store.inbox_lines(&sub.key) > 0)
 }
 
-/// Returns `None` while the waiter waits, and the ended key of an `Error`. The keys of the session
-/// are the keys of its records and the keys that ended since its last wait. A different session can
-/// have a new record of an ended key: the error stays with the session of the ended record, and the
-/// inbox goes to the record. An ended key stays in `ended` after its error, so that the next
-/// delivery takes its inbox.
+/// Returns `None` while the waiter waits, and the ended key of an `Error`. The session takes the
+/// keys of its records and the keys that ended since its last wait. If a different session has a
+/// new record of an ended key, the error stays here and the inbox goes to the record. An ended key
+/// stays in `ended` after its error, so that the next delivery takes its inbox.
 fn delivery(daemon: &Daemon, session: &str) -> Option<(Response, Option<SessionKey>)> {
     let records = daemon.store.session_subs(session);
     let mut state = daemon.store.session(session).unwrap_or_default();
@@ -359,7 +357,6 @@ async fn wait(
     }
 }
 
-/// The events of an ended key and the moved keys wait for the next wait of the session again.
 fn put_back(daemon: &Daemon, session: &str, events: &[KeyedEvent], replaced: &[SessionKey]) {
     let mut keys: Vec<(&str, Mode)> = events.iter().map(|event| (event.key.as_str(), event.mode)).collect();
     keys.dedup();

@@ -176,7 +176,6 @@ impl Store {
         self.session(id).is_some_and(|session| session.owner_gone_at.is_none())
     }
 
-    /// Ends the records of the sessions that are away for the grace period, and the sessions.
     /// Returns the keys of the ended records.
     pub fn end_sessions(&self, now: i64, grace_seconds: i64) -> Vec<String> {
         let mut keys = Vec::new();
@@ -947,7 +946,6 @@ impl Store {
         Some(text)
     }
 
-    /// The error of an ended key waits for the next wait of the session again.
     pub fn put_back_error(&self, session: &str, ended: &SessionKey, text: &str) {
         if let Err(error) = std::fs::write(self.dirs.error(&ended.key), text) {
             self.log("", &ended.key, &format!("error file not written: {error}"));

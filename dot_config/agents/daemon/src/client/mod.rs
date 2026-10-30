@@ -231,8 +231,7 @@ pub async fn wait(args: Vec<String>) -> i32 {
         .and_then(|value| value.parse().ok())
         .map_or(Duration::from_secs(3), Duration::from_secs);
     let client = current_client();
-    // A session with no record has no watch. It does not start the daemon: with no daemon, no
-    // session has a watch.
+    // No session record means no watch, and a stopped daemon has no watch of any session.
     let start = rename_owner_session || client.dirs.session(&session).exists();
     let request = envelope(Request::Wait {
         session,
