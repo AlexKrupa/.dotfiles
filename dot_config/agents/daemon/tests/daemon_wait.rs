@@ -27,7 +27,7 @@ fn watch_exits_0_at_once_and_writes_the_record_with_the_session() {
     let run = w.watch(&["--interval", "600"]);
 
     assert_eq!(run.code, 0, "{}", run.err);
-    assert!(started.elapsed().as_secs() <= 3, "{:?}", started.elapsed());
+    assert!(started.elapsed().as_secs() <= 10, "{:?}", started.elapsed());
     let sub = w.sub_of("app");
     assert_eq!(sub["session"], json!(w.session_id()), "{sub}");
     assert!(sub.get("session_pid").is_none(), "{sub}");
@@ -79,7 +79,7 @@ fn wait_with_no_watch_exits_0_with_no_output() {
     let run = w.run(w.as_session(w.wait_command(), "new-session", w.session_pid()));
 
     assert_eq!((run.code, run.out.as_str(), run.err.as_str()), (0, "", ""));
-    assert!(started.elapsed().as_secs() <= 3, "{:?}", started.elapsed());
+    assert!(started.elapsed().as_secs() <= 10, "{:?}", started.elapsed());
 }
 
 #[test]

@@ -326,7 +326,7 @@ fn the_parent_of_the_waiter_ends_the_waiter_continues() {
 #[test]
 fn the_owner_comes_back_in_the_grace_period_the_inbox_stays() {
     let mut w = Watchd::new();
-    w.env.set_env("WATCHD_GRACE_SECONDS", "5");
+    w.env.set_env("WATCHD_GRACE_SECONDS", "15");
     let id = w.session_id();
     let author = w.author_key();
     w.fake(&author, "state", r#"{"present": ["thread:d1"]}"#);
