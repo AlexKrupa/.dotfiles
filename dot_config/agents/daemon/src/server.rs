@@ -304,6 +304,9 @@ async fn wait(
         state.owner_pid = Some(owner_pid);
         state.owner_gone_at = None;
         daemon.store.write_session(&session, &state);
+        for other in daemon.store.leave_other_sessions(&session, owner_pid, now_seconds()) {
+            memory.waiters.remove(&other);
+        }
         memory.next_waiter += 1;
         let number = memory.next_waiter;
         memory.waiters.insert(session.clone(), number);

@@ -145,7 +145,8 @@ flowchart TB
   minutes with no agent record and no follower. The session rules:
   - Live: the owner process is alive.
   - Away: the owner process is gone. The loop sets `owner_gone_at`. The agent records and the
-    inbox stay, so the events wait for the return of the session.
+    inbox stay, so the events wait for the return of the session. A `wait` of a different session
+    with the same owner PID also makes a live session away, for example after `/resume`.
   - Back: a `wait` of the same session ID, with a new owner PID, clears `owner_gone_at`.
   - Ended: the session is away for the grace period (`WATCHD_GRACE_SECONDS`, default 1800 s). The
     loop ends each agent record of the session, and the open items go to the hub. Then it removes

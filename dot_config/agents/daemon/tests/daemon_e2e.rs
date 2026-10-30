@@ -4,7 +4,7 @@ use std::process::Command;
 use std::sync::OnceLock;
 
 use serde_json::{Value, json};
-use support::daemon::{Watchd, norow, wait_for};
+use support::daemon::{Watchd, end, norow, session, wait_for};
 use support::{Checks, URL};
 
 fn gql(w: &Watchd, iid: u64, change: impl FnOnce(&mut Value)) {
@@ -66,10 +66,11 @@ fn review_and_hub() -> &'static Checks {
         w.env.fixture("commented", &commented("t1"));
         // Two sessions, so that the review client gets no hub event.
         let other = "session-hub";
+        let owner = session();
         w.watch(&["--review", "--mr", "5"]);
-        w.run(w.as_session(w.watch_command(&[]), other, w.session_pid()));
+        w.run(w.as_session(w.watch_command(&[]), other, owner.id()));
         let review = w.start(w.wait_command());
-        let hub = w.start(w.as_session(w.wait_command(), other, w.session_pid()));
+        let hub = w.start(w.as_session(w.wait_command(), other, owner.id()));
         wait_for(10, || w.rounds_of("app") >= 1 && w.rounds_of(&review_key) >= 1);
         w.env.fixture("commented", &commented("t2"));
         w.env.fixture("notes_5", &json!([anna_note(301)]).to_string());
@@ -104,6 +105,7 @@ fn review_and_hub() -> &'static Checks {
         ]);
         w.run(unsubscribe);
         hub.code();
+        end(owner);
         c
     })
 }

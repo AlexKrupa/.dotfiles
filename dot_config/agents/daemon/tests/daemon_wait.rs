@@ -265,7 +265,7 @@ fn a_wait_with_a_new_id_and_the_same_owner_takes_the_watches_of_the_old_id() {
 }
 
 #[test]
-fn a_wait_with_a_new_id_and_the_same_owner_and_no_rename_flag_takes_no_watch() {
+fn a_wait_with_a_new_id_and_the_same_owner_and_no_rename_flag_makes_the_old_id_away() {
     let w = Watchd::new();
     let old = w.session_id();
     assert_eq!(w.watch(&[]).code, 0);
@@ -273,13 +273,38 @@ fn a_wait_with_a_new_id_and_the_same_owner_and_no_rename_flag_takes_no_watch() {
     let connected = wait_for(10, || w.waiting(&old));
 
     let other = w.run(w.as_session(w.wait_command(), "resumed", w.session_pid()));
-    w.events("app", &[ev("todo", 5)]);
     let first = first.wait(10).expect("the waiter of the old ID exits");
+    w.events("app", &[ev("todo", 5)]);
+    let queued = wait_for(5, || !w.inbox_of("app").is_empty());
 
     assert!(connected, "{}", w.state());
     assert_eq!((other.code, other.out.as_str(), other.err.as_str()), (0, "", ""));
+    assert_eq!((first.code, first.out.as_str(), first.err.as_str()), (0, "", ""));
     assert_eq!(w.sub_of("app")["session"], json!(old));
-    assert_eq!((first.code, norow(&first.out)), (0, ev("todo", 5)), "{}", first.err);
+    assert!(!w.state()["sessions"][&old]["owner_gone_at"].is_null(), "{}", w.state());
+    assert!(queued, "{}", w.state());
+}
+
+#[test]
+fn a_rename_wait_after_a_resume_takes_the_resumed_id_and_not_the_old_id() {
+    let w = Watchd::new();
+    let old = w.session_id();
+    assert_eq!(w.watch(&[]).code, 0);
+    let first = w.start(w.wait_command());
+    let connected = wait_for(10, || w.waiting(&old));
+    let resumed = w.run(w.as_session(w.wait_command(), "resumed", w.session_pid()));
+    let first = first.wait(10).expect("the waiter of the old ID exits");
+
+    let run = w.run(rename_wait(&w, "cleared"));
+
+    assert!(connected, "{}", w.state());
+    assert_eq!((resumed.code, first.code, run.code, run.err.as_str()), (0, 0, 0, ""));
+    assert_eq!(w.sub_of("app")["session"], json!(old));
+    let sessions = w.state()["sessions"].clone();
+    assert!(
+        sessions[&old].is_object() && !sessions["resumed"].is_object() && sessions["cleared"].is_object(),
+        "{sessions}"
+    );
 }
 
 #[test]

@@ -4,7 +4,7 @@ use std::os::unix::process::CommandExt;
 use std::sync::OnceLock;
 
 use support::Checks;
-use support::daemon::{Watchd, alive, ev, is_daemon, norow, wait_for};
+use support::daemon::{Watchd, alive, end, ev, is_daemon, norow, session, wait_for};
 
 fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
@@ -93,15 +93,17 @@ fn errors() -> &'static Checks {
         );
         w.events(&w.author_key(), &[ev("pipeline", 5)]);
         let other = "session-other";
+        let owner = session();
         let one = w.start(w.watch_command(&[]));
-        let two = w.start(w.as_session(w.watch_command(&["--mr", "5"]), other, w.session_pid()));
+        let two = w.start(w.as_session(w.watch_command(&["--mr", "5"]), other, owner.id()));
         one.wait(20);
         two.wait(20);
         let one = w.start(w.wait_command());
-        let two = w.start(w.as_session(w.wait_command(), other, w.session_pid()));
+        let two = w.start(w.as_session(w.wait_command(), other, owner.id()));
         // A hub check with no hub record keeps no events: the event comes after the record.
         w.events("app", &[ev("todo", 5)]);
         let (one, two) = (one.wait(20).unwrap(), two.wait(20).unwrap());
+        end(owner);
         let combined = |run: &support::Run| norow(&[run.out.as_str(), run.err.as_str()].concat());
         c.check(
             "two clients at once: both get events",

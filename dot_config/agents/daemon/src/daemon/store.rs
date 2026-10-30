@@ -224,6 +224,20 @@ impl Store {
         Some(old)
     }
 
+    /// One owner process shows one conversation at a time: its other live sessions are away.
+    /// Returns their IDs.
+    pub fn leave_other_sessions(&self, id: &str, owner_pid: u32, now: i64) -> Vec<String> {
+        let mut left = Vec::new();
+        for (other, mut state) in self.sessions() {
+            if other != id && state.owner_pid == Some(owner_pid) && state.owner_gone_at.is_none() {
+                state.owner_gone_at = Some(now);
+                self.write_session(&other, &state);
+                left.push(other);
+            }
+        }
+        left
+    }
+
     /// Returns the keys of the ended records.
     pub fn end_gone_worktrees(&self) -> Vec<String> {
         let mut keys = Vec::new();
