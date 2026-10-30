@@ -231,10 +231,10 @@ check "opened: route in a later sweep gives the notification" \
   "$(notes) $(jq length "$plugin/pending.json")"
 
 client "$tmp/t" kind mine
-jq -n --argjson pid $$ --argjson now "$(date +%s)" --arg repo "$tmp/t" '{key: "app-x", slug: "app",
-  repo: $repo, mode: "author", mrs: [5], interval: 600, session_pid: $pid, client_pid: 0,
-  client_at: $now, replaced_sessions: [], ended_mrs: []}' \
-  >"$watchd/subs/app-x.json"
+jq -n --arg repo "$tmp/t" '{version: 4, key: "app-x", slug: "app", repo: $repo, mode: "author",
+  mrs: [5], interval: 600, session: "s1", ended_mrs: []}' >"$watchd/subs/app-x.json"
+mkdir -p "$watchd/sessions"
+jq -n --argjson pid $$ '{version: 4, owner_pid: $pid, owner_gone_at: null}' >"$watchd/sessions/s1.json"
 echo '{"needs": ["failed", "reply"]}' >"$tmp/state/watch-gitlab/app-x.json"
 sweep
 check "live author subscription" \
