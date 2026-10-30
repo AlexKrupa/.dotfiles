@@ -141,7 +141,7 @@ fn errors() -> &'static Checks {
         let run = w.watch_wait(&[]);
         c.check(
             "HTTP 403: client exit 1 with the text",
-            "1 watchd: HTTP 403 on todos",
+            "1 watchd: hub watch app: HTTP 403 on todos",
             format!("{} {}", run.code, run.err),
         );
         c.check("HTTP 403: no subscription", "yes", w.sub_gone("app"));
@@ -153,7 +153,7 @@ fn errors() -> &'static Checks {
         let run = w.wait();
         c.check(
             "HTTP 403 with no client: next client exit 1, no subscription",
-            "1 watchd: HTTP 403 on todos yes",
+            "1 watchd: hub watch app: HTTP 403 on todos yes",
             format!("{} {} {}", run.code, run.err, w.sub_gone("app")),
         );
 
@@ -163,7 +163,7 @@ fn errors() -> &'static Checks {
         let run = w.watch_wait(&[]);
         c.check(
             "5 other errors: exit 1",
-            "1 watchd: boom",
+            "1 watchd: hub watch app: boom",
             format!("{} {}", run.code, run.err),
         );
         let repo_args = format!("--repo {}", w.env.repo.display());

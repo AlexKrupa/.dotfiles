@@ -150,8 +150,9 @@ flowchart TB
   - Ended: the session is away for the grace period (`WATCHD_GRACE_SECONDS`, default 1800 s). The
     loop ends each agent record of the session, and the open items go to the hub. Then it removes
     the session record.
-  - Worktree gone: the loop ends the record with the error `watchd: the worktree is gone: PATH`.
-    The next `wait` of the session gets the error.
+  - Worktree gone: the loop ends the record with the error `the worktree is gone: PATH`. The next
+    `wait` of the session gets the error.
+  - Error text: `watchd: MODE watch KEY: TEXT`. A session can have more than one watch.
   - No client limit: during a turn that a delivery started, no waiter is connected, and that is
     normal.
 - Local round: for each managed repo, one `git worktree list` and one read of the shared refs

@@ -445,7 +445,10 @@ impl Store {
     /// error first.
     pub fn remove_record(&self, sub: &Agent, reason: &str, error: Option<&str>) {
         if let Some(text) = error {
-            let _ = std::fs::write(self.dirs.error(&sub.key), text);
+            // The text names the watch: a session can have more than one, with the same error.
+            let detail = text.strip_prefix("watchd: ").unwrap_or(text);
+            let named = format!("watchd: {} watch {}: {detail}", sub.mode.as_str(), sub.key);
+            let _ = std::fs::write(self.dirs.error(&sub.key), named);
             let title = match sub.mode {
                 Mode::Hub => None,
                 Mode::Author | Mode::Review => sub.mrs.first().and_then(|iid| {

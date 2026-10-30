@@ -74,7 +74,7 @@ fn leftover_error() -> &'static Checks {
         let run = w.wait();
         c.check(
             "the error of an ended record goes to the next wait of its session",
-            "1 watchd: HTTP 403 on todos",
+            "1 watchd: hub watch app: HTTP 403 on todos",
             format!("{} {}", run.code, run.err),
         );
         c
@@ -401,6 +401,7 @@ fn the_worktree_is_gone_the_next_wait_gives_the_error() {
     let mut command = w.watch_command(&[]);
     command.current_dir(&wt);
     assert_eq!(w.run(command).code, 0);
+    let key = w.state()["subs"].as_object().unwrap().keys().next().unwrap().clone();
 
     std::fs::remove_dir_all(&wt).unwrap();
     let ended = wait_for(10, || w.state()["subs"].as_object().is_some_and(|subs| subs.is_empty()));
@@ -409,7 +410,10 @@ fn the_worktree_is_gone_the_next_wait_gives_the_error() {
     assert!(ended, "{}", w.log());
     assert_eq!(
         (run.code, run.err),
-        (1, format!("watchd: the worktree is gone: {}", wt.display()))
+        (
+            1,
+            format!("watchd: author watch {key}: the worktree is gone: {}", wt.display())
+        )
     );
 }
 

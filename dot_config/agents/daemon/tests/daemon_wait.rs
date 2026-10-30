@@ -92,7 +92,10 @@ fn wait_after_a_permanent_error_exits_1_with_the_error_text() {
     let first = w.wait();
     let second = w.wait();
 
-    assert_eq!((first.code, first.err.as_str()), (1, "watchd: HTTP 403 on todos"));
+    assert_eq!(
+        (first.code, first.err.as_str()),
+        (1, "watchd: hub watch app: HTTP 403 on todos")
+    );
     assert_eq!((second.code, second.out.as_str(), second.err.as_str()), (0, "", ""));
 }
 
@@ -110,7 +113,10 @@ fn wait_after_an_error_with_events_in_the_inbox_gives_the_error_then_the_events(
     let second = w.wait();
 
     assert!(filled && ended, "{}", w.log());
-    assert_eq!((first.code, first.err.as_str()), (1, "watchd: HTTP 403 on todos"));
+    assert_eq!(
+        (first.code, first.err.as_str()),
+        (1, "watchd: hub watch app: HTTP 403 on todos")
+    );
     assert_eq!((second.code, norow(&second.out)), (0, ev("todo", 5)), "{}", second.err);
 }
 
