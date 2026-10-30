@@ -18,3 +18,4 @@
 .config/agents/bin/watch/watchd-sessions.test.sh
 .config/agents/bin/watch/watchd-test-lib.sh
 .config/agents/bin/watch/watchd.sh
+.config/agents/references/watch/claude-code.md
