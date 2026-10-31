@@ -1,0 +1,22 @@
+{{/* chezmoi:template:missing-key=zero */}}
+## Dotfiles
+
+{{ if .dotfilesEditable -}}
+Dotfiles managed with chezmoi (`chezmoi managed`).
+
+- Edit live files, then use `chezmoi re-add/add/forget`, not the source repo. These commands
+  commit and push automatically.
+- Run one `chezmoi re-add` with all changed paths for each requested change, after the work and its
+  review. In a plan, the tasks do not run `re-add`. A task review gets `chezmoi diff <task paths>`.
+  After the last task, run one `chezmoi re-add`, then do the finish with `review-me`.
+- A template (`.tmpl` in `chezmoi source-path`) has no live copy for `re-add`. Edit it in the
+  source repo, commit and push it with git, then run `chezmoi apply <target>`.
+- Update dotfiles automatically when applying confirmed or explicitly requested changes.
+- If a change is not confirmed - ask first.
+{{- else -}}
+Dotfiles managed with chezmoi (`chezmoi managed`) are read-only on this machine, also for me.
+
+- Do not edit them, and do not edit the source repo (`chezmoi source-path`).
+- Do not run `chezmoi add`, `re-add`, `forget`, or `edit`.
+- If a dotfile change is necessary, give me the change to make on my personal computer.
+{{- end }}

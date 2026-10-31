@@ -1,5 +1,7 @@
 @~/.config/agents/instructions-agents.md
 
+@~/.config/agents/machine.md
+
 # Claude Code notes for the skills
 
 ## work

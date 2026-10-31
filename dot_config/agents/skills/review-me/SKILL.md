@@ -1,9 +1,9 @@
 ---
 name: review-me
 description:
-  Self-review of the current branch. Applies the fixes in code that the branch added and folds
-  them into branch commits. Asks before changes to code that existed before the branch, and before
-  large drift from the spec.
+  Self-review of the current branch, or of a chezmoi dotfiles change. Applies the fixes in code
+  that the branch added and folds them into branch commits. Asks before changes to code that
+  existed before the branch, and before large drift from the spec.
 argument-hint: "[plan or spec path]"
 disable-model-invocation: true
 allowed-tools:
@@ -22,6 +22,28 @@ prompt, and reports each squash.
 
 Auto mode is on when the caller tells you to use auto mode, for example the Superpowers branch
 finish in the global/user instructions. A direct `/review-me` call is standalone mode.
+
+## Dotfiles mode
+
+If the files of the change are chezmoi targets, dotfiles mode is on. For a target,
+`chezmoi source-path <path>` succeeds. chezmoi commits and pushes each `chezmoi re-add` to the trunk. Thus there is no
+branch, and no history to fold fixes into. The other sections apply, with these changes:
+
+- The change is the SHA or the range in the skill arguments. Else it is the last commit in the
+  source repo that changes the source paths of the change:
+  `git -C "$(chezmoi source-path)" log -1 --format=%h -- <source paths>`. If you do not know the
+  paths, ask the user.
+- Run `review-diff` in the source repo, with `--rev <change>`. Give it source paths.
+- Step 0: also run `chezmoi status <live paths>`. If the output is not empty, stop, because the
+  change has edits that `chezmoi re-add` did not save.
+- Edit the live files (`chezmoi target-path <source path>`), not the source files.
+- Step 6: skip the absorb pass.
+- Step 7: use `deslop` in file mode, with the live paths of the change.
+- After step 7, run one `chezmoi re-add` with all the files that this pass changed. It makes one
+  commit and pushes it. The re-review (step 8) gets the source paths of this commit.
+- Step 10: skip the history pass.
+- Permitted writes: the file edits and `chezmoi re-add`. No git writes.
+- Final reply: add the SHA of each `chezmoi re-add` commit.
 
 ## REQUIRED SUB-SKILLS
 

@@ -24,7 +24,9 @@ After you add or rename a skill, start the script again.
 The script makes these links:
 
 - `integrations/claude-code/CLAUDE.md` -> `~/.claude/CLAUDE.md`. This file imports
-  `instructions-agents.md`, the global instructions for all projects.
+  `instructions-agents.md`, the global instructions for all projects. It also imports
+  `machine.md`, the dotfile rules of this machine. chezmoi makes `machine.md` from a template, with
+  the `dotfilesEditable` answer of `chezmoi init`.
 - `skills/*/` -> `~/.claude/skills/`
 
 The script installs the plugins that have the value `true` in `enabledPlugins` of

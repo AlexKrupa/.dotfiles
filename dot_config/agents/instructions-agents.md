@@ -252,10 +252,7 @@ Layout:
   - My terminal shell is Fish. Use Fish syntax for commands that I run in my own terminal.
   - The Bash tool and the `! <command>` prompt prefix run zsh. Use zsh syntax for them, also when
     you give me a `! <command>` to type.
-- Dotfiles managed with chezmoi (`chezmoi managed`). Edit live files, then use
-  `chezmoi re-add/add/forget`, not the source repo. These commands commit and push automatically.
-  - Update dotfiles automatically when applying confirmed or explicitly requested changes.
-  - If a change is not confirmed - ask first.
+- Dotfiles: see `~/.config/agents/machine.md`. chezmoi makes it for each machine.
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.
 - Run Gradle commands in quiet mode (`-q`), unless output is needed for debugging
 - Android devices, emulators, SDK, screenshots, UI inspection: use the `android` CLI (`android-cli`

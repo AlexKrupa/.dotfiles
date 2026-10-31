@@ -1,3 +1,7 @@
+{{- $dotfilesEditable := promptBoolOnce . "dotfilesEditable" "Can you edit dotfiles on this machine?" -}}
+[data]
+dotfilesEditable = {{ $dotfilesEditable }}
+
 [git]
 autoCommit = true
 autoPush = true
