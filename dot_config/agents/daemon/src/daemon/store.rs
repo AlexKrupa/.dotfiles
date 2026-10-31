@@ -19,7 +19,7 @@ use crate::engine::state::Need;
 use crate::key::is_worktree_key;
 use crate::local::repo_of;
 use crate::paths::StateDirs;
-use crate::persist::{Load, load, save, write_json};
+use crate::persist::{Load, LoadError, load, save, write_atomic, write_json};
 use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
 use crate::protocol::{DebugState, SubStatus, WatchRequest};
 use crate::report::{ReportInput, build_report, render};
@@ -43,6 +43,34 @@ pub fn first_line(text: &str) -> &str {
     text.lines().next().unwrap_or_default()
 }
 
+fn lines_of<T: Serialize>(values: &[T]) -> String {
+    values
+        .iter()
+        .map(|value| serde_json::to_string(value).expect("a line serializes") + "\n")
+        .collect()
+}
+
+/// The log needs no state lock: each line is one append.
+pub fn log(dirs: &StateDirs, slug: &str, key: &str, message: &str) {
+    let dash = |text: &str| {
+        if text.is_empty() {
+            "-".to_string()
+        } else {
+            text.to_string()
+        }
+    };
+    let line = format!(
+        "{} {} {} {message}\n",
+        utc_timestamp(now_seconds()),
+        dash(slug),
+        dash(key)
+    );
+    let file = std::fs::OpenOptions::new().create(true).append(true).open(dirs.log());
+    if let Ok(mut file) = file {
+        let _ = file.write_all(line.as_bytes());
+    }
+}
+
 fn kind_of(mode: Mode) -> Kind {
     match mode {
         Mode::Hub => Kind::Hub,
@@ -59,15 +87,42 @@ impl Store {
         }
     }
 
-    fn read_json<T: DeserializeOwned>(&self, path: &Path) -> Result<Option<T>, String> {
-        match load(path)? {
-            None => Ok(None),
-            Some(Load::Current(data) | Load::Converted(data)) => Ok(Some(data)),
-            Some(Load::Dropped(reason)) => {
-                remove(path);
-                self.log("", "", &format!("{}: {reason}, record removed", path.display()));
-                Ok(None)
+    /// A broken file goes away with a log line, as a file of an unknown format does.
+    fn read_json<T: DeserializeOwned>(&self, path: &Path) -> Result<Option<T>, LoadError> {
+        let reason = match load(path) {
+            Ok(None) => return Ok(None),
+            Ok(Some(Load::Current(data) | Load::Converted(data))) => return Ok(Some(data)),
+            Ok(Some(Load::Dropped(reason))) => reason,
+            Err(LoadError::Parse(error)) => error.to_string(),
+            Err(error @ LoadError::Read(_)) => return Err(error),
+        };
+        remove(path);
+        self.log("", "", &format!("{}: {reason}, record removed", path.display()));
+        Ok(None)
+    }
+
+    /// A read error gets a log line, and the caller goes on as with no file.
+    fn read<T: DeserializeOwned>(&self, path: &Path) -> Option<T> {
+        self.read_json(path).unwrap_or_else(|error| {
+            self.log("", "", &format!("{}: {error}", path.display()));
+            None
+        })
+    }
+
+    /// Returns false if the write failed.
+    fn save_items(&self, path: &Path, items: &Items) -> bool {
+        match save(path, items) {
+            Ok(()) => true,
+            Err(error) => {
+                self.log("", "", &format!("{}: items not written: {error}", path.display()));
+                false
             }
+        }
+    }
+
+    fn write_text(&self, path: &Path, text: &str) {
+        if let Err(error) = write_atomic(path, text) {
+            self.log("", "", &format!("{}: not written: {error}", path.display()));
         }
     }
 
@@ -79,26 +134,7 @@ impl Store {
     }
 
     pub fn log(&self, slug: &str, key: &str, message: &str) {
-        let dash = |text: &str| {
-            if text.is_empty() {
-                "-".to_string()
-            } else {
-                text.to_string()
-            }
-        };
-        let line = format!(
-            "{} {} {} {message}\n",
-            utc_timestamp(now_seconds()),
-            dash(slug),
-            dash(key)
-        );
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(self.dirs.log());
-        if let Ok(mut file) = file {
-            let _ = file.write_all(line.as_bytes());
-        }
+        log(&self.dirs, slug, key, message);
     }
 
     /// Shrinks the log in place, because the log file is the stdout of the daemon.
@@ -124,7 +160,7 @@ impl Store {
     }
 
     pub fn sub(&self, key: &str) -> Option<Agent> {
-        self.read_json(&self.dirs.sub(key)).ok().flatten()
+        self.read(&self.dirs.sub(key))
     }
 
     pub fn subs(&self) -> Vec<Agent> {
@@ -152,7 +188,7 @@ impl Store {
     }
 
     pub fn session(&self, id: &str) -> Option<Session> {
-        self.read_json(&self.dirs.session(id)).ok().flatten()
+        self.read(&self.dirs.session(id))
     }
 
     pub fn sessions(&self) -> Vec<(String, Session)> {
@@ -255,7 +291,7 @@ impl Store {
     }
 
     pub fn repos(&self) -> Vec<PathBuf> {
-        let repos: Option<Repos> = self.read_json(&self.dirs.repos()).ok().flatten();
+        let repos: Option<Repos> = self.read(&self.dirs.repos());
         repos.unwrap_or_default().repos
     }
 
@@ -285,7 +321,7 @@ impl Store {
     }
 
     pub fn reviews(&self) -> Vec<ReviewLink> {
-        let reviews: Option<Reviews> = self.read_json(&self.dirs.reviews()).ok().flatten();
+        let reviews: Option<Reviews> = self.read(&self.dirs.reviews());
         reviews.unwrap_or_default().reviews
     }
 
@@ -313,20 +349,18 @@ impl Store {
         states.into_values().collect()
     }
 
+    pub fn worktree(&self, path: &Path) -> Option<WorktreeState> {
+        self.read(&self.dirs.worktree(path))
+    }
+
     pub fn write_worktree(&self, state: &WorktreeState) {
-        let written = self
-            .dirs
-            .worktree(&state.path)
-            .and_then(|path| save(&path, state).map_err(|error| error.to_string()));
-        if let Err(error) = written {
+        if let Err(error) = save(&self.dirs.worktree(&state.path), state) {
             self.log("", "", &format!("{}: state not written: {error}", state.path.display()));
         }
     }
 
     pub fn remove_worktree(&self, path: &Path) {
-        if let Ok(file) = self.dirs.worktree(path) {
-            remove(&file);
-        }
+        remove(&self.dirs.worktree(path));
     }
 
     pub fn inbox_lines(&self, key: &str) -> usize {
@@ -350,7 +384,7 @@ impl Store {
     }
 
     pub fn open_events(&self, key: &str) -> Vec<RoutedEvent> {
-        let items: Items = self.read_json(&self.dirs.items(key)).ok().flatten().unwrap_or_default();
+        let items: Items = self.read(&self.dirs.items(key)).unwrap_or_default();
         items
             .items
             .into_iter()
@@ -381,19 +415,11 @@ impl Store {
     pub fn put_back_inbox(&self, key: &str, events: &[RoutedEvent]) {
         let path = self.dirs.inbox(key);
         let newer = std::fs::read_to_string(&path).unwrap_or_default();
-        remove(&path);
-        self.append_lines(&path, events);
-        let file = std::fs::OpenOptions::new().append(true).open(&path);
-        if let Ok(mut file) = file {
-            let _ = file.write_all(newer.as_bytes());
-        }
+        self.write_text(&path, &(lines_of(events) + &newer));
     }
 
     fn append_lines<T: Serialize>(&self, path: &Path, values: &[T]) {
-        let text: String = values
-            .iter()
-            .map(|value| serde_json::to_string(value).expect("a line serializes") + "\n")
-            .collect();
+        let text = lines_of(values);
         let file = std::fs::OpenOptions::new().create(true).append(true).open(path);
         if let Ok(mut file) = file {
             let _ = file.write_all(text.as_bytes());
@@ -402,9 +428,7 @@ impl Store {
 
     /// The delivery that the next `report` shows.
     pub fn write_last(&self, key: &str, events: &[RoutedEvent]) {
-        let path = self.dirs.last(key);
-        remove(&path);
-        self.append_lines(&path, events);
+        self.write_text(&self.dirs.last(key), &lines_of(events));
     }
 
     pub fn last_id(&self) -> u64 {
@@ -441,9 +465,8 @@ impl Store {
     /// A worktree with no state gets a state with no git key: the next local round fills it.
     pub fn update_worktree(&self, path: &Path, change: impl FnOnce(&mut WorktreeState)) {
         let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-        let known = self.worktrees().into_iter().find(|state| state.path == path);
-        let mut state = known.unwrap_or_else(|| {
-            let repo = repo_of(&path).unwrap_or_else(|| path.clone());
+        let mut state = self.worktree(&path).unwrap_or_else(|| {
+            let repo = tokio::task::block_in_place(|| repo_of(&path)).unwrap_or_else(|| path.clone());
             WorktreeState::new(path.clone(), repo, None, String::new(), &[])
         });
         change(&mut state);
@@ -451,7 +474,7 @@ impl Store {
     }
 
     pub fn engine_value(&self, key: &str) -> Option<serde_json::Value> {
-        self.read_json(&self.dirs.engine_state(key)).ok().flatten()
+        self.read(&self.dirs.engine_state(key))
     }
 
     /// Writes the error before it removes the record: the next wait of the session must see the
@@ -461,7 +484,7 @@ impl Store {
             // The text names the watch: a session can have more than one, with the same error.
             let detail = text.strip_prefix("watchd: ").unwrap_or(text);
             let named = format!("watchd: {} watch {}: {detail}", sub.mode.as_str(), sub.key);
-            let _ = std::fs::write(self.dirs.error(&sub.key), named);
+            self.write_text(&self.dirs.error(&sub.key), &named);
             let title = match sub.mode {
                 Mode::Hub => None,
                 Mode::Author | Mode::Review => sub.mrs.first().and_then(|iid| {
@@ -606,7 +629,7 @@ impl Store {
             Ok(items) => {
                 let mut items = items.unwrap_or_default();
                 let routed = assign_rows(&mut items, events, now);
-                let _ = save(&path, &items);
+                self.save_items(&path, &items);
                 routed
             }
             // The engine saved its state already: events that do not go out now are lost.
@@ -699,7 +722,7 @@ impl Store {
         let mut counts = self.retry_counts(key);
         counts.insert(job.to_string(), count);
         let text = serde_json::to_string(&counts).expect("the counts serialize");
-        if let Err(error) = std::fs::write(self.dirs.retries(key), text) {
+        if let Err(error) = write_atomic(&self.dirs.retries(key), &text) {
             self.log("", key, &format!("retry count not written: {error}"));
         }
     }
@@ -716,13 +739,13 @@ impl Store {
             return;
         }
         let text = serde_json::to_string(routing).expect("a routing serializes");
-        if let Err(error) = std::fs::write(&path, text) {
+        if let Err(error) = write_atomic(&path, &text) {
             self.log("", key, &format!("routing not written: {error}"));
         }
     }
 
     pub fn open_item(&self, key: &str, item: &str) -> Option<Item> {
-        let items: Items = self.read_json(&self.dirs.items(key)).ok().flatten()?;
+        let items: Items = self.read(&self.dirs.items(key))?;
         items.items.into_iter().find(|open| open.item == item)
     }
 
@@ -738,7 +761,7 @@ impl Store {
         let count = items.items.len();
         items.items.retain(|open| open.item != item);
         if items.items.len() < count {
-            let _ = save(&path, &items);
+            self.save_items(&path, &items);
         }
     }
 
@@ -763,7 +786,7 @@ impl Store {
                     .and_then(|engine| strings(&engine["present"])),
             };
             prune_items(&mut items, &present, hub.as_deref(), target.mode);
-            let _ = save(&path, &items);
+            self.save_items(&path, &items);
         }
         if target.mode == Mode::Hub {
             return;
@@ -771,7 +794,7 @@ impl Store {
         let hub_path = self.dirs.items(&target.slug);
         if let Ok(Some(mut hub_items)) = self.read_json::<Items>(&hub_path) {
             prune_moved(&mut hub_items, &target.mrs, &present);
-            let _ = save(&hub_path, &hub_items);
+            self.save_items(&hub_path, &hub_items);
         }
     }
 
@@ -801,8 +824,7 @@ impl Store {
                 self.write_reviews(kept);
             }
         }
-        let worktree = self.worktrees().into_iter().find(|state| state.path == target.repo);
-        if let Some(mut state) = worktree {
+        if let Some(mut state) = self.worktree(&target.repo) {
             if target.mode == Mode::Author {
                 state.ended.extend(&ended);
                 state.ended.sort_unstable();
@@ -839,8 +861,11 @@ impl Store {
         };
         let mut to = to.unwrap_or_default();
         if move_items(&mut from, &mut to, iid) > 0 {
-            let _ = save(&target_path, &to);
-            let _ = save(&source_path, &from);
+            match self.save_items(&target_path, &to) {
+                true => self.save_items(&source_path, &from),
+                // The source keeps the items.
+                false => return,
+            };
         }
         if iid.is_none() {
             remove(&source_path);
@@ -850,11 +875,7 @@ impl Store {
     pub fn prune(&self, now: i64) {
         let cut = now - 7 * 86400;
         if let Ok(text) = std::fs::read_to_string(self.dirs.events()) {
-            let mut temp = self.dirs.events().into_os_string();
-            temp.push(".tmp");
-            if std::fs::write(&temp, prune_lines(&text, cut)).is_ok() {
-                let _ = std::fs::rename(&temp, self.dirs.events());
-            }
+            self.write_text(&self.dirs.events(), &prune_lines(&text, cut));
         }
         let Ok(entries) = std::fs::read_dir(&self.dirs.engine) else {
             return;
@@ -947,7 +968,7 @@ impl Store {
     }
 
     pub fn put_back_error(&self, session: &str, ended: &SessionKey, text: &str) {
-        if let Err(error) = std::fs::write(self.dirs.error(&ended.key), text) {
+        if let Err(error) = write_atomic(&self.dirs.error(&ended.key), text) {
             self.log("", &ended.key, &format!("error file not written: {error}"));
         }
         let mut state = self.session(session).unwrap_or_default();
@@ -1057,7 +1078,7 @@ impl Store {
                 let entry = entry.ok()?;
                 let name = entry.file_name().into_string().ok()?;
                 let key = name.strip_suffix(suffix)?.to_string();
-                let value = self.read_json(&entry.path()).ok().flatten()?;
+                let value = self.read(&entry.path())?;
                 Some((key, value))
             })
             .collect()

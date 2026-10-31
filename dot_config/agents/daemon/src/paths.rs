@@ -98,9 +98,9 @@ impl StateDirs {
         self.watchd.join("reviews.json")
     }
 
-    pub fn worktree(&self, path: &Path) -> Result<PathBuf, String> {
-        let hash = shasum12(&path.to_string_lossy())?;
-        Ok(self.watchd.join(format!("worktrees/{hash}.json")))
+    pub fn worktree(&self, path: &Path) -> PathBuf {
+        let hash = shasum12(&path.to_string_lossy());
+        self.watchd.join(format!("worktrees/{hash}.json"))
     }
 
     pub fn socket(&self) -> PathBuf {

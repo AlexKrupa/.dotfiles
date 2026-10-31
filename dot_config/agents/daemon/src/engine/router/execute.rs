@@ -6,8 +6,9 @@ use super::retry::Retry;
 use super::{Action, Decision, Routing, routing};
 use crate::core::eventlog::{LogLine, RouteAction, route_line};
 use crate::core::items::RoutedEvent;
-use crate::daemon::store::Store;
+use crate::daemon::store;
 use crate::engine::event::EventKind;
+use crate::paths::StateDirs;
 use crate::platform::now_seconds;
 use crate::report::{Add, AddSection};
 use crate::workspaces::{AgentStart, StartError, Workspaces};
@@ -18,7 +19,7 @@ pub struct ExecuteContext<'a> {
     /// The hub key.
     pub key: &'a str,
     pub workspaces: &'a dyn Workspaces,
-    pub store: &'a Store,
+    pub dirs: &'a StateDirs,
     /// Starts the task of a retry, which runs after the round.
     pub spawn_retry: &'a (dyn Fn(Retry) + Sync),
 }
@@ -122,7 +123,7 @@ fn stale_agents(ctx: &ExecuteContext<'_>, routing: &mut Routing, branch: &str) {
     let branches = match ctx.workspaces.agent_branches(ctx.repo) {
         Ok(branches) => branches,
         Err(error) => {
-            ctx.store.log(ctx.key, ctx.key, &format!("stale check: {error}"));
+            store::log(ctx.dirs, ctx.key, ctx.key, &format!("stale check: {error}"));
             return;
         }
     };
@@ -167,8 +168,8 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::daemon::store::Store;
     use crate::engine::event::Event;
-    use crate::paths::StateDirs;
     use crate::workspaces::FakeWorkspaces;
 
     struct Setup {
@@ -208,7 +209,7 @@ mod tests {
                 repo: &self.base,
                 key: "app",
                 workspaces: &self.workspaces,
-                store: &self.store,
+                dirs: &self.store.dirs,
                 spawn_retry: self.spawn_retry.as_ref(),
             }
         }

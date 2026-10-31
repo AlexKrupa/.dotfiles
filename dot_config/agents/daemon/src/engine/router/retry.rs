@@ -31,10 +31,7 @@ pub async fn retry(daemon: Arc<Daemon>, target: Target, retry: Retry) {
     let name = job.name.clone();
     let count_key = format!("{pipeline}:{name}");
     loop {
-        let count = {
-            let _memory = daemon.lock().await;
-            daemon.store.retry_count(&target.slug, &count_key)
-        };
+        let count = daemon.lock().await.store.retry_count(&target.slug, &count_key);
         if count >= 2 {
             let text = format!("{branch}: job {name} failed 3 times (runner failure), stopped");
             return add_row(&daemon, &target, text, &url).await;
@@ -51,10 +48,11 @@ pub async fn retry(daemon: Arc<Daemon>, target: Target, retry: Retry) {
                 .await;
             }
         };
-        {
-            let _memory = daemon.lock().await;
-            daemon.store.set_retry_count(&target.slug, &count_key, count + 1);
-        }
+        daemon
+            .lock()
+            .await
+            .store
+            .set_retry_count(&target.slug, &count_key, count + 1);
         let text = format!("{branch}: job {name} retried (runner failure), {} of 2", count + 1);
         add_row(&daemon, &target, text, &url).await;
         let status = match wait(&daemon, &target, new.id).await {
@@ -71,7 +69,10 @@ pub async fn retry(daemon: Arc<Daemon>, target: Target, retry: Retry) {
             WaitEnd::Failed(text) => {
                 return add_row(&daemon, &target, format!("{branch}: job {name}: {text}"), &url).await;
             }
-            WaitEnd::Stopped => return,
+            WaitEnd::Stopped => {
+                let text = format!("{branch}: job {name}: watchd stopped before the job ended");
+                return add_row(&daemon, &target, text, &url).await;
+            }
         };
         let failed = FailedJob {
             id: status.id,
@@ -111,13 +112,14 @@ enum WaitEnd {
 }
 
 async fn wait(daemon: &Daemon, target: &Target, job_id: u64) -> WaitEnd {
-    let remote = remote_url(&target.repo);
+    let remote = tokio::task::block_in_place(|| remote_url(&target.repo));
     let host = remote.as_deref().and_then(split_remote).map(|(host, _)| host);
     let mut waited = Duration::ZERO;
     loop {
         let end = nap(daemon.retry_interval, NAP_STEP, now_seconds, |step| async move {
             tokio::time::sleep(step).await;
-            (false, full_wake().await)
+            // A stop ends the nap: the stop of the daemon waits for this task.
+            (daemon.stopping(), full_wake().await)
         })
         .await;
         if daemon.stopping() {
@@ -164,7 +166,7 @@ async fn add_row(daemon: &Daemon, target: &Target, text: String, url: &str) {
         ..ReportInput::default()
     };
     let memory = daemon.lock().await;
-    daemon.store.add_rows(target, &input);
+    memory.store.add_rows(target, &input);
     drop(memory);
     daemon.changed.notify_waiters();
 }
@@ -185,8 +187,8 @@ async fn ask_model(daemon: &Daemon, target: &Target, job: FailedJob, branch: &st
         )
     };
     let memory = daemon.lock().await;
-    let routed = daemon.store.assign(target, vec![event], now_seconds());
-    daemon.store.deliver(target, &routed, &Routing::default());
+    let routed = memory.store.assign(target, vec![event], now_seconds());
+    memory.store.deliver(target, &routed, &Routing::default());
     drop(memory);
     daemon.changed.notify_waiters();
 }
@@ -277,14 +279,14 @@ mod tests {
         }
 
         fn rows(&self) -> Vec<String> {
-            let log = std::fs::read_to_string(self.daemon.store.dirs.log()).unwrap_or_default();
+            let log = std::fs::read_to_string(self.daemon.dirs.log()).unwrap_or_default();
             log.lines()
                 .filter_map(|line| line.split_once(" row: ").map(|(_, row)| row.to_string()))
                 .collect()
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn retried_job_that_passes() {
         let setup = Setup::new("passes", Duration::from_secs(3600));
         setup.job("retry-11.json", &["21 pending"]);
@@ -299,14 +301,14 @@ mod tests {
                 "main: job build passed after retry"
             ]
         );
-        assert_eq!(setup.daemon.store.retry_count("app", "7:build"), 1);
-        let file = std::fs::read_to_string(setup.daemon.store.dirs.board("app")).unwrap();
+        assert_eq!(setup.daemon.lock().await.store.retry_count("app", "7:build"), 1);
+        let file = std::fs::read_to_string(setup.daemon.lock().await.store.dirs.board("app")).unwrap();
         let board: Board = serde_json::from_str(&file).unwrap();
         let urls: Vec<Option<&str>> = board.rows.iter().map(|row| row.url.as_deref()).collect();
         assert_eq!(urls, [Some("https://g/-/pipelines/7")]);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn second_runner_failure_retries_again() {
         let setup = Setup::new("again", Duration::from_secs(3600));
         setup.job("retry-11.json", &["21 pending"]);
@@ -326,7 +328,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn third_runner_failure_stops() {
         let setup = Setup::new("stops", Duration::from_secs(3600));
         setup.job("retry-11.json", &["21 pending"]);
@@ -346,10 +348,10 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn other_failure_goes_to_the_model_with_only_that_job() {
         let setup = Setup::new("other", Duration::from_secs(3600));
-        setup.daemon.store.write_sub(&Agent {
+        setup.daemon.lock().await.store.write_sub(&Agent {
             key: "app".to_string(),
             slug: "app".to_string(),
             repo: setup.base.clone(),
@@ -364,7 +366,7 @@ mod tests {
 
         setup.run().await;
 
-        let inbox = setup.daemon.store.take_inbox("app");
+        let inbox = setup.daemon.lock().await.store.take_inbox("app");
         assert_eq!(inbox.len(), 1);
         let event = &inbox[0].event;
         assert_eq!(
@@ -385,7 +387,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn canceled_job_after_retry() {
         let setup = Setup::new("canceled", Duration::from_secs(3600));
         setup.job("retry-11.json", &["21 pending"]);
@@ -399,7 +401,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn job_that_does_not_finish_times_out() {
         let setup = Setup::new("timeout", Duration::ZERO);
         setup.job("retry-11.json", &["21 pending"]);
@@ -413,10 +415,10 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn retry_count_survives_a_restart() {
         let setup = Setup::new("restart", Duration::from_secs(3600));
-        setup.daemon.store.set_retry_count("app", "7:build", 1);
+        setup.daemon.lock().await.store.set_retry_count("app", "7:build", 1);
         setup.job("retry-11.json", &["21 pending"]);
         setup.job("job-21.json", &["21 success"]);
 

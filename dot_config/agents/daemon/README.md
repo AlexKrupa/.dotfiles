@@ -187,8 +187,9 @@ flowchart TB
   the client gets only the events that the router did not handle. The next hub report also shows
   the handled rows.
 
-Each task takes the `memory` lock before it changes the state in memory or the state files. After
-each change, the task sends the `changed` signal, and the waiting connections read the files again.
+Each task takes the `memory` lock before it reads or changes the state in memory or the state
+files: the `Store` of the state files is in the locked `Memory`. After each change, the task sends
+the `changed` signal, and the waiting connections read the files again.
 
 ## Source layout
 
@@ -238,7 +239,8 @@ the worktree. A review key also has `-review-IID` at the end.
 - One daemon: the daemon holds a `flock` on `daemon.lock`. The operating system frees the lock when
   the process ends, also after `kill -9`.
 - Restart: `build.sh` renames a new file over the binary. The daemon sees the new file, stops its
-  managed loops, and sends the started deliveries. Then it calls `exec` on the new binary. The lock
+  managed loops and its retry tasks, and sends the started deliveries. A stopped retry writes a
+  row. Then it calls `exec` on the new binary. The lock
   and the socket stay open. The clients connect again.
 
 ## Claude Code plugin

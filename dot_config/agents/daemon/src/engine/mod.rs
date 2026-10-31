@@ -215,7 +215,8 @@ pub trait Engine: Send + Sync {
 }
 
 fn project_ref_of(repo: &Path) -> Result<String, EngineError> {
-    let remote = remote_url(repo).ok_or_else(|| EngineError::Other(format!("no git remote in {}", repo.display())))?;
+    let remote = tokio::task::block_in_place(|| remote_url(repo))
+        .ok_or_else(|| EngineError::Other(format!("no git remote in {}", repo.display())))?;
     Ok(uri_encode(&project_of_url(&remote)))
 }
 
@@ -307,12 +308,12 @@ pub async fn preflight(
         None => current,
     };
     let shown = args.repo.clone().unwrap_or_else(|| repo.clone());
-    if !git_ok(&repo, &["rev-parse", "--git-dir"]) {
+    if !tokio::task::block_in_place(|| git_ok(&repo, &["rev-parse", "--git-dir"])) {
         return Err(other(format!("not a git repo: {}", shown.display())));
     }
     let key = match &args.key {
         Some(key) => key.clone(),
-        None => watch_key(&repo, &args.key_mode()).map_err(other)?,
+        None => tokio::task::block_in_place(|| watch_key(&repo, &args.key_mode())).map_err(other)?,
     };
     let state = dirs.engine_state(&key);
     std::fs::create_dir_all(&dirs.engine).map_err(|error| other(format!("{}: {error}", dirs.engine.display())))?;
@@ -327,7 +328,8 @@ pub async fn preflight(
     if args.fresh {
         let _ = std::fs::remove_file(&state);
     }
-    let remote = remote_url(&repo).ok_or_else(|| other(format!("no git remote in {}", shown.display())))?;
+    let remote = tokio::task::block_in_place(|| remote_url(&repo))
+        .ok_or_else(|| other(format!("no git remote in {}", shown.display())))?;
     let project = project_of_url(&remote);
     let project_ref = uri_encode(&project);
     Ok(CheckContext {

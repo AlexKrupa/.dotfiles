@@ -19,24 +19,40 @@ pub enum Load<T> {
     Dropped(String),
 }
 
-pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, String> {
+/// A parse error is a broken file. A read error can go away, for example after a permission change.
+#[derive(Debug)]
+pub enum LoadError {
+    Read(std::io::Error),
+    Parse(serde_json::Error),
+}
+
+impl std::fmt::Display for LoadError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LoadError::Read(error) => error.fmt(formatter),
+            LoadError::Parse(error) => error.fmt(formatter),
+        }
+    }
+}
+
+pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, LoadError> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(LoadError::Read(error)),
     };
     if text.trim().is_empty() {
         return Ok(None);
     }
-    let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| error.to_string())?;
+    let value: serde_json::Value = serde_json::from_str(&text).map_err(LoadError::Parse)?;
     let loaded = match value.get("version") {
-        None => Load::Converted(serde_json::from_value(value).map_err(|error| error.to_string())?),
+        None => Load::Converted(serde_json::from_value(value).map_err(LoadError::Parse)?),
         Some(version) if version.as_u64().is_some_and(|version| (1..=3).contains(&version)) => {
-            let versioned: Versioned<T> = serde_json::from_value(value).map_err(|error| error.to_string())?;
+            let versioned: Versioned<T> = serde_json::from_value(value).map_err(LoadError::Parse)?;
             Load::Converted(versioned.data)
         }
         Some(version) if *version == FORMAT_VERSION => {
-            let versioned: Versioned<T> = serde_json::from_value(value).map_err(|error| error.to_string())?;
+            let versioned: Versioned<T> = serde_json::from_value(value).map_err(LoadError::Parse)?;
             Load::Current(versioned.data)
         }
         Some(version) => Load::Dropped(format!("format {version} not supported")),
@@ -54,10 +70,14 @@ pub fn save<T: Serialize>(path: &Path, data: &T) -> std::io::Result<()> {
     )
 }
 
-/// A temp file in the same folder and a rename, so that a reader never sees a partial file.
 pub fn write_json<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
     let mut text = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
     text.push('\n');
+    write_atomic(path, &text)
+}
+
+/// A temp file in the same folder and a rename, so that a reader never sees a partial file.
+pub fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     let mut temp = path.as_os_str().to_owned();
     temp.push(".tmp");
     std::fs::write(&temp, text)?;

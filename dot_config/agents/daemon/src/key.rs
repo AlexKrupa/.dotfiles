@@ -31,8 +31,8 @@ pub fn worktree_top(repo: &Path) -> Result<PathBuf, String> {
 }
 
 /// The worktree hash keeps the key of an author watch apart from the hub watch of the same repo.
-pub fn author_key(slug: &str, top: &Path) -> Result<String, String> {
-    Ok(format!("{slug}-{}", shasum12(&top.to_string_lossy())?))
+pub fn author_key(slug: &str, top: &Path) -> String {
+    format!("{slug}-{}", shasum12(&top.to_string_lossy()))
 }
 
 pub fn review_key(author: &str, iid: u64) -> String {
@@ -59,8 +59,8 @@ pub fn watch_key(repo: &Path, mode: &KeyMode) -> Result<String, String> {
     let slug = repo_slug(repo)?;
     match mode {
         KeyMode::Hub => Ok(slug),
-        KeyMode::Author => author_key(&slug, &worktree_top(repo)?),
-        KeyMode::Review { iid } => Ok(review_key(&author_key(&slug, &worktree_top(repo)?)?, *iid)),
+        KeyMode::Author => Ok(author_key(&slug, &worktree_top(repo)?)),
+        KeyMode::Review { iid } => Ok(review_key(&author_key(&slug, &worktree_top(repo)?), *iid)),
     }
 }
 

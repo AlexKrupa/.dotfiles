@@ -489,7 +489,7 @@ fn items_not_json() -> &'static Checks {
                 "{} {} {}",
                 run.code,
                 support::daemon::norow(&run.out),
-                w.log_count("no rows")
+                w.log_count("record removed")
             ),
         );
         w.unsubscribe(&["--repo", w.env.repo.to_str().unwrap()]);

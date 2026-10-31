@@ -1,4 +1,3 @@
-use std::io::Write;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -61,25 +60,12 @@ pub fn spawn_detached(program: &Path, args: &[&str], log: &Path) -> std::io::Res
     command.spawn().map(|_| ())
 }
 
-/// Must give the same 12 hex digits of the SHA-1 as the keys of the state files on disk.
-pub fn shasum12(text: &str) -> Result<String, String> {
-    let mut child = Command::new("shasum")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("shasum: {error}"))?;
-    child
-        .stdin
-        .take()
-        .expect("stdin is piped")
-        .write_all(text.as_bytes())
-        .map_err(|error| format!("shasum: {error}"))?;
-    let output = child.wait_with_output().map_err(|error| format!("shasum: {error}"))?;
-    let digest = String::from_utf8_lossy(&output.stdout);
-    match digest.get(..12) {
-        Some(prefix) if output.status.success() => Ok(prefix.to_string()),
-        _ => Err(format!("shasum failed for {text}")),
-    }
+/// Must give the same 12 hex digits of the SHA-1 as `shasum`, the hash of the keys of the state
+/// files on disk.
+pub fn shasum12(text: &str) -> String {
+    let mut digest = sha1_smol::Sha1::from(text).digest().to_string();
+    digest.truncate(12);
+    digest
 }
 
 pub fn now_seconds() -> i64 {

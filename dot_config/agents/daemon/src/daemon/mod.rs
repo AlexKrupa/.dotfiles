@@ -7,11 +7,11 @@ use std::os::fd::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, JoinSet, block_in_place};
 
 use self::store::{Store, first_line};
 use crate::core::items::RoutedEvent;
@@ -63,15 +63,20 @@ fn engine_of(dirs: &StateDirs) -> Box<dyn Engine> {
 }
 
 pub struct Daemon {
-    pub store: Store,
-    /// Each change of the state files and of `Memory` holds this lock.
-    pub memory: Mutex<Memory>,
+    /// Each read and change of the state files holds this lock: `Memory` has the `Store`.
+    memory: Mutex<Memory>,
+    /// The paths of the state files, for the log and the event log reads.
+    pub dirs: StateDirs,
     pub changed: Notify,
     /// A delivery holds it for read from the inbox removal to the end of its send: a restart or a
     /// stop that takes it for write loses no delivery.
     pub delivering: RwLock<()>,
     stopping: AtomicBool,
     stop: Notify,
+    /// The daemon does not exit while a `follow` client is connected.
+    pub followers: AtomicUsize,
+    /// A stop waits for the retry tasks, so that each retry gets its last row.
+    retries: std::sync::Mutex<JoinSet<()>>,
     pub tick: Duration,
     idle_seconds: u64,
     /// An away session ends after this time with no waiter.
@@ -86,16 +91,14 @@ pub struct Daemon {
     pub retry_timeout: Duration,
 }
 
-#[derive(Default)]
 pub struct Memory {
+    pub store: Store,
     /// The slug of each poked key.
     pokes: HashMap<String, String>,
     pub rounds: HashMap<String, u64>,
     fails: HashMap<String, u32>,
     pub last_poll: BTreeMap<String, i64>,
     pub next_round: BTreeMap<String, i64>,
-    /// The daemon does not exit while a `follow` client is connected.
-    pub followers: usize,
     managed: HashMap<PathBuf, ManagedTask>,
     /// The number of the connected waiter of each session.
     pub waiters: HashMap<String, u64>,
@@ -108,15 +111,46 @@ struct ManagedTask {
     slug: String,
 }
 
+impl Memory {
+    fn new(store: Store) -> Memory {
+        Memory {
+            store,
+            pokes: HashMap::new(),
+            rounds: HashMap::new(),
+            fails: HashMap::new(),
+            last_poll: BTreeMap::new(),
+            next_round: BTreeMap::new(),
+            managed: HashMap::new(),
+            waiters: HashMap::new(),
+            next_waiter: 0,
+        }
+    }
+
+    pub fn poke(&mut self, key: &str, slug: &str) {
+        self.pokes.insert(key.to_string(), slug.to_string());
+        for task in self.managed.values().filter(|task| task.slug == slug) {
+            task.wake.notify_one();
+        }
+    }
+
+    pub fn forget(&mut self, key: &str) {
+        self.pokes.remove(key);
+        self.rounds.remove(key);
+        self.fails.remove(key);
+    }
+}
+
 impl Daemon {
     pub fn new(store: Store, engine: Box<dyn Engine>, workspaces: Box<dyn Workspaces>) -> Daemon {
         Daemon {
-            store,
-            memory: Mutex::default(),
+            dirs: store.dirs.clone(),
+            memory: Mutex::new(Memory::new(store)),
             changed: Notify::new(),
             delivering: RwLock::new(()),
             stopping: AtomicBool::new(false),
             stop: Notify::new(),
+            followers: AtomicUsize::new(0),
+            retries: std::sync::Mutex::new(JoinSet::new()),
             tick: env_duration("WATCHD_TICK").unwrap_or(Duration::from_secs(5)),
             idle_seconds: env_seconds("WATCHD_IDLE_SECONDS", 600),
             grace_seconds: env_seconds("WATCHD_GRACE_SECONDS", 1800),
@@ -136,28 +170,18 @@ impl Daemon {
         self.memory.lock().await
     }
 
-    pub fn poke(&self, memory: &mut Memory, key: &str, slug: &str) {
-        memory.pokes.insert(key.to_string(), slug.to_string());
-        for task in memory.managed.values().filter(|task| task.slug == slug) {
-            task.wake.notify_one();
-        }
-    }
-
-    pub fn forget(&self, memory: &mut Memory, key: &str) {
-        memory.pokes.remove(key);
-        memory.rounds.remove(key);
-        memory.fails.remove(key);
+    pub fn log(&self, slug: &str, key: &str, message: &str) {
+        store::log(&self.dirs, slug, key, message);
     }
 
     pub fn ensure_managed(self: &Arc<Self>, memory: &mut Memory, repo: &Path) {
         if self.stopping() || memory.managed.get(repo).is_some_and(|task| !task.handle.is_finished()) {
             return;
         }
-        let slug = match repo_slug(repo) {
+        let slug = match block_in_place(|| repo_slug(repo)) {
             Ok(slug) => slug,
             Err(text) => {
-                self.store
-                    .log("", "", &format!("no managed loop for {}: {text}", repo.display()));
+                self.log("", "", &format!("no managed loop for {}: {text}", repo.display()));
                 return;
             }
         };
@@ -225,40 +249,38 @@ impl Daemon {
                         routed
                     }
                 };
-                self.store.prune_items(&target);
+                memory.store.prune_items(&target);
                 if is_worktree_key(key) {
-                    self.store.write_needs(&target);
+                    memory.store.write_needs(&target);
                 }
-                if self.store.end_mrs(&target, &routed) {
-                    self.forget(&mut memory, key);
+                if memory.store.end_mrs(&target, &routed) {
+                    memory.forget(key);
                 }
             }
             Err(EngineError::Network(text)) => {
-                self.store
-                    .log(slug, key, &format!("network error: {}", first_line(&text)));
+                self.log(slug, key, &format!("network error: {}", first_line(&text)));
                 network = true;
             }
             Err(EngineError::Permanent(text)) => {
-                self.store.log(slug, key, &format!("error: {}", first_line(&text)));
-                if let Some(current) = self.store.sub(key) {
-                    self.store.remove_record(&current, "permanent error", Some(&text));
+                self.log(slug, key, &format!("error: {}", first_line(&text)));
+                if let Some(current) = memory.store.sub(key) {
+                    memory.store.remove_record(&current, "permanent error", Some(&text));
                 }
-                self.forget(&mut memory, key);
+                memory.forget(key);
             }
             Err(EngineError::Other(text)) => {
                 let fails = memory.fails.get(key).copied().unwrap_or(0) + 1;
                 memory.fails.insert(key.to_string(), fails);
-                self.store
-                    .log(slug, key, &format!("error {fails} of 5: {}", first_line(&text)));
+                self.log(slug, key, &format!("error {fails} of 5: {}", first_line(&text)));
                 if fails >= 5 {
-                    if let Some(current) = self.store.sub(key) {
-                        self.store.remove_record(&current, "5 errors in a row", Some(&text));
+                    if let Some(current) = memory.store.sub(key) {
+                        memory.store.remove_record(&current, "5 errors in a row", Some(&text));
                     }
-                    self.forget(&mut memory, key);
+                    memory.forget(key);
                 }
             }
         }
-        if self.store.sub(key).is_some() {
+        if memory.store.sub(key).is_some() {
             let rounds = memory.rounds.get(key).copied().unwrap_or(0) + 1;
             memory.rounds.insert(key.to_string(), rounds);
         }
@@ -274,8 +296,8 @@ impl Daemon {
         target: &Target,
         events: Vec<Event>,
     ) -> (MutexGuard<'a, Memory>, Vec<RoutedEvent>) {
-        let mut routed = self.store.assign(target, events, now_seconds());
-        let recipient = self.store.recipient(target, &routed);
+        let mut routed = memory.store.assign(target, events, now_seconds());
+        let recipient = memory.store.recipient(target, &routed);
         drop(memory);
         let (routing, lines) = match recipient {
             Some((key, events)) if key == target.slug => {
@@ -288,13 +310,15 @@ impl Daemon {
                     ..router::read_facts(&reviews, &events)
                 };
                 let spawn_retry = |retry: Retry| {
-                    tokio::spawn(router::retry::retry(self.clone(), target.clone(), retry));
+                    let mut retries = self.retries.lock().expect("the retry lock is never poisoned");
+                    while retries.try_join_next().is_some() {}
+                    retries.spawn(router::retry::retry(self.clone(), target.clone(), retry));
                 };
                 let ctx = ExecuteContext {
                     repo: &target.repo,
                     key: &target.slug,
                     workspaces: self.workspaces.as_ref(),
-                    store: &self.store,
+                    dirs: &self.dirs,
                     spawn_retry: &spawn_retry,
                 };
                 execute(router::decide(&events, &facts), &events, &ctx).await
@@ -303,8 +327,8 @@ impl Daemon {
         };
         router::narrow(&mut routed, &routing.handled);
         let memory = self.lock().await;
-        self.store.event_log(lines);
-        self.store.deliver(target, &routed, &routing);
+        memory.store.event_log(lines);
+        memory.store.deliver(target, &routed, &routing);
         (memory, routed)
     }
 
@@ -313,22 +337,50 @@ impl Daemon {
     }
 
     async fn live_subs(&self, slug: &str) -> Vec<Agent> {
-        let _memory = self.lock().await;
-        self.store.live_subs(Some(slug))
+        self.lock().await.store.live_subs(Some(slug))
     }
 
     /// Only a worktree with a new key gets a git-spice call and the conflict test: an error of these
     /// calls is in the log one time for each key.
     pub async fn local_round(&self) {
-        let known: HashMap<PathBuf, WorktreeState> = self
-            .store
-            .worktrees()
-            .into_iter()
-            .map(|state| (state.path.clone(), state))
-            .collect();
+        let (known, repos) = {
+            let memory = self.lock().await;
+            let known: HashMap<PathBuf, WorktreeState> = memory
+                .store
+                .worktrees()
+                .into_iter()
+                .map(|state| (state.path.clone(), state))
+                .collect();
+            (known, memory.store.repos())
+        };
+        let (changed, seen) = block_in_place(|| self.scan_worktrees(&known, repos));
+        let gone: Vec<&PathBuf> = known.keys().filter(|path| !seen.contains(*path)).collect();
+        if changed.is_empty() && gone.is_empty() {
+            return;
+        }
+        // The git calls ran with no lock: other writers can have changed the state since then.
+        let memory = self.lock().await;
+        for state in changed {
+            memory
+                .store
+                .update_worktree(&state.path.clone(), |current| current.set_local(state));
+        }
+        for path in gone {
+            memory.store.remove_worktree(path);
+        }
+        drop(memory);
+        self.changed.notify_waiters();
+    }
+
+    /// The git calls of a local round. Returns the new states and the paths of all worktrees.
+    fn scan_worktrees(
+        &self,
+        known: &HashMap<PathBuf, WorktreeState>,
+        repos: Vec<PathBuf>,
+    ) -> (Vec<WorktreeState>, HashSet<PathBuf>) {
         let mut seen = HashSet::new();
         let mut changed = Vec::new();
-        for repo in self.store.repos() {
+        for repo in repos {
             let Ok(worktrees) = list_worktrees(&repo) else {
                 seen.extend(
                     known
@@ -348,8 +400,7 @@ impl Daemon {
                 let branches = match refs.spice {
                     None => Vec::new(),
                     Some(_) => spice_log(&worktree.path).unwrap_or_else(|text| {
-                        self.store
-                            .log("", "", &format!("{}: {}", worktree.path.display(), first_line(&text)));
+                        self.log("", "", &format!("{}: {}", worktree.path.display(), first_line(&text)));
                         Vec::new()
                     }),
                 };
@@ -362,10 +413,7 @@ impl Daemon {
                     for test in conflict_tests(state.branch.as_deref(), &branches, &state.ended_branches) {
                         match conflict(&state.path, default, test.base.as_deref(), &test.tip) {
                             Ok(files) => state.conflict.extend(files),
-                            Err(text) => {
-                                self.store
-                                    .log("", "", &format!("{}: {}", state.path.display(), first_line(&text)))
-                            }
+                            Err(text) => self.log("", "", &format!("{}: {}", state.path.display(), first_line(&text))),
                         }
                     }
                     state.conflict.sort();
@@ -374,26 +422,11 @@ impl Daemon {
                 changed.push(state);
             }
         }
-        let gone: Vec<&PathBuf> = known.keys().filter(|path| !seen.contains(*path)).collect();
-        if changed.is_empty() && gone.is_empty() {
-            return;
-        }
-        // The git calls ran with no lock: other writers can have changed the state since then.
-        let memory = self.lock().await;
-        for state in changed {
-            self.store
-                .update_worktree(&state.path.clone(), |current| current.set_local(state));
-        }
-        for path in gone {
-            self.store.remove_worktree(path);
-        }
-        drop(memory);
-        self.changed.notify_waiters();
+        (changed, seen)
     }
 
     async fn is_managed(&self, repo: &Path) -> bool {
-        let _memory = self.lock().await;
-        self.store.repos().iter().any(|known| known == repo)
+        self.lock().await.store.repos().iter().any(|known| known == repo)
     }
 
     fn managed_interval(&self, agents: &[Agent]) -> Duration {
@@ -418,25 +451,29 @@ impl Daemon {
     /// One open item while the fast-forward is blocked: an unchanged reason sends no new event.
     async fn pull(self: &Arc<Self>, slug: &str, repo: &Path, default: &str) {
         let (main, branch) = (repo.to_path_buf(), default.to_string());
-        let result = tokio::task::spawn_blocking(move || fast_forward(&main, &branch))
-            .await
-            .unwrap_or(Ok(false));
+        let result = match tokio::task::spawn_blocking(move || fast_forward(&main, &branch)).await {
+            Ok(result) => result,
+            Err(error) => {
+                self.log(slug, "", &format!("fast-forward of {default}: {error}"));
+                return;
+            }
+        };
         let item = format!("pull:{default}");
         let memory = self.lock().await;
         match result {
             Ok(moved) => {
                 if moved {
-                    self.store.log(slug, "", &format!("fast-forward: {default}"));
+                    self.log(slug, "", &format!("fast-forward: {default}"));
                 }
-                self.store.close_item(slug, &item);
+                memory.store.close_item(slug, &item);
             }
             Err(blocked) => {
                 let text = blocked.text(default);
-                let open = self.store.open_item(slug, &item).and_then(|open| open.event);
+                let open = memory.store.open_item(slug, &item).and_then(|open| open.event);
                 if open.is_some_and(|event| event.detail == text) {
                     return;
                 }
-                self.store.log(slug, "", &format!("pull blocked: {text}"));
+                self.log(slug, "", &format!("pull blocked: {text}"));
                 let event = Event {
                     item: Some(item),
                     ..Event::new(EventKind::PullBlocked, None, None, "", "", &text, default)
@@ -460,63 +497,63 @@ impl Daemon {
 
     /// The targets of one round, and the review MRs that the hub check skips.
     async fn round_targets(&self, repo: &Path, slug: &str) -> (Vec<Target>, Vec<u64>) {
-        let _memory = self.lock().await;
-        let worktrees: Vec<WorktreeState> = self
+        let memory = self.lock().await;
+        let worktrees: Vec<WorktreeState> = memory
             .store
             .worktrees()
             .into_iter()
             .filter(|state| state.repo == repo)
             .collect();
-        let own: Vec<OwnMr> = self
+        let own: Vec<OwnMr> = memory
             .store
             .engine_value(slug)
             .and_then(|engine| serde_json::from_value(engine["own_mrs"].clone()).ok())
             .unwrap_or_default();
-        let agents = self.store.live_subs(Some(slug));
-        let all_reviews = self.store.reviews();
+        let agents = memory.store.live_subs(Some(slug));
+        let all_reviews = memory.store.reviews();
         let (kept, gone): (Vec<ReviewLink>, Vec<ReviewLink>) =
             all_reviews.into_iter().partition(|link| link.worktree.is_dir());
         if !gone.is_empty() {
-            self.store.write_reviews(kept.clone());
+            memory.store.write_reviews(kept.clone());
         }
         let reviews: Vec<ReviewLink> = kept
             .into_iter()
             .filter(|link| worktrees.iter().any(|state| state.path == link.worktree))
             .collect();
-        let key_of = |path: &Path| author_key(slug, path).unwrap_or_default();
+        let key_of = |path: &Path| author_key(slug, path);
         let targets = targets(repo, slug, &worktrees, &own, &reviews, &agents, &key_of);
         let mut skip = Vec::new();
         for target in targets.iter().filter(|target| target.mode == Mode::Review) {
             skip.extend(&target.mrs);
-            if self.store.live_agent(&target.key) {
-                self.store.move_items(slug, &target.key, target.mrs.first().copied());
+            if memory.store.live_agent(&target.key) {
+                memory.store.move_items(slug, &target.key, target.mrs.first().copied());
             }
         }
-        self.store.prune_needs(repo, &targets);
+        memory.store.prune_needs(repo, &targets);
         (targets, skip)
     }
 
     async fn lookups(&self, repo: &Path, slug: &str, default: Option<&str>) {
         let (states, reviews) = {
-            let _memory = self.lock().await;
-            let states: Vec<WorktreeState> = self
+            let memory = self.lock().await;
+            let states: Vec<WorktreeState> = memory
                 .store
                 .worktrees()
                 .into_iter()
                 .filter(|state| state.repo == repo)
                 .collect();
-            (states, self.store.reviews())
+            (states, memory.store.reviews())
         };
         for state in &states {
             let Some(branch) = lookup_branch(state, default, &reviews) else {
                 continue;
             };
             let result = self.engine.lookup(state.path.clone(), branch.to_string()).await;
-            let _memory = self.lock().await;
+            let memory = self.lock().await;
             let iid = match result {
                 Ok(iid) => iid,
                 Err(error) => {
-                    self.store.log(
+                    self.log(
                         slug,
                         "",
                         &format!("lookup of {branch}: {}", first_line(error.message())),
@@ -524,17 +561,12 @@ impl Daemon {
                     continue;
                 }
             };
-            let current = self
-                .store
-                .worktrees()
-                .into_iter()
-                .find(|known| known.path == state.path);
-            if let Some(mut current) = current {
+            if let Some(mut current) = memory.store.worktree(&state.path) {
                 current.lookup_branch = Some(branch.to_string());
-                self.store.write_worktree(&current);
+                memory.store.write_worktree(&current);
             }
             if let Some(iid) = iid {
-                self.store.add_review(ReviewLink {
+                memory.store.add_review(ReviewLink {
                     worktree: state.path.clone(),
                     iid,
                 });
@@ -554,7 +586,10 @@ impl Daemon {
         }
         let mut network = false;
         while let Some(result) = checks.join_next().await {
-            network |= result.unwrap_or(false);
+            match result {
+                Ok(failed) => network |= failed,
+                Err(error) => self.log(slug, "", &format!("check task: {error}")),
+            }
         }
         let _ = std::fs::remove_dir_all(&round);
         let mut memory = self.lock().await;
@@ -563,17 +598,14 @@ impl Daemon {
             .pokes
             .retain(|key, poked| poked != slug || targets.iter().any(|target| target.key == *key));
         memory.last_poll.insert(slug.to_string(), now_seconds());
-        self.store
-            .log(slug, "", &format!("round done: {} target(s)", targets.len()));
+        self.log(slug, "", &format!("round done: {} target(s)", targets.len()));
         network
     }
 }
 
 async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Arc<Notify>) {
-    daemon
-        .store
-        .log(&slug, "", &format!("managed loop start: {}", repo.display()));
-    let host = remote_url(&repo)
+    daemon.log(&slug, "", &format!("managed loop start: {}", repo.display()));
+    let host = block_in_place(|| remote_url(&repo))
         .as_deref()
         .and_then(split_remote)
         .map(|(host, _)| host.to_string());
@@ -582,32 +614,26 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Ar
         if daemon.stopping() || !daemon.is_managed(&repo).await {
             break;
         }
-        let default = shared_refs(&repo).default_branch;
+        let default = block_in_place(|| shared_refs(&repo)).default_branch;
         match default.clone() {
             None if no_default_logged => {}
             None => {
-                daemon.store.log(&slug, "", "no default branch: origin/HEAD is not set");
+                daemon.log(&slug, "", "no default branch: origin/HEAD is not set");
                 no_default_logged = true;
             }
             Some(default) => {
                 no_default_logged = false;
-                let (folder, branch) = (repo.clone(), default.clone());
-                let fetched = tokio::task::spawn_blocking(move || fetch(&folder, &branch, FETCH_TIMEOUT))
-                    .await
-                    .unwrap_or_else(|error| Err(FetchError::Other(error.to_string())));
-                match fetched {
+                match fetch(&repo, &default, FETCH_TIMEOUT).await {
                     Ok(()) => daemon.pull(&slug, &repo, &default).await,
                     Err(FetchError::Network(text)) if !online(host.as_deref()).await => {
-                        daemon
-                            .store
-                            .log(&slug, "", &format!("network down: {}", first_line(&text)));
+                        daemon.log(&slug, "", &format!("network down: {}", first_line(&text)));
                         match daemon.wait_network(&repo, host.as_deref()).await {
                             true => continue,
                             false => break,
                         }
                     }
                     Err(FetchError::Network(text) | FetchError::Other(text)) => {
-                        daemon.store.log(&slug, "", first_line(&text));
+                        daemon.log(&slug, "", first_line(&text));
                     }
                 }
             }
@@ -663,22 +689,24 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Ar
     let mut memory = daemon.lock().await;
     memory.last_poll.remove(&slug);
     memory.next_round.remove(&slug);
-    daemon
-        .store
-        .log(&slug, "", &format!("managed loop stop: {}", repo.display()));
+    daemon.log(&slug, "", &format!("managed loop stop: {}", repo.display()));
 }
 
 fn inode(path: &std::path::Path) -> Option<u64> {
     std::fs::metadata(path).ok().map(|meta| meta.ino())
 }
 
+/// Returns `None` if the descriptor is not open.
 fn inherited_fd(name: &str) -> Option<RawFd> {
     let fd = std::env::var(name).ok()?.parse().ok()?;
-    // SAFETY: the daemon removes the variable before it starts a child.
+    // SAFETY: no other thread reads or writes the environment: the runtime runs no task but this
+    // one yet.
     unsafe { std::env::remove_var(name) };
-    // SAFETY: fcntl on an open descriptor.
-    unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) };
-    Some(fd)
+    // SAFETY: fcntl reads no memory, and it fails on a descriptor that is not open.
+    match unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) } {
+        -1 => None,
+        _ => Some(fd),
+    }
 }
 
 /// A `flock` goes away with the process, also after `kill -9`.
@@ -710,9 +738,12 @@ fn listen(dirs: &StateDirs) -> std::io::Result<std::os::unix::net::UnixListener>
     std::os::unix::net::UnixListener::bind(dirs.socket())
 }
 
-fn keep_open(fd: RawFd) {
-    // SAFETY: fcntl on an open descriptor.
-    unsafe { libc::fcntl(fd, libc::F_SETFD, 0) };
+fn keep_open(fd: RawFd) -> std::io::Result<()> {
+    // SAFETY: fcntl reads no memory, and it fails on a descriptor that is not open.
+    match unsafe { libc::fcntl(fd, libc::F_SETFD, 0) } {
+        -1 => Err(std::io::Error::last_os_error()),
+        _ => Ok(()),
+    }
 }
 
 enum End {
@@ -757,22 +788,24 @@ pub async fn main() -> i32 {
     for task in tasks {
         let _ = task.await;
     }
+    let mut retries = std::mem::take(&mut *daemon.retries.lock().expect("the retry lock is never poisoned"));
+    while retries.join_next().await.is_some() {}
     let _deliveries = daemon.delivering.write().await;
     match end {
         End::Restart => {
             let _memory = daemon.lock().await;
-            keep_open(lock.as_raw_fd());
-            keep_open(socket_fd);
             let exe = std::env::current_exe().unwrap_or_default();
+            if let Err(error) = keep_open(lock.as_raw_fd()).and_then(|()| keep_open(socket_fd)) {
+                daemon.log("", "", &format!("restart failed: {error}"));
+                return 1;
+            }
             let error = std::os::unix::process::CommandExt::exec(
                 std::process::Command::new(&exe)
                     .arg("daemon")
                     .env(LOCK_FD, lock.as_raw_fd().to_string())
                     .env(SOCKET_FD, socket_fd.to_string()),
             );
-            daemon
-                .store
-                .log("", "", &format!("restart failed: {}: {error}", exe.display()));
+            daemon.log("", "", &format!("restart failed: {}: {error}", exe.display()));
             1
         }
         End::Stop => {
@@ -781,7 +814,7 @@ pub async fn main() -> i32 {
             if pid_file.trim() == pid.to_string() {
                 let _ = std::fs::remove_file(dirs.pid());
             }
-            daemon.store.log("", "", &format!("daemon stop {pid}"));
+            daemon.log("", "", &format!("daemon stop {pid}"));
             0
         }
     }
@@ -791,7 +824,7 @@ async fn run(daemon: &Arc<Daemon>) -> End {
     use tokio::signal::unix::{SignalKind, signal};
     let (Ok(mut terminate), Ok(mut interrupt)) = (signal(SignalKind::terminate()), signal(SignalKind::interrupt()))
     else {
-        daemon.store.log("", "", "no signal handlers");
+        daemon.log("", "", "no signal handlers");
         return End::Stop;
     };
     let exe = std::env::current_exe().unwrap_or_default();
@@ -800,11 +833,11 @@ async fn run(daemon: &Arc<Daemon>) -> End {
     let mut idle_since = now_seconds();
     let mut pruned_at = 0;
     {
-        let _memory = daemon.lock().await;
-        daemon.store.end_old_records();
-        for sub in daemon.store.subs() {
-            if let Some(repo) = repo_of(&sub.repo) {
-                daemon.store.add_repo(&repo);
+        let memory = daemon.lock().await;
+        memory.store.end_old_records();
+        for sub in memory.store.subs() {
+            if let Some(repo) = block_in_place(|| repo_of(&sub.repo)) {
+                memory.store.add_repo(&repo);
             }
         }
     }
@@ -813,38 +846,39 @@ async fn run(daemon: &Arc<Daemon>) -> End {
         // complete update.
         let current = inode(&exe);
         if current.is_some() && current != start && current == seen {
-            daemon.store.log("", "", "restart: waiting for the repo loops");
+            daemon.log("", "", "restart: waiting for the repo loops");
             return End::Restart;
         }
         seen = current;
         let now = now_seconds();
         let mut memory = daemon.lock().await;
         if now - pruned_at >= 3600 {
-            daemon.store.prune(now);
+            memory.store.prune(now);
             pruned_at = now;
         }
-        let ended = daemon.store.end_sessions(now, daemon.grace_seconds as i64);
-        for key in ended.iter().chain(&daemon.store.end_gone_worktrees()) {
-            daemon.forget(&mut memory, key);
+        let mut ended = memory.store.end_sessions(now, daemon.grace_seconds as i64);
+        ended.extend(memory.store.end_gone_worktrees());
+        for key in &ended {
+            memory.forget(key);
         }
-        daemon.store.sweep();
-        for repo in daemon.store.drop_gone_repos() {
-            daemon.store.log("", "", &format!("repo gone: {}", repo.display()));
+        memory.store.sweep();
+        for repo in memory.store.drop_gone_repos() {
+            daemon.log("", "", &format!("repo gone: {}", repo.display()));
         }
-        if !daemon.store.live_subs(None).is_empty() || memory.followers > 0 {
+        if !memory.store.live_subs(None).is_empty() || daemon.followers.load(Ordering::SeqCst) > 0 {
             idle_since = now;
         } else if now - idle_since >= daemon.idle_seconds as i64 {
-            daemon.store.log("", "", "idle stop");
+            daemon.log("", "", "idle stop");
             return End::Stop;
         }
-        for repo in daemon.store.repos() {
+        for repo in memory.store.repos() {
             daemon.ensure_managed(&mut memory, &repo);
         }
         drop(memory);
         daemon.local_round().await;
         // The tests count rounds to know that an action had its effect.
         #[cfg(feature = "test-support")]
-        daemon.store.log("", "", "local round end");
+        daemon.log("", "", "local round end");
         daemon.changed.notify_waiters();
         tokio::select! {
             _ = tokio::time::sleep(daemon.tick) => {}
@@ -861,7 +895,7 @@ mod tests {
     #[test]
     fn inherited_fd_closes_on_the_next_exec() {
         let file = std::fs::File::open("/dev/null").unwrap();
-        keep_open(file.as_raw_fd());
+        keep_open(file.as_raw_fd()).unwrap();
         // SAFETY: no other test reads this variable.
         unsafe { std::env::set_var("WATCHD_TEST_INHERITED_FD", file.as_raw_fd().to_string()) };
 

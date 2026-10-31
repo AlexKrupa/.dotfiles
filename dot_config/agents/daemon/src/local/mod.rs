@@ -1,10 +1,8 @@
 //! The local git state of the managed repos: thin `git` and `git-spice` calls and pure parsers.
 
-use std::io::Read;
-use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::core::worktrees::{SpiceBranch, current_stack, parse_spice_log};
 use crate::nap::is_network_error;
@@ -130,8 +128,8 @@ pub const FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// No prompt for credentials: the daemon has no terminal. At the timeout, the fetch and its child
 /// processes stop.
-pub fn fetch(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchError> {
-    let mut child = Command::new("git")
+pub async fn fetch(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchError> {
+    let child = tokio::process::Command::new("git")
         .arg("-C")
         .arg(repo)
         .args(["fetch", "-q", "origin", branch])
@@ -140,30 +138,25 @@ pub fn fetch(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchEr
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .process_group(0)
+        .kill_on_drop(true)
         .spawn()
         .map_err(|error| FetchError::Other(format!("git fetch: {error}")))?;
-    let deadline = Instant::now() + timeout;
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(100)),
-            Ok(None) => {
-                unsafe { libc::kill(-(child.id() as i32), libc::SIGKILL) };
-                let _ = child.wait();
-                return Err(FetchError::Network(format!(
-                    "git fetch: timed out after {} s",
-                    timeout.as_secs()
-                )));
+    let group = child.id().and_then(|pid| libc::pid_t::try_from(pid).ok());
+    let output = match tokio::time::timeout(timeout, child.wait_with_output()).await {
+        Ok(output) => output.map_err(|error| FetchError::Other(format!("git fetch: {error}")))?,
+        Err(_) => {
+            if let Some(group) = group {
+                // SAFETY: kill with a negative PID sends the signal to the process group of the fetch.
+                unsafe { libc::kill(-group, libc::SIGKILL) };
             }
-            Err(error) => return Err(FetchError::Other(format!("git fetch: {error}"))),
+            return Err(FetchError::Network(format!(
+                "git fetch: timed out after {} s",
+                timeout.as_secs()
+            )));
         }
     };
-    let mut stderr = String::new();
-    if let Some(mut pipe) = child.stderr.take() {
-        let _ = pipe.read_to_string(&mut stderr);
-    }
-    let text = stderr.trim_end().replace('\n', " ");
-    match (status.success(), is_network_error(&text)) {
+    let text = String::from_utf8_lossy(&output.stderr).trim_end().replace('\n', " ");
+    match (output.status.success(), is_network_error(&text)) {
         (true, _) => Ok(()),
         (false, true) => Err(FetchError::Network(format!("git fetch: {text}"))),
         (false, false) => Err(FetchError::Other(format!("git fetch: {text}"))),
@@ -324,6 +317,14 @@ mod tests {
         (pusher, dir.join("clone"))
     }
 
+    fn fetch_now(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchError> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(fetch(repo, branch, timeout))
+    }
+
     fn push(pusher: &Path, file: &str) {
         std::fs::write(pusher.join(file), "pushed\n").unwrap();
         git(pusher, &["add", file]);
@@ -336,7 +337,7 @@ mod tests {
         let (pusher, clone) = origin_and_clones("ff");
         push(&pusher, "g");
 
-        fetch(&clone, "main", FETCH_TIMEOUT).unwrap();
+        fetch_now(&clone, "main", FETCH_TIMEOUT).unwrap();
 
         assert_eq!(fast_forward(&clone, "main"), Ok(true));
         assert_eq!(
@@ -351,7 +352,7 @@ mod tests {
         let (pusher, clone) = origin_and_clones("ff-branch");
         git(&clone, &["switch", "-q", "-c", "other"]);
         push(&pusher, "g");
-        fetch(&clone, "main", FETCH_TIMEOUT).unwrap();
+        fetch_now(&clone, "main", FETCH_TIMEOUT).unwrap();
 
         let blocked = fast_forward(&clone, "main").unwrap_err();
 
@@ -363,7 +364,7 @@ mod tests {
         let (pusher, clone) = origin_and_clones("ff-changes");
         std::fs::write(clone.join("f"), "local\n").unwrap();
         push(&pusher, "g");
-        fetch(&clone, "main", FETCH_TIMEOUT).unwrap();
+        fetch_now(&clone, "main", FETCH_TIMEOUT).unwrap();
 
         let blocked = fast_forward(&clone, "main").unwrap_err();
 
@@ -377,7 +378,7 @@ mod tests {
         git(&clone, &["add", "h"]);
         git(&clone, &["commit", "-q", "-m", "local"]);
         push(&pusher, "g");
-        fetch(&clone, "main", FETCH_TIMEOUT).unwrap();
+        fetch_now(&clone, "main", FETCH_TIMEOUT).unwrap();
 
         let blocked = fast_forward(&clone, "main").unwrap_err();
 
@@ -397,7 +398,7 @@ mod tests {
         std::fs::write(pusher.join("f"), "main\n").unwrap();
         git(&pusher, &["commit", "-q", "-am", "main"]);
         git(&pusher, &["push", "-q", "origin", "main"]);
-        fetch(&clone, "main", FETCH_TIMEOUT).unwrap();
+        fetch_now(&clone, "main", FETCH_TIMEOUT).unwrap();
 
         assert_eq!(conflict(&clone, "main", None, "b"), Ok(vec!["f".to_string()]));
         assert_eq!(conflict(&clone, "main", None, "c"), Ok(Vec::new()));
@@ -421,7 +422,7 @@ mod tests {
         commit_f(&pusher, "A\n2\n3\n4\n5\n");
         commit_f(&pusher, "A\nB\n3\n4\n5\n");
         git(&pusher, &["push", "-q", "origin", "main"]);
-        fetch(&clone, "main", FETCH_TIMEOUT).unwrap();
+        fetch_now(&clone, "main", FETCH_TIMEOUT).unwrap();
 
         assert_eq!(conflict(&clone, "main", None, "upper"), Ok(vec!["f".to_string()]));
         assert_eq!(conflict(&clone, "main", Some("lower"), "upper"), Ok(Vec::new()));
@@ -435,7 +436,7 @@ mod tests {
             &["remote", "set-url", "origin", "https://unreachable.invalid/x.git"],
         );
 
-        let result = fetch(&clone, "main", FETCH_TIMEOUT);
+        let result = fetch_now(&clone, "main", FETCH_TIMEOUT);
 
         assert!(matches!(result, Err(FetchError::Network(_))), "{result:?}");
     }
@@ -449,7 +450,7 @@ mod tests {
         git(&clone, &["config", "remote.origin.uploadpack", hang.to_str().unwrap()]);
         let start = std::time::Instant::now();
 
-        let result = fetch(&clone, "main", Duration::from_secs(1));
+        let result = fetch_now(&clone, "main", Duration::from_secs(1));
 
         assert!(start.elapsed() < Duration::from_secs(5), "{:?}", start.elapsed());
         assert!(
