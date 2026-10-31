@@ -71,6 +71,8 @@ pub struct HubInput {
     /// Only the MRs with a changed `updated_at` have notes.
     pub notes: Vec<(u64, Vec<RestNote>)>,
     pub reactions: Vec<NoteReactions>,
+    /// The reactions to the open notes of the last check.
+    pub open_reactions: Vec<NoteReactions>,
     /// The newest finished pipeline of the default branch.
     pub default: Option<RestPipeline>,
     /// The open MRs of the user.
@@ -218,22 +220,39 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         .filter(|(iid, _)| others.contains(iid))
         .filter_map(|(iid, id)| Some((iid, id?)))
         .collect();
-    let emoji_calls: Vec<Task<_>> = own_notes
+    let open_notes: Vec<(u64, u64)> = old
         .iter()
-        .map(|(iid, id)| {
-            let call = ctx.call(&[&format!(
-                "projects/{pid}/merge_requests/{iid}/notes/{id}/award_emoji?per_page=100"
-            )]);
-            Box::pin(api_pages::<GqlEmoji>(call)) as Task<_>
-        })
+        .flat_map(|old| &old.mrs)
+        .filter_map(|(iid, mr)| Some((iid.parse().ok()?, mr)))
+        .filter(|(iid, _)| others.contains(iid))
+        .flat_map(|(iid, mr)| mr.open_notes.iter().map(move |id| (iid, *id)))
         .collect();
-    let (notes, emoji) = tokio::join!(glab::parallel(notes_calls), glab::parallel(emoji_calls));
+    let emoji_calls = |notes: &[(u64, u64)]| -> Vec<Task<_>> {
+        notes
+            .iter()
+            .map(|(iid, id)| {
+                let call = ctx.call(&[&format!(
+                    "projects/{pid}/merge_requests/{iid}/notes/{id}/award_emoji?per_page=100"
+                )]);
+                Box::pin(api_pages::<GqlEmoji>(call)) as Task<_>
+            })
+            .collect()
+    };
+    let (notes, emoji, open_emoji) = tokio::join!(
+        glab::parallel(notes_calls),
+        glab::parallel(emoji_calls(&own_notes)),
+        glab::parallel(emoji_calls(&open_notes))
+    );
     let notes = changed.into_iter().zip(all_ok(notes)?).collect();
-    let reactions = own_notes
-        .into_iter()
-        .zip(all_ok(emoji)?)
-        .map(|((iid, id), emoji)| NoteReactions { iid, id, emoji })
-        .collect();
+    let note_reactions = |notes: Vec<(u64, u64)>, emoji| -> Result<Vec<NoteReactions>, EngineError> {
+        Ok(notes
+            .into_iter()
+            .zip(all_ok(emoji)?)
+            .map(|((iid, id), emoji)| NoteReactions { iid, id, emoji })
+            .collect())
+    };
+    let reactions = note_reactions(own_notes, emoji)?;
+    let open_reactions = note_reactions(open_notes, open_emoji)?;
     let input = HubInput {
         me,
         default_branch: project.default_branch,
@@ -242,6 +261,7 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         watched,
         notes,
         reactions,
+        open_reactions,
         default: default?.into_iter().next(),
         own,
     };
@@ -315,7 +335,17 @@ pub fn hub_compare(input: &HubInput, old: Option<&HubState>, reviewed: &[u64]) -
             .collect();
         open_notes.sort_unstable();
         open_notes.dedup();
-        open_notes.retain(|id| *id > own && !fetched.iter().any(|note| note.id == *id && note.resolved == Some(true)));
+        let reacted = |id: &u64| {
+            input
+                .open_reactions
+                .iter()
+                .filter(|note| note.iid == mr.iid && note.id == *id)
+                .flat_map(|note| &note.emoji)
+                .any(|emoji| emoji.user.username == me)
+        };
+        open_notes.retain(|id| {
+            *id > own && !reacted(id) && !fetched.iter().any(|note| note.id == *id && note.resolved == Some(true))
+        });
         let state = HubMrState {
             updated_at: mr.updated_at.clone(),
             last_note_id: fetched
@@ -567,6 +597,36 @@ mod tests {
                 (EventKind::Opened, None, Some("renovate-bot".to_string()))
             ]
         );
+    }
+
+    #[test]
+    fn hub_own_reaction_closes_the_open_note() {
+        let old: HubState = serde_json::from_value(json!({"todos": [], "opened": [],
+            "mrs": {"9": {"updated_at": "t1", "last_note_id": 302, "last_own_note_id": 0,
+                          "open_notes": [301, 302], "reactions": []}}}))
+        .unwrap();
+        let mut input = input(json!([]));
+        let mr = json!({"iid": 9, "title": "Fix bar", "state": "opened", "updated_at": "t1",
+                        "source_branch": "ABC-2/bar", "web_url": format!("{URL}/9"),
+                        "author": {"username": "bob"}});
+        input.watched = serde_json::from_value(json!([mr])).unwrap();
+        input.open_reactions = vec![
+            NoteReactions {
+                iid: 9,
+                id: 301,
+                emoji: serde_json::from_value(json!([{"name": "thumbsup", "user": {"username": "me"}}])).unwrap(),
+            },
+            NoteReactions {
+                iid: 9,
+                id: 302,
+                emoji: serde_json::from_value(json!([{"name": "eyes", "user": {"username": "anna"}}])).unwrap(),
+            },
+        ];
+
+        let (state, events) = hub_compare(&input, Some(&old), &[]);
+
+        assert!(events.is_empty());
+        assert_eq!(state.present, vec!["note:302"]);
     }
 
     #[test]

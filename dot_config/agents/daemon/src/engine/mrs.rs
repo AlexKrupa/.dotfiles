@@ -590,6 +590,16 @@ pub fn normalize(data: &MrData, me: &str, review: bool) -> NormMr {
             .filter(|(discussion, _)| open(discussion))
             .filter_map(|(discussion, notes)| {
                 let last = notes.last().filter(|last| last.author != me)?;
+                let reacted = discussion
+                    .notes
+                    .nodes
+                    .iter()
+                    .filter(|note| num(&note.id) == last.id)
+                    .flat_map(|note| &note.award_emoji.nodes)
+                    .any(|emoji| emoji.user.username == me);
+                if reacted {
+                    return None;
+                }
                 match !review || notes.iter().any(|note| note.author == me) {
                     true => Some(Unaddressed {
                         last: last.clone(),
@@ -1037,6 +1047,21 @@ mod tests {
         let (_, events) = compare(&approved, Some(&old), false);
         let kinds: Vec<_> = events.iter().map(|event| event.kind).collect();
         assert_eq!(kinds, vec![EventKind::Approved, EventKind::Unaddressed]);
+    }
+
+    #[test]
+    fn own_reaction_to_the_last_comment_addresses_the_thread_until_a_new_comment() {
+        let mut first = note(1, "anna", "Nit", Value::Null);
+        first["awardEmoji"]["nodes"] = json!([{"name": "thumbsup", "user": {"username": "me"}}]);
+        let reacted = mr(|m| m["discussions"]["nodes"] = json!([thread("d1", None, vec![first.clone()])]));
+        let (old, _) = compare(&reacted, None, false);
+        assert!(old.present.is_empty());
+        assert!(old.needs.is_empty());
+
+        let second = note(2, "anna", "Also this", Value::Null);
+        let replied = mr(|m| m["discussions"]["nodes"] = json!([thread("d1", None, vec![first, second])]));
+        let (state, _) = compare(&replied, Some(&old), false);
+        assert_eq!(state.present, vec!["thread:d1"]);
     }
 
     #[test]

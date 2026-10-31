@@ -41,7 +41,8 @@
 //!   mergeable                the MR became mergeable
 //!   merged, closed           the MR was merged or closed                none (the user: own true)
 //!   unaddressed              after the other events: each open thread   a thread that the user
-//!                            whose last comment is not of the user      answered last
+//!                            whose last comment is not of the user and  answered last
+//!                            has no reaction of the user
 //! Review mode only:
 //!   pushed                   the head changed (old_base, old_head, new_base, new_head)
 //!   resolved                 a different user resolved a thread that the user started
@@ -55,8 +56,9 @@
 //!   item                     event                        present while
 //!   todo:<to-do id>          todo                         the to-do item is pending
 //!   note:<note id>           note                         the MR is open, the note is not
-//!                                                         resolved, and the user has no later
-//!                                                         note on the MR (at the last notes fetch)
+//!                                                         resolved, the user has no reaction on
+//!                                                         it, and the user has no later note on
+//!                                                         the MR (at the last notes fetch)
 //!   main-failed:<branch>     default-failed               the newest default-branch pipeline
 //!                                                         failed
 //!   thread:<discussion id>   comment (only if the thread  the open MR has the thread in
