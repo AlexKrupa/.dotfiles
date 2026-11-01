@@ -173,8 +173,7 @@ from a design spec that the user approved.
   it.
 - W5.19 (spec) Each delivery has one `unaddressed` line for each open thread whose last comment is
   not from the user, and these lines alone never wake the agent.
-- W5.20 (spec) Each `unaddressed` event has `mine: true` or `mine: false`, for a thread with or
-  without a comment of the user.
+- W5.20 (spec) Each `unaddressed` event tells if the thread has a comment of the user.
 - W5.21 The hub check reports new MRs, to-do items, comments in MRs of other people where the user
   commented, and failed pipelines of the default branch.
 - W5.22 The watch does not report a passed default-branch pipeline, also not the first pass after a
@@ -205,7 +204,8 @@ from a design spec that the user approved.
   `local`.
 - W6.11 An author watch gets a `pushed` event for a push that did not come from the agent.
 - W6.12 A bump watch gets a `pushed` event when a different person pushes to the branch.
-- W6.13 A review or bump watch gets all MR kinds, and it gets `unaddressed` only with `mine`.
+- W6.13 A review or bump watch gets all MR kinds, and it gets `unaddressed` only for threads with a
+  comment of the user.
 - W6.14 `watchd watch --events <kinds>` can only remove kinds from the list of the mode.
 - W6.15 `--events` with a kind outside the mode list exits 1 with an error that names the mode and
   its kinds.
@@ -322,8 +322,8 @@ from a design spec that the user approved.
   count of sleep time and network outages.
 - W8.35 (spec) The retry count of each job is in the hub state, so the limit of 2 retries holds
   across a daemon restart.
-- W8.36 A retry that runs during a daemon stop or restart is not lost, and its result still shows in
-  a row.
+- W8.36 A retry that runs during a daemon stop or restart is not dropped silently: the stop waits
+  for it and writes a row.
 - W8.37 Each retry result is one short row in the Agent section: passed after retry, retried 2 of 2,
   failed 3 times and stopped, or canceled or skipped after retry.
 - W8.38 When a job fails for a reason other than the runner, the hub model does the triage and
@@ -645,8 +645,8 @@ from a design spec that the user approved.
   start through `/work`.
 - W19.6 A worktree with no kind gets its kind from the mode of its watch, with no extra GitLab call.
 - W19.7 A review worktree never shows the `mine` kind.
-- W19.8 Own work, review, and bump use one stage model: `started` while the agent works before its
-  watch, `watching` while a watch runs, and then `done` or `stopped`.
+- W19.8 Own work, review, and bump use one stage model: `watching` while a watch runs, and then
+  `done` or `stopped`.
 - W19.9 The `started` stage shows from the agent start until the watch starts, for all kinds except
   `mine` and `hub`.
 - W19.10 (spec) A space never looks like `watching` while no watch runs, and the sidebar shows no
@@ -665,9 +665,10 @@ from a design spec that the user approved.
   and the agents panel lists all present values.
 - W19.19 (spec) An author worktree has the needs `failed`, `conflict`, `reply`, `requested_changes`,
   `ready`, and `draft`, in this order.
-- W19.20 A review or bump worktree has the needs `reply_mine` and `commits`, in this order.
-- W19.21 (spec) `reply` shows while an open thread waits for the user, and `reply_mine` while a
-  thread with a comment of the user waits.
+- W19.20 A review or bump worktree has two needs, in this order: a reply waits in a thread with a
+  comment of the user, and new commits wait.
+- W19.21 (spec) `reply` shows while an open thread waits for the user, and a separate need shows
+  while a thread with a comment of the user waits.
 - W19.22 (spec) `failed` shows while the head pipeline failed, and `conflict` while the merge status
   is `conflict` or `need_rebase`.
 - W19.23 A local conflict with the default branch shows the same `conflict` glyph as an MR conflict,
