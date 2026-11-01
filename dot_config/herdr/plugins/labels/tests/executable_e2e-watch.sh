@@ -66,13 +66,21 @@ echo '{"review": "R", "started": "s", "watching": "w", "stopped": "x", "done": "
   >"$tmp/glyphs.json"
 echo '{"notify_opened": []}' >"$tmp/watch-config/config.json"
 
-# client <session pid> <watchd argument>...: a watchd client of an agent session in the workspace.
+# client <watchd argument>...: a watchd client in the workspace. The first client starts the
+# daemon, with a grace period of 1 second after the end of a session.
 client() {
-  local session=$1
-  shift
   (cd "$tmp/app" && env -u HERDR_SOCKET_PATH PATH="$tmp/bin:$PATH" XDG_STATE_HOME="$tmp/state" \
-    WATCHD_FAKE_ENGINE="$tmp/events" WATCHD_TICK=1 WATCH_CLIENT_TICK=1 \
-    WATCH_SESSION_PID="$session" HERDR_WORKSPACE_ID="$workspace" "$watchd" "$@")
+    WATCHD_FAKE_ENGINE="$tmp/events" WATCHD_TICK=1 WATCH_CLIENT_TICK=1 WATCHD_GRACE_SECONDS=1 \
+    HERDR_WORKSPACE_ID="$workspace" "$watchd" "$@")
+}
+
+# session <id>: a watch of session <id> and its waiter. The owner is a background job, and the
+# end of that job ends the session.
+session() {
+  start sleep 600
+  owner=${jobs_started[-1]}
+  client watch --session "$1" --review --mr 5 --interval 600
+  start client wait --session "$1" --owner-pid "$owner"
 }
 
 # start <command>...: a background job that the cleanup stops.
@@ -108,19 +116,17 @@ workspace=$(HERDR_SOCKET_PATH=$socket herdr workspace create --cwd "$tmp/app" \
   | jq -r .result.root_pane.workspace_id)
 
 # The first client starts the daemon with the fake engine, before the watch plugin can.
-start sleep 600
-session=${jobs_started[-1]}
-client "$session" kind review
+client kind review
 
 start env HERDR_SOCKET_PATH="$socket" XDG_STATE_HOME="$tmp/state" \
   HERDR_PLUGIN_CONFIG_DIR="$tmp/watch-config" WATCHD="$watchd" "$watch_plugin/watch.sh" watch
 
 check "a review with no watch is started" "R s" "$(wait_glyphs "R s")"
 
-start client "$session" watch --review --mr 5 --interval 600
+session one
 check "a watch start shows watching" "R w" "$(wait_glyphs "R w")"
 
-kill -- "-$session"
+kill -- "-$owner"
 check "the end of the session shows stopped" "R x" "$(wait_glyphs "R x")"
 
 server stop
@@ -131,12 +137,10 @@ check "the restored workspace has the same id" "$workspace" \
   "$(HERDR_SOCKET_PATH=$socket herdr api snapshot | jq -r --arg w "$workspace" \
     '.result.snapshot.workspaces[] | select(.workspace_id == $w) | .workspace_id')"
 
-start sleep 600
-session=${jobs_started[-1]}
-start client "$session" watch --review --mr 5 --interval 600
+session two
 check "after a server restart, a watch start shows watching" "R w" "$(wait_glyphs "R w")"
 
-kill -- "-$session"
+kill -- "-$owner"
 check "after a server restart, the end of the session shows stopped" "R x" "$(wait_glyphs "R x")"
 
 exit $fail
