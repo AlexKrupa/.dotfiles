@@ -63,16 +63,17 @@ This part is for the roles that watch MRs: `author.md`, `reviewer.md`, and `bump
 - Each event has `row`: the number of its row in the report. A `comment` and an `unaddressed`
   line of one thread have the same `row`: they are one item.
 - A `pushed` event is a change of the head, with `old_base`, `old_head`, `new_base`, and
-  `new_head`. Before the event, the daemon fetched the commits of `new_head` into the local repo.
+  `new_head`. Before the event, the daemon tries to fetch the commits of `new_head` into the local
+  repo. If the fetch fails, the commits can be missing.
 - A `resolved` event is a thread that the user started and a different user resolved.
 
 Each mode gets only the kinds of its list. The lists are in
 `~/.config/agents/daemon/src/core/filter.rs`.
 
-| Mode   | Event kinds                    | Condition                                                     |
-| ------ | ------------------------------ | ------------------------------------------------------------- |
-| Author | All MR kinds except `resolved` | `pushed` only if no local branch has `new_head`               |
-| Review | All MR kinds                   | `unaddressed` only for the threads with a comment of the user |
+| Mode   | Event kinds                    | Condition                                                                     |
+| ------ | ------------------------------ | ----------------------------------------------------------------------------- |
+| Author | All MR kinds except `resolved` | `pushed` only if the local branch of the MR and its reflog have no `new_head` |
+| Review | All MR kinds                   | `unaddressed` only for the threads with a comment of the user                 |
 
 These event kinds have the same action in each role, unless the role file has a row for the
 kind. The watch gives no event for a change of the user. The full event list with the exceptions

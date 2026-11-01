@@ -84,10 +84,12 @@ put the restack under Needs you as "fix waits, session not idle". Else do "Push"
 
 ## Pushes
 
-A `pushed` event is a push that no local branch has, for example a push from a different machine.
-Do not reset the branch, because it can have local commits. If
-`git merge-base --is-ancestor <branch> <new_head>` exits 0, put under Needs you: "The remote branch
-moved to `<sha>`. The local branch is behind." Else write "diverged", not "behind".
+A `pushed` event is a push that the local branch of the MR and its reflog do not have, for example
+a push from a different machine. Do not reset the branch, because it can have local commits.
+
+1. If `git cat-file -e <new_head>` fails, run `git fetch <remote> <source_branch>`.
+2. If `git merge-base --is-ancestor <branch> <new_head>` exits 0, put under Needs you: "The remote
+   branch moved to `<sha>`. The local branch is behind." Else write "diverged", not "behind".
 
 ## Comments
 

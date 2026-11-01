@@ -520,7 +520,6 @@ impl Store {
         self.update_worktree(&sub.repo, |state| state.stage = Some(stage));
     }
 
-    /// The needs of the last check of the key, in the order of the mode.
     fn needs_of(&self, key: &str, mode: Mode) -> Vec<Need> {
         let present: Vec<Need> = self
             .engine_value(key)
@@ -1217,7 +1216,7 @@ mod tests {
                 events: Vec::new(),
             };
             save(&store.dirs.sub(key), &sub).unwrap();
-            let engine = serde_json::json!({"needs": ["draft", "reply", "reply_mine", "commits"]});
+            let engine = serde_json::json!({"needs": ["draft", "reply", "reply_to_you", "commits"]});
             std::fs::create_dir_all(store.dirs.engine_state(key).parent().unwrap()).unwrap();
             save(&store.dirs.engine_state(key), &engine).unwrap();
         }
@@ -1226,7 +1225,7 @@ mod tests {
 
         assert_eq!(
             sidebar["engine_needs"],
-            serde_json::json!({"app-1-review-5": ["reply_mine", "commits"], "app-2": ["reply", "draft"]})
+            serde_json::json!({"app-1-review-5": ["reply", "commits"], "app-2": ["reply", "draft"]})
         );
     }
 

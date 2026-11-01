@@ -392,8 +392,7 @@ pub struct Unaddressed {
     pub last: NormNote,
     pub position: Option<Position>,
     pub discussion: String,
-    /// The thread has a comment of the user.
-    pub mine: bool,
+    pub you_commented: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -606,7 +605,7 @@ pub fn normalize(data: &MrData, me: &str) -> NormMr {
                     last: last.clone(),
                     position: notes[0].position.clone(),
                     discussion: discussion.id.clone(),
-                    mine: notes.iter().any(|note| note.author == me),
+                    you_commented: notes.iter().any(|note| note.author == me),
                 })
             })
             .collect(),
@@ -860,7 +859,10 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str) -> (MrsStat
             (Need::Failed, failed(s)),
             (Need::Conflict, conflict(s)),
             (Need::Reply, !mr.unaddressed.is_empty()),
-            (Need::ReplyMine, mr.unaddressed.iter().any(|thread| thread.mine)),
+            (
+                Need::ReplyToYou,
+                mr.unaddressed.iter().any(|thread| thread.you_commented),
+            ),
             (
                 Need::RequestedChanges,
                 s.merge_status.as_deref() == Some("requested_changes"),
@@ -901,7 +903,7 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str) -> (MrsStat
                     Some(&last.url),
                 );
                 let line = Event {
-                    mine: Some(thread.mine),
+                    you_commented: Some(thread.you_commented),
                     ..line
                 };
                 events.push(with_item(
@@ -1079,7 +1081,7 @@ mod tests {
     }
 
     #[test]
-    fn needs_has_reply_and_reply_mine() {
+    fn needs_has_reply_and_reply_to_you() {
         let with = |authors: &[&str]| {
             let notes = authors
                 .iter()
@@ -1090,13 +1092,13 @@ mod tests {
         };
         assert_eq!(
             compare(&with(&["me", "anna"]), None).0.needs,
-            vec![Need::Reply, Need::ReplyMine]
+            vec![Need::Reply, Need::ReplyToYou]
         );
         assert_eq!(compare(&with(&["anna"]), None).0.needs, vec![Need::Reply]);
     }
 
     #[test]
-    fn unaddressed_has_mine() {
+    fn unaddressed_has_you_commented() {
         let (old, _) = compare(&mr(|_| {}), None);
         let threads = mr(|m| {
             m["discussions"]["nodes"] = json!([
@@ -1121,8 +1123,8 @@ mod tests {
         assert_eq!(
             lines(&unaddressed),
             vec![
-                r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u#note_2","actor":"anna","detail":"Because","branch":"b","item":"thread:d1","mine":true}"#,
-                r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u#note_3","actor":"anna","detail":"Nit","branch":"b","item":"thread:d2","mine":false}"#,
+                r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u#note_2","actor":"anna","detail":"Because","branch":"b","item":"thread:d1","you_commented":true}"#,
+                r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u#note_3","actor":"anna","detail":"Nit","branch":"b","item":"thread:d2","you_commented":false}"#,
             ]
         );
     }

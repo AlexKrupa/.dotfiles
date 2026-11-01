@@ -119,8 +119,8 @@ impl Line {
         self.add("item", json!(item))
     }
 
-    fn mine(self, mine: bool) -> Line {
-        self.add("mine", json!(mine))
+    fn you_commented(self, you_commented: bool) -> Line {
+        self.add("you_commented", json!(you_commented))
     }
 
     fn add(mut self, key: &'static str, value: Value) -> Line {
@@ -594,7 +594,7 @@ fn author_comments() -> &'static Checks {
                 Line::sev("unaddressed", 5, "anna", "Why not X?")
                     .note(101)
                     .item("thread:d100")
-                    .mine(false),
+                    .you_commented(false),
             ]),
             env.run(&["--mr", "5"]).out,
         );
@@ -637,7 +637,7 @@ fn author_comments() -> &'static Checks {
                     .note(104)
                     .at("app/Foo.kt", 42)
                     .item("thread:d104")
-                    .mine(false),
+                    .you_commented(false),
             ]),
             env.run(&["--mr", "5"]).out,
         );
@@ -851,11 +851,11 @@ fn author_pages() -> &'static Checks {
                 Line::sev("unaddressed", 5, "anna", "old")
                     .note(120)
                     .item("thread:d120")
-                    .mine(false),
+                    .you_commented(false),
                 Line::sev("unaddressed", 5, "bob", "On page 2")
                     .note(121)
                     .item("thread:d121")
-                    .mine(false),
+                    .you_commented(false),
             ]),
             env.run(&["--mr", "5"]).out,
         );
@@ -1022,19 +1022,19 @@ fn review_threads() -> &'static Checks {
             &[thread("", vec![why(), note(142, "bob", "Because.", None)]), nit()],
         );
         c.check(
-            "review: unaddressed has mine for threads with a note from the user",
+            "review: unaddressed has you_commented for threads with a note from the user",
             lines(&[
                 Line::sev("comment", 5, "bob", "Because.").note(142).item("thread:d140"),
                 Line::sev("unaddressed", 5, "bob", "Because.")
                     .note(142)
                     .at("app/Foo.kt", 42)
                     .item("thread:d140")
-                    .mine(true),
+                    .you_commented(true),
                 Line::sev("unaddressed", 5, "anna", "Nit")
                     .note(141)
                     .at("app/Foo.kt", 42)
                     .item("thread:d141")
-                    .mine(false),
+                    .you_commented(false),
             ]),
             env.run(&review).out,
         );
@@ -1849,8 +1849,8 @@ fn review_thread_resolved_by_the_user_no_events() {
 }
 
 #[test]
-fn review_unaddressed_has_mine_for_threads_with_a_note_from_the_user() {
-    review_threads().assert("review: unaddressed has mine for threads with a note from the user");
+fn review_unaddressed_has_you_commented_for_threads_with_a_note_from_the_user() {
+    review_threads().assert("review: unaddressed has you_commented for threads with a note from the user");
 }
 
 #[test]

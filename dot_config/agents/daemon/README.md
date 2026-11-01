@@ -173,15 +173,20 @@ flowchart TB
   or own target only.
 - MR lookup: for a branch with no git-spice MR, the loop asks GitLab for the open MR of the branch
   one time. A result is a review link.
-- Check: the engine gives one event set for each MR, with no mode. For each `pushed` event, the
-  check fetches the MR head (`refs/merge-requests/<iid>/head`), with no local ref, so that the
-  agent has the commits. If the local branch has `new_head`, the event gets `local: true`. A failed
-  fetch is one log line, and the event goes out. Then the filter step
-  (`src/core/filter.rs`) keeps the event kinds of the mode of the key, and drops the events that
-  fail a condition of the mode. If the agent record of the key has an `events` list
-  (`watchd watch --events`), the step keeps only these kinds. The needs of the worktree state and of the sidebar follow the
-  needs list of the mode, in its order. After a permanent error, or after 5 other errors in a row,
-  the check ends the agent record of its key.
+- Check: the engine gives one event set for each MR, with no mode. Then the check does these
+  steps:
+  - Local pushes: if the local branch or its reflog has the `new_head` of a `pushed` event, the
+    event gets `local: true`. The reflog keeps a push that a later amend or restack took out of
+    the branch.
+  - Other pushes: the check fetches the MR head (`refs/merge-requests/<iid>/head`), with no local
+    ref, so that the agent has the commits. A failed fetch is one log line, and the event goes out.
+  - Filter: `src/core/filter.rs` keeps the event kinds of the mode of the key, and drops the events
+    that fail a condition of the mode. With an `events` list in the agent record
+    (`watchd watch --events`), it keeps only these kinds, plus `merged` and `closed`.
+  - Needs: the worktree state and the sidebar get the needs list of the mode, in its order. Both
+    modes write `reply` for a thread that waits for the user.
+  - Errors: after a permanent error, or after 5 other errors in a row, the check ends the agent
+    record of its key.
 - Events: the events of a key with an agent record go to its inbox, also while its session is
   away. The events of a key with no agent record go to the hub as open items.
 - Errors: the error text of an ended agent record is `watchd: MODE watch KEY: TEXT`, because a

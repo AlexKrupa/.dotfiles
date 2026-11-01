@@ -130,7 +130,7 @@ pub async fn fetch(repo: &Path, branch: &str, timeout: Duration) -> Result<(), F
     git_fetch(repo, &["origin", branch], timeout).await
 }
 
-/// The fetch keeps only the commits of the MR head, with no local ref and no `FETCH_HEAD`.
+/// The agent needs only the commits: the fetch writes no ref and no `FETCH_HEAD`.
 pub async fn fetch_mr_head(repo: &Path, iid: u64, timeout: Duration) -> Result<(), FetchError> {
     let head = format!("refs/merge-requests/{iid}/head");
     git_fetch(repo, &["--no-write-fetch-head", "origin", &head], timeout).await
@@ -195,9 +195,13 @@ fn is_ancestor(folder: &Path, ancestor: &str, commit: &str) -> bool {
     git(folder, &["merge-base", "--is-ancestor", ancestor, commit]).is_ok()
 }
 
-/// Branch refs are the same in all worktrees of the repo.
+/// All worktrees share the branch refs and reflogs. A head that a later amend or restack took out of
+/// the branch is still in the reflog.
 pub fn contains_head(repo: &Path, branch: &str, head: &str) -> bool {
-    is_ancestor(repo, head, &format!("refs/heads/{branch}"))
+    let reference = format!("refs/heads/{branch}");
+    is_ancestor(repo, head, &reference)
+        || git(repo, &["rev-list", "--walk-reflogs", &reference])
+            .is_ok_and(|text| text.lines().any(|line| line == head))
 }
 
 /// Returns false if the checkout has all commits of `origin/<branch>` already.
@@ -333,12 +337,16 @@ mod tests {
         (pusher, dir.join("clone"))
     }
 
-    fn fetch_now(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchError> {
+    fn block_on<F: std::future::Future>(future: F) -> F::Output {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
-        runtime.block_on(fetch(repo, branch, timeout))
+        runtime.block_on(future)
+    }
+
+    fn fetch_now(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchError> {
+        block_on(fetch(repo, branch, timeout))
     }
 
     fn push(pusher: &Path, file: &str) {
@@ -346,14 +354,6 @@ mod tests {
         git(pusher, &["add", file]);
         git(pusher, &["commit", "-q", "-m", file]);
         git(pusher, &["push", "-q", "origin", "main"]);
-    }
-
-    fn fetch_mr_head_now(repo: &Path, iid: u64) -> Result<(), FetchError> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        runtime.block_on(fetch_mr_head(repo, iid, FETCH_TIMEOUT))
     }
 
     #[test]
@@ -371,7 +371,7 @@ mod tests {
         fetch_now(&clone, "main", FETCH_TIMEOUT).unwrap();
         let fetch_head = std::fs::read_to_string(clone.join(".git/FETCH_HEAD")).unwrap();
 
-        fetch_mr_head_now(&clone, 5).unwrap();
+        block_on(fetch_mr_head(&clone, 5, FETCH_TIMEOUT)).unwrap();
 
         git(&clone, &["cat-file", "-e", &head]);
         assert_eq!(
@@ -381,7 +381,19 @@ mod tests {
     }
 
     #[test]
-    fn local_counts_a_commit_after_the_push() {
+    fn contains_head_counts_an_amend_after_the_push() {
+        let dir = scratch("contains-head-amend");
+        let repo = repo_with_commit(&dir);
+        commit_f(&repo, "pushed\n");
+        let pushed = git(&repo, &["rev-parse", "HEAD"]);
+
+        git(&repo, &["commit", "-q", "--amend", "-m", "amended"]);
+
+        assert!(contains_head(&repo, "main", &pushed));
+    }
+
+    #[test]
+    fn contains_head_counts_a_commit_after_the_push() {
         let dir = scratch("contains-head");
         let repo = repo_with_commit(&dir);
         let pushed = git(&repo, &["rev-parse", "HEAD"]);

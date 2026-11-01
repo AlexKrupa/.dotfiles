@@ -28,5 +28,5 @@ of the watch daemon, on PATH.
   the fine-grained token of `glab`.
 - `--events` is optional. With no flag, the watch gets all kinds of its mode. The flag can only
   remove kinds: a kind outside the list of the mode exits `1`, and the stderr text has the list.
-- The events are in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`. The kinds of
-  each mode are in `~/.config/agents/daemon/src/core/filter.rs`.
+  `merged` and `closed` always come, because they end the watch.
+- The events are in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`.

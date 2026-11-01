@@ -1,6 +1,4 @@
-//! The event kinds, the conditions, and the needs of each MR mode. The engine sends one event set
-//! for each MR. After each check, the daemon keeps the events of the mode of the key. The hub has
-//! no entry: its events do not go through the filter.
+//! The engine sends one event set for each MR, and this table gives the part of it for each mode.
 
 use crate::core::subs::Mode;
 use crate::engine::event::{Event, EventKind};
@@ -56,7 +54,7 @@ const AUTHOR_NEEDS: &[Need] = &[
     Need::Draft,
 ];
 
-const REVIEW_NEEDS: &[Need] = &[Need::ReplyMine, Need::Commits];
+const REVIEW_NEEDS: &[Need] = &[Need::ReplyToYou, Need::Commits];
 
 pub fn kinds(mode: Mode) -> &'static [EventKind] {
     match mode {
@@ -70,12 +68,12 @@ fn holds(mode: Mode, event: &Event) -> bool {
     match mode {
         Mode::Hub => true,
         Mode::Author => event.kind != EventKind::Pushed || event.local != Some(true),
-        Mode::Review => event.kind != EventKind::Unaddressed || event.mine == Some(true),
+        Mode::Review => event.kind != EventKind::Unaddressed || event.you_commented == Some(true),
     }
 }
 
-/// An empty `chosen` means all kinds of the mode. The item of an event that fails a condition of
-/// the mode does not open from a different event either, for example from a comment in the thread.
+/// An empty `chosen` means all kinds of the mode. `merged` and `closed` always pass, because they
+/// end the watch. The item of a dropped event does not open from a comment in the same thread.
 pub fn filter(mode: Mode, chosen: &[EventKind], events: Vec<Event>) -> Vec<Event> {
     let allowed = match mode {
         Mode::Hub => return events,
@@ -89,7 +87,11 @@ pub fn filter(mode: Mode, chosen: &[EventKind], events: Vec<Event>) -> Vec<Event
     events
         .into_iter()
         .filter(|event| allowed.contains(&event.kind))
-        .filter(|event| chosen.is_empty() || chosen.contains(&event.kind))
+        .filter(|event| {
+            chosen.is_empty()
+                || chosen.contains(&event.kind)
+                || matches!(event.kind, EventKind::Merged | EventKind::Closed)
+        })
         .filter(|event| holds(mode, event))
         .map(
             |event| match event.item.as_ref().is_some_and(|item| dropped.contains(item)) {
@@ -100,14 +102,22 @@ pub fn filter(mode: Mode, chosen: &[EventKind], events: Vec<Event>) -> Vec<Event
         .collect()
 }
 
-/// The needs of the mode in `present`, in the order of the mode.
+/// The worktree state has one reply value for all modes.
 pub fn needs(mode: Mode, present: &[Need]) -> Vec<Need> {
     let order = match mode {
         Mode::Hub => return present.to_vec(),
         Mode::Author => AUTHOR_NEEDS,
         Mode::Review => REVIEW_NEEDS,
     };
-    order.iter().copied().filter(|need| present.contains(need)).collect()
+    order
+        .iter()
+        .copied()
+        .filter(|need| present.contains(need))
+        .map(|need| match need {
+            Need::ReplyToYou => Need::Reply,
+            other => other,
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -118,9 +128,9 @@ mod tests {
         Event::new(kind, Some(5), Some("T"), "u", "anna", "", "b")
     }
 
-    fn unaddressed(mine: bool) -> Event {
+    fn unaddressed(you_commented: bool) -> Event {
         Event {
-            mine: Some(mine),
+            you_commented: Some(you_commented),
             ..event(EventKind::Unaddressed)
         }
     }
@@ -202,13 +212,23 @@ mod tests {
     }
 
     #[test]
+    fn chosen_keeps_the_end_of_the_mr() {
+        let events = filter(
+            Mode::Review,
+            &[EventKind::Pushed],
+            vec![event(EventKind::Merged), event(EventKind::Closed)],
+        );
+        assert_eq!(kinds_of(&events), vec![EventKind::Merged, EventKind::Closed]);
+    }
+
+    #[test]
     fn needs_follow_the_mode_order() {
-        let present = [Need::Draft, Need::ReplyMine, Need::Reply, Need::Failed, Need::Commits];
+        let present = [Need::Draft, Need::ReplyToYou, Need::Reply, Need::Failed, Need::Commits];
         assert_eq!(
             needs(Mode::Author, &present),
             vec![Need::Failed, Need::Reply, Need::Draft]
         );
-        assert_eq!(needs(Mode::Review, &present), vec![Need::ReplyMine, Need::Commits]);
+        assert_eq!(needs(Mode::Review, &present), vec![Need::Reply, Need::Commits]);
     }
 
     #[test]

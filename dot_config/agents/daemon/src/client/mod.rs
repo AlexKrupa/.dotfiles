@@ -35,7 +35,7 @@ struct WatchArgs {
     fresh: bool,
     review: bool,
     mrs: Vec<u64>,
-    /// The names of `--events`, unchecked: the mode of the check comes from the target.
+    /// Unchecked, because the mode comes from the target.
     events: Vec<String>,
 }
 
@@ -89,8 +89,10 @@ fn kind_name(kind: EventKind) -> String {
         .unwrap_or_default()
 }
 
-/// Each name must be a kind of the mode.
 fn chosen_kinds(names: &[String], mode: Mode) -> Result<Vec<EventKind>, String> {
+    if mode == Mode::Hub && !names.is_empty() {
+        return Err("--events: a hub watch has no event kinds".to_string());
+    }
     let allowed = kinds(mode);
     names
         .iter()
@@ -684,15 +686,19 @@ mod tests {
 
     #[test]
     fn events_rejects_a_kind_outside_the_mode() {
-        let names: Vec<String> = kinds(Mode::Review)
-            .iter()
-            .map(|kind| serde_json::to_value(kind).unwrap().as_str().unwrap().to_string())
-            .collect();
+        let names: Vec<String> = kinds(Mode::Review).iter().copied().map(kind_name).collect();
 
         let chosen = parse_events(&["--review", "--mr", "5", "--events", "todo"]);
 
         let expected = format!("--events todo: not a kind of review mode. Kinds: {}", names.join(", "));
         assert_eq!(chosen, Err(expected));
+    }
+
+    #[test]
+    fn events_on_a_hub_watch_has_its_own_error() {
+        let chosen = chosen_kinds(&["todo".to_string()], Mode::Hub);
+
+        assert_eq!(chosen, Err("--events: a hub watch has no event kinds".to_string()));
     }
 
     #[test]

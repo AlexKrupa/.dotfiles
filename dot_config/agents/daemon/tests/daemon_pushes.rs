@@ -77,8 +77,8 @@ fn push_from_elsewhere_reaches_the_author() {
 #[test]
 fn own_push_reaches_no_author() {
     let w = Watchd::new();
-    let (origin, _) = origin(&w);
-    let head = push_mr_head(&w, &origin, &w.env.repo);
+    origin(&w);
+    let head = w.env.git(&w.env.repo, &["rev-parse", "HEAD"]);
     let key = w.author_key();
     w.events(&key, &[pushed(&head)]);
 

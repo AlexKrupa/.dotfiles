@@ -43,10 +43,11 @@
 //!   merged, closed           the MR was merged or closed                none (the user: own true)
 //!   unaddressed              after the other events: each open thread   a thread that the user
 //!                            whose last comment is not of the user and  answered last
-//!                            has no reaction of the user. mine: true if
-//!                            the thread has a comment of the user
+//!                            has no reaction of the user. you_commented:
+//!                            true if the thread has a comment of the user
 //!   pushed                   the head changed (old_base, old_head, new_base, new_head). The
-//!                            daemon adds local: true if the local branch has new_head
+//!                            daemon adds local: true if the local branch or its
+//!                            reflog has new_head
 //!   resolved                 a different user resolved a thread that the user started
 //! Comments, reactions, and threads on a diff line also have path and line. The actor of a change
 //! is the author of the newest system note of that change, or empty.

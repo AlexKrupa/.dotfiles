@@ -295,22 +295,22 @@ impl Daemon {
         network
     }
 
-    /// Fetches the MR head of each push, so that the agent has its commits, and marks a push that a
-    /// local branch has. A failed fetch does not stop the event. The lock is free, because a fetch
-    /// can take minutes.
+    /// Fetches the MR head of a push from elsewhere, so that the agent has its commits. It runs with
+    /// no lock, because a fetch can take minutes.
     async fn mark_pushes(&self, target: &Target, mut events: Vec<Event>) -> Vec<Event> {
         for event in &mut events {
             let (EventKind::Pushed, Some(iid), Some(Some(head))) = (event.kind, event.iid, event.new_head.clone())
             else {
                 continue;
             };
+            if block_in_place(|| contains_head(&target.repo, &event.branch, &head)) {
+                event.local = Some(true);
+                continue;
+            }
             if let Err(FetchError::Network(text) | FetchError::Other(text)) =
                 fetch_mr_head(&target.repo, iid, FETCH_TIMEOUT).await
             {
                 self.log(&target.slug, &target.key, &format!("fetch of MR {iid}: {text}"));
-            }
-            if block_in_place(|| contains_head(&target.repo, &event.branch, &head)) {
-                event.local = Some(true);
             }
         }
         events

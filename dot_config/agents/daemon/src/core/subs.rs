@@ -40,7 +40,7 @@ pub struct Agent {
     pub session: String,
     #[serde(default)]
     pub ended_mrs: Vec<u64>,
-    /// The kinds of `--events`. Empty means all kinds of the mode.
+    /// Empty means all kinds of the mode.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<EventKind>,
 }
