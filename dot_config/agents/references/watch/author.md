@@ -32,6 +32,7 @@ to run the unsubscribe command. This also covers a sync that deletes a merged br
 | `conflict`         | See "Conflicts"         | Agent or Needs you    |
 | `merged`           | See "Merged MRs"        | Info, Agent/Needs you |
 | `comment`          | See "Comments"          | Needs you            |
+| `pushed`           | See "Pushes"            | Needs you            |
 
 Needs you also shows the failures that wait for the user, and the fixes that wait.
 
@@ -80,6 +81,13 @@ Else do "Push".
 
 If no open MR of the stack is above the merged MR, do nothing more. If the session is not idle,
 put the restack under Needs you as "fix waits, session not idle". Else do "Push".
+
+## Pushes
+
+A `pushed` event is a push that no local branch has, for example a push from a different machine.
+Do not reset the branch, because it can have local commits. If
+`git merge-base --is-ancestor <branch> <new_head>` exits 0, put under Needs you: "The remote branch
+moved to `<sha>`. The local branch is behind." Else write "diverged", not "behind".
 
 ## Comments
 

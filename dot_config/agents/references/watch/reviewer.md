@@ -31,8 +31,9 @@ Handle a `pushed` event first. Then the other events read the new code.
 
 ## Pushes
 
-1. Run `git fetch <remote> <source_branch> <target_branch>`. Do not use `"$FMR" fetch`. After a
-   force push, it stops. The local branch does not move.
+1. If `git cat-file -e <new_head>` fails, run
+   `git fetch <remote> <source_branch> <target_branch>`. Do not use `"$FMR" fetch`. After a force
+   push, it stops. The local branch does not move.
 2. Run `~/.config/agents/bin/git-interdiff.sh <old_base> <old_head> <new_base> <new_head>`.
    - If it exits `1` with `unknown commit`, the old version is not in the local repo. Put it under
      Needs you, and propose a full review of the MR. Stop here.

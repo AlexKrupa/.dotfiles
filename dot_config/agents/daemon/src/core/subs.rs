@@ -40,6 +40,9 @@ pub struct Agent {
     pub session: String,
     #[serde(default)]
     pub ended_mrs: Vec<u64>,
+    /// The kinds of `--events`. Empty means all kinds of the mode.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub events: Vec<EventKind>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -93,6 +96,7 @@ mod tests {
             interval: 120,
             session: "s".to_string(),
             ended_mrs: Vec::new(),
+            events: Vec::new(),
         }
     }
 

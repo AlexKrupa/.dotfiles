@@ -523,6 +523,7 @@ mod tests {
             interval: 120,
             session: "s".to_string(),
             ended_mrs: vec![9],
+            events: Vec::new(),
         }
     }
 

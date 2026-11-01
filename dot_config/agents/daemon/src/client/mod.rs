@@ -9,9 +9,11 @@ use tokio::net::UnixStream;
 
 use crate::board::Board;
 use crate::core::eventlog::RouteAction;
+use crate::core::filter::kinds;
 use crate::core::subs::Mode;
 use crate::core::worktrees::Kind;
 use crate::daemon::store::Store;
+use crate::engine::event::EventKind;
 use crate::engine::mr_number;
 use crate::key::{KeyMode, digits, repo_slug, watch_key, worktree_top};
 use crate::local::{git, repo_of, shared_refs};
@@ -33,6 +35,8 @@ struct WatchArgs {
     fresh: bool,
     review: bool,
     mrs: Vec<u64>,
+    /// The names of `--events`, unchecked: the mode of the check comes from the target.
+    events: Vec<String>,
 }
 
 impl WatchArgs {
@@ -57,6 +61,17 @@ impl WatchArgs {
                 "--mr" => parsed
                     .mrs
                     .push(mr_number(args.next()).ok_or("--mr needs an MR number")?),
+                "--events" => {
+                    let names = args.next().unwrap_or_default();
+                    parsed.events = names
+                        .split(',')
+                        .filter(|name| !name.is_empty())
+                        .map(str::to_string)
+                        .collect();
+                    if parsed.events.is_empty() {
+                        return Err("--events needs kinds".to_string());
+                    }
+                }
                 _ => return Err(format!("unexpected argument: {arg}")),
             }
         }
@@ -65,6 +80,34 @@ impl WatchArgs {
         }
         Ok(parsed)
     }
+}
+
+fn kind_name(kind: EventKind) -> String {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_default()
+}
+
+/// Each name must be a kind of the mode.
+fn chosen_kinds(names: &[String], mode: Mode) -> Result<Vec<EventKind>, String> {
+    let allowed = kinds(mode);
+    names
+        .iter()
+        .map(|name| {
+            serde_json::from_value::<EventKind>(serde_json::Value::String(name.clone()))
+                .ok()
+                .filter(|kind| allowed.contains(kind))
+                .ok_or_else(|| {
+                    let list: Vec<String> = allowed.iter().copied().map(kind_name).collect();
+                    format!(
+                        "--events {name}: not a kind of {} mode. Kinds: {}",
+                        mode.as_str(),
+                        list.join(", ")
+                    )
+                })
+        })
+        .collect()
 }
 
 struct Target {
@@ -183,6 +226,10 @@ pub async fn watch(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
+    let events = match chosen_kinds(&args.events, target.mode) {
+        Ok(events) => events,
+        Err(message) => return die(&message),
+    };
     let client = StateDirs::for_client(&target.top);
     let request = Request::Watch(WatchRequest {
         key: target.key,
@@ -193,6 +240,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
         interval: args.interval,
         session,
         fresh: args.fresh,
+        events,
     });
     ask_ok(&client, &request).await
 }
@@ -613,6 +661,38 @@ mod tests {
 
         assert_eq!(parse("!5"), Ok(vec![5]));
         assert_eq!(parse("!!5"), Err("--mr needs an MR number".to_string()));
+    }
+
+    fn parse_events(flags: &[&str]) -> Result<Vec<EventKind>, String> {
+        let args = WatchArgs::parse(flags.iter().map(|flag| flag.to_string()).collect())?;
+        chosen_kinds(&args.events, Mode::Review)
+    }
+
+    #[test]
+    fn events_parses_kinds() {
+        let chosen = parse_events(&["--review", "--mr", "5", "--events", "pushed,comment"]);
+
+        assert_eq!(chosen, Ok(vec![EventKind::Pushed, EventKind::Comment]));
+    }
+
+    #[test]
+    fn events_needs_kinds() {
+        let needs = Err("--events needs kinds".to_string());
+        assert_eq!(parse_events(&["--review", "--mr", "5", "--events"]), needs);
+        assert_eq!(parse_events(&["--review", "--mr", "5", "--events", ""]), needs);
+    }
+
+    #[test]
+    fn events_rejects_a_kind_outside_the_mode() {
+        let names: Vec<String> = kinds(Mode::Review)
+            .iter()
+            .map(|kind| serde_json::to_value(kind).unwrap().as_str().unwrap().to_string())
+            .collect();
+
+        let chosen = parse_events(&["--review", "--mr", "5", "--events", "todo"]);
+
+        let expected = format!("--events todo: not a kind of review mode. Kinds: {}", names.join(", "));
+        assert_eq!(chosen, Err(expected));
     }
 
     #[test]

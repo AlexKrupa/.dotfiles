@@ -58,6 +58,10 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub own: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mine: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jobs: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
@@ -108,6 +112,8 @@ impl Event {
             line: None,
             item: None,
             own: None,
+            mine: None,
+            local: None,
             jobs: None,
             author: None,
             failed: None,

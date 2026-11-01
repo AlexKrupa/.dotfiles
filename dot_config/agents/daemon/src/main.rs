@@ -19,7 +19,7 @@ enum Commands {
     },
     /// The daemon, which a client starts.
     Daemon,
-    /// Save the watch of the session and exit: --session ID [--repo PATH] [--interval SECONDS] [--fresh] [--review] [--mr IID]...
+    /// Save the watch of the session and exit: --session ID [--repo PATH] [--interval SECONDS] [--fresh] [--review] [--mr IID]... [--events KIND,KIND]
     #[command(disable_help_flag = true)]
     Watch {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]

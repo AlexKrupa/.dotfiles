@@ -8,6 +8,7 @@ of the watch daemon, on PATH.
 | Watch command, hub mode               | `watchd watch --session <id> --interval 120`                                                   |
 | Watch command, author mode            | `watchd watch --session <id> --interval 120` in the worktree of the MRs                        |
 | Watch command, review mode            | `watchd watch --session <id> --review --fresh --mr <iid> --interval 120`                       |
+| Watch command, chosen kinds           | `--events <kind>,<kind>` after the flags of the watch command                                  |
 | Unsubscribe                           | `watchd unsubscribe --session <id>`, with the `--review` and `--mr` flags of the watch command |
 | Daemon status                         | `watchd status`                                                                                |
 | Router result                         | `watchd route --iid <iid> --action <bump\|review\|none>`                                       |
@@ -25,4 +26,7 @@ of the watch daemon, on PATH.
 - The id of an MR is `!<iid>`.
 - If the stderr text of exit `1` names a token permission, tell the user to add that permission to
   the fine-grained token of `glab`.
-- The events of each mode are in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`.
+- `--events` is optional. With no flag, the watch gets all kinds of its mode. The flag can only
+  remove kinds: a kind outside the list of the mode exits `1`, and the stderr text has the list.
+- The events are in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`. The kinds of
+  each mode are in `~/.config/agents/daemon/src/core/filter.rs`.

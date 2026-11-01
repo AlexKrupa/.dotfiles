@@ -13,6 +13,7 @@ use crate::core::items::{Items, RoutedEvent};
 use crate::core::subs::{Agent, Mode, Session, SessionKey};
 use crate::core::worktrees::Kind;
 use crate::core::worktrees::WorktreeState;
+use crate::engine::event::EventKind;
 use crate::report::ReportInput;
 
 /// A line of an older client has no folder.
@@ -74,6 +75,9 @@ pub struct WatchRequest {
     pub interval: u64,
     pub session: String,
     pub fresh: bool,
+    /// Empty means all kinds of the mode.
+    #[serde(default)]
+    pub events: Vec<EventKind>,
 }
 
 /// An event of one watch of a session, which can have more than one watch.

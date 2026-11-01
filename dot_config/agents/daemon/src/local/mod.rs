@@ -126,13 +126,24 @@ pub enum FetchError {
 /// A connection that a system sleep broke can hang for hours.
 pub const FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 
+pub async fn fetch(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchError> {
+    git_fetch(repo, &["origin", branch], timeout).await
+}
+
+/// The fetch keeps only the commits of the MR head, with no local ref and no `FETCH_HEAD`.
+pub async fn fetch_mr_head(repo: &Path, iid: u64, timeout: Duration) -> Result<(), FetchError> {
+    let head = format!("refs/merge-requests/{iid}/head");
+    git_fetch(repo, &["--no-write-fetch-head", "origin", &head], timeout).await
+}
+
 /// No prompt for credentials: the daemon has no terminal. At the timeout, the fetch and its child
 /// processes stop.
-pub async fn fetch(repo: &Path, branch: &str, timeout: Duration) -> Result<(), FetchError> {
+async fn git_fetch(repo: &Path, args: &[&str], timeout: Duration) -> Result<(), FetchError> {
     let child = tokio::process::Command::new("git")
         .arg("-C")
         .arg(repo)
-        .args(["fetch", "-q", "origin", branch])
+        .args(["fetch", "-q"])
+        .args(args)
         .env("GIT_TERMINAL_PROMPT", "0")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -182,6 +193,11 @@ impl Blocked {
 
 fn is_ancestor(folder: &Path, ancestor: &str, commit: &str) -> bool {
     git(folder, &["merge-base", "--is-ancestor", ancestor, commit]).is_ok()
+}
+
+/// Branch refs are the same in all worktrees of the repo.
+pub fn contains_head(repo: &Path, branch: &str, head: &str) -> bool {
+    is_ancestor(repo, head, &format!("refs/heads/{branch}"))
 }
 
 /// Returns false if the checkout has all commits of `origin/<branch>` already.
@@ -330,6 +346,55 @@ mod tests {
         git(pusher, &["add", file]);
         git(pusher, &["commit", "-q", "-m", file]);
         git(pusher, &["push", "-q", "origin", "main"]);
+    }
+
+    fn fetch_mr_head_now(repo: &Path, iid: u64) -> Result<(), FetchError> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(fetch_mr_head(repo, iid, FETCH_TIMEOUT))
+    }
+
+    #[test]
+    fn fetch_mr_head_gets_the_commits() {
+        let (pusher, clone) = origin_and_clones("mr-head");
+        git(&pusher, &["switch", "-q", "-c", "feature"]);
+        std::fs::write(pusher.join("g"), "feature\n").unwrap();
+        git(&pusher, &["add", "g"]);
+        git(&pusher, &["commit", "-q", "-m", "feature"]);
+        let head = git(&pusher, &["rev-parse", "HEAD"]);
+        git(&pusher, &["push", "-q", "origin", "HEAD:refs/heads/tmp"]);
+        let origin = pusher.parent().unwrap().join("origin.git");
+        git(&origin, &["update-ref", "refs/merge-requests/5/head", &head]);
+        git(&origin, &["update-ref", "-d", "refs/heads/tmp"]);
+        fetch_now(&clone, "main", FETCH_TIMEOUT).unwrap();
+        let fetch_head = std::fs::read_to_string(clone.join(".git/FETCH_HEAD")).unwrap();
+
+        fetch_mr_head_now(&clone, 5).unwrap();
+
+        git(&clone, &["cat-file", "-e", &head]);
+        assert_eq!(
+            std::fs::read_to_string(clone.join(".git/FETCH_HEAD")).unwrap(),
+            fetch_head
+        );
+    }
+
+    #[test]
+    fn local_counts_a_commit_after_the_push() {
+        let dir = scratch("contains-head");
+        let repo = repo_with_commit(&dir);
+        let pushed = git(&repo, &["rev-parse", "HEAD"]);
+        git(&repo, &["switch", "-q", "-c", "other"]);
+        commit_f(&repo, "other\n");
+        let other = git(&repo, &["rev-parse", "HEAD"]);
+        git(&repo, &["switch", "-q", "main"]);
+        commit_f(&repo, "after the push\n");
+        let tip = git(&repo, &["rev-parse", "HEAD"]);
+
+        assert!(contains_head(&repo, "main", &tip));
+        assert!(contains_head(&repo, "main", &pushed));
+        assert!(!contains_head(&repo, "main", &other));
     }
 
     #[test]

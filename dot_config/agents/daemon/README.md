@@ -173,8 +173,15 @@ flowchart TB
   or own target only.
 - MR lookup: for a branch with no git-spice MR, the loop asks GitLab for the open MR of the branch
   one time. A result is a review link.
-- Check: after a permanent error, or after 5 other errors in a row, the check ends the agent record
-  of its key.
+- Check: the engine gives one event set for each MR, with no mode. For each `pushed` event, the
+  check fetches the MR head (`refs/merge-requests/<iid>/head`), with no local ref, so that the
+  agent has the commits. If the local branch has `new_head`, the event gets `local: true`. A failed
+  fetch is one log line, and the event goes out. Then the filter step
+  (`src/core/filter.rs`) keeps the event kinds of the mode of the key, and drops the events that
+  fail a condition of the mode. If the agent record of the key has an `events` list
+  (`watchd watch --events`), the step keeps only these kinds. The needs of the worktree state and of the sidebar follow the
+  needs list of the mode, in its order. After a permanent error, or after 5 other errors in a row,
+  the check ends the agent record of its key.
 - Events: the events of a key with an agent record go to its inbox, also while its session is
   away. The events of a key with no agent record go to the hub as open items.
 - Errors: the error text of an ended agent record is `watchd: MODE watch KEY: TEXT`, because a
@@ -203,7 +210,7 @@ the `changed` signal, and the waiting connections read the files again.
 | `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
 | `src/board.rs` | The text of `watchd board`: one block for each row, with the URL of the comment, the MR, or the pipeline |
-| `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets |
+| `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets, the event kinds and needs of each mode (`filter.rs`) |
 | `src/engine/` | The GitLab checks. `hub.rs` watches the project. `mrs.rs` watches the MRs of a worktree or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
 | `src/workspaces.rs` | The herdr calls: the board pane and the agent starts |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |

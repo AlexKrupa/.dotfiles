@@ -360,6 +360,7 @@ mod tests {
             interval: 120,
             session: "s".to_string(),
             ended_mrs: Vec::new(),
+            events: Vec::new(),
         });
         setup.job("retry-11.json", &["21 pending"]);
         setup.job("job-21.json", &["21 failed script_failure"]);

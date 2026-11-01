@@ -14,6 +14,7 @@ use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
 use tokio::task::{JoinHandle, JoinSet, block_in_place};
 
 use self::store::{Store, first_line};
+use crate::core::filter::filter;
 use crate::core::items::RoutedEvent;
 use crate::core::subs::{Agent, Mode};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, conflict_tests, lookup_branch, targets};
@@ -25,8 +26,8 @@ use crate::engine::state::OwnMr;
 use crate::engine::{Engine, EngineArgs, EngineError, GitlabEngine, MrCache, remote_url, split_remote};
 use crate::key::{author_key, is_worktree_key, repo_slug};
 use crate::local::{
-    FETCH_TIMEOUT, FetchError, conflict, fast_forward, fetch, list_worktrees, repo_of, shared_refs, spice_log,
-    worktree_key,
+    FETCH_TIMEOUT, FetchError, conflict, contains_head, fast_forward, fetch, fetch_mr_head, list_worktrees, repo_of,
+    shared_refs, spice_log, worktree_key,
 };
 use crate::nap::{NapEnd, nap};
 use crate::paths::{StateDirs, home};
@@ -234,13 +235,18 @@ impl Daemon {
             key: Some(target.key.clone()),
             lookup: None,
         };
-        let result = self.engine.check(args, cache).await;
+        let result = match self.engine.check(args, cache).await {
+            Ok(events) => Ok(self.mark_pushes(&target, events).await),
+            error => error,
+        };
         let mut memory = self.lock().await;
         let (slug, key) = (target.slug.as_str(), target.key.as_str());
         let mut network = false;
         match result {
             Ok(events) => {
                 memory.fails.remove(key);
+                let chosen = memory.store.sub(key).map(|sub| sub.events).unwrap_or_default();
+                let events = filter(target.mode, &chosen, events);
                 let routed = match events.is_empty() {
                     true => Vec::new(),
                     false => {
@@ -287,6 +293,27 @@ impl Daemon {
         drop(memory);
         self.changed.notify_waiters();
         network
+    }
+
+    /// Fetches the MR head of each push, so that the agent has its commits, and marks a push that a
+    /// local branch has. A failed fetch does not stop the event. The lock is free, because a fetch
+    /// can take minutes.
+    async fn mark_pushes(&self, target: &Target, mut events: Vec<Event>) -> Vec<Event> {
+        for event in &mut events {
+            let (EventKind::Pushed, Some(iid), Some(Some(head))) = (event.kind, event.iid, event.new_head.clone())
+            else {
+                continue;
+            };
+            if let Err(FetchError::Network(text) | FetchError::Other(text)) =
+                fetch_mr_head(&target.repo, iid, FETCH_TIMEOUT).await
+            {
+                self.log(&target.slug, &target.key, &format!("fetch of MR {iid}: {text}"));
+            }
+            if block_in_place(|| contains_head(&target.repo, &event.branch, &head)) {
+                event.local = Some(true);
+            }
+        }
+        events
     }
 
     /// The lock is free while the router runs, because an agent start takes seconds.

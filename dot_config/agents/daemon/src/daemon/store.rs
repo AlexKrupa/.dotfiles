@@ -10,6 +10,7 @@ use serde::de::DeserializeOwned;
 
 use crate::board::Board;
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
+use crate::core::filter::needs;
 use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
 use crate::core::subs::{Agent, Mode, Session, SessionKey, add_ended};
 use crate::core::worktrees::{Kind, Repos, ReviewLink, Reviews, Stage, Target, WorktreeState};
@@ -519,11 +520,17 @@ impl Store {
         self.update_worktree(&sub.repo, |state| state.stage = Some(stage));
     }
 
-    pub fn write_needs(&self, target: &Target) {
-        let needs: Vec<Need> = self
-            .engine_value(&target.key)
+    /// The needs of the last check of the key, in the order of the mode.
+    fn needs_of(&self, key: &str, mode: Mode) -> Vec<Need> {
+        let present: Vec<Need> = self
+            .engine_value(key)
             .and_then(|engine| serde_json::from_value(engine["needs"].clone()).ok())
             .unwrap_or_default();
+        needs(mode, &present)
+    }
+
+    pub fn write_needs(&self, target: &Target) {
+        let needs = self.needs_of(&target.key, target.mode);
         self.update_worktree(&target.repo, |state| match needs.is_empty() {
             true => {
                 state.needs.remove(&target.key);
@@ -940,6 +947,7 @@ impl Store {
             interval: request.interval,
             session: request.session.clone(),
             ended_mrs: ended,
+            events: request.events.clone(),
         };
         self.write_sub(&sub);
         if self.session(&sub.session).is_none() {
@@ -1085,24 +1093,18 @@ impl Store {
     }
 
     pub fn sidebar(&self) -> serde_json::Value {
-        let subs: Vec<serde_json::Value> = self
-            .subs()
+        let records = self.subs();
+        let engine_needs: BTreeMap<String, Vec<Need>> = records
+            .iter()
+            .map(|sub| (sub.key.clone(), self.needs_of(&sub.key, sub.mode)))
+            .collect();
+        let subs: Vec<serde_json::Value> = records
             .into_iter()
             .map(|sub| {
                 let live = self.live_session(&sub.session);
                 let mut value = serde_json::to_value(sub).expect("a record serializes");
                 value["live"] = serde_json::Value::Bool(live);
                 value
-            })
-            .collect();
-        let engine_needs: BTreeMap<String, serde_json::Value> = subs
-            .iter()
-            .filter_map(|sub| {
-                let key = sub["key"].as_str()?.to_string();
-                let needs = self
-                    .engine_value(&key)
-                    .map_or(serde_json::json!([]), |engine| engine["needs"].clone());
-                Some((key, if needs.is_null() { serde_json::json!([]) } else { needs }))
             })
             .collect();
         let worktrees: BTreeMap<String, WorktreeState> = self
@@ -1191,6 +1193,41 @@ mod tests {
             store.dirs.sub("app").display()
         );
         assert!(log.ends_with(&expected), "{log}");
+    }
+
+    #[test]
+    fn sidebar_has_the_needs_of_the_mode() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-sidebar", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
+        store.ensure_dirs().unwrap();
+        for (key, mode) in [("app-1-review-5", Mode::Review), ("app-2", Mode::Author)] {
+            let sub = Agent {
+                key: key.to_string(),
+                slug: "app".to_string(),
+                repo: "/r".into(),
+                mode,
+                mrs: vec![5],
+                interval: 120,
+                session: "s".to_string(),
+                ended_mrs: Vec::new(),
+                events: Vec::new(),
+            };
+            save(&store.dirs.sub(key), &sub).unwrap();
+            let engine = serde_json::json!({"needs": ["draft", "reply", "reply_mine", "commits"]});
+            std::fs::create_dir_all(store.dirs.engine_state(key).parent().unwrap()).unwrap();
+            save(&store.dirs.engine_state(key), &engine).unwrap();
+        }
+
+        let sidebar = store.sidebar();
+
+        assert_eq!(
+            sidebar["engine_needs"],
+            serde_json::json!({"app-1-review-5": ["reply_mine", "commits"], "app-2": ["reply", "draft"]})
+        );
     }
 
     #[test]

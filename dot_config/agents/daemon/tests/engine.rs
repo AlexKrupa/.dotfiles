@@ -119,6 +119,10 @@ impl Line {
         self.add("item", json!(item))
     }
 
+    fn mine(self, mine: bool) -> Line {
+        self.add("mine", json!(mine))
+    }
+
     fn add(mut self, key: &'static str, value: Value) -> Line {
         self.0.push((key, value));
         self
@@ -589,7 +593,8 @@ fn author_comments() -> &'static Checks {
                     .item("thread:d100"),
                 Line::sev("unaddressed", 5, "anna", "Why not X?")
                     .note(101)
-                    .item("thread:d100"),
+                    .item("thread:d100")
+                    .mine(false),
             ]),
             env.run(&["--mr", "5"]).out,
         );
@@ -631,7 +636,8 @@ fn author_comments() -> &'static Checks {
                 Line::sev("unaddressed", 5, "bob", "Typo")
                     .note(104)
                     .at("app/Foo.kt", 42)
-                    .item("thread:d104"),
+                    .item("thread:d104")
+                    .mine(false),
             ]),
             env.run(&["--mr", "5"]).out,
         );
@@ -842,10 +848,14 @@ fn author_pages() -> &'static Checks {
                 Line::sev("comment", 5, "bob", "On page 2")
                     .note(121)
                     .item("thread:d121"),
-                Line::sev("unaddressed", 5, "anna", "old").note(120).item("thread:d120"),
+                Line::sev("unaddressed", 5, "anna", "old")
+                    .note(120)
+                    .item("thread:d120")
+                    .mine(false),
                 Line::sev("unaddressed", 5, "bob", "On page 2")
                     .note(121)
-                    .item("thread:d121"),
+                    .item("thread:d121")
+                    .mine(false),
             ]),
             env.run(&["--mr", "5"]).out,
         );
@@ -950,7 +960,11 @@ fn author_push() -> &'static Checks {
         refs(&env, "b1", "h1");
         env.run(&["--mr", "5"]);
         refs(&env, "b1", "h2");
-        c.check("author: push: no events", "", env.run(&["--mr", "5"]).out);
+        c.check(
+            "author: push: pushed",
+            pushed("h2", "b1", "h1", "b1"),
+            env.run(&["--mr", "5"]).out,
+        );
         c
     })
 }
@@ -1008,13 +1022,19 @@ fn review_threads() -> &'static Checks {
             &[thread("", vec![why(), note(142, "bob", "Because.", None)]), nit()],
         );
         c.check(
-            "review: unaddressed only for threads with a note from the user",
+            "review: unaddressed has mine for threads with a note from the user",
             lines(&[
                 Line::sev("comment", 5, "bob", "Because.").note(142).item("thread:d140"),
                 Line::sev("unaddressed", 5, "bob", "Because.")
                     .note(142)
                     .at("app/Foo.kt", 42)
-                    .item("thread:d140"),
+                    .item("thread:d140")
+                    .mine(true),
+                Line::sev("unaddressed", 5, "anna", "Nit")
+                    .note(141)
+                    .at("app/Foo.kt", 42)
+                    .item("thread:d141")
+                    .mine(false),
             ]),
             env.run(&review).out,
         );
@@ -1809,8 +1829,8 @@ fn review_fresh_new_state_saved() {
 }
 
 #[test]
-fn author_push_no_events() {
-    author_push().assert("author: push: no events");
+fn author_push_gives_pushed() {
+    author_push().assert("author: push: pushed");
 }
 
 #[test]
@@ -1829,8 +1849,8 @@ fn review_thread_resolved_by_the_user_no_events() {
 }
 
 #[test]
-fn review_unaddressed_only_for_threads_with_a_note_from_the_user() {
-    review_threads().assert("review: unaddressed only for threads with a note from the user");
+fn review_unaddressed_has_mine_for_threads_with_a_note_from_the_user() {
+    review_threads().assert("review: unaddressed has mine for threads with a note from the user");
 }
 
 #[test]

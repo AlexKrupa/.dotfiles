@@ -17,6 +17,7 @@ pub enum Need {
     Failed,
     Conflict,
     Reply,
+    ReplyMine,
     RequestedChanges,
     Commits,
     Ready,

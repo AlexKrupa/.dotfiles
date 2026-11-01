@@ -392,6 +392,8 @@ pub struct Unaddressed {
     pub last: NormNote,
     pub position: Option<Position>,
     pub discussion: String,
+    /// The thread has a comment of the user.
+    pub mine: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -478,7 +480,7 @@ fn actor(mr: &GqlMr, action: Action) -> String {
         .unwrap_or_default()
 }
 
-pub fn normalize(data: &MrData, me: &str, review: bool) -> NormMr {
+pub fn normalize(data: &MrData, me: &str) -> NormMr {
     let mr = &data.project.merge_request;
     let discussions: Vec<(&GqlDiscussion, Vec<NormNote>)> = mr
         .discussions
@@ -600,14 +602,12 @@ pub fn normalize(data: &MrData, me: &str, review: bool) -> NormMr {
                 if reacted {
                     return None;
                 }
-                match !review || notes.iter().any(|note| note.author == me) {
-                    true => Some(Unaddressed {
-                        last: last.clone(),
-                        position: notes[0].position.clone(),
-                        discussion: discussion.id.clone(),
-                    }),
-                    false => None,
-                }
+                Some(Unaddressed {
+                    last: last.clone(),
+                    position: notes[0].position.clone(),
+                    discussion: discussion.id.clone(),
+                    mine: notes.iter().any(|note| note.author == me),
+                })
             })
             .collect(),
     }
@@ -691,7 +691,7 @@ fn new_state(mr: &NormMr, old: &MrState, me: &str) -> MrState {
     }
 }
 
-fn mr_events(mr: &NormMr, old: &MrState, new: &MrState, me: &str, review: bool) -> Vec<Event> {
+fn mr_events(mr: &NormMr, old: &MrState, new: &MrState, me: &str) -> Vec<Event> {
     let mut events = Vec::new();
     for note in mr.notes.iter().filter(|note| note.id > old.last_note_id) {
         let kind = if note.author == me {
@@ -804,8 +804,7 @@ fn mr_events(mr: &NormMr, old: &MrState, new: &MrState, me: &str, review: bool) 
             ..closed
         });
     }
-    if review
-        && let (Some(old_head), Some(new_head)) = (&old.head, &new.head)
+    if let (Some(old_head), Some(new_head)) = (&old.head, &new.head)
         && new_head != old_head
     {
         let short_head: String = new_head.chars().take(8).collect();
@@ -818,7 +817,7 @@ fn mr_events(mr: &NormMr, old: &MrState, new: &MrState, me: &str, review: bool) 
             ..pushed
         });
     }
-    for thread in mr.resolved_mine.iter().filter(|thread| review && thread.by != me) {
+    for thread in mr.resolved_mine.iter().filter(|thread| thread.by != me) {
         if old.resolved.as_ref().is_some_and(|ids| ids.contains(&thread.id)) {
             continue;
         }
@@ -835,7 +834,7 @@ fn mr_events(mr: &NormMr, old: &MrState, new: &MrState, me: &str, review: bool) 
     events
 }
 
-pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str, review: bool) -> (MrsState, Vec<Event>) {
+pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str) -> (MrsState, Vec<Event>) {
     let fallback = MrState::default();
     let mut mrs = BTreeMap::new();
     let mut events = Vec::new();
@@ -844,7 +843,7 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str, review: boo
         let old_mr = old.and_then(|old| old.mrs.get(&key));
         let new = new_state(mr, old_mr.unwrap_or(&fallback), me);
         if let Some(old_mr) = old_mr {
-            events.extend(mr_events(mr, old_mr, &new, me, review));
+            events.extend(mr_events(mr, old_mr, &new, me));
         }
         mrs.insert(key, new);
     }
@@ -855,12 +854,13 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str, review: boo
         .collect();
     let failed = |s: &MrState| s.pipeline.as_ref().is_some_and(|p| p.status == "failed");
     let conflict = |s: &MrState| matches!(s.merge_status.as_deref(), Some("conflict" | "need_rebase"));
-    let mut present_needs = Vec::new();
+    let mut needs = Vec::new();
     for (mr, s) in &open {
         let checks = [
             (Need::Failed, failed(s)),
             (Need::Conflict, conflict(s)),
             (Need::Reply, !mr.unaddressed.is_empty()),
+            (Need::ReplyMine, mr.unaddressed.iter().any(|thread| thread.mine)),
             (
                 Need::RequestedChanges,
                 s.merge_status.as_deref() == Some("requested_changes"),
@@ -869,19 +869,12 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str, review: boo
             (Need::Ready, s.merge_status.as_deref() == Some("mergeable")),
             (Need::Draft, s.draft == Some(true)),
         ];
-        present_needs.extend(checks.into_iter().filter(|(_, holds)| *holds).map(|(need, _)| need));
+        for (need, _) in checks.into_iter().filter(|(_, holds)| *holds) {
+            if !needs.contains(&need) {
+                needs.push(need);
+            }
+        }
     }
-    let order: &[Need] = match review {
-        true => &[Need::Reply, Need::Commits],
-        false => &[
-            Need::Failed,
-            Need::Conflict,
-            Need::Reply,
-            Need::RequestedChanges,
-            Need::Ready,
-            Need::Draft,
-        ],
-    };
     let mut present = Vec::new();
     for (mr, s) in &open {
         present.extend(
@@ -907,6 +900,10 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str, review: boo
                     &short(&last.body),
                     Some(&last.url),
                 );
+                let line = Event {
+                    mine: Some(thread.mine),
+                    ..line
+                };
                 events.push(with_item(
                     at(line, &thread.position),
                     format!("thread:{}", thread.discussion),
@@ -914,11 +911,6 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str, review: boo
             }
         }
     }
-    let needs = order
-        .iter()
-        .copied()
-        .filter(|need| present_needs.contains(need))
-        .collect();
     (MrsState { mrs, needs, present }, events)
 }
 
@@ -938,9 +930,8 @@ pub async fn check_mrs(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         .first()
         .map(|data| data.current_user.username.clone())
         .unwrap_or_default();
-    let review = ctx.args.review;
-    let now: Vec<NormMr> = data.iter().map(|data| normalize(data, &me, review)).collect();
-    let (new_state, events) = mrs_compare(&now, old.as_ref(), &me, review);
+    let now: Vec<NormMr> = data.iter().map(|data| normalize(data, &me)).collect();
+    let (new_state, events) = mrs_compare(&now, old.as_ref(), &me);
     let events = add_jobs(ctx, &ctx.project_ref, events).await?;
     state::save(&ctx.state, &new_state)?;
     Ok(events)
@@ -984,8 +975,8 @@ mod tests {
                "notes": {"nodes": notes}})
     }
 
-    fn compare(data: &MrData, old: Option<&MrsState>, review: bool) -> (MrsState, Vec<Event>) {
-        mrs_compare(&[normalize(data, "me", review)], old, "me", review)
+    fn compare(data: &MrData, old: Option<&MrsState>) -> (MrsState, Vec<Event>) {
+        mrs_compare(&[normalize(data, "me")], old, "me")
     }
 
     fn lines(events: &[Event]) -> Vec<String> {
@@ -1003,10 +994,9 @@ mod tests {
                 m["detailedMergeStatus"] = json!("CONFLICT");
             }),
             None,
-            false,
         );
         let checking = mr(|m| m["detailedMergeStatus"] = json!("CHECKING"));
-        let (state, events) = compare(&checking, Some(&old), false);
+        let (state, events) = compare(&checking, Some(&old));
         assert!(events.is_empty());
         assert_eq!(state.mrs["5"].conflicts, Some(true));
         assert_eq!(state.mrs["5"].merge_status.as_deref(), Some("conflict"));
@@ -1019,13 +1009,11 @@ mod tests {
         let (old, _) = compare(
             &mr(|m| m["discussions"]["nodes"] = json!([thread("d1", None, vec![first.clone()])])),
             None,
-            false,
         );
         let second = note(2, "anna", "Why?", json!({"newPath": "a.kt", "newLine": 3}));
         let (_, events) = compare(
             &mr(|m| m["discussions"]["nodes"] = json!([thread("d1", None, vec![first, second])])),
             Some(&old),
-            false,
         );
         assert_eq!(
             lines(&events)[0],
@@ -1036,15 +1024,15 @@ mod tests {
     #[test]
     fn unaddressed_lines_follow_only_when_there_are_other_events() {
         let open = json!([thread("d1", None, vec![note(1, "anna", "Nit", Value::Null)])]);
-        let (old, _) = compare(&mr(|m| m["discussions"]["nodes"] = open.clone()), None, false);
+        let (old, _) = compare(&mr(|m| m["discussions"]["nodes"] = open.clone()), None);
         let unchanged = mr(|m| m["discussions"]["nodes"] = open.clone());
-        let (old, events) = compare(&unchanged, Some(&old), false);
+        let (old, events) = compare(&unchanged, Some(&old));
         assert!(events.is_empty());
         let approved = mr(|m| {
             m["discussions"]["nodes"] = open.clone();
             m["approvedBy"]["nodes"] = json!([{"username": "bob"}]);
         });
-        let (_, events) = compare(&approved, Some(&old), false);
+        let (_, events) = compare(&approved, Some(&old));
         let kinds: Vec<_> = events.iter().map(|event| event.kind).collect();
         assert_eq!(kinds, vec![EventKind::Approved, EventKind::Unaddressed]);
     }
@@ -1054,18 +1042,18 @@ mod tests {
         let mut first = note(1, "anna", "Nit", Value::Null);
         first["awardEmoji"]["nodes"] = json!([{"name": "thumbsup", "user": {"username": "me"}}]);
         let reacted = mr(|m| m["discussions"]["nodes"] = json!([thread("d1", None, vec![first.clone()])]));
-        let (old, _) = compare(&reacted, None, false);
+        let (old, _) = compare(&reacted, None);
         assert!(old.present.is_empty());
         assert!(old.needs.is_empty());
 
         let second = note(2, "anna", "Also this", Value::Null);
         let replied = mr(|m| m["discussions"]["nodes"] = json!([thread("d1", None, vec![first, second])]));
-        let (state, _) = compare(&replied, Some(&old), false);
+        let (state, _) = compare(&replied, Some(&old));
         assert_eq!(state.present, vec!["thread:d1"]);
     }
 
     #[test]
-    fn review_mode_gives_pushed_and_resolved() {
+    fn mrs_compare_gives_pushed_and_resolved() {
         let mine = note(1, "me", "Rename", json!({"newPath": "a.kt", "newLine": 4}));
         let (old, _) = compare(
             &mr(|m| {
@@ -1073,7 +1061,6 @@ mod tests {
                 m["discussions"]["nodes"] = json!([thread("d1", None, vec![mine.clone()])]);
             }),
             None,
-            true,
         );
         let (_, events) = compare(
             &mr(|m| {
@@ -1081,7 +1068,6 @@ mod tests {
                 m["discussions"]["nodes"] = json!([thread("d1", Some("bob"), vec![mine.clone()])]);
             }),
             Some(&old),
-            true,
         );
         assert_eq!(
             lines(&events),
@@ -1093,22 +1079,52 @@ mod tests {
     }
 
     #[test]
-    fn needs_order_differs_between_review_and_author() {
-        let data = mr(|m| {
-            m["draft"] = json!(true);
-            m["headPipeline"] = json!({"id": "gid://gitlab/Ci::Pipeline/9", "status": "FAILED"});
-            m["discussions"]["nodes"] = json!([thread(
-                "d1",
-                None,
-                vec![
-                    note(1, "me", "Why?", Value::Null),
-                    note(2, "anna", "Because", Value::Null)
-                ]
-            )]);
+    fn needs_has_reply_and_reply_mine() {
+        let with = |authors: &[&str]| {
+            let notes = authors
+                .iter()
+                .enumerate()
+                .map(|(index, author)| note(index as u64 + 1, author, "Why?", Value::Null))
+                .collect();
+            mr(|m| m["discussions"]["nodes"] = json!([thread("d1", None, notes)]))
+        };
+        assert_eq!(
+            compare(&with(&["me", "anna"]), None).0.needs,
+            vec![Need::Reply, Need::ReplyMine]
+        );
+        assert_eq!(compare(&with(&["anna"]), None).0.needs, vec![Need::Reply]);
+    }
+
+    #[test]
+    fn unaddressed_has_mine() {
+        let (old, _) = compare(&mr(|_| {}), None);
+        let threads = mr(|m| {
+            m["discussions"]["nodes"] = json!([
+                thread(
+                    "d1",
+                    None,
+                    vec![
+                        note(1, "me", "Why?", Value::Null),
+                        note(2, "anna", "Because", Value::Null)
+                    ]
+                ),
+                thread("d2", None, vec![note(3, "anna", "Nit", Value::Null)]),
+            ])
         });
-        let author_needs = compare(&data, None, false).0.needs;
-        assert_eq!(author_needs, vec![Need::Failed, Need::Reply, Need::Draft]);
-        assert_eq!(compare(&data, None, true).0.needs, vec![Need::Reply]);
+
+        let (_, events) = compare(&threads, Some(&old));
+
+        let unaddressed: Vec<Event> = events
+            .into_iter()
+            .filter(|event| event.kind == EventKind::Unaddressed)
+            .collect();
+        assert_eq!(
+            lines(&unaddressed),
+            vec![
+                r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u#note_2","actor":"anna","detail":"Because","branch":"b","item":"thread:d1","mine":true}"#,
+                r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u#note_3","actor":"anna","detail":"Nit","branch":"b","item":"thread:d2","mine":false}"#,
+            ]
+        );
     }
 
     #[test]
@@ -1120,7 +1136,7 @@ mod tests {
                 system_note(4, "carl", "added ~7 labelsx"),
             ])
         });
-        let norm = normalize(&data, "me", false);
+        let norm = normalize(&data, "me");
         assert_eq!(norm.labels_user, "bob");
         assert_eq!(norm.title_user, "anna");
         assert!(is_labels_note("removed ~7 ~9 labels"));

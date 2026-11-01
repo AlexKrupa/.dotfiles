@@ -378,3 +378,44 @@ fn a_session_that_takes_its_key_back_gets_no_replaced_event() {
         other.err
     );
 }
+
+#[test]
+fn watch_with_events_gets_only_those_kinds() {
+    let w = Watchd::new();
+    let review = format!("{}-review-5", w.author_key());
+    w.events(&review, &[ev("comment", 5), ev("pushed", 5)]);
+
+    let run = w.watch_wait(&["--review", "--mr", "5", "--events", "pushed"]);
+
+    assert_eq!((run.code, norow(&run.out)), (0, ev("pushed", 5)), "{}", run.err);
+    assert_eq!(w.inbox_of("app"), "");
+}
+
+#[test]
+fn watch_with_a_kind_outside_the_mode_exits_1_with_no_record() {
+    let w = Watchd::new();
+    let review = format!("{}-review-5", w.author_key());
+
+    let run = w.watch(&["--review", "--mr", "5", "--events", "todo"]);
+
+    assert_eq!(run.code, 1);
+    let prefix = "watchd: --events todo: not a kind of review mode. Kinds: ";
+    assert!(run.err.starts_with(prefix), "{}", run.err);
+    assert!(!w.watchd.join(format!("subs/{review}.json")).exists());
+}
+
+#[test]
+fn record_without_events_field_gets_the_mode_list() {
+    let w = Watchd::new();
+    let review = format!("{}-review-5", w.author_key());
+    assert_eq!(w.watch(&["--review", "--mr", "5"]).code, 0);
+    let path = w.watchd.join(format!("subs/{review}.json"));
+    let mut record = support::read_json(&path);
+    record.as_object_mut().unwrap().remove("events");
+    std::fs::write(&path, record.to_string()).unwrap();
+    w.events(&review, &[ev("comment", 5)]);
+
+    let run = w.wait();
+
+    assert_eq!((run.code, norow(&run.out)), (0, ev("comment", 5)), "{}", run.err);
+}

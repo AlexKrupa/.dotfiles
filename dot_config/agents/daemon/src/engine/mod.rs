@@ -25,7 +25,8 @@
 //! default-branch pipeline or null, and jobs are the names of the failed jobs.
 //!
 //! Author mode (--mr, one for each MR, `!` prefix allowed) watches the MRs of a worktree.
-//! Review mode (--review and one --mr) watches one MR for its reviewer. Events of both modes:
+//! Review mode (--review and one --mr) watches one MR for its reviewer. The two modes give the same
+//! events. The daemon keeps the events of each mode: see `src/core/filter.rs`. Events:
 //!   kind                     when                                       except
 //!   pipeline                 the head pipeline failed or passed. A failed
 //!                            pipeline has jobs: the names of the failed jobs
@@ -42,11 +43,11 @@
 //!   merged, closed           the MR was merged or closed                none (the user: own true)
 //!   unaddressed              after the other events: each open thread   a thread that the user
 //!                            whose last comment is not of the user and  answered last
-//!                            has no reaction of the user
-//! Review mode only:
-//!   pushed                   the head changed (old_base, old_head, new_base, new_head)
+//!                            has no reaction of the user. mine: true if
+//!                            the thread has a comment of the user
+//!   pushed                   the head changed (old_base, old_head, new_base, new_head). The
+//!                            daemon adds local: true if the local branch has new_head
 //!   resolved                 a different user resolved a thread that the user started
-//!   unaddressed              only for the threads that have a comment of the user
 //! Comments, reactions, and threads on a diff line also have path and line. The actor of a change
 //! is the author of the newest system note of that change, or empty.
 //!
