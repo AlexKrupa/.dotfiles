@@ -3,7 +3,8 @@
 `watchd` keeps the local git state and the GitLab state of each managed repo and worktree, with or
 without an agent session. `watchd watch` saves the watch of an agent session. `watchd wait` waits,
 then prints the new GitLab events (comments, failed pipelines, approvals) as JSON lines. The build,
-the tests, and the exit codes are in the [main README](../README.md).
+the tests, and the exit codes are in the [main README](../README.md). The behaviors that the user
+asked for are in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 ## Overview
 
