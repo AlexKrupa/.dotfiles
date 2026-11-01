@@ -1,7 +1,7 @@
 # Watch: author
 
-The role file of `draft-pr`: the author mode for the MRs of the worktree of the user. You fix
-failures when the fix is clear. A fix that needs a decision of the user waits under Needs you.
+The role file of `draft-pr`: the author mode for the MRs of the worktree of the user. If the fix
+of a failure is clear, you do it. A fix that needs a decision of the user waits under Needs you.
 
 ## Idle session
 
@@ -15,12 +15,19 @@ If the session is not idle, do not do an auto-fix.
 
 ## MRs of other people
 
-Do this check before any auto-fix, push, or restack push. Run the host commands "Author of an MR"
-and "User of the session". Compare the two names.
+Do this check before any auto-fix, push, or restack push. "Push" restacks and pushes each branch
+of the stack that has an MR. The check covers each of these MRs:
 
-If the author is not the user, and the MR is not a bump MR, do not commit or push. A bump MR is an
-MR of a bot: an author whose username has `renovate` or `dependabot`. Put the fix under Needs you
-as a proposed fix. If the user tells you to commit or push, do it.
+1. Run `git-spice log short --all=false --json --no-prompt`. For each branch object with `change`,
+   take `change.url`.
+2. Run the host command "User of the session".
+3. For each URL, run the host command "Author of an MR" with the URL. Compare the name with the
+   user.
+
+If the author of one of these MRs is not the user, and that MR is not a bump MR, do not commit or
+push. A bump MR is an MR of a bot: an author whose username has `renovate` or `dependabot`. Put the
+fix under Needs you as a proposed fix, and name the MR of the other person. If the user tells you
+to commit or push, do it.
 
 ## Start
 
@@ -100,8 +107,9 @@ put the restack under Needs you as "fix waits, session not idle". Else do "Push"
 
 ## Pushes
 
-A `pushed` event is a push that the local branch of the MR and its reflog do not have, for example
-a push from a different machine. Do not reset the branch, because it can have local commits.
+A `pushed` event is a push that is not in the local branch of the MR and not in its reflog. An
+example is a push from a different machine. Do not reset the branch, because it can have local
+commits.
 
 1. If `git cat-file -e <new_head>` fails, run `git fetch <remote> <source_branch>`.
 2. If `git merge-base --is-ancestor <branch> <new_head>` exits 0, put under Needs you: "Someone

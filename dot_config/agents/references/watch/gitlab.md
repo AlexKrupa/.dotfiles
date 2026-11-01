@@ -3,22 +3,23 @@
 The host file for GitLab. Run each command in the repo of the watched MRs. `watchd` is the client
 of the watch daemon, on PATH.
 
-| Function                              | Command                                                                                        |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Watch command, hub mode               | `watchd watch --session <id> --interval 120`                                                   |
-| Watch command, author mode            | `watchd watch --session <id> --interval 120` in the worktree of the MRs                        |
-| Watch command, review mode            | `watchd watch --session <id> --review --fresh --mr <iid> --interval 120`                       |
-| Watch command, chosen kinds           | `--events <kind>,<kind>` after the flags of the watch command                                  |
-| Unsubscribe                           | `watchd unsubscribe --session <id>`, with the `--review` and `--mr` flags of the watch command |
-| Daemon status                         | `watchd status`                                                                                |
-| Router result                         | `watchd route --iid <iid> --action <bump\|review\|none>`                                       |
-| Report                                | `printf '%s' '<json>' \| watchd report <flags of the watch command>`                           |
-| MR details: branches, author, labels  | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`                                        |
-| Author of an MR                       | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url> \| jq -r .author`                       |
-| User of the session                   | `glab api user \| jq -r .username`                                                             |
-| Logs of the failed jobs of a pipeline | `~/.config/agents/bin/gitlab-pipeline.sh failed-logs <pipeline id>`                            |
-| Retry a job                           | `glab ci retry <job id>`                                                                       |
-| Retry a job and wait for the new job  | `~/.config/agents/skills/hub/hub-retry.sh <job id>`                                            |
+| Function                              | Command                                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Watch command, hub mode               | `watchd watch --session <id> --interval 120`                                                                                         |
+| Watch command, author mode            | `watchd watch --session <id> --interval 120` in the worktree of the MRs                                                              |
+| Watch command, review mode            | `watchd watch --session <id> --review --fresh --mr <iid> --interval 120`                                                             |
+| Watch command, chosen kinds           | `--events <kind>,<kind>` after the flags of the watch command                                                                        |
+| Unsubscribe                           | `watchd unsubscribe --session <id>`, with the `--review` and `--mr` flags of the watch command                                       |
+| Daemon status                         | `watchd status`                                                                                                                      |
+| Router result                         | `watchd route --iid <iid> --action <bump\|review\|none>`                                                                             |
+| Report                                | `printf '%s' '<json>' \| watchd report <flags of the watch command>`                                                                 |
+| MR details: branches, author, labels  | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`                                                                              |
+| Author of an MR                       | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url> \| jq -r .author`                                                             |
+| User of the session                   | `glab api user \| jq -r .username`                                                                                                   |
+| URL of a commit                       | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url> \| jq -r '(.web_url \| sub("/-/merge_requests/.*"; "")) + "/-/commit/<sha>"'` |
+| Logs of the failed jobs of a pipeline | `~/.config/agents/bin/gitlab-pipeline.sh failed-logs <pipeline id>`                                                                  |
+| Retry a job                           | `glab ci retry <job id>`                                                                                                             |
+| Retry a job and wait for the new job  | `~/.config/agents/skills/hub/hub-retry.sh <job id>`                                                                                  |
 
 - `<id>` is the session ID. The runner file tells how to get it.
 - `--fresh` deletes the state of an earlier review watch of the MR. Use it only at the first start.

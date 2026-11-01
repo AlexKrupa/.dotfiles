@@ -17,7 +17,7 @@ check() {
 # Fake herdr: answers the calls work-start.sh makes and logs each call. MOCK_START_FAIL is the
 # error text of a failed `agent start`. MOCK_WT_LIST is the output of `worktree list`. `agent get`
 # gives the kind MOCK_KIND (default fake) and the session id MOCK_SESSION (default sid-1). An
-# empty value gives null.
+# empty value gives null. MOCK_OPEN_WARNING is a stderr line of a `worktree open` that succeeds.
 mkdir -p "$tmp/bin" "$tmp/wt-path"
 cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
@@ -31,6 +31,7 @@ case "$1 $2" in
     if [ -n "${MOCK_WT_LIST:-}" ]; then echo "$MOCK_WT_LIST"
     else echo '{"result":{"worktrees":[]}}'; fi ;;
   "worktree open")
+    if [ -n "${MOCK_OPEN_WARNING:-}" ]; then echo "$MOCK_OPEN_WARNING" >&2; fi
     echo '{"result":{"workspace":{"workspace_id":"wO"},"root_pane":{"pane_id":"wO:p1"}}}' ;;
   "agent start")
     if [ -n "${MOCK_START_FAIL:-}" ]; then echo "$MOCK_START_FAIL" >&2; exit 1; fi
@@ -767,6 +768,16 @@ check "existing closed: agent started in the root pane, with the branch as sessi
   "$(grep '^herdr agent start' "$MOCK_LOG")"
 check "existing closed: output has the worktree" "/wt/old wO" \
   "$(jq -r '"\(.worktree) \(.workspace_id)"' <<<"$out")"
+
+# Existing branch with no open workspace, and a herdr warning on stderr.
+fresh
+push_branch ABC-5/review-me
+MOCK_OPEN_WARNING="warning: config is old" MOCK_WT_LIST='{"result":{"worktrees":[
+{"branch":"ABC-5/review-me","path":"/wt/old","is_prunable":false}]}}' run p --branch ABC-5/review-me
+check "existing closed with a herdr warning: exit 0" 0 "$code"
+check "existing closed with a herdr warning: agent started in the root pane" \
+  "herdr agent start abc-5-review-me --kind fake --pane wO:p1 -- --fake-name ABC-5/review-me" \
+  "$(grep '^herdr agent start' "$MOCK_LOG")"
 
 # Existing branch from a linked worktree: a new workspace, the linked worktree stays.
 fresh

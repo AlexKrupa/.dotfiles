@@ -158,7 +158,11 @@ if [ -f "$settings" ]; then
       continue
     fi
 
-    source_folder="$(directory_plugin_folder "$plugin" "$settings")"
+    if ! source_folder="$(directory_plugin_folder "$plugin" "$settings")"; then
+      add_entry "plugins/$plugin" "FAILED" "no plugin folder"
+      failed=1
+      continue
+    fi
     if [ -z "$source_folder" ] || copy_matches "$plugin" "$source_folder"; then
       add_entry "plugins/$plugin" "$status"
     elif claude plugin uninstall "$plugin" --scope user >/dev/null \

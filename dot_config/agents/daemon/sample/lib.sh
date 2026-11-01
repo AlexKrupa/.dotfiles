@@ -52,10 +52,12 @@ event() { # event <role> <json>: an event for the next check of the role
   key=$(key_of "$1") && jq -c . <<<"$2" >>"$engine/$key.jsonl"
 }
 
-# The daemon drops a state file that has no `version` of the current format (src/persist.rs).
+# The daemon drops a state file that has no `version` of the current format (src/persist.rs). The
+# daemon writes the current format to the `format` file at its start.
 engine_state() { # engine_state <role> <json>: the engine state, with the needs of the sidebar
-  local key
-  key=$(key_of "$1") && jq '. + {version: 4}' <<<"$2" >"$engine/$key.state"
+  local key version
+  key=$(key_of "$1") && version=$(cat "$SAMPLE_STATE/watchd/format") \
+    && jq --argjson version "$version" '. + {version: $version}' <<<"$2" >"$engine/$key.state"
 }
 
 check_fail() { # check_fail <role> <count> <text>: the next <count> checks fail with the text

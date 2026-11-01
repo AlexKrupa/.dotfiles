@@ -737,21 +737,21 @@ fn inherited_fd(name: &str) -> Option<RawFd> {
 }
 
 /// A `flock` goes away with the process, also after `kill -9`.
-fn take_lock(dirs: &StateDirs) -> Option<std::fs::File> {
+/// None: a different daemon holds the lock.
+fn take_lock(dirs: &StateDirs) -> std::io::Result<Option<std::fs::File>> {
     if let Some(fd) = inherited_fd(LOCK_FD) {
         // SAFETY: the image before the exec left this descriptor open for this image.
-        return Some(unsafe { std::fs::File::from_raw_fd(fd) });
+        return Ok(Some(unsafe { std::fs::File::from_raw_fd(fd) }));
     }
     let file = std::fs::OpenOptions::new()
         .create(true)
         .truncate(false)
         .write(true)
-        .open(dirs.lock())
-        .ok()?;
+        .open(dirs.lock())?;
     // SAFETY: flock on an open descriptor.
     match unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } {
-        0 => Some(file),
-        _ => None,
+        0 => Ok(Some(file)),
+        _ => Ok(None),
     }
 }
 
@@ -786,12 +786,20 @@ pub async fn main() -> i32 {
         eprintln!("watchd: {}: {error}", dirs.watchd.display());
         return 1;
     }
-    let Some(lock) = take_lock(&dirs) else { return 0 };
+    // The output goes to the log before the lock, so that the log has the errors from here on.
     let log = std::fs::OpenOptions::new().create(true).append(true).open(dirs.log());
     if let Err(error) = log.and_then(|log| redirect_output(&log)) {
         eprintln!("watchd: {}: {error}", dirs.log().display());
         return 1;
     }
+    let lock = match take_lock(&dirs) {
+        Ok(Some(lock)) => lock,
+        Ok(None) => return 0,
+        Err(error) => {
+            eprintln!("watchd: {}: {error}", dirs.lock().display());
+            return 1;
+        }
+    };
     // The folders come after the reset, so that a new state folder gets no reset.
     store.reset_on_format_change();
     if let Err(error) = store.ensure_dirs() {

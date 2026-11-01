@@ -455,6 +455,23 @@ fn the_daemon_creates_its_state_folder_and_log() {
 }
 
 #[test]
+fn a_daemon_with_no_state_folder_gives_a_client_error_with_the_folder() {
+    let w = Watchd::new();
+    // A file in the place of the state home: the daemon cannot make its folder or its log.
+    std::fs::remove_dir_all(&w.env.state).unwrap();
+    std::fs::write(&w.env.state, "").unwrap();
+
+    let run = w.watch(&[]);
+
+    assert_eq!(run.code, 1, "{}", run.out);
+    let error = format!(
+        "watchd: the daemon did not start, and it has no log in {}",
+        w.watchd.display()
+    );
+    assert_eq!(run.err, error);
+}
+
+#[test]
 fn the_stderr_of_the_daemon_goes_to_its_log() {
     let w = Watchd::new();
     // A file in the place of a folder of the state: the daemon writes the error to stderr.

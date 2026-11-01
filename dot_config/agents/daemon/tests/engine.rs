@@ -573,6 +573,22 @@ fn author_basics() -> &'static Checks {
                 .collect::<Vec<_>>()
                 .join("\n"),
         );
+        gql(&env, 5, plain);
+        env.run(&["--mr", "5"]);
+        gql(&env, 5, |mr| {
+            mr["detailedMergeStatus"] = json!("MERGEABLE");
+            mr["mergeable"] = json!(true);
+        });
+        discussions(&env, 5, &[thread("", vec![note(99, "anna", "Nit", None)])]);
+        let out = env.run(&["--mr", "5"]).out;
+        c.check(
+            "author: mergeable with one open thread",
+            Line::sev("mergeable", 5, "", "1 open thread"),
+            out.lines()
+                .filter(|line| line.contains(r#""mergeable""#))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
         c
     })
 }
@@ -1648,6 +1664,11 @@ fn author_transient_status_old_conflict_value_stays() {
 #[test]
 fn author_mergeable_with_open_threads() {
     author_basics().assert("author: mergeable with open threads");
+}
+
+#[test]
+fn author_mergeable_with_one_open_thread() {
+    author_basics().assert("author: mergeable with one open thread");
 }
 
 #[test]

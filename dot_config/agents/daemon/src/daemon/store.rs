@@ -1,7 +1,7 @@
 //! The daemon state files, with the daemon as the only writer: each function runs under its state
 //! lock.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -146,13 +146,13 @@ impl Store {
 
     /// No migrations: at a different format, all state goes away, and each session that had a
     /// watch gets the upgrade error at its next wait. A new folder only gets the format file.
-    pub fn reset_on_format_change(&self) -> bool {
+    pub fn reset_on_format_change(&self) {
         let format_path = self.dirs.watchd.join(FORMAT_FILE);
         let format = std::fs::read_to_string(&format_path)
             .ok()
             .map(|text| text.trim().to_string());
         if format == Some(FORMAT_VERSION.to_string()) {
-            return false;
+            return;
         }
         let entries: Vec<PathBuf> = std::fs::read_dir(&self.dirs.watchd)
             .into_iter()
@@ -164,36 +164,56 @@ impl Store {
         let format_line = format!("{FORMAT_VERSION}\n");
         if entries.is_empty() {
             self.write_text(&format_path, &format_line);
-            return false;
+            return;
         }
-        // The raw field, because the record can have a different format. A session file with no
-        // record is a watch that ended or that the user stopped.
-        let sessions: BTreeSet<String> = std::fs::read_dir(self.dirs.watchd.join("subs"))
+        // The raw fields, because the files can have a different format. A session file with no
+        // record is a watch that ended or that the user stopped. The owner PID lets a `/clear`
+        // rename take the upgrade error.
+        let raw = |path: PathBuf| {
+            let text = std::fs::read_to_string(path).ok()?;
+            serde_json::from_str::<serde_json::Value>(&text).ok()
+        };
+        let sessions: BTreeMap<String, Option<u32>> = std::fs::read_dir(self.dirs.watchd.join("subs"))
             .into_iter()
             .flatten()
-            .filter_map(|entry| std::fs::read_to_string(entry.ok()?.path()).ok())
-            .filter_map(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .filter_map(|entry| raw(entry.ok()?.path()))
             .filter_map(|record| session_id(record["session"].as_str().map(str::to_string)).ok())
+            .map(|id| {
+                let owner_pid = raw(self.dirs.session(&id))
+                    .and_then(|session| session["owner_pid"].as_u64())
+                    .and_then(|pid| u32::try_from(pid).ok());
+                (id, owner_pid)
+            })
             .collect();
+        let mut failed = false;
         for path in entries {
-            let _ = match path.is_dir() {
+            let removed = match path.is_dir() {
                 true => std::fs::remove_dir_all(&path),
                 false => std::fs::remove_file(&path),
             };
+            if let Err(error) = removed {
+                self.log("", "", &format!("{}: not deleted: {error}", path.display()));
+                failed = true;
+            }
         }
         let _ = std::fs::create_dir_all(self.dirs.watchd.join("sessions"));
-        for id in sessions {
+        for (id, owner_pid) in sessions {
             let session = Session {
+                owner_pid,
                 upgraded: true,
                 ..Session::default()
             };
             self.write_session(&id, &session);
         }
-        self.write_text(&format_path, &format_line);
         let old = format.filter(|format| !format.is_empty());
         let old = old.as_deref().unwrap_or("none");
+        // With no format file, the next start tries the reset again.
+        if failed {
+            self.log("", "", &format!("state reset: format {old} stays, a delete failed"));
+            return;
+        }
+        self.write_text(&format_path, &format_line);
         self.log("", "", &format!("state reset: format {old} to {FORMAT_VERSION}"));
-        true
     }
 
     /// Shrinks the log in place, because the log file is the stdout of the daemon.
@@ -959,6 +979,13 @@ impl Store {
             own.replaced.retain(|taken| taken.key != request.key);
             self.write_session(&request.session, &own);
         }
+        // The session ran the watch command again, as the upgrade error tells.
+        if let Some(mut own) = self.session(&request.session)
+            && own.upgraded
+        {
+            own.upgraded = false;
+            self.write_session(&request.session, &own);
+        }
         if old.is_none() && request.mode == Mode::Hub && !self.inbox_has_events(&request.key) {
             self.append_lines(&self.dirs.inbox(&request.key), &self.pending_events(&request.key));
         }
@@ -1231,6 +1258,28 @@ mod tests {
             store.dirs.sub("app").display()
         );
         assert!(log.ends_with(&expected), "{log}");
+    }
+
+    #[test]
+    fn a_failed_delete_at_a_format_change_logs_the_path_and_writes_no_format_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-reset", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs::from_base(&base));
+        let items = store.dirs.watchd.join("items");
+        std::fs::create_dir_all(items.join("app")).unwrap();
+        std::fs::write(items.join("app/5.json"), "{}").unwrap();
+        std::fs::set_permissions(items.join("app"), std::fs::Permissions::from_mode(0o500)).unwrap();
+
+        store.reset_on_format_change();
+        let format = store.dirs.watchd.join(FORMAT_FILE).exists();
+        let log = std::fs::read_to_string(store.dirs.log()).unwrap_or_default();
+        std::fs::set_permissions(items.join("app"), std::fs::Permissions::from_mode(0o755)).unwrap();
+        let _ = std::fs::remove_dir_all(&base);
+
+        assert!(!format);
+        assert!(log.contains(&format!("{}: not deleted: ", items.display())), "{log}");
+        assert!(log.contains("state reset: format none stays, a delete failed"), "{log}");
     }
 
     #[test]

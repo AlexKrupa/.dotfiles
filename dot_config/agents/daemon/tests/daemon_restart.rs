@@ -555,3 +555,28 @@ fn the_daemon_gets_sigterm_during_a_check_daemon_gone() {
 fn network_down_no_client_error_subscription_stays() {
     network_down().assert("network down: no client error, subscription stays");
 }
+
+#[test]
+fn a_new_session_id_of_the_same_owner_after_an_upgrade_gets_the_upgrade_error() {
+    let w = Watchd::new();
+    old_state(&w, Some("3"));
+    let mut command = w.as_session(w.wait_command(), "cleared", w.session_pid());
+    command.arg("--rename-owner-session");
+
+    let cleared = w.run(command);
+
+    assert_eq!(cleared.code, 1, "{}", cleared.err);
+    assert!(cleared.err.contains(UPGRADE_TEXT), "{}", cleared.err);
+}
+
+#[test]
+fn a_watch_after_an_upgrade_removes_the_upgrade_error() {
+    let w = Watchd::new();
+    old_state(&w, Some("3"));
+
+    assert_eq!(w.watch(&[]).code, 0);
+    w.events("app", &[ev("todo", 6)]);
+    let run = w.wait();
+
+    assert_eq!((run.code, norow(&run.out)), (0, ev("todo", 6)), "{}", run.err);
+}

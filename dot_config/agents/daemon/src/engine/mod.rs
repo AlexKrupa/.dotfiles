@@ -52,9 +52,9 @@
 //! Comments, reactions, and threads on a diff line also have path and line. The actor of a change
 //! is the author of the newest system note of that change, or empty.
 //!
-//! Pending items. An event that opens an item for the user has the item key in `item`. The `present`
-//! list of the state file has the item keys whose cause GitLab still shows. The daemon removes the
-//! other items.
+//! Pending items. An event that opens an item for the user has the item key in `item`. The
+//! `present` list of the state file has the item keys whose cause GitLab still shows. The daemon
+//! removes the other items.
 //!   item                     event                        present while
 //!   todo:<to-do id>          todo                         the to-do item is pending
 //!   note:<note id>           note                         the MR is open, the note is not
@@ -516,7 +516,9 @@ async fn debug_check(args: EngineArgs, cache: Option<Arc<MrCache>>) -> Result<Ve
         let ctx = preflight(args, &StateDirs::from_env(), cache).await?;
         return run_check(&ctx).await;
     }
+    // A process that ended before the cleanup can leave the folder of a reused PID.
     let base = std::env::temp_dir().join(format!("watchd-engine-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
     let result = async {
         let ctx = preflight(args, &StateDirs::from_base(&base), cache).await?;
         copy_state(&ctx)?;

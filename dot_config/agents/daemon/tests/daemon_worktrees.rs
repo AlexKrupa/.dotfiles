@@ -915,6 +915,32 @@ fn kind_hub_opens_the_board() {
 }
 
 #[test]
+fn kind_hub_runs_the_board_script_of_the_scripts_folder() {
+    use std::os::unix::fs::PermissionsExt;
+    let w = Watchd::new();
+    let scripts = w.env.dir.join("scripts");
+    std::fs::create_dir_all(scripts.join("hub")).unwrap();
+    let script = scripts.join("hub/hub-board.sh");
+    std::fs::write(&script, "#!/bin/sh\necho \"$@\" >\"$(dirname \"$0\")/../args\"\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let mut command = w.command();
+    command
+        .current_dir(&w.env.repo)
+        .env_remove("WATCHD_FAKE_WORKSPACES")
+        .env("WATCHD_SCRIPTS", &scripts)
+        .args(["kind", "hub"]);
+    let run = w.run(command);
+
+    assert_eq!(run.code, 0, "{}", run.err);
+    let repo = w.env.repo.canonicalize().unwrap();
+    assert_eq!(
+        std::fs::read_to_string(scripts.join("args")).unwrap_or_default(),
+        format!("--repo {}\n", repo.display())
+    );
+}
+
+#[test]
 fn local_round_keeps_a_kind_set_during_the_round() {
     let w = Watchd::new();
     let wt = stacked_worktree(&w);

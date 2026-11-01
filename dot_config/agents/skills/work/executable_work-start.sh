@@ -316,8 +316,8 @@ if [[ -n $existing ]]; then
     tracked=true
   fi
 
-  opened=$("$here/herdr-worktree.sh" "$branch" --repo "$main" 2>&1) \
-    || die "herdr-worktree.sh failed: $opened"
+  # Stdout only: a stderr warning of a success is not JSON. A failure shows its own stderr.
+  opened=$("$here/herdr-worktree.sh" "$branch" --repo "$main") || die "herdr-worktree.sh failed"
   worktree=$(jq -r '.path' <<<"$opened")
   workspace=$(jq -r '.workspace_id' <<<"$opened")
   pane=$(jq -r '.root_pane_id' <<<"$opened")

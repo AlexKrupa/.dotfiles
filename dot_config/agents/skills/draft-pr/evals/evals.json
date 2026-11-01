@@ -217,7 +217,21 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
         {"type": "reply_regex", "patterns": ["(?m)^Agent$", "!11"], "text": "Reply has an Agent section for !11"},
-        {"type": "reply_not_regex", "patterns": ["(?m)^Needs you$"], "text": "Reply has no Needs you section for the failure"}
+        {"type": "reply_not_regex", "patterns": ["(?ms)^Needs you$(?:(?!^(?:Agent|Info)$).)*?(?:\\b504\\b|TagTest|label\\(\\))"], "text": "Reply has no Needs you row for the failure"}
+      ]
+    },
+    {
+      "id": 15,
+      "name": "watch-other-author",
+      "fixture": "fixtures/watch-other-author.sh",
+      "common": false,
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
+      "expected_output": "The lint fix of !11 is obvious, but a push restacks and pushes the stack, and anna is the author of !12. The session runs the author check for each MR of the stack, does not submit, and puts the proposed fix (remove the wildcard import in Tag.kt) under Needs you, with the MR of anna.",
+      "checks": [
+        {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b[^|;&]*--update-only", "max": 0, "text": "Does not submit with --update-only"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
+        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "(?s)^Needs you$.*(?i:wildcard|java\\.util\\.\\*)", "(?i)anna|!12"], "text": "Reply has a Needs you row with the proposed fix, and names the MR of anna"}
       ]
     }
   ]

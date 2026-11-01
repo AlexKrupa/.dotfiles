@@ -196,15 +196,14 @@ flowchart TB
   session can have more than one watch. The next `wait` of the session gets it.
 - Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
   event, and starts the review and bump agents. The lock is free during the agent starts. An agent
-  start runs `work/work-start.sh <title> --branch <branch> --no-track --skill <skill> <MR URL>`
-  in the skill folder `$WATCHD_SCRIPTS`, else `~/.config/agents/skills/`. The agent integration
-  gives the kind and the prompt that runs the skill. Exit code 5 is a branch that is open in a
-  workspace already. A failed
-  default-branch job with a runner failure gets 2 retries at most, in a task of its own. A handled
-  event does not go to the hub inbox. If a round has only handled events, the daemon writes the
-  hub report to the board file, and `watchd board` shows it. Else all events go to the inbox, and
-  the client gets only the events that the router did not handle. The next hub report also shows
-  the handled rows.
+  start runs `work/work-start.sh <title> --branch <branch> --no-track --skill <skill> <MR URL>` in
+  the skill folder `$WATCHD_SCRIPTS`, else `~/.config/agents/skills/`. The agent integration gives
+  the kind and the prompt that runs the skill. Exit code 5 is a branch that is open in a workspace
+  already. A failed default-branch job with a runner failure gets 2 retries at most, in a task of
+  its own. A handled event does not go to the hub inbox. If a round has only handled events, the
+  daemon writes the hub report to the board file, and `watchd board` shows it. Else all events go to
+  the inbox, and the client gets only the events that the router did not handle. The next hub report
+  also shows the handled rows.
 
 Each task takes the `memory` lock before it reads or changes the state in memory or the state
 files: the `Store` of the state files is in the locked `Memory`. After each change, the task sends
@@ -276,10 +275,13 @@ The folder `integrations/claude-code/` is a Claude Code plugin. It has all Claud
 | `wait.test.sh` | The test of `wait.sh`, with a fake `watchd` in `WATCHD` |
 | `watch-runner.md` | The runner file: how the agent starts the watch and reads the results |
 
-Claude Code reads this local plugin from its folder, through the symlink
-`~/.claude/local-marketplace/watchd` of the marketplace `local-pins`. A change of a plugin file
-takes effect at the next session start or after `/reload-plugins`. The hooks run the live
-`wait.sh`, so a change of `wait.sh` needs no reload. Only a change of `hooks.json` does.
+Claude Code installs this local plugin from its folder, through the symlink
+`~/.claude/local-marketplace/watchd` of the marketplace `local-pins`. The installed plugin can be a
+copy in the plugin cache, for example `~/.claude/plugins/cache/local-pins/watchd/unknown/`. The copy
+keeps the old version of a changed file. The hooks run the live `wait.sh`. A change of `wait.sh`
+needs no step. After a change of `hooks.json` or of a different plugin file, run
+`~/.config/agents/integrations/claude-code/install.sh`. It installs a copy that differs from the
+folder again. The change takes effect at the next session start or after `/reload-plugins`.
 
 ## Migration
 

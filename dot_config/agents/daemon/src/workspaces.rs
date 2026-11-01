@@ -193,6 +193,10 @@ mod tests {
             scripts: failed.clone(),
         }
         .start_agent(&failed, &start);
+        let args = std::fs::read_to_string(busy.join("args"));
+        for folder in [&busy, &failed] {
+            let _ = std::fs::remove_dir_all(folder);
+        }
 
         assert_eq!(busy_result, Err(StartError::Busy));
         assert_eq!(
@@ -200,7 +204,7 @@ mod tests {
             Err(StartError::Failed("work-start: not a git repo: /x".to_string()))
         );
         assert_eq!(
-            std::fs::read_to_string(busy.join("args")).unwrap(),
+            args.unwrap(),
             "Add foo --branch ABC-1/foo --no-track --skill review-pr https://g/mr/5\n"
         );
     }

@@ -187,8 +187,8 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
      clears after this turn and starts the new prompt. Do not type in this pane until the prompt
      shows."
    - Exit `1` or `5`: the stderr text, word for word. Exit `5` is existing mode with a branch
-     that is open in a workspace. The error is a report for the user, not a task. The repo and the worktree stay as they are: the user fixes the cause, then runs
-     `/work` again.
+     that is open in a workspace. The error is a report for the user, not a task. The repo and the
+     worktree stay as they are: the user fixes the cause, then runs `/work` again.
    - Exit `1` and the stderr text ends with `(branch <branch> stays)`, new, split, or next mode:
      also tell the user that `/work` again needs a new branch name. The branch in the message
      stays. If the message names `herdr agent start` or `herdr agent prompt`, its herdr worktree

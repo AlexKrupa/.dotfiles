@@ -76,6 +76,14 @@ check "exit 1, then exit 0, then the same text: exit 2" 2 "$code"
 check "exit 1, then exit 0, then the same text: error row" "watchd error: token expired" "$stderr"
 
 fresh
+upgrade="watchd: the watchd state format changed, and the watch of this session ended."
+upgrade+=" Run the watch command again."
+run FAKE_CODE=1 FAKE_ERR="$upgrade"
+run FAKE_CODE=1 FAKE_ERR="$upgrade"
+check "two upgrade errors in a row: the second one wakes Claude" 2 "$code"
+check "two upgrade errors in a row: the second error row" "watchd error: $upgrade" "$stderr"
+
+fresh
 run FAKE_CODE=2 FAKE_ERR="unknown subcommand wait"
 check "exit 2 of watchd (an old binary): exit 2" 2 "$code"
 check "exit 2 of watchd (an old binary): error row" \

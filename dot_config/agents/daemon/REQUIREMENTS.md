@@ -785,7 +785,8 @@ from a design spec that the user approved.
 - W23.8 (spec) After `/resume` in a running process, the old conversation is away and keeps its
   watches and inbox until it comes back or the grace period ends.
 - W23.9 The plugin wakes Claude one time for one error text of a session, and the same error text
-  again gives no wake.
+  again gives no wake. The upgrade error is not in this rule: the daemon gives it one time for each
+  format change, and each one wakes Claude.
 - W23.10 While a watch runs, the user can use the same session for other prompts.
 - W23.11 The Claude Code install script installs only the plugins of the dotfiles, from
   `settings.json` and from the local marketplace with `watchd`.
@@ -808,7 +809,7 @@ from a design spec that the user approved.
 - W24.9 The fakes of the sample are local to the sample and not in the global configuration.
 - W24.10 The sample uses the fakes of the tests again, for example one fake `git-spice` for both.
 - W24.11 The sample covers the hub, a stacked worktree with MR events and the conflict test, a
-  single branch, a review worktree, the watching state, a daemon restart, and a state migration.
+  single branch, a review worktree, the watching state, a daemon restart, and an old state format.
 - W24.12 The sample also covers a removed worktree, 5 failed checks, a hub job retry, a merged
   bottom MR, and an own MR with no worktree.
 - W24.13 (spec) The sample tests the daemon core, the `watch` plugin, and the `labels` plugin, and
@@ -897,8 +898,8 @@ from a design spec that the user approved.
 - W26.14 (spec) The tests cover the `previous` field and the pipeline id rule of `default-failed`.
 - W26.15 (spec) The tests cover `wait`: an exit when the owner ends, no exit when a process above
   the owner ends, a new connection after a daemon restart, and exit 1 with the error text.
-- W26.16 (spec) The tests cover liveness, rename, replace, migration, and the scenarios of the
-  sample with the new `agent-loop`.
+- W26.16 (spec) The tests cover liveness, rename, replace, an old state format, and the scenarios of
+  the sample with the new `agent-loop`.
 - W26.17 (spec) A shell test checks the exit code table of the plugin `wait.sh` with a fake
   `watchd`.
 - W26.18 The tests of the plugin and the daemon cover the wake, `/clear`, `/exit`, and a resume with

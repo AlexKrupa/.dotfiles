@@ -1,4 +1,5 @@
-# When the agent session is gone for the grace period, the comment goes to the hub as an open item.
+# When the agent session is gone for the grace period, the comment goes to the hub as a pending
+# item.
 agent stop stack
 wait_until "the agent record of the stack ends" record_gone stack
 event stack '{"kind": "comment", "iid": 4, "title": "Add part B",

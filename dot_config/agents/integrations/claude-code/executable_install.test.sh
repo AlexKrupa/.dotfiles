@@ -95,4 +95,11 @@ check "a differing copy that the reinstall fixes: exit 0" 0 "$code"
 check "a differing copy that the reinstall fixes: installed" \
   "plugins/watchd@local-pins installed" "$(plugin_line)"
 
+rm "$marketplace/watchd"
+ln -s "$tmp/missing" "$marketplace/watchd"
+run "$COPY"
+check "a plugin folder that is missing: exit 1" 1 "$code"
+check "a plugin folder that is missing: FAILED line" \
+  "plugins/watchd@local-pins FAILED -> no plugin folder" "$(plugin_line)"
+
 exit $fail

@@ -180,19 +180,26 @@ async fn connect(client: &ClientDirs, start: bool) -> Result<UnixStream, String>
             base.display()
         ));
     }
-    let failed = format!("the daemon did not start, see {}", dirs.log().display());
+    // A daemon that cannot make its state folder has no log.
+    let failed = || match dirs.log().exists() {
+        true => format!("the daemon did not start, see {}", dirs.log().display()),
+        false => format!(
+            "the daemon did not start, and it has no log in {}",
+            dirs.watchd.display()
+        ),
+    };
     if !start {
-        return Err(failed);
+        return Err(failed());
     }
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
-    spawn_detached(&exe, &["daemon"]).map_err(|error| format!("{failed}: {error}"))?;
+    spawn_detached(&exe, &["daemon"]).map_err(|error| format!("{}: {error}", failed()))?;
     for _ in 0..50 {
         tokio::time::sleep(Duration::from_millis(200)).await;
         if let Ok(stream) = UnixStream::connect(dirs.socket()).await {
             return Ok(stream);
         }
     }
-    Err(failed)
+    Err(failed())
 }
 
 fn envelope(request: Request) -> Envelope {

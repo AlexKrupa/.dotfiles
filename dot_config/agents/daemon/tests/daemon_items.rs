@@ -625,3 +625,18 @@ fn report_an_old_thread_in_a_new_delivery_has_since() {
 fn items_file_not_json_the_events_come_with_a_log_line() {
     items_not_json().assert("items file not JSON: the events come, with a log line");
 }
+
+#[test]
+fn report_with_the_old_field_close_exits_1_and_names_the_field() {
+    let w = Watchd::new();
+
+    let run = w.report(r#"{"close": ["1"]}"#, &[]);
+
+    assert_eq!(run.code, 1, "{}", run.out);
+    assert!(
+        run.out.starts_with("watchd: report: could not read the input: "),
+        "{}",
+        run.out
+    );
+    assert!(run.out.contains("`close`"), "{}", run.out);
+}

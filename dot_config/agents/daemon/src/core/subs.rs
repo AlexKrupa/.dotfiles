@@ -9,7 +9,7 @@ use crate::engine::event::EventKind;
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
     Hub,
-    // Files of format version 2 and older, and older clients, name this mode `stack`.
+    // Older clients name this mode `stack`.
     #[serde(alias = "stack")]
     Author,
     Review,

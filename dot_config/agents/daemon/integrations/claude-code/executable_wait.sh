@@ -8,7 +8,8 @@
 #   --rename-owner-session: after /clear, the new conversation of the same process takes the
 #   watches. Any other input, no input, or input that is not JSON adds no flag.
 # Writes ${TMPDIR:-/tmp}/watchd-wait/<session>.error: the last error text that woke Claude. Claude
-# wakes one time for one error text. An exit 0 of watchd deletes the file.
+# wakes one time for one error text. An exit 0 of watchd deletes the file. An error text that says
+# to run the watch command again always wakes Claude: watchd gives it one time for each event.
 # Output: nothing on stdout. On exit 2, stderr has the event lines of watchd, or the error text of
 #   watchd with the prefix `watchd error: `. Claude Code shows the stderr text to Claude.
 # Exit codes: 0 nothing to tell (no events, no watch, the session or the owner is not set, or the
@@ -39,7 +40,8 @@ if [[ $code -eq 0 ]]; then
 fi
 
 [[ -n $error ]] || error="exit code $code, no message"
-[[ -f $state_file && $(<"$state_file") == "$error" ]] && exit 0
+[[ $error != *"Run the watch command again"* && -f $state_file && $(<"$state_file") == "$error" ]] \
+  && exit 0
 mkdir -p "$state_dir"
 printf '%s\n' "$error" >"$state_file"
 echo "watchd error: $error" >&2

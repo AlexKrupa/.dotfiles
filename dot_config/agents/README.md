@@ -19,7 +19,8 @@ these statuses:
 - `installed`: the plugin is already installed.
 - `STALE`: the installed copy of a plugin differs from its source folder, also after one
   reinstall. The exit code is 1.
-- `FAILED`: the script could not add the marketplace or install the plugin. The exit code is 1.
+- `FAILED`: the script could not add the marketplace, find the plugin folder, or install the
+  plugin. The exit code is 1.
 
 After you add or rename a skill, start the script again.
 
@@ -32,12 +33,13 @@ The script makes these links:
 - `skills/*/` -> `~/.claude/skills/`
 
 The script installs the plugins that have the value `true` in `enabledPlugins` of
-`~/.claude/settings.json`. Before that, it adds each marketplace of `extraKnownMarketplaces`. It does
-not install other plugins and does not remove plugins. The `local-pins` marketplace is in
-`~/.claude/local-marketplace/`. Its `watchd` plugin is a symlink to
-`daemon/integrations/claude-code/`. The plugin has no `version`, and its hooks run the live
-`wait.sh`. If the installed plugin is a copy that differs from the source, the script reinstalls
-it one time. A change to the plugin applies at the next session start.
+`~/.claude/settings.json`. Before that, it adds each marketplace of `extraKnownMarketplaces`. It
+does not install other plugins. The `local-pins` marketplace is in `~/.claude/local-marketplace/`.
+Its `watchd` plugin is a symlink to `daemon/integrations/claude-code/`. The plugin has no `version`,
+and its hooks run the live `wait.sh`. If the installed plugin is a copy that differs from the
+source, the script uninstalls it and installs it again, one time. It removes no other plugin. A
+change to `wait.sh` applies at the next session start. A change to a different plugin file applies
+at the next session start after the next run of the script.
 
 The script does not make a symlink for `instructions-chat.md`. You paste it manually into the custom
 instructions of an AI chat app.
