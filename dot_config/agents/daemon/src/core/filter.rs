@@ -115,7 +115,15 @@ pub fn needs(mode: Mode, present: &[Need]) -> Vec<Need> {
         .filter(|need| present.contains(need))
         .map(|need| match need {
             Need::ReplyToYou => Need::Reply,
-            other => other,
+            Need::Todo
+            | Need::MainFailed
+            | Need::Failed
+            | Need::Conflict
+            | Need::Reply
+            | Need::RequestedChanges
+            | Need::Commits
+            | Need::Ready
+            | Need::Draft => need,
         })
         .collect()
 }
