@@ -71,8 +71,8 @@ from a design spec that the user approved.
   worktree for a conflict with it, also a branch with no MR.
 - W2.19 (spec) The daemon fetches the default branch one time for each repo, for all worktrees of
   the repo.
-- W2.20 (spec) The conflict test merges the top branch of the stack with `origin/<default>`, and one
-  test covers the full stack, and a conflict gives the names of the conflicting files.
+- W2.20 (spec) The conflict test merges the top branch of the stack with `origin/<default>`, one
+  merge test covers the full stack, and a conflict shows the names of the conflicting files.
 - W2.21 The conflict test ignores the branches of merged MRs, in git-spice stacks and in branches
   whose MR comes from the MR lookup.
 - W2.22 In a partly merged stack, the conflict test checks only the commits above the highest merged
@@ -101,8 +101,8 @@ from a design spec that the user approved.
   longer when no refresh is necessary.
 - W3.10 The dynamic polling changes only the one interval of each repo, and each round still checks
   all targets of the repo.
-- W3.11 The daemon calls GitLab only through `glab api` child processes, and the `glab` login and
-  the fake `glab` of the tests stay.
+- W3.11 The daemon calls GitLab only through `glab api` child processes, and it uses the `glab`
+  login, and the tests can use a fake `glab`.
 - W3.12 (spec) At most 8 `glab` calls run at the same time for the daemon, and a cancelled call does
   not continue to run.
 - W3.13 The GitLab access works with a fine-grained token that has Read permission for User, Todo,
