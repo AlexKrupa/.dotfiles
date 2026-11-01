@@ -23,25 +23,25 @@ from a design spec that the user approved.
 - W1.11 `watchd wait` of a session with no watch connects to a running daemon but does not start a
   daemon.
 - W1.12 (spec) Only one daemon runs on each machine, and a start lock stops a second daemon.
-- W1.13 (spec) The daemon runs apart from the session that started it, so a stop of that session or
+- W1.13 (spec) The daemon runs apart from the session that started it, and a stop of that session or
   a Claude Code `TaskStop` does not stop the daemon.
 - W1.14 (spec) The daemon needs no installed launchd service or other system service.
-- W1.15 (spec) The daemon keeps the environment of the client that starts it, so tests and evals can
-  put a fake `glab` on `PATH`.
+- W1.15 (spec) The daemon keeps the environment of the client that starts it, and tests and evals
+  can put a fake `glab` on `PATH`.
 - W1.16 The daemon and the client have no Claude Code names or knowledge, and a session is any agent
   conversation that has an ID.
 - W1.17 `watchd` makes herdr calls only through one explicit interface for agents and panes, and no
   other daemon code calls herdr.
-- W1.18 The daemon reacts to events from any data source, so a new source such as Jira needs no new
+- W1.18 The daemon reacts to events from any data source, and a new source such as Jira needs no new
   architecture.
-- W1.19 The macOS code is in a platform layer apart from the core logic, so the core stays portable.
+- W1.19 The macOS code is in a platform layer apart from the core logic.
 - W1.20 (spec) Only macOS on Apple Silicon must work.
 - W1.21 With no subscription and no `follow` client for 10 minutes, the daemon stops, and the next
   client starts it again.
 
 ## W2 Managed repos and worktrees
 
-- W2.1 A client request from a folder in a git repo adds the repo to the managed set, so the daemon
+- W2.1 A client request from a folder in a git repo adds the repo to the managed set, and the daemon
   needs no manual list of repos.
 - W2.2 (spec) A client request from a folder outside a git repo adds no repo.
 - W2.3 (spec) A `follow` client adds no repo and uses the state folder in `XDG_STATE_HOME`.
@@ -53,7 +53,7 @@ from a design spec that the user approved.
 - W2.8 The stack of a worktree is its current branch and the git-spice branches below and above it,
   not the sibling branches on the trunk.
 - W2.9 A stack is 2 or more own branches above the trunk, all in one worktree.
-- W2.10 The daemon reads the stack from the worktree itself, so it also finds stacks made by hand
+- W2.10 The daemon reads the stack from the worktree itself, and it also finds stacks made by hand
   and stacks with no watch or MR.
 - W2.11 The daemon finds the MRs of a worktree from the stack branches with a submitted MR, and it
   adds the MR of a branch after its submit.
@@ -69,8 +69,9 @@ from a design spec that the user approved.
 - W2.17 (spec) The daemon never runs `git status` or another full read of a checkout on each tick.
 - W2.18 The daemon fetches the default branch of each managed repo on a timer and tests each
   worktree for a conflict with it, also a branch with no MR.
-- W2.19 (spec) One fetch of the default branch for each repo serves all worktrees of the repo.
-- W2.20 (spec) The conflict test merges the top branch of the stack with `origin/<default>`, so one
+- W2.19 (spec) The daemon fetches the default branch one time for each repo, for all worktrees of
+  the repo.
+- W2.20 (spec) The conflict test merges the top branch of the stack with `origin/<default>`, and one
   test covers the full stack, and a conflict gives the names of the conflicting files.
 - W2.21 The conflict test ignores the branches of merged MRs, in git-spice stacks and in branches
   whose MR comes from the MR lookup.
@@ -100,14 +101,14 @@ from a design spec that the user approved.
   longer when no refresh is necessary.
 - W3.10 The dynamic polling changes only the one interval of each repo, and each round still checks
   all targets of the repo.
-- W3.11 The daemon calls GitLab only through `glab api` child processes, so the `glab` login and the
-  fake `glab` of the tests stay.
+- W3.11 The daemon calls GitLab only through `glab api` child processes, and the `glab` login and
+  the fake `glab` of the tests stay.
 - W3.12 (spec) At most 8 `glab` calls run at the same time for the daemon, and a cancelled call does
   not continue to run.
 - W3.13 The GitLab access works with a fine-grained token that has Read permission for User, Todo,
   Event, Project, Merge Request, Work Item, and Pipeline, with no `read_api`.
-- W3.14 A 401 or 403 error on MR notes names the Work Item permission.
-- W3.15 The check reads more than the oldest 100 discussions of an MR, so it sees new comments also
+- W3.14 The error text of a 401 or 403 error on MR notes contains the Work Item permission.
+- W3.15 The check reads more than the oldest 100 discussions of an MR, and it sees new comments also
   on an MR with many system notes.
 - W3.16 GitLab is the only data source and code host, and the design stays open to a second host
   such as GitHub.
@@ -145,9 +146,9 @@ from a design spec that the user approved.
   changes, merges, and closes.
 - W5.3 (spec) Each event is one JSON line with `kind`, `iid`, `title`, `url`, `actor`, `detail`, and
   `branch`, and a comment or reaction on a diff line also has `path` and `line`.
-- W5.4 (spec) Each event line has a `key` and a `mode` field, so a session with two watches can tell
-  the events apart.
-- W5.5 A reaction event names the emoji and the user who reacted, on the MR, on a comment, or on a
+- W5.4 (spec) Each event line has a `key` and a `mode` field, and a session with two watches can
+  tell the events apart.
+- W5.5 A reaction event has the emoji and the user who reacted, on the MR, on a comment, or on a
   thread message.
 - W5.6 A `mergeable` event comes when the MR becomes mergeable, after the checks pass and enough
   reviewers approve.
@@ -160,8 +161,8 @@ from a design spec that the user approved.
 - W5.11 A `pushed` event comes for each new push to a watched MR.
 - W5.12 (spec) The `pushed` event has `old_base`, `old_head`, `new_base`, and `new_head` from the
   GitLab MR versions.
-- W5.13 The daemon fetches the new commits of an MR before it sends the `pushed` event, so the agent
-  can review only the interdiff.
+- W5.13 The daemon fetches the new commits of an MR before it sends the `pushed` event, and the
+  agent can review only the interdiff.
 - W5.14 (spec) The fetch of a push gets `refs/merge-requests/<iid>/head` from `origin`, also for a
   fork MR, and it changes no local ref and no `FETCH_HEAD`.
 - W5.15 (spec) A failed MR fetch does not stop the event, the daemon logs `fetch of MR <iid>:
@@ -173,14 +174,14 @@ from a design spec that the user approved.
   it.
 - W5.19 (spec) Each delivery has one `unaddressed` line for each open thread whose last comment is
   not from the user, and these lines alone never wake the agent.
-- W5.20 (spec) Each `unaddressed` event tells if the thread has a comment of the user.
+- W5.20 (spec) Each `unaddressed` event has a flag for a thread with a comment of the user.
 - W5.21 The hub check reports new MRs, to-do items, comments in MRs of other people where the user
   commented, and failed pipelines of the default branch.
 - W5.22 The watch does not report a passed default-branch pipeline, also not the first pass after a
   failure.
 - W5.23 (spec) The `default-failed` event has the field `previous` with the status of the previous
   finished default-branch pipeline, or null if there is none.
-- W5.24 (spec) The daemon reports `default-failed` only for a pipeline id above the saved id, so a
+- W5.24 (spec) The daemon reports `default-failed` only for a pipeline id above the saved id, and a
   job retry does not report an older failed pipeline again.
 
 ## W6 Watches
@@ -192,7 +193,7 @@ from a design spec that the user approved.
 - W6.4 The watch of the MRs of one worktree, with one branch or many, is called `author` mode.
 - W6.5 In the main checkout on a branch that is not the default branch, a watch with no `--mr` uses
   author mode, not hub mode.
-- W6.6 (spec) Each watch has a key from its mode and folder, so a hub, author, and review watch in
+- W6.6 (spec) Each watch has a key from its mode and folder, and a hub, author, and review watch in
   one worktree have separate state and do not replace each other.
 - W6.7 A client that runs `watchd watch` and takes the events of its key is an agent, and a client
   that runs `watchd follow` and takes nothing is a follower.
@@ -207,8 +208,8 @@ from a design spec that the user approved.
 - W6.13 A review or bump watch gets all MR kinds, and it gets `unaddressed` only for threads with a
   comment of the user.
 - W6.14 `watchd watch --events <kinds>` can only remove kinds from the list of the mode.
-- W6.15 `--events` with a kind outside the mode list exits 1 with an error that names the mode and
-  its kinds.
+- W6.15 `--events` with a kind outside the mode list exits 1 with an error that contains the mode
+  and its kinds.
 - W6.16 (spec) A client that sends no `events` field gets the full list of the mode.
 - W6.17 An event that the mode allows and the `--events` list of the watch does not is dropped, and
   it does not go to the hub.
@@ -234,7 +235,7 @@ from a design spec that the user approved.
   prints them, and exits 0.
 - W7.2 (spec) `watchd wait` exits with no output when the owner process ends or a newer waiter of
   the session replaces it.
-- W7.3 The waiter checks only the owner PID, every 3 seconds, so the end of a process above the
+- W7.3 The waiter checks only the owner PID, every 3 seconds, and the end of a process above the
   owner, for example Ghostty, does not stop the watch.
 - W7.4 When the daemon closes the socket, for example at a restart, a waiting client connects again
   to the new daemon.
@@ -256,14 +257,14 @@ from a design spec that the user approved.
   daemon removes its records.
 - W7.14 The grace period of an away session is 30 minutes.
 - W7.15 After `/clear`, a waiter with a new session ID and the same owner PID takes the watches of
-  the old ID, so the watch continues.
+  the old ID, and the watch continues.
 - W7.16 When a second session watches a key that has a record, the newer session takes the record,
   and the older session gets one `replaced` event.
 
 ## W8 Hub and router
 
 - W8.1 When a session watches an MR, the hub does not show the events and pending items of that MR,
-  so the user gets no double report.
+  and the user gets no double report.
 - W8.2 For an MR of a work session, the hub gets only the review request and the `opened` event.
 - W8.3 The hub hides an MR from the watch start of its session on, with no earlier claim.
 - W8.4 (spec) When a review or bump watch starts, the pending hub items of its MR move to that
@@ -274,7 +275,7 @@ from a design spec that the user approved.
   agent for it.
 - W8.7 `pull-blocked`, to-do items, mentions, and items of own worktrees become report rows with no
   model.
-- W8.8 The router runs in the daemon after each hub check, so agents also start between hub turns
+- W8.8 The router runs in the daemon after each hub check, and agents also start between hub turns
   and the hub session does not stall.
 - W8.9 With no hub session open, the router starts no agent.
 - W8.10 Each new MR goes through one router that takes one action for each MR.
@@ -309,10 +310,10 @@ from a design spec that the user approved.
 - W8.28 (spec) `work-start.sh` in `--branch` mode accepts no ticket id, and the session name is then
   the title or, with no title, the branch name.
 - W8.29 The daemon starts review and bump agents through `work-start.sh` with an explicit agent
-  kind, so the start needs no herdr agent pane.
+  kind, and the start needs no herdr agent pane.
 - W8.30 An agent that `watchd` starts gets the same sandbox setting as an agent that the user
   starts, and `watchd` does not change it.
-- W8.31 The hub starts agents with no prompt and no keys in the hub pane or in worktree agents, so
+- W8.31 The hub starts agents with no prompt and no keys in the hub pane or in worktree agents, and
   nothing mixes with the typing of the user.
 - W8.32 When a default-branch job fails for a runner reason, the daemon retries it at most 2 times.
 - W8.33 (spec) The runner reasons are `runner_system_failure`, `stuck_or_timeout_failure`,
@@ -320,7 +321,7 @@ from a design spec that the user approved.
   failure.
 - W8.34 (spec) The retry task reads the job status every 30 seconds for at most 1 hour, with no
   count of sleep time and network outages.
-- W8.35 (spec) The retry count of each job is in the hub state, so the limit of 2 retries holds
+- W8.35 (spec) The retry count of each job is in the hub state, and the limit of 2 retries holds
   across a daemon restart.
 - W8.36 A retry that runs during a daemon stop or restart is not dropped silently: the stop waits
   for it and writes a row.
@@ -336,8 +337,7 @@ from a design spec that the user approved.
 - W8.42 (spec) With a debug workspace open, a failure after a failed `previous` pipeline is the same
   incident, and after a passed `previous` the hub starts a new debug workspace and marks the old one
   as stale with no close.
-- W8.43 The hub gives its triage findings to the debug agent, so the agent does not read the same
-  logs again.
+- W8.43 The hub gives its triage findings to the debug agent.
 - W8.44 The debug agent fixes the failure, commits, runs `review-me` in auto mode and then
   `draft-pr`, and does not publish.
 - W8.45 The hub and the `draft-pr` watch never name the GitLab debug skill, and the agent selects
@@ -381,23 +381,23 @@ from a design spec that the user approved.
   items that go to the hub stay.
 - W9.17 (spec) A pending item keeps its row number in all rounds, and Agent and Info rows get new
   numbers in each round.
-- W9.18 (spec) The client adds the row number to each JSON event line, so the model knows the key of
-  each cell.
+- W9.18 (spec) The client adds the row number to each JSON event line, and the model knows the key
+  of each cell.
 - W9.19 (spec) Each pending item keeps the time of its first event, and a report shows `Since
   <HH:MM>:` for an item from an earlier round.
 - W9.20 (spec) The session can add its assessment to a pending item through `watchd report`, and the
   assessment stays until the item closes.
-- W9.21 The report, the notification, and the sidebar use the same GitLab state, so they never show
+- W9.21 The report, the notification, and the sidebar use the same GitLab state, and they never show
   different states of one item.
 
 ## W10 State, restart, and log
 
 - W10.1 The daemon keeps the watches, engine states, pending items with numbers and model text,
   waiting events, errors of ended watches, and the event log in state files.
-- W10.2 (spec) The daemon writes each change to disk at once, so a crash loses no event.
+- W10.2 (spec) The daemon writes each change to disk at once, and a crash loses no event.
 - W10.3 A daemon restart or upgrade loses no event, sends no event two times, and needs no full
   sync.
-- W10.4 The daemon keeps the kind, `done`, and `stopped` state of each worktree, so a herdr server
+- W10.4 The daemon keeps the kind, `done`, and `stopped` state of each worktree, and a herdr server
   restart does not lose them.
 - W10.5 The daemon keys the kind and the stage by worktree path and keeps no herdr workspace IDs.
 - W10.6 The daemon keeps only states, and the display picks the glyphs.
@@ -405,7 +405,7 @@ from a design spec that the user approved.
   and starts the new binary in the same process.
 - W10.8 An update of the code takes effect by itself, with no manual restart of the daemon or the
   clients, and with no lost state.
-- W10.9 (spec) The upgrade keeps the lock and the socket open, so it stops no running watch.
+- W10.9 (spec) The upgrade keeps the lock and the socket open, and it stops no running watch.
 - W10.10 A restart of Ghostty, herdr, or Claude Code does not stop the watches, also with
   `claude-upgrade`.
 - W10.11 `watchd` has no knowledge of `claude-upgrade`.
@@ -429,7 +429,7 @@ from a design spec that the user approved.
   and routed event, with the time, repo, and key.
 - W10.22 At start, the daemon cuts a log of over 10000 lines to its last 5000 lines.
 - W10.23 The error texts of the client, the daemon, and the engine start with `watchd: `.
-- W10.24 The error text of an ended watch names its key.
+- W10.24 The error text of an ended watch contains its key.
 
 ## W11 Client commands
 
@@ -467,7 +467,7 @@ from a design spec that the user approved.
 - W12.10 (spec) The model can move an event to a different section, for example a failed pipeline
   that it fixed goes to Agent.
 - W12.11 (spec) The first line of a report is the time as `HH:MM`.
-- W12.12 A report names an MR by its title, and the id shows only next to the link as `<MR title>
+- W12.12 A report shows an MR by its title, and the id shows only next to the link as `<MR title>
   (!<iid>) <url>`.
 - W12.13 Watch output never shows an MR id or a pipeline id alone, with no readable name next to it.
 - W12.14 (spec) Reports show no pipeline ids, SHAs, pane ids, or space numbers.
@@ -476,14 +476,13 @@ from a design spec that the user approved.
 
 ## W13 Board
 
-- W13.1 `watchd board` shows the current hub report and draws it again after each event, so router
+- W13.1 `watchd board` shows the current hub report and draws it again after each event, and router
   events stay visible after the notification.
 - W13.2 The board is a persistent pane to the right of the hub agent pane, and it opens by itself at
   hub start.
 - W13.3 (spec) `watchd kind hub` opens the board pane, and if a board pane of the repo exists, it
   opens no second pane.
-- W13.4 (spec) If the board pane cannot open, `watchd kind hub` prints the error and exits 0,
-  because the board is display only.
+- W13.4 (spec) If the board pane cannot open, `watchd kind hub` prints the error and exits 0.
 - W13.5 The daemon writes the board rows as JSON for `watchd board`, and `watchd report` and the
   agents keep the Markdown text.
 - W13.6 The board shows text formatted for the terminal, not a raw Markdown table.
@@ -505,20 +504,19 @@ from a design spec that the user approved.
 - W14.4 The title of a notification is the MR title, never the branch name.
 - W14.5 The title of a notification for a default-branch pipeline is the branch name, for example
   `develop`.
-- W14.6 The body of a notification tells what happened with names, not ids, and a pipeline
-  notification names the failed jobs.
+- W14.6 The body of a notification shows what happened with names, not ids, and a pipeline
+  notification shows the failed jobs.
 - W14.7 The sound is `request` for events that need the user and `none` for all other events.
 - W14.8 A stopped watch gets a notification with the MR title or `Hub` as the title and `Watch
   stopped: <error text>` as the body.
 - W14.9 The own events of the user give no notification, for example an assignment of the user to an
   own MR.
-- W14.10 An `opened` event gets a notification only after the router decides, and by default only
+- W14.10 An `opened` event gets a notification only after the router result, and by default only
   for a new dependency bump.
-- W14.11 (spec) With no hub agent, a new MR gives no notification, because the plugin waits for the
-  route result.
-- W14.12 A configuration lists the router results that give a notification for a new MR, so the user
-  can get notifications for other new MRs.
-- W14.13 (spec) The notification of a new bump MR tells the action, for example `New dependency
+- W14.11 (spec) With no hub agent, a new MR gives no notification.
+- W14.12 A configuration lists the router results that give a notification for a new MR, and the
+  user can get notifications for other new MRs.
+- W14.13 (spec) The notification of a new bump MR shows the action, for example `New dependency
   bump. Bump agent started.`, and a review request gets its notification from its `todo` event.
 - W14.14 (spec) The watch works with no herdr, and then nothing sends notifications.
 
@@ -560,7 +558,7 @@ from a design spec that the user approved.
   events.
 - W15.23 The mergeable row gives the number of open threads and lists the threads with no answer,
   for example questions.
-- W15.24 (spec) "Needs you" rows have numbers, so that the user can say "fix 1".
+- W15.24 (spec) "Needs you" rows have numbers, and the user can say "fix 1".
 - W15.25 (spec) On a `pushed` event that did not come from a local branch, the agent does not reset
   the branch, and it reports under "Needs you" that the local branch is behind or diverged.
 
@@ -569,11 +567,11 @@ from a design spec that the user approved.
 - W16.1 After `review-pr` reviews an MR, it watches the MR for conversation changes, replies, and
   approvals.
 - W16.2 The review watch starts after each review, with no extra argument.
-- W16.3 A session has one review watch for one MR, and if a watch for a different MR runs, the skill
-  stops with one line and starts no new watch.
+- W16.3 A session has one review watch for one MR, and if a watch for a different MR runs, the
+  skill can stop with one line.
 - W16.4 The review watch is read-only: no job retries, no replies, and no reactions.
 - W16.5 (spec) During the review watch, the agent changes the repo only with a fetch of
-  remote-tracking refs, so an author force push does not break the watch.
+  remote-tracking refs, and an author force push does not break the watch.
 - W16.6 The review watch also reports comments from other people, not only replies in the threads of
   the user.
 - W16.7 (spec) A reply in a thread of the user gets an assessment and a proposed response under
@@ -585,7 +583,7 @@ from a design spec that the user approved.
   a reaction go under "Info", with no retry.
 - W16.10 A `merged` or `closed` event goes under "Info" and ends the review watch.
 - W16.11 On an author push, the agent reviews only the content change and adds a round to the review
-  report, so an amend or a force push gives no review of the whole branch.
+  report, and an amend or a force push gives no review of the whole branch.
 - W16.12 A push with no content change gives one Info row.
 - W16.13 (spec) The content change of a push is the diff of the two heads if the base did not
   change, and after a rebase it has only the files whose patch changed.
@@ -593,7 +591,8 @@ from a design spec that the user approved.
   findings, the new findings, and the open findings.
 - W16.15 (spec) Right after the review watch starts, if the remote MR branch is not the reviewed
   head, the agent handles it as a `pushed` event.
-- W16.16 (spec) The review watch report says if the local branch is behind or diverged after a push.
+- W16.16 (spec) The review watch report shows if the local branch is behind or diverged after a
+  push.
 - W16.17 On a `resolved` event, the agent checks that a commit fixes the thread, with an Info row if
   fixed and a "Needs you" row if not.
 - W16.18 The agent runs its own `git fetch` only when the new head of a push is not present after
@@ -615,10 +614,9 @@ from a design spec that the user approved.
   its own role actions.
 - W18.2 The Claude Code instructions for the watch are in a separate file from the generic watch
   rules.
-- W18.3 The `draft-pr` watch has no host-specific commands, and it assumes a wrapper skill but never
-  names it.
+- W18.3 The `draft-pr` watch has no host-specific commands and no name of a wrapper skill.
 - W18.4 The host commands of the watch come from one GitLab host file, and the `draft-pr` wrapper
-  only tells `draft-pr` to start the watch.
+  only starts the watch of `draft-pr`.
 - W18.5 The `git-spice` commands of the watch are in `draft-pr`, not in the host file.
 - W18.6 When the user says "stop watch", the agent runs the unsubscribe command, and when the user
   says "watch", the agent starts the watch.
@@ -630,7 +628,7 @@ from a design spec that the user approved.
 - W18.10 (spec) The runner file tells the agent to start the watch with `--session` in the Bash
   tool, to take the events from the `Stop` hook feedback as JSON lines, and not to start the watch
   again after a result.
-- W18.11 The `draft-pr` skill allows `Bash(watchd *)`, so it runs `watchd` with no permission
+- W18.11 The `draft-pr` skill allows `Bash(watchd *)`, and it runs `watchd` with no permission
   prompt.
 - W18.12 (spec) The GitLab watch reference documents the optional `--events <kinds>` flag.
 
@@ -691,13 +689,13 @@ from a design spec that the user approved.
 - W20.1 The watch state shows in the spaces part and in the agents part of the herdr sidebar.
 - W20.2 The sidebar shows the state with leading glyphs, not with colors.
 - W20.3 The glyphs are Nerd Fonts icons.
-- W20.4 One space follows each glyph, so that the terminal draws the glyphs large enough to read.
+- W20.4 One space follows each glyph.
 - W20.5 In the spaces part, the glyphs go between the slot number and the name.
 - W20.6 (spec) Spaces in slot 10 and up show only the glyphs, with no number.
 - W20.7 A space keeps the branch name as its name.
-- W20.8 Each space stays one row, so that over 20 spaces fit.
+- W20.8 Each space stays one row, and over 20 spaces fit.
 - W20.9 The sidebar shows no MR or PR numbers.
-- W20.10 The `stack` glyph comes after the kind glyph, so for own work it is usually the first
+- W20.10 The `stack` glyph comes after the kind glyph, and for own work it is usually the first
   glyph.
 - W20.11 The `stack` glyph shows in the sidebar row and in the agents panel line.
 - W20.12 In the agents panel, the watch glyphs are at the start of the session title row, before the
@@ -735,7 +733,7 @@ from a design spec that the user approved.
   own daemon.
 - W21.8 During a restart of the agent session, the sidebar drops the watch token for a few
   seconds.
-- W21.9 (spec) A follower writes and clears only the workspaces of its own daemon, so two followers
+- W21.9 (spec) A follower writes and clears only the workspaces of its own daemon, and two followers
   can run together.
 - W21.10 The `labels` plugin shows the watch data and reads only herdr workspace metadata, no
   `watchd` files.
@@ -756,7 +754,7 @@ from a design spec that the user approved.
 - W22.3 The kind order is unwatched own work, watched own work, debug, bumps, code reviews, and then
   other kinds.
 - W22.4 Only a worktree with a live watching agent counts as watched.
-- W22.5 The label sort is case-insensitive and natural, so `ABC-23` comes before `ABC-123`.
+- W22.5 The label sort is case-insensitive and natural, and `ABC-23` comes before `ABC-123`.
 - W22.6 The sort runs after each token write and sends no move if the order is already correct.
 - W22.7 (spec) The sort touches only the worktree groups with at least one workspace that its
   follower knows.
@@ -766,7 +764,7 @@ from a design spec that the user approved.
 - W23.1 One Claude Code plugin holds all Claude Code logic of `watchd`.
 - W23.2 The plugin is in `daemon/integrations/claude-code/`, with a symlink from the `local-pins`
   marketplace.
-- W23.3 (spec) Claude Code reads the plugin live through its symlink, so a plugin change takes
+- W23.3 (spec) Claude Code reads the plugin live through its symlink, and a plugin change takes
   effect at the next session start or after `/reload-plugins`.
 - W23.4 The plugin runs `watchd wait` from hooks and wakes Claude with the events, with no `Monitor`
   tool and no `/exit` dialog.
@@ -787,7 +785,7 @@ from a design spec that the user approved.
 
 - W24.1 A sample repo shows the live behavior of the daemon and its herdr plugins inside herdr.
 - W24.2 The sample runs in the real herdr session of the user, not in a separate herdr server.
-- W24.3 A test daemon serves only the sample repo and runs next to the real daemon, independent of
+- W24.3 A test daemon is only for the sample repo and runs next to the real daemon, independent of
   it.
 - W24.4 The local git key `watchd.stateHome` selects the test daemon, and all worktrees of the
   sample share it.
@@ -816,9 +814,9 @@ from a design spec that the user approved.
   `daemon/test.sh`.
 - W24.19 (spec) `sample check` runs the scenarios with no herdr and fails a step on a daemon error
   line, a stopped daemon, or a failed settle.
-- W24.20 (spec) `sample` makes the sample repo with a local bare repo as `origin`, so the fetch
+- W24.20 (spec) `sample` makes the sample repo with a local bare repo as `origin`, and the fetch
   stays real with no network.
-- W24.21 (spec) `sample start` copies the test binary with a new name, so a running test daemon
+- W24.21 (spec) `sample start` copies the test binary with a new name, and a running test daemon
   restarts with it.
 - W24.22 (spec) `sample start` starts a second `watch` plugin watcher for the test daemon, with its
   own plugin state.
@@ -830,7 +828,7 @@ from a design spec that the user approved.
   `watchd.log`, and does not move the current step.
 - W24.26 (spec) A reset stops the sample agents, workspaces, and test daemon, deletes the sample
   state and repo, and starts again from a new repo.
-- W24.27 (spec) The current step is in a file, so `sample status` and `sample ui` show the same
+- W24.27 (spec) The current step is in a file, and `sample status` and `sample ui` show the same
   state, also after a restart.
 - W24.28 (spec) If the test daemon does not run from the test binary, each `sample` command except
   `start` stops with an error that names `sample start`.
@@ -852,7 +850,8 @@ from a design spec that the user approved.
 - W25.3 The binary is not in git, and `chezmoi update` builds it again.
 - W25.4 (spec) The binary installs to a folder on `PATH` outside chezmoi management, and on the main
   machine the agent runs the build script after each change.
-- W25.5 (spec) No build runs in a session at run time, so a compile error does not stop the watches.
+- W25.5 (spec) No build runs in a session at run time, and a compile error does not stop the
+  watches.
 - W25.6 The build uses a simple toolchain and dependency manager, with no Gradle-like complexity.
 - W25.7 A clean build of about 1 minute after `chezmoi update` is acceptable.
 - W25.8 The build can assume Homebrew.
@@ -875,9 +874,9 @@ from a design spec that the user approved.
   a time.
 - W26.6 A test that checks for no change waits for daemon rounds that start after the action, not
   for a fixed sleep, except a wait that tests a wall-clock limit.
-- W26.7 `WATCHD_TICK` and `WATCHD_MANAGED_SECONDS` accept fractions of a second, so the tests run
+- W26.7 `WATCHD_TICK` and `WATCHD_MANAGED_SECONDS` accept fractions of a second, and the tests run
   with 0.2 s rounds.
-- W26.8 (spec) `WATCHD_GRACE_SECONDS` sets the grace period, so the tests do not wait 30 minutes.
+- W26.8 (spec) `WATCHD_GRACE_SECONDS` sets the grace period.
 - W26.9 The tests cover a daemon run with the network down and a kill of the daemon together with
   its loops.
 - W26.10 (spec) The tests cover more than 5 network errors and then a success, a check at once after
