@@ -75,7 +75,7 @@ def dot_state($since; $now):
 # dot color by the name of the one dot token.
 def wanted($since; $now; $glyphs):
   dot_state($since; $now) as $state
-  | ([(.workspace_tokens | work_agent_kind | work_glyphs($glyphs)), (.title | herdr_text)]
+  | ([(.workspace_tokens | work_agent_kind | work_glyphs($glyphs; true)), (.title | herdr_text)]
      # The separator that herdr puts between the parts of a sidebar row.
      | map(select(. != "")) | join(" · ")) as $title
   | { ord: ("00" + (.rank | tostring))[-3:],

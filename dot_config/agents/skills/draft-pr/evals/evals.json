@@ -86,7 +86,7 @@
       "fixture": "fixtures/watch-lint.sh",
       "common": false,
       "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
-      "expected_output": "The session reads the log, removes the wildcard import, folds the fix into Add Tag model, restacks, submits with --update-only, does not start a second watch, and reports the fix under Done.",
+      "expected_output": "The session reads the log, removes the wildcard import, folds the fix into Add Tag model, restacks, submits with --update-only, does not start a second watch, and reports the fix under Agent.",
       "checks": [
         {"type": "log_not_regex", "patterns": ["^\\+import java\\.util\\.\\*"], "text": "The wildcard import is gone from the branch"},
         {"type": "state_regex", "case": true, "patterns": ["^branch tags-model\\nsubject Add Tag model\\nancestors", "^branch tags-in-list\\n(subject .*\\n)+ancestors .*\\btags-model\\b"], "text": "tags-model has only its 1 commit, and tags-in-list contains it"},
@@ -94,7 +94,7 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "/watch\\b(?:(?!\\\\n)[^|;&])*--interval", "max": 0, "text": "Does not start a second watch: the watch continues"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Done$", "!11"], "text": "Reply has a Done section for !11"}
+        {"type": "reply_regex", "patterns": ["(?m)^Agent$", "!11"], "text": "Reply has an Agent section for !11"}
       ]
     },
     {
@@ -117,7 +117,7 @@
       "fixture": "fixtures/watch-test-failure.sh",
       "common": false,
       "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 502 failed\",\"branch\":\"tags-model\"}\n```",
-      "expected_output": "A unit test fails. That is not trivial. The session reports the cause and a proposed fix under Needs you. It does not change the branch.",
+      "expected_output": "A unit test asserts an ARGB value. The fix changes a test expectation or the behavior, so it needs a decision of the user. The session reports the cause and a proposed fix under Needs you. It does not change the branch.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b|/retry\\b", "max": 0, "text": "Does not submit and does not retry"},
@@ -131,13 +131,13 @@
       "fixture": "fixtures/watch-runner-failure.sh",
       "common": false,
       "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"\",\"detail\":\"pipeline 503 failed\",\"branch\":\"tags-in-list\"}\n```",
-      "expected_output": "The runner failed. The session retries job 9003 once and reports it under Done.",
+      "expected_output": "The runner failed. The session retries job 9003 once and reports it under Agent.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\s+9003\\b", "min": 1, "max": 1, "text": "Retries job 9003 once"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b", "max": 0, "text": "Does not submit"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Done$", "(?i)retr"], "text": "Reply has the retry under Done"}
+        {"type": "reply_regex", "patterns": ["(?m)^Agent$", "(?i)retr"], "text": "Reply has the retry under Agent"}
       ]
     },
     {
@@ -202,6 +202,22 @@
       "expected_output": "The agent uses the android-capture skill for the screenshots.",
       "checks": [
         {"type": "tool_count", "tool": "Skill|Bash|Read", "input_regex": "android-capture", "min": 1, "text": "Loads or reads the android-capture skill"}
+      ]
+    },
+    {
+      "id": 14,
+      "name": "watch-obvious-fix",
+      "fixture": "fixtures/watch-obvious-fix.sh",
+      "common": false,
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 504 failed\",\"branch\":\"tags-model\"}\n```",
+      "expected_output": "A unit test does not compile, because the branch renamed Tag.label() to Tag.displayName() and one call site in TagTest.kt uses the old name. The cause is clear and the fix is obvious. The session renames the call site, folds the fix into Add Tag model, submits with --update-only, and reports the fix under Agent. It puts no row for the failure under Needs you.",
+      "checks": [
+        {"type": "log_not_regex", "patterns": ["^\\+.*\\.label\\(\\)"], "text": "The old call site is gone from the branch"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-spice[^|;&]*stack submit[^|;&]*--update-only", "min": 1, "max": 1, "text": "Submits the stack once with --update-only"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
+        {"type": "reply_regex", "patterns": ["(?m)^Agent$", "!11"], "text": "Reply has an Agent section for !11"},
+        {"type": "reply_not_regex", "patterns": ["(?m)^Needs you$"], "text": "Reply has no Needs you section for the failure"}
       ]
     }
   ]

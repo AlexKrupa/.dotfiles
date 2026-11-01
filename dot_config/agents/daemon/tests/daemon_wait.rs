@@ -36,7 +36,7 @@ fn watch_exits_0_at_once_and_writes_the_record_with_the_session() {
 #[test]
 fn watch_fresh_deletes_the_engine_state() {
     let w = Watchd::new();
-    w.env.write_engine_state("app", r#"{"todos": []}"#);
+    w.env.write_engine_state("app", r#"{"version": 4, "todos": []}"#);
     w.fake("app", "sleep", "5");
 
     let run = w.watch(&["--fresh"]);
@@ -191,37 +191,6 @@ fn the_daemon_answers_a_request_with_a_bad_session_id_with_the_error() {
     assert_eq!(answers, [error.clone(), error.clone(), error]);
     assert!(!w.watchd.join("x.json").exists());
     assert!(!w.has_sub("app"));
-    end(follow);
-}
-
-#[test]
-fn old_records_end_at_start_and_their_items_go_to_the_hub() {
-    let w = Watchd::new();
-    let author = w.author_key();
-    for folder in ["subs", "items", "inbox"] {
-        std::fs::create_dir_all(w.watchd.join(folder)).unwrap();
-    }
-    let sub = json!({
-        "version": 3, "key": author, "slug": "app", "repo": w.env.repo, "mode": "author", "mrs": [5],
-        "interval": 120, "session_pid": w.session_pid(), "client_pid": 1, "client_at": 0,
-        "replaced_sessions": [], "ended_mrs": [],
-    });
-    std::fs::write(w.watchd.join(format!("subs/{author}.json")), sub.to_string()).unwrap();
-    let items = json!({"next": 2, "items": [{"n": 1, "item": "thread:d1", "owner": "daemon", "iid": 5}]});
-    std::fs::write(w.watchd.join(format!("items/{author}.json")), items.to_string()).unwrap();
-    let owner = w.watchd.join(format!("inbox/{author}.owner"));
-    std::fs::write(&owner, format!("{}\n", w.session_pid())).unwrap();
-
-    let follow = w.follower(&w.env.dir);
-    let ended = wait_for(10, || w.log_count("subscription removed: old format") == 1);
-    let status = w.client(&["status"]);
-
-    assert!(ended, "{}", w.log());
-    assert!(!status.out.contains(&author), "{}", status.out);
-    let hub: Vec<Value> = w.items_of("app")["items"].as_array().cloned().unwrap_or_default();
-    let names: Vec<&Value> = hub.iter().map(|item| &item["item"]).collect();
-    assert_eq!(names, [&json!("thread:d1")]);
-    assert!(!owner.exists());
     end(follow);
 }
 

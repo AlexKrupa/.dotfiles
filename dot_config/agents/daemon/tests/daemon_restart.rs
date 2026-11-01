@@ -4,8 +4,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
 
+use serde_json::json;
 use support::Checks;
 use support::daemon::{Watchd, alive, ev, is_daemon, norow, wait_for};
+use watchd::daemon::store::UPGRADE_TEXT;
 
 fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
@@ -94,7 +96,7 @@ fn new_binary_client() -> &'static Checks {
         let client = w.start(wait_copy(&w, &copy));
         wait_for(10, || w.rounds_of("app") >= 1 && w.waiting(&w.session_id()));
         let old = w.daemon_pid();
-        w.env.write_engine_state("app", r#"{"todo": 1}"#);
+        w.env.write_engine_state("app", r#"{"version": 4, "todo": 1}"#);
         // The interval is long: the round of this event is the first round of the new daemon.
         w.events("app", &[ev("todo", 5)]);
         install_copy(&copy);
@@ -258,6 +260,245 @@ fn network_down() -> &'static Checks {
         std::fs::write(&nc, "#!/bin/sh\nexit 0\n").unwrap();
         c
     })
+}
+
+/// The state folder of a daemon of an older format: a hub watch of the session, an event in its
+/// inbox that the session did not get, a session whose watch the user stopped, and the files that
+/// a format change keeps.
+fn old_state(w: &Watchd, format: Option<&str>) {
+    for folder in ["subs", "sessions", "inbox"] {
+        std::fs::create_dir_all(w.watchd.join(folder)).unwrap();
+    }
+    if let Some(format) = format {
+        std::fs::write(w.watchd.join("format"), format!("{format}\n")).unwrap();
+    }
+    std::fs::write(w.watchd.join("daemon.lock"), "").unwrap();
+    std::fs::write(w.watchd.join("watchd.log"), "old line\n").unwrap();
+    let id = w.session_id();
+    let sub = json!({
+        "version": 4, "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub", "mrs": [],
+        "interval": 1, "session": id, "ended_mrs": [],
+    });
+    std::fs::write(w.watchd.join("subs/app.json"), sub.to_string()).unwrap();
+    let session = json!({"version": 4, "owner_pid": w.session_pid(), "owner_gone_at": null});
+    std::fs::write(w.watchd.join(format!("sessions/{id}.json")), session.to_string()).unwrap();
+    std::fs::write(w.watchd.join("sessions/stopped.json"), session.to_string()).unwrap();
+    let routed = ev("pipeline", 5).replacen('}', r#","row":1}"#, 1);
+    std::fs::write(w.watchd.join("inbox/app.jsonl"), format!("{routed}\n")).unwrap();
+}
+
+fn entry_count(folder: &Path) -> usize {
+    std::fs::read_dir(folder).map_or(0, |entries| entries.count())
+}
+
+fn format_of(w: &Watchd) -> String {
+    std::fs::read_to_string(w.watchd.join("format"))
+        .unwrap_or_default()
+        .trim()
+        .to_string()
+}
+
+fn format_change() -> &'static Checks {
+    static CHECKS: OnceLock<Checks> = OnceLock::new();
+    CHECKS.get_or_init(|| {
+        let w = Watchd::new();
+        let mut c = Checks::default();
+        old_state(&w, Some("3"));
+        w.fake(
+            "app",
+            "state",
+            r#"{"version": 4, "default_pipeline": {"id": 1, "status": "success"}}"#,
+        );
+        let first = w.wait();
+        c.check(
+            "a format change deletes the state and keeps the lock and the log",
+            "0 4 1 old line yes",
+            format!(
+                "{} {} {} {} {}",
+                entry_count(&w.watchd.join("subs")),
+                format_of(&w),
+                w.log_count("state reset: format 3 to 4"),
+                w.log().lines().next().unwrap_or_default(),
+                yes_no(w.watchd.join("daemon.lock").exists())
+            ),
+        );
+        let second = w.wait();
+        c.check(
+            "a wait after an upgrade gets the upgrade error",
+            "1 yes 0 []",
+            format!(
+                "{} {} {} [{}]",
+                first.code,
+                yes_no(first.err.contains(UPGRADE_TEXT)),
+                second.code,
+                second.err
+            ),
+        );
+        let other = w.run(w.as_session(w.wait_command(), "s9", std::process::id()));
+        c.check(
+            "a session with no watch gets no upgrade error",
+            "0 [] []",
+            format!("{} [{}] [{}]", other.code, other.out, other.err),
+        );
+        let stopped = w.run(w.as_session(w.wait_command(), "stopped", std::process::id()));
+        c.check(
+            "a session with a session file but no record gets no upgrade error",
+            "0 [] []",
+            format!("{} [{}] [{}]", stopped.code, stopped.out, stopped.err),
+        );
+        assert_eq!(w.watch(&[]).code, 0);
+        wait_for(10, || w.rounds_of("app") >= 1);
+        c.check(
+            "the first check after a reset sends no event",
+            "[] [] []",
+            format!(
+                "[{}] [{}] [{}]",
+                norow(&first.out),
+                norow(&second.out),
+                w.inbox_of("app")
+            ),
+        );
+        w.events("app", &[ev("todo", 6)]);
+        let run = w.wait();
+        c.check(
+            "a new watch after an upgrade gets events again",
+            format!("0 {}", ev("todo", 6)),
+            format!("{} {}", run.code, norow(&run.out)),
+        );
+        c
+    })
+}
+
+#[test]
+fn a_format_change_deletes_the_state_and_keeps_the_lock_and_the_log() {
+    format_change().assert("a format change deletes the state and keeps the lock and the log");
+}
+
+#[test]
+fn a_session_with_a_session_file_but_no_record_gets_no_upgrade_error() {
+    format_change().assert("a session with a session file but no record gets no upgrade error");
+}
+
+#[test]
+fn a_wait_after_an_upgrade_gets_the_upgrade_error() {
+    format_change().assert("a wait after an upgrade gets the upgrade error");
+}
+
+#[test]
+fn a_session_with_no_watch_gets_no_upgrade_error() {
+    format_change().assert("a session with no watch gets no upgrade error");
+}
+
+#[test]
+fn the_first_check_after_a_reset_sends_no_event() {
+    format_change().assert("the first check after a reset sends no event");
+}
+
+#[test]
+fn a_new_watch_after_an_upgrade_gets_events_again() {
+    format_change().assert("a new watch after an upgrade gets events again");
+}
+
+fn inode_of(path: &Path) -> u64 {
+    std::fs::metadata(path).map_or(0, |meta| std::os::unix::fs::MetadataExt::ino(&meta))
+}
+
+/// The inodes of the lock, the PID file, and the socket, and the first log line.
+fn kept_entries(w: &Watchd) -> String {
+    let inodes: Vec<String> = ["daemon.lock", "daemon.pid", "daemon.sock"]
+        .iter()
+        .map(|name| inode_of(&w.watchd.join(name)).to_string())
+        .collect();
+    format!("{} {}", inodes.join(" "), w.log().lines().next().unwrap_or_default())
+}
+
+/// A new binary with a new format, under a live daemon with a watch and a waiting client.
+fn live_upgrade() -> &'static Checks {
+    static CHECKS: OnceLock<Checks> = OnceLock::new();
+    CHECKS.get_or_init(|| {
+        let w = Watchd::new();
+        let mut c = Checks::default();
+        let copy = copy_binary(&w);
+        w.run(watch_copy(&w, &copy, &[]));
+        let client = w.start(wait_copy(&w, &copy));
+        wait_for(10, || w.rounds_of("app") >= 1 && w.waiting(&w.session_id()));
+        let old = w.daemon_pid();
+        let kept = kept_entries(&w);
+        let socket = inode_of(&w.watchd.join("daemon.sock"));
+        std::fs::write(w.watchd.join("format"), "3\n").unwrap();
+        install_copy(&copy);
+        let first = client.wait(10).unwrap();
+        c.check(
+            "a live upgrade: the waiting client gets the upgrade error",
+            "1 yes",
+            format!("{} {}", first.code, yes_no(first.err.contains(UPGRADE_TEXT))),
+        );
+        c.check(
+            "a live upgrade: the daemon keeps the lock, PID, socket, and log",
+            format!("{kept} 2 1 yes"),
+            format!(
+                "{} {} {} {}",
+                kept_entries(&w),
+                starts_of(&w, old),
+                w.log_count("state reset: format 3 to 4"),
+                yes_no(w.daemon_pid() == old && is_daemon(old))
+            ),
+        );
+        let watch = w.run(watch_copy(&w, &copy, &[]));
+        w.events("app", &[ev("todo", 7)]);
+        let run = w.run(wait_copy(&w, &copy));
+        c.check(
+            "a live upgrade: the same socket serves the new watch, and its events arrive",
+            format!("0 {socket} 0 {} []", ev("todo", 7)),
+            format!(
+                "{} {} {} {} [{}]",
+                watch.code,
+                inode_of(&w.watchd.join("daemon.sock")),
+                run.code,
+                norow(&run.out),
+                run.err
+            ),
+        );
+        c
+    })
+}
+
+#[test]
+fn a_live_upgrade_the_waiting_client_gets_the_upgrade_error() {
+    live_upgrade().assert("a live upgrade: the waiting client gets the upgrade error");
+}
+
+#[test]
+fn a_live_upgrade_the_daemon_keeps_the_lock_pid_socket_and_log() {
+    live_upgrade().assert("a live upgrade: the daemon keeps the lock, PID, socket, and log");
+}
+
+#[test]
+fn a_live_upgrade_the_same_socket_serves_the_new_watch_and_its_events_arrive() {
+    live_upgrade().assert("a live upgrade: the same socket serves the new watch, and its events arrive");
+}
+
+#[test]
+fn a_missing_format_file_is_a_format_change() {
+    let w = Watchd::new();
+    old_state(&w, None);
+
+    let run = w.wait();
+
+    assert_eq!(run.code, 1, "{}", run.err);
+    assert_eq!(entry_count(&w.watchd.join("subs")), 0);
+    assert_eq!(format_of(&w), "4");
+    assert_eq!(w.log_count("state reset: format none to 4"), 1, "{}", w.log());
+}
+
+#[test]
+fn a_new_state_folder_gets_the_format_file_and_no_reset() {
+    let w = Watchd::new();
+
+    assert_eq!(w.watch(&[]).code, 0);
+
+    assert_eq!(format_of(&w), "4");
+    assert_eq!(w.log_count("state reset"), 0, "{}", w.log());
 }
 
 #[test]

@@ -19,7 +19,7 @@ use crate::core::eventlog::{LogLine, id_of, route_line};
 use crate::core::subs::{Mode, SessionKey};
 use crate::core::worktrees::{ReviewLink, set_kind};
 use crate::daemon::Daemon;
-use crate::daemon::store::Store;
+use crate::daemon::store::{Store, UPGRADE_TEXT};
 use crate::key::worktree_top;
 use crate::local::repo_of;
 use crate::paths::session_id;
@@ -224,16 +224,26 @@ async fn watch(daemon: &Arc<Daemon>, request: &WatchRequest) -> Response {
 fn pending(store: &Store, session: &str) -> bool {
     let state = store.session(session).unwrap_or_default();
     let records = store.session_subs(session);
-    !state.ended.is_empty() || !state.replaced.is_empty() || records.iter().any(|sub| store.inbox_lines(&sub.key) > 0)
+    state.upgraded
+        || !state.ended.is_empty()
+        || !state.replaced.is_empty()
+        || records.iter().any(|sub| store.inbox_lines(&sub.key) > 0)
 }
 
-/// Returns `None` while the waiter waits, and the ended key of an `Error`. The session takes the
-/// keys of its records and the keys that ended since its last wait. If a different session has a
-/// new record of an ended key, the error stays here and the inbox goes to the record. An ended key
-/// stays in `ended` after its error, so that the next delivery takes its inbox.
+/// Returns `None` while the waiter waits, and the ended key of an `Error`. The upgrade error has
+/// no key. The session takes the keys of its records and the keys that ended since its last wait.
+/// If a different session has a new record of an ended key, the error stays here and the inbox goes
+/// to the record. An ended key stays in `ended` after its error, so that the next delivery takes
+/// its inbox.
 fn delivery(store: &Store, session: &str) -> Option<(Response, Option<SessionKey>)> {
     let records = store.session_subs(session);
     let mut state = store.session(session).unwrap_or_default();
+    if state.upgraded {
+        state.upgraded = false;
+        store.write_session(session, &state);
+        let text = format!("watchd: {UPGRADE_TEXT}\n");
+        return Some((Response::Error { text }, None));
+    }
     if let Some((ended, text)) = state
         .ended
         .iter()
@@ -352,6 +362,7 @@ async fn wait(
     match (&response, &error_key, sent) {
         (Some(Response::Events { events, replaced }), _, false) => put_back(&memory.store, &session, events, replaced),
         (Some(Response::Error { text }), Some(ended), false) => memory.store.put_back_error(&session, ended, text),
+        (Some(Response::Error { .. }), None, false) => memory.store.put_back_upgrade(&session),
         _ => {}
     }
     drop(delivering);

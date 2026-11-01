@@ -8,6 +8,8 @@ The text uses GitLab words: MR, pipeline, job. On GitHub, the same rules apply t
 
 Name an MR by its title. Put `!<iid>` only after the title, never alone.
 
+A report row and a reply show no bare id. Each id is a URL or a name.
+
 ## Files
 
 Read this file, the host file, and the role file that the skill names. All files are in
@@ -43,7 +45,10 @@ Read this file, the host file, and the role file that the skill names. All files
 | Exit | Action                                                                                            |
 | ---- | ------------------------------------------------------------------------------------------------- |
 | `0`  | Handle the events and report, as the role file tells. The watch continues: do not start it again. |
-| `1`  | Report the stderr text. Do not start again. See the host file.                                    |
+| `1`  | Report the stderr text. Do not start again, except as the rule below tells. See the host file.    |
+
+On exit `1`, if the stderr text has "Run the watch command again", run the watch command of the
+role again, with no question.
 
 On exit `0`, the output has one JSON line for each event: `kind`, `iid`, `title`, `url`,
 `actor`, `detail`, `branch`, `key`, and `mode`. The role file tells the other fields of its events.
@@ -102,7 +107,7 @@ An `own-comment` event is a comment or a reply of the user. Make sure that it is
 Result:
 
 - The comment is correct and clear: the cell of its row is `OK`.
-- A statement is wrong, or the comment refers to the wrong code: put its row in `close`, and add
+- A statement is wrong, or the comment refers to the wrong code: put its row in `dismiss`, and add
   a `needs` row with the error and a short proposed change.
 - Small points only, for example an unclear word: the cell of its row has the points.
 
@@ -114,18 +119,18 @@ Run the host command "Report" with the JSON of your actions. Output its stdout w
 prints one table for each MR, in the order of the `--mr` flags. With no `--mr` flags, it prints one
 table for each MR of the watch, in the order of the MR numbers. The JSON fields, all optional:
 
-- `cells`: your text for each row, for example `{"2": "Valid. Fix: replace the field"}`. An open
+- `cells`: your text for each row, for example `{"2": "Valid. Fix: replace the field"}`. A pending
   item keeps its text for the next reports.
-- `agent`: the rows of the events that you handled. An open item in it closes.
-- `close`: the rows that need nothing more. An open item in it closes. A thread that is still
+- `agent`: the rows of the events that you handled. A pending item in it goes away.
+- `dismiss`: the rows that need nothing more. A pending item in it goes away. A thread that is still
   in `unaddressed` opens again at the next round with events.
 - `add`: a row with no event, as `{"section": "needs", "iid": <iid>, "what": "<text>",
-  "result": "<text>"}`. The section `needs` opens an item that stays until you close it.
+  "result": "<text>"}`. The section `needs` opens an item that stays until you dismiss it.
   Examples: a lost fix commit, "fix waits, session not idle", a new review finding.
 
 The sections:
 
-- Needs you shows all open items, also the items from earlier reports. The watch closes an item
+- Needs you shows all pending items, also the items from earlier reports. The watch removes an item
   when GitLab shows that its cause is gone. Examples: the thread is not in `unaddressed`, or a new
   pipeline passed. An item keeps its number, so the user can say "fix 1".
 - Agent shows the actions that you did for the events of this result.

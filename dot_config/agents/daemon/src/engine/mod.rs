@@ -52,8 +52,8 @@
 //! Comments, reactions, and threads on a diff line also have path and line. The actor of a change
 //! is the author of the newest system note of that change, or empty.
 //!
-//! Open items. An event that opens an item for the user has the item key in `item`. The `present`
-//! list of the state file has the item keys whose cause GitLab still shows. The daemon closes the
+//! Pending items. An event that opens an item for the user has the item key in `item`. The `present`
+//! list of the state file has the item keys whose cause GitLab still shows. The daemon removes the
 //! other items.
 //!   item                     event                        present while
 //!   todo:<to-do id>          todo                         the to-do item is pending
@@ -508,6 +508,38 @@ pub async fn run_check(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     }
 }
 
+/// The check runs on a copy of the state, so that a debug run takes no events from the daemon.
+async fn debug_check(args: EngineArgs, cache: Option<Arc<MrCache>>) -> Result<Vec<Event>, EngineError> {
+    // `WATCHD_ENGINE_SAVE`: the engine tests run several checks on one saved state.
+    #[cfg(feature = "test-support")]
+    if std::env::var_os("WATCHD_ENGINE_SAVE").is_some_and(|value| !value.is_empty()) {
+        let ctx = preflight(args, &StateDirs::from_env(), cache).await?;
+        return run_check(&ctx).await;
+    }
+    let base = std::env::temp_dir().join(format!("watchd-engine-{}", std::process::id()));
+    let result = async {
+        let ctx = preflight(args, &StateDirs::from_base(&base), cache).await?;
+        copy_state(&ctx)?;
+        run_check(&ctx).await
+    }
+    .await;
+    let _ = std::fs::remove_dir_all(&base);
+    result
+}
+
+fn copy_state(ctx: &CheckContext) -> Result<(), EngineError> {
+    if ctx.args.fresh {
+        return Ok(());
+    }
+    let name = ctx.state.file_name().expect("a state file name");
+    let saved = StateDirs::from_env().engine.join(name);
+    match std::fs::copy(&saved, &ctx.state) {
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(EngineError::Other(format!("{}: {error}", saved.display()))),
+    }
+}
+
 pub async fn main(args: Vec<String>) -> i32 {
     let result = match EngineArgs::parse(args) {
         Ok(EngineArgs {
@@ -533,10 +565,7 @@ pub async fn main(args: Vec<String>) -> i32 {
         Ok(args) => {
             let cache = std::env::var_os("WATCH_MR_CACHE").filter(|dir| !dir.is_empty());
             let cache = cache.map(|dir| Arc::new(MrCache::new(PathBuf::from(dir))));
-            match preflight(args, &StateDirs::from_env(), cache).await {
-                Ok(ctx) => run_check(&ctx).await,
-                Err(error) => Err(error),
-            }
+            debug_check(args, cache).await
         }
         Err(message) => Err(EngineError::Other(message)),
     };

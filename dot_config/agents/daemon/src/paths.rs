@@ -23,7 +23,7 @@ impl StateDirs {
         StateDirs::from_base(&base)
     }
 
-    fn from_base(base: &Path) -> StateDirs {
+    pub fn from_base(base: &Path) -> StateDirs {
         StateDirs {
             watchd: base.join("watchd"),
             engine: base.join("watch-gitlab"),

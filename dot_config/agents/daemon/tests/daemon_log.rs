@@ -34,19 +34,12 @@ fn kind(w: &Watchd, folder: &std::path::Path, args: &[&str]) -> support::Run {
 
 fn write_work(w: &Watchd, work: Value) {
     let repo = &w.env.repo;
-    std::fs::create_dir_all(&w.watchd).unwrap();
-    let repos = json!({"version": 2, "repos": [repo]});
-    std::fs::write(w.watchd.join("repos.json"), repos.to_string()).unwrap();
-    let mut state = json!({"version": 2, "path": repo, "repo": repo, "branch": null, "key": "",
+    let repos = json!({"version": 4, "repos": [repo]});
+    w.write_state("repos.json", &repos.to_string());
+    let mut state = json!({"version": 4, "path": repo, "repo": repo, "branch": null, "key": "",
         "stack": [], "mrs": []});
     state.as_object_mut().unwrap().extend(work.as_object().unwrap().clone());
-    let folder = w.watchd.join("worktrees");
-    std::fs::create_dir_all(&folder).unwrap();
-    std::fs::write(
-        folder.join(format!("{}.json", support::hash12(repo))),
-        state.to_string(),
-    )
-    .unwrap();
+    w.write_state(&format!("worktrees/{}.json", support::hash12(repo)), &state.to_string());
 }
 
 fn log_and_worktrees() -> &'static Checks {
@@ -112,7 +105,11 @@ fn log_and_worktrees() -> &'static Checks {
 
         let w = Watchd::new();
         let author = w.author_key();
-        w.fake(&author, "state", r#"{"mrs": {"5": {"title": "Add foo"}}, "needs": []}"#);
+        w.fake(
+            &author,
+            "state",
+            r#"{"version": 4, "mrs": {"5": {"title": "Add foo"}}, "needs": []}"#,
+        );
         w.fake(&author, "exit", "5\n");
         w.fake(&author, "err", "watchd: HTTP 403 on graphql\n");
         w.watch_wait(&["--mr", "5"]);
@@ -232,7 +229,6 @@ fn prune() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        std::fs::create_dir_all(&w.watchd).unwrap();
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -242,9 +238,9 @@ fn prune() -> &'static Checks {
             json!({"time": now - 8 * 86400, "type": "route", "iid": 1}),
             json!({"time": now, "type": "route", "iid": 2})
         );
-        std::fs::write(w.watchd.join("events.jsonl"), lines).unwrap();
-        w.env.write_engine_state("old", "{}");
-        w.env.write_engine_state("new", "{}");
+        w.write_state("events.jsonl", &lines);
+        w.env.write_engine_state("old", r#"{"version": 4}"#);
+        w.env.write_engine_state("new", r#"{"version": 4}"#);
         let old = std::fs::File::options()
             .write(true)
             .open(w.env.engine_state("old"))

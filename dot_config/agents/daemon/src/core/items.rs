@@ -32,8 +32,8 @@ pub struct Item {
     pub event: Option<Event>,
 }
 
-/// The daemon closes its items by the present list of the engine, and the model closes its items in
-/// a report.
+/// The daemon removes its items by the present list of the engine, and the model dismisses its
+/// items in a report.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Owner {
@@ -41,7 +41,7 @@ pub enum Owner {
     Model,
 }
 
-/// `row`: the number of the open item of the event, or a new number.
+/// `row`: the number of the pending item of the event, or a new number.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RoutedEvent {
     #[serde(flatten)]
@@ -108,7 +108,7 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
         match item.owner {
             Owner::Model => true,
             Owner::Daemon if is_pull_item(&item.item) => true,
-            // An item of a worktree with no agent: the check of the worktree closes it.
+            // An item of a worktree with no agent: the check of the worktree removes it.
             Owner::Daemon if !other_mode && !is_hub_item(&item.item) => true,
             Owner::Daemon if other_mode && is_hub_item(&item.item) => {
                 hub_present.is_none_or(|hub| hub.contains(&item.item))
@@ -132,8 +132,8 @@ pub fn move_items(source: &mut Items, target: &mut Items, iid: Option<u64>) -> u
     source.items = kept;
     let count = moved.len();
     for item in moved {
-        match target.items.iter_mut().find(|open| open.item == item.item) {
-            Some(open) => open.event = item.event.or(open.event.take()),
+        match target.items.iter_mut().find(|pending| pending.item == item.item) {
+            Some(pending) => pending.event = item.event.or(pending.event.take()),
             None => {
                 target.items.push(Item { n: target.next, ..item });
                 target.next += 1;
@@ -177,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn prune_moved_closes_the_items_that_the_worktree_check_does_not_have() {
+    fn prune_moved_removes_the_items_that_the_worktree_check_does_not_have() {
         let mut items = Items::default();
         let other_mr = Event {
             iid: Some(6),
@@ -219,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn assign_rows_reuses_the_number_of_an_open_item() {
+    fn assign_rows_reuses_the_number_of_a_pending_item() {
         let mut items = Items::default();
         assign_rows(&mut items, vec![event(EventKind::Conflict, Some("conflict:5"))], 100);
         let routed = assign_rows(&mut items, vec![event(EventKind::Conflict, Some("conflict:5"))], 200);

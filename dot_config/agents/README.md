@@ -17,6 +17,8 @@ these statuses:
 - `local`: a real file is at the target. The script does not change it.
 - `removed`: the script removed a stale managed link.
 - `installed`: the plugin is already installed.
+- `STALE`: the installed copy of a plugin differs from its source folder, also after one
+  reinstall. The exit code is 1.
 - `FAILED`: the script could not add the marketplace or install the plugin. The exit code is 1.
 
 After you add or rename a skill, start the script again.
@@ -33,8 +35,9 @@ The script installs the plugins that have the value `true` in `enabledPlugins` o
 `~/.claude/settings.json`. Before that, it adds each marketplace of `extraKnownMarketplaces`. It does
 not install other plugins and does not remove plugins. The `local-pins` marketplace is in
 `~/.claude/local-marketplace/`. Its `watchd` plugin is a symlink to
-`daemon/integrations/claude-code/`, and Claude Code loads it in place. A change to it applies at the
-next session start.
+`daemon/integrations/claude-code/`. The plugin has no `version`, and its hooks run the live
+`wait.sh`. If the installed plugin is a copy that differs from the source, the script reinstalls
+it one time. A change to the plugin applies at the next session start.
 
 The script does not make a symlink for `instructions-chat.md`. You paste it manually into the custom
 instructions of an AI chat app.
@@ -67,8 +70,8 @@ folder in `integrations/`.
   a script, search the skills for the script name.
 - `bin/git-lib.sh`, `bin/gitlab-lib.sh` - the shared functions of the git scripts and of the
   GitLab scripts. The scripts source these files.
-- `bin/agent-lib.sh` - finds the herdr agent kind of a pane and the `agent.sh` adapter of that
-  kind. The scripts that send agent actions source it.
+- `bin/agent-lib.sh` - finds the herdr agent kind of a pane or of the only adapter, and the
+  `agent.sh` adapter of that kind. The scripts that send agent actions source it.
 - `bin/repo-slug.sh` - gives the `~/.ai/<repo-name>/` slug of a repo. `instructions-agents.md`,
   the skills, and the fish configuration use it.
 - `daemon/` - the GitLab watch: one Rust program, `watchd`, with the daemon (one process for each

@@ -100,7 +100,7 @@ def label_of($pane; $program):
    | .value
    | .workspace_id as $id
    | (.tokens // {} | if any($rows[]; .workspace_id == $id) then work_agent_kind else . end
-      | work_glyphs($glyphs)) as $work
+      | work_glyphs($glyphs; false)) as $work
    | ([$slot, $work] | map(select(. != "")) | join(" ")) as $idx
    | select((.tokens.idx // "") != $idx)
    | ["workspace", .workspace_id, "idx=" + $idx] | @tsv),

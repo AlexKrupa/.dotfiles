@@ -115,7 +115,7 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
      - `continue`: add `--continue`. If the MR URL of the current branch is in this session,
        add `--mr <URL>`. Else the script finds it with `glab`. Write a summary of this session
        for the new agent:
-       - the status of the current branch: done, pushed, or with open items
+       - the status of the current branch: done, pushed, or with pending items
        - decisions, with their reasons
        - facts that this session found and the next work needs
        - the related spec and plan files that are important, and why
@@ -186,8 +186,8 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
    - Exit `0`, next mode: "`<branch>` on `<base>`, `<fresh or continue>` handoff. This session
      clears after this turn and starts the new prompt. Do not type in this pane until the prompt
      shows."
-   - Exit `1`: the stderr text, word for word. The error is a report for the user, not a
-     task. The repo and the worktree stay as they are: the user fixes the cause, then runs
+   - Exit `1` or `5`: the stderr text, word for word. Exit `5` is existing mode with a branch
+     that is open in a workspace. The error is a report for the user, not a task. The repo and the worktree stay as they are: the user fixes the cause, then runs
      `/work` again.
    - Exit `1` and the stderr text ends with `(branch <branch> stays)`, new, split, or next mode:
      also tell the user that `/work` again needs a new branch name. The branch in the message

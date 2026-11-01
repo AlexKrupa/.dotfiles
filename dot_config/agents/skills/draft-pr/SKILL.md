@@ -19,8 +19,9 @@ allowed-tools:
 
 Writes one PR draft as a Markdown file: metadata, title, description, and review comments. A person
 or a wrapper skill (for example a GitLab `/mr` skill) reads the file and publishes it. The draft
-does not depend on the code host. This skill does not publish. After the wrapper publishes, the wrapper tells
-this skill to watch the MRs (see "Watch"). During the watch, only trivial fixes are pushed.
+does not depend on the code host. This skill does not publish. After the wrapper publishes, the
+wrapper tells this skill to watch the MRs (see "Watch"). During the watch, a fix is pushed only when
+it is clear, obvious, and needs no decision of the user.
 
 Before it writes, it prepares the branch: it syncs and restacks with git-spice, and it squashes
 repair commits. The reviewer gets a clean branch and a description that agrees with it.

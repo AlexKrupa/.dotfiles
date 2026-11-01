@@ -30,10 +30,12 @@ One binary has three roles:
   process that sends one JSON line to the daemon on `daemon.sock` and prints the answer
   (`src/protocol.rs`).
 - Daemon: `watchd daemon` is one process for each user. It reads git and git-spice, polls GitLab,
-  writes all state files, and answers the clients. If no daemon runs, the first client starts it.
+  creates its state folder and log, writes all state files, and answers the clients. If no daemon
+  runs, the first client starts it.
   A repo with `watchd.stateHome` has its own daemon (see "Managed repos").
 - Engine: the daemon calls the engine through the `Engine` trait for each check. The engine runs
-  `glab api` child processes. `watchd engine` runs one check, for debugging.
+  `glab api` child processes. `watchd engine` runs one check, for debugging. It checks a copy of
+  the engine state and does not save the state.
 
 Two types of client stay connected:
 
@@ -152,8 +154,8 @@ flowchart TB
     with the same owner PID also makes a live session away, for example after `/resume`.
   - Back: a `wait` of the session ID clears `owner_gone_at`, also with a new owner PID.
   - Ended: the session is away for the grace period (`WATCHD_GRACE_SECONDS`, default 1800 s). The
-    loop ends each agent record of the session, and the open items go to the hub. Then it removes
-    the session record.
+    loop ends each agent record of the session, and the pending items go to the hub. Then it
+    removes the session record.
   - Worktree gone: the loop ends the record with the error `the worktree is gone: PATH`. The next
     `wait` of the session gets the error.
 - Local round: for each managed repo, one `git worktree list` and one read of the shared refs
@@ -189,11 +191,15 @@ flowchart TB
   - Errors: after a permanent error, or after 5 other errors in a row, the check ends the agent
     record of its key.
 - Events: the events of a key with an agent record go to its inbox, also while its session is
-  away. The events of a key with no agent record go to the hub as open items.
+  away. The events of a key with no agent record go to the hub as pending items.
 - Errors: the error text of an ended agent record is `watchd: MODE watch KEY: TEXT`, because a
   session can have more than one watch. The next `wait` of the session gets it.
 - Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
-  event, and starts the review and bump agents. The lock is free during the agent starts. A failed
+  event, and starts the review and bump agents. The lock is free during the agent starts. An agent
+  start runs `work/work-start.sh <title> --branch <branch> --no-track --skill <skill> <MR URL>`
+  in the skill folder `$WATCHD_SCRIPTS`, else `~/.config/agents/skills/`. The agent integration
+  gives the kind and the prompt that runs the skill. Exit code 5 is a branch that is open in a
+  workspace already. A failed
   default-branch job with a runner failure gets 2 retries at most, in a task of its own. A handled
   event does not go to the hub inbox. If a round has only handled events, the daemon writes the
   hub report to the board file, and `watchd board` shows it. Else all events go to the inbox, and
@@ -216,9 +222,9 @@ the `changed` signal, and the waiting connections read the files again.
 | `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
 | `src/board.rs` | The text of `watchd board`: one block for each row, with the URL of the comment, the MR, or the pipeline |
-| `src/core/` | Logic with no input or output: agent records, open items, event log lines, worktree state and targets, the event kinds and needs of each mode (`filter.rs`) |
+| `src/core/` | Logic with no input or output: agent records, pending items, event log lines, worktree state and targets, the event kinds and needs of each mode (`filter.rs`) |
 | `src/engine/` | The GitLab checks. `hub.rs` watches the project. `mrs.rs` watches the MRs of a worktree or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
-| `src/workspaces.rs` | The herdr calls: the board pane and the agent starts |
+| `src/workspaces.rs` | The skill scripts of the board pane, the agent starts, and the agent list |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
 | `integrations/claude-code/` | The Claude Code plugin: hooks, `wait.sh`, and the runner file |
 | `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
@@ -233,16 +239,17 @@ the worktree. A review key also has `-review-IID` at the end.
 | Path | Content |
 | --- | --- |
 | `watchd/daemon.sock`, `daemon.lock`, `daemon.pid` | The socket, the lock for one daemon, the PID |
-| `watchd/watchd.log` | The text log |
+| `watchd/watchd.log` | The text log, also the stdout and stderr of the daemon |
+| `watchd/format` | The format version of the state (see "Migration") |
 | `watchd/events.jsonl` | The event log, which `follow` reads |
 | `watchd/repos.json` | The managed set |
 | `watchd/worktrees/HASH.json` | The state of one worktree: branch, key, stack, MRs, conflict, kind, stage. `HASH` is the first 12 characters of the SHA-1 of the path. |
 | `watchd/reviews.json` | The review links: a worktree and the MR that it reviews |
 | `watchd/subs/KEY.json` | One agent record, with the ID of its session |
-| `watchd/sessions/ID.json` | One session: the owner PID and `owner_gone_at`. `replaced` has the keys that a different session took. `ended` has the keys whose record ended while the session had them. |
+| `watchd/sessions/ID.json` | One session: the owner PID and `owner_gone_at`. `replaced` has the keys that a different session took. `ended` has the keys whose record ended while the session had them. `upgraded` is true from a format change to the next wait. |
 | `watchd/inbox/KEY.jsonl` | Events that no waiter took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
-| `watchd/items/KEY.json` | The open items of the key |
+| `watchd/items/KEY.json` | The pending items of the key |
 | `watchd/items/KEY.board` | The newest hub report as JSON. `watchd board` draws it at the width of its pane. |
 | `watchd/items/KEY.retries` | The retry count of each failed job of the hub, as `<pipeline id>:<job name>` |
 | `watch-gitlab/KEY.json` | The engine state: what GitLab showed at the last check |
@@ -263,26 +270,30 @@ The folder `integrations/claude-code/` is a Claude Code plugin. It has all Claud
 
 | File | Content |
 | --- | --- |
-| `.claude-plugin/plugin.json` | The name `watchd` and the `version` |
-| `hooks/hooks.json` | The `SessionStart` and `Stop` hooks. Both run `wait.sh` with `asyncRewake` and a timeout of one week. |
+| `.claude-plugin/plugin.json` | The name `watchd`. The plugin has no `version`, so Claude Code never pins it. |
+| `hooks/hooks.json` | The `SessionStart` and `Stop` hooks. Both run the live `~/.config/agents/daemon/integrations/claude-code/wait.sh` with `asyncRewake` and a timeout of one week. |
 | `wait.sh` | Runs `watchd wait` with `CLAUDE_CODE_SESSION_ID` and `CLAUDE_PID`. For the `SessionStart` source `clear`, it adds `--rename-owner-session`. Exit 2 wakes Claude with the events or `watchd error: <text>` on stderr. |
 | `wait.test.sh` | The test of `wait.sh`, with a fake `watchd` in `WATCHD` |
 | `watch-runner.md` | The runner file: how the agent starts the watch and reads the results |
 
 Claude Code reads this local plugin from its folder, through the symlink
 `~/.claude/local-marketplace/watchd` of the marketplace `local-pins`. A change of a plugin file
-takes effect at the next session start or after `/reload-plugins`.
+takes effect at the next session start or after `/reload-plugins`. The hooks run the live
+`wait.sh`, so a change of `wait.sh` needs no reload. Only a change of `hooks.json` does.
 
 ## Migration
 
 Clients that are older than an upgrade stay in use: agent sessions keep the old skill text, and a
-waiting client keeps its old process. An upgrade converts the old state at the first start of the
-new daemon. It keeps no second code path for the old format.
+waiting client keeps its old process. An upgrade has no migrations, and it keeps no second code
+path for the old format.
 
 - CLI and socket protocol: a change of the client API keeps no old path. The daemon answers an old
   client with an error, for example a `subscribe` request. The user starts the watch again one
   time.
-- State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the version
-  and convert the version before it at start. At the first start with a new version, the daemon
-  ends each old agent record, and its open items go to the hub. It removes the old owner files
-  (`inbox/KEY.owner`).
+- State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the version.
+  The file `format` of the state folder has the version of the state. If it has a different
+  version, or if a folder with state has no `format` file, the daemon deletes all state at its
+  start. It keeps only `daemon.lock`, `daemon.pid`, `daemon.sock`, and `watchd.log`. The next
+  `wait` of each session that had a watch gets an error that tells the agent to run the watch
+  command again. An engine state file of a different version goes away at its next read, and the
+  next check is a first check.

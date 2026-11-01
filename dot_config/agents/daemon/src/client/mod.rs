@@ -184,9 +184,8 @@ async fn connect(client: &ClientDirs, start: bool) -> Result<UnixStream, String>
     if !start {
         return Err(failed);
     }
-    std::fs::create_dir_all(&dirs.watchd).map_err(|error| error.to_string())?;
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
-    spawn_detached(&exe, &["daemon"], &dirs.log()).map_err(|error| format!("{failed}: {error}"))?;
+    spawn_detached(&exe, &["daemon"]).map_err(|error| format!("{failed}: {error}"))?;
     for _ in 0..50 {
         tokio::time::sleep(Duration::from_millis(200)).await;
         if let Ok(stream) = UnixStream::connect(dirs.socket()).await {
@@ -478,8 +477,9 @@ pub async fn report(args: Vec<String>) -> i32 {
         Ok(value @ serde_json::Value::Object(_)) => value,
         _ => return die("report needs a JSON object on stdin"),
     };
-    let Ok(input) = serde_json::from_value(value) else {
-        return die("report: jq could not read the input or the state");
+    let input = match serde_json::from_value(value) {
+        Ok(input) => input,
+        Err(error) => return die(&format!("report: could not read the input: {error}")),
     };
     let request = Request::Report {
         key: target.key,

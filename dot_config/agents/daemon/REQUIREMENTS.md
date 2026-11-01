@@ -286,8 +286,8 @@ from a design spec that the user approved.
   the router dismisses the other event.
 - W8.13 A bump MR is an MR whose author name or id contains `renovate` or `dependabot`, and the
   branch name does not count.
-- W8.14 For a bump MR, the daemon starts a bump agent with `/bump <mr-url>` in a new worktree and
-  workspace.
+- W8.14 For a bump MR, the daemon starts a bump agent that runs the `bump` skill on the MR URL, in
+  a new worktree and workspace.
 - W8.15 Auto-bump runs for each bump MR, also when the user is not a reviewer.
 - W8.16 Auto-bump has no limit, with one workspace for each bump MR.
 - W8.17 Bump MRs that are already open when the watch first starts get no agent.
@@ -295,8 +295,8 @@ from a design spec that the user approved.
   agents as stale.
 - W8.19 (spec) Two bump branches are of the same dependency when they are equal with no `renovate/`
   or `dependabot/` prefix and no version suffix.
-- W8.20 For a review request from a different person, the daemon starts a review agent with
-  `/review-pr <mr-url>` in a new worktree of the MR source branch.
+- W8.20 For a review request from a different person, the daemon starts a review agent that runs
+  the `review-pr` skill on the MR URL, in a new worktree of the MR source branch.
 - W8.21 (spec) Auto-review starts on a `todo` event with the detail `review_requested`.
 - W8.22 If a review report for the MR exists, the router starts no agent, the row shows `Already
   reviewed: <path>`, and the to-do item stays pending, also after new commits.
@@ -311,8 +311,8 @@ from a design spec that the user approved.
   placeholder id.
 - W8.28 (spec) `work-start.sh` in `--branch` mode accepts no ticket id, and the session name is then
   the title or, with no title, the branch name.
-- W8.29 The daemon starts review and bump agents through `work-start.sh` with an explicit agent
-  kind, and the start needs no herdr agent pane.
+- W8.29 The daemon starts review and bump agents through `work-start.sh` with no agent kind, and
+  the start needs no herdr agent pane: the kind is the kind of the only agent integration.
 - W8.30 An agent that `watchd` starts gets the same sandbox setting as an agent that the user
   starts, and `watchd` does not change it.
 - W8.31 The hub starts agents with no prompt and no keys in the hub pane or in worktree agents, and
@@ -360,17 +360,17 @@ from a design spec that the user approved.
 - W9.1 The items that wait for the user are called "pending items", and an event with no row is
   "dismissed".
 - W9.2 The router uses the name `ReportOnly` for an outcome that is only a report row.
-- W9.3 The daemon opens and closes pending items from events and GitLab state, and the model opens
-  and closes items that have no GitLab event.
-- W9.4 An item that the model added stays pending until the model closes it, also after a reply or a
-  reaction of the user.
-- W9.5 A pending item closes when GitLab shows that its cause is gone, for example after a pipeline
-  passes or a thread is resolved.
+- W9.3 The daemon adds and removes pending items from events and GitLab state, and the model adds
+  and dismisses items that have no GitLab event.
+- W9.4 An item that the model added stays pending until the model dismisses it, also after a reply
+  or a reaction of the user.
+- W9.5 A pending item goes away when GitLab shows that its cause is gone, for example after a
+  pipeline passes or a thread is resolved.
 - W9.6 A comment item stays pending until the user replies after it, the user reacts to the last
   comment, or the thread is resolved.
 - W9.7 A new comment from a different user in the thread opens the item again.
 - W9.8 At each hub check, the daemon reads the reactions of each pending note of other users, with
-  one REST call for each note, and closes a note that the user reacted to.
+  one REST call for each note, and removes the item of a note that the user reacted to.
 - W9.9 A hub `todo` item stays pending until GitLab marks the to-do done.
 - W9.10 A hub `default-failed` item stays pending until a later pipeline of the default branch
   passes.
@@ -388,7 +388,7 @@ from a design spec that the user approved.
 - W9.19 (spec) Each pending item keeps the time of its first event, and a report shows `Since
   <HH:MM>:` for an item from an earlier round.
 - W9.20 (spec) The session can add its assessment to a pending item through `watchd report`, and the
-  assessment stays until the item closes.
+  assessment stays until the item goes away.
 - W9.21 The report, the notification, and the sidebar use the same GitLab state, and they never show
   different states of one item.
 
@@ -412,17 +412,18 @@ from a design spec that the user approved.
   `claude-upgrade`.
 - W10.11 `watchd` has no knowledge of `claude-upgrade`.
 - W10.12 After any restart, each session that had a watch has the watch again, with no user input
-  and no model turn.
+  and no model turn, except after a format change (W10.13).
 - W10.13 An upgrade has no migrations: at a change of the format version, the daemon deletes all
   state, and a first check fetches the MR state again.
-- W10.14 After the state is deleted, the next `wait` of each agent gets "no watch", and the agent
-  runs its watch command again.
+- W10.14 After the state is deleted at a format change, the next `wait` of each session that had a
+  watch gets the upgrade error of W10.17, and the agent runs its watch command again.
 - W10.15 A change of the client API keeps no old path for old clients, and the skills change to the
   new names.
 - W10.16 After a change of the client API, an old watch client gets an error from the daemon, and
   the user starts each old watch again one time.
-- W10.17 (spec) When the state format version increases, the new daemon ends each old agent record
-  at its first start, and the items of the record go to the hub.
+- W10.17 At a change of the state format version, the new daemon deletes all state at its first
+  start. The next `wait` of each session that had a watch then gets an error that tells the agent
+  to run the watch command again.
 - W10.18 The event log has one line for each event with the key, repo, MR title, time, and a sound
   class, and any program can read it.
 - W10.19 (spec) The event log keeps 7 days of events.
@@ -431,7 +432,7 @@ from a design spec that the user approved.
   and routed event, with the time, repo, and key.
 - W10.22 At start, the daemon cuts a log of over 10000 lines to its last 5000 lines.
 - W10.23 The error texts of the client, the daemon, and the engine start with `watchd: `.
-- W10.24 The error text of an ended watch contains its key.
+- W10.24 The error text of an ended watch contains its key, except the upgrade error of W10.17.
 
 ## W11 Client commands
 

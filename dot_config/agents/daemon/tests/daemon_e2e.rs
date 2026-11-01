@@ -1,5 +1,6 @@
 mod support;
 
+use std::path::Path;
 use std::process::Command;
 use std::sync::OnceLock;
 
@@ -35,12 +36,37 @@ fn fields(out: &str, keys: &[&str]) -> String {
         .join(" ")
 }
 
+fn follow_lines(w: &Watchd) -> Vec<Value> {
+    let text = std::fs::read_to_string(w.env.dir.join("follow.out")).unwrap_or_default();
+    text.lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect()
+}
+
+/// The branch and the stage of the worktree, and the `live` value of its watch, in the last sidebar
+/// line.
+fn worktree_in_sidebar(w: &Watchd, worktree: &Path) -> String {
+    let lines = follow_lines(w);
+    let Some(sidebar) = lines.iter().rfind(|line| line["type"] == "sidebar") else {
+        return String::new();
+    };
+    let path = worktree.to_str().unwrap();
+    let state = &sidebar["worktrees"][path];
+    let live = sidebar["subs"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|sub| sub["repo"] == path)
+        .map_or(Value::Null, |sub| sub["live"].clone());
+    format!("{} {} {live}", state["branch"], state["stage"])
+}
+
 fn hub_todo() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
         let w = Watchd::with_gitlab_engine();
         let mut c = Checks::default();
-        w.env.write_engine_state("app", r#"{"todos": []}"#);
+        w.env.write_engine_state("app", r#"{"version": 4, "todos": []}"#);
         w.env.fixture("todos", &json!([{"id": 11, "action_name": "review_requested", "author": {"username": "anna"},
             "target": {"iid": 5, "title": "Add foo", "source_branch": "ABC-1/foo"},
             "target_url": format!("{URL}/5")}]).to_string());
@@ -210,4 +236,59 @@ fn review_and_bump_on_the_same_mr_one_fetch_in_each_round() {
 #[test]
 fn e2e_author_real_engine_gives_a_pipeline_event() {
     author_pipeline().assert("e2e author: real engine gives a pipeline event");
+}
+
+#[test]
+fn e2e_worktree_watch_with_the_real_engine_shows_in_follow() {
+    let mut w = Watchd::with_gitlab_engine();
+    w.env.set_env("WATCHD_GRACE_SECONDS", "2");
+    let wt = w.env.dir.join("wt");
+    w.env.commit(&w.env.repo, "one");
+    w.env.git(
+        &w.env.repo,
+        &["worktree", "add", "-q", "-b", "ABC-1/foo", wt.to_str().unwrap()],
+    );
+    gql(&w, 5, |_| {});
+    let follow = w.follower(&wt);
+    let owner = session();
+    let key = format!("app-{}", support::hash12(&wt));
+
+    let mut watch = w.watch_command(&["--mr", "5"]);
+    watch.current_dir(&wt);
+    let watched = w.run(watch);
+    let waiter = w.start(w.as_session(w.wait_command(), &w.session_id(), owner.id()));
+    wait_for(10, || w.rounds_of(&key) >= 1 && w.waiting(&w.session_id()));
+    wait_for(5, || worktree_in_sidebar(&w, &wt).ends_with(" true"));
+    let live = worktree_in_sidebar(&w, &wt);
+    gql(&w, 5, |mr| {
+        mr["headPipeline"] = json!({"id": "gid://gitlab/Ci::Pipeline/50", "status": "FAILED"})
+    });
+    let run = waiter.wait(10).expect("the waiter gets the pipeline event");
+    end(owner);
+    wait_for(10, || worktree_in_sidebar(&w, &wt).contains(r#""stopped""#));
+    end(follow);
+
+    assert_eq!(watched.code, 0, "{}", watched.err);
+    assert_eq!(live, r#""ABC-1/foo" null true"#, "{}", w.log());
+    assert_eq!(
+        (run.code, fields(&run.out, &["kind", "iid", "detail"])),
+        (0, "pipeline 5 pipeline 50 failed".to_string()),
+        "{}",
+        run.err
+    );
+    let event = follow_lines(&w)
+        .into_iter()
+        .find(|line| line["type"] == "event" && line["event"]["kind"] == "pipeline")
+        .unwrap_or(Value::Null);
+    assert_eq!(
+        (event["event"]["iid"].clone(), event["id"].is_u64()),
+        (json!(5), true),
+        "{event}"
+    );
+    assert_eq!(
+        worktree_in_sidebar(&w, &wt),
+        r#""ABC-1/foo" "stopped" null"#,
+        "{}",
+        w.log()
+    );
 }

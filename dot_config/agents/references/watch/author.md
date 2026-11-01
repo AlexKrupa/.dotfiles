@@ -1,7 +1,7 @@
 # Watch: author
 
 The role file of `draft-pr`: the author mode for the MRs of the worktree of the user. You fix
-small failures. During the watch, only trivial fixes are pushed.
+failures when the fix is clear. A fix that needs a decision of the user waits under Needs you.
 
 ## Idle session
 
@@ -12,6 +12,15 @@ If these three conditions are true, the session is idle:
 - you are not in the middle of a different task
 
 If the session is not idle, do not do an auto-fix.
+
+## MRs of other people
+
+Do this check before any auto-fix, push, or restack push. Run the host commands "Author of an MR"
+and "User of the session". Compare the two names.
+
+If the author is not the user, and the MR is not a bump MR, do not commit or push. A bump MR is an
+MR of a bot: an author whose username has `renovate` or `dependabot`. Put the fix under Needs you
+as a proposed fix. If the user tells you to commit or push, do it.
 
 ## Start
 
@@ -42,28 +51,35 @@ Run the host command for the logs of the failed jobs. Find the cause of each fai
 
 - The cause is outside the branch: a runner or system failure, the network, a cache, or a service
   that is down. Retry the job with the host command. A retry needs no idle session.
-- The cause is a formatter or lint error, or an obvious compile error, in the code of the branch.
-  If the session is idle, fix it:
+- The cause is in the code of the branch. If these four things are true, do the fix with steps 1
+  to 7 below and report it under Agent:
+  - the session is idle
+  - the cause is clear
+  - the fix is obvious
+  - the fix needs no decision of the user
+
+  A formatter error, a lint error, and an obvious compile error are cases of this rule. A behavior
+  change, a change of a test expectation, or a large change needs a decision of the user. Put the
+  failure under Needs you, with the cause and a proposed fix.
+
   1. Switch to the branch of the MR. Remember the branch that was current.
   2. Make the fix.
   3. Run `~/.config/agents/bin/git-diff-context.sh --parent-only` and get `parent`.
-  4. Run `~/.config/agents/bin/git-absorb-fixes.sh <parent> <file>...` with the changed files. If it
-     reports a file under `needs-message`, the fix is not trivial. Undo it with
-     `git restore --staged --worktree -- <file>...` and put the failure under Needs you.
+  4. Run `~/.config/agents/bin/git-absorb-fixes.sh <parent> <file>...` with the changed files.
+     Commit each file that it reports under `needs-message` with a one-line message.
   5. Run `~/.config/agents/bin/git-squash-fixups.sh "$(git merge-base <parent> HEAD)"`.
   6. Do "Push".
   7. Switch back to the branch that was current.
 
   If the session is not idle, put the failure under Needs you as "fix waits, session not idle",
   with the proposed fix. If the session is idle at the next report, or if the user asks, do the fix.
-- All other causes: if the session is idle and the cause is clear, do the fix with steps 1 to 7
-  above. In step 4, commit each `needs-message` file with a one-line message. Report the fix under
-  Agent. Else put the failure under Needs you, with the cause and a proposed fix.
 
 ## Push
 
 Each push of the watch also syncs and restacks the stack. The push starts a new pipeline anyway,
 so the pipeline then tests the newest base.
+
+First do the check of "MRs of other people".
 
 1. Run `git-spice repo sync --no-prompt` and `git-spice stack restack --no-prompt`.
 2. On a conflict, do "Restack conflicts" of `draft-pr` step 2. It resolves a trivial conflict. If
@@ -88,8 +104,9 @@ A `pushed` event is a push that the local branch of the MR and its reflog do not
 a push from a different machine. Do not reset the branch, because it can have local commits.
 
 1. If `git cat-file -e <new_head>` fails, run `git fetch <remote> <source_branch>`.
-2. If `git merge-base --is-ancestor <branch> <new_head>` exits 0, put under Needs you: "The remote
-   branch moved to `<sha>`. The local branch is behind." Else write "diverged", not "behind".
+2. If `git merge-base --is-ancestor <branch> <new_head>` exits 0, put under Needs you: "Someone
+   pushed to the remote branch. The local branch is behind." Add the URL of the MR. Else write
+   "diverged", not "behind".
 
 ## Comments
 

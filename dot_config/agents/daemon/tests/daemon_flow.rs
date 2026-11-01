@@ -337,6 +337,24 @@ fn check_5_other_errors_5_tries() {
 }
 
 #[test]
+fn six_network_errors_then_a_success_give_the_event() {
+    let w = Watchd::new();
+    w.fake("app", "exit", "4\n4\n4\n4\n4\n4\n");
+    w.events("app", &[ev("todo", 7)]);
+
+    let run = w.watch_wait(&[]);
+
+    assert_eq!((run.code, norow(&run.out)), (0, ev("todo", 7)), "{}", run.err);
+    assert!(w.has_sub("app"), "{}", w.log());
+    assert_eq!(
+        (w.log_count("network error"), w.log_count("error 1 of 5")),
+        (6, 0),
+        "{}",
+        w.log()
+    );
+}
+
+#[test]
 fn idle_stop_daemon_gone() {
     idle_stop().assert("idle stop: daemon gone");
 }
@@ -419,4 +437,35 @@ fn board_draws_the_board_file_again_after_a_change() {
             "\x1b[2m10:00\x1b[0m\n\n\x1b[1m\x1b[90mINFO\x1b[0m\n\x1b[1m1 \x1b[0m first row"
         ]
     );
+}
+
+#[test]
+fn the_daemon_creates_its_state_folder_and_log() {
+    let w = Watchd::new();
+    std::fs::remove_dir_all(&w.env.state).unwrap();
+    w.events("app", &[ev("todo", 5)]);
+
+    assert_eq!(w.watch(&[]).code, 0);
+
+    assert!(w.watchd.is_dir());
+    let pid = w.daemon_pid().expect("a daemon PID");
+    let log = w.log();
+    let first = log.lines().next().unwrap_or_default();
+    assert!(first.ends_with(&format!(" - - daemon start {pid}")), "{log}");
+}
+
+#[test]
+fn the_stderr_of_the_daemon_goes_to_its_log() {
+    let w = Watchd::new();
+    // A file in the place of a folder of the state: the daemon writes the error to stderr.
+    w.write_state("subs", "");
+    let mut command = w.command();
+    command.arg("daemon");
+
+    let run = w.run(command);
+
+    assert_eq!(run.code, 1);
+    assert_eq!(run.err, "");
+    let error = format!("watchd: {}: File exists (os error 17)", w.watchd.display());
+    assert!(w.log().lines().any(|line| line == error), "{}", w.log());
 }

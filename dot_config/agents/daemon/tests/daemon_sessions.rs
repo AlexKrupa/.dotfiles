@@ -329,7 +329,7 @@ fn the_owner_comes_back_in_the_grace_period_the_inbox_stays() {
     w.env.set_env("WATCHD_GRACE_SECONDS", "15");
     let id = w.session_id();
     let author = w.author_key();
-    w.fake(&author, "state", r#"{"present": ["thread:d1"]}"#);
+    w.fake(&author, "state", r#"{"version": 4, "present": ["thread:d1"]}"#);
     assert_eq!(w.watch(&["--mr", "5"]).code, 0);
     let first = session();
     let waiter = w.start(w.as_session(w.wait_command(), &id, first.id()));
@@ -365,7 +365,7 @@ fn no_waiter_comes_back_the_records_end_after_the_grace_period() {
     w.env.set_env("WATCHD_GRACE_SECONDS", "2");
     let id = w.session_id();
     let author = w.author_key();
-    w.fake(&author, "state", r#"{"present": ["thread:d1"]}"#);
+    w.fake(&author, "state", r#"{"version": 4, "present": ["thread:d1"]}"#);
     w.events(&author, &[iev("comment", 5, "thread:d1")]);
     assert_eq!(w.watch(&["--mr", "5"]).code, 0);
     let owner = session();

@@ -35,7 +35,7 @@ setup, track, sync, restack, squash). They have no `repo_unchanged` check. Their
 
 The `watch-*` evals test the Watch step. Each prompt has the output of one watch result. Each
 fixture has fake host commands and a host file in `<repo>.host/`. They have `"common": false`, because they
-write no PR file. `watch-lint` changes the fixture repo on purpose.
+write no PR file. `watch-lint` and `watch-obvious-fix` change the fixture repo on purpose.
 
 `run.py` needs `claude -p` with `--permission-mode dontAsk` and an allowlist (`ALLOWED_TOOLS`).
 Start it from your own shell, or with `!` in Claude Code.

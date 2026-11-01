@@ -20,10 +20,11 @@ def work_stage:
 # The needs-you values, in priority order.
 def work_needs: .watch_needs // "" | split(",") | map(select(. != ""));
 
-# The first needs-you value wins over a local conflict. The space after a glyph lets the terminal
-# draw it 2 cells wide.
-def work_glyphs($glyphs):
-  [.watch_kind // "", (if .watch_stack == "1" then "stack" else "" end), work_stage,
-    (work_needs[0] // (if .watch_conflict == "1" then "conflict" else "" end))]
+# The needs-you values win over a local conflict. With `$all_needs` false, the first one only. The
+# space after a glyph lets the terminal draw it 2 cells wide.
+def work_glyphs($glyphs; $all_needs):
+  (work_needs | if $all_needs then . else .[:1] end) as $needs
+  | [.watch_kind // "", (if .watch_stack == "1" then "stack" else "" end), work_stage,
+      ($needs[] // (if .watch_conflict == "1" then "conflict" else "" end))]
   | map($glyphs[.] // "")
   | map(select(. != "")) | join(" ");

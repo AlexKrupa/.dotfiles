@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/wait.sh\"",
+            "command": "\"$HOME/.config/agents/daemon/integrations/claude-code/wait.sh\"",
             "timeout": 604800,
             "asyncRewake": true
           }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/wait.sh\"",
+            "command": "\"$HOME/.config/agents/daemon/integrations/claude-code/wait.sh\"",
             "timeout": 604800,
             "asyncRewake": true
           }

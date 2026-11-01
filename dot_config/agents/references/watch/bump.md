@@ -32,7 +32,7 @@ If `new_head` is a commit that you pushed, do nothing more.
 1. Run `git fetch <remote> <branch>`.
 2. Find your fix commits that are not in the new head: their subjects are not in
    `git log --format=%s <new_base>..<new_head>`. Put each lost fix commit under Needs you, with
-   its SHA and subject. Do not push it again.
+   its subject and the URL of the commit. Do not push it again.
 3. If the working tree is clean, run `git reset --keep <remote>/<branch>`. Else, put "local branch
    behind the MR, working tree not clean" under Needs you.
 4. Compare the dependency versions in `git diff <old_base> <old_head>` and

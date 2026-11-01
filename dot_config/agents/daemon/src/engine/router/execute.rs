@@ -53,7 +53,8 @@ pub async fn execute(
                 let start = AgentStart {
                     title,
                     branch,
-                    prompt: format!("/review-pr {url}"),
+                    skill: "review-pr".to_string(),
+                    url,
                 };
                 start_agent(ctx, &mut routing, row, &start, "Review agent started");
             }
@@ -67,7 +68,8 @@ pub async fn execute(
                 let start = AgentStart {
                     title,
                     branch,
-                    prompt: format!("/bump {url}"),
+                    skill: "bump".to_string(),
+                    url,
                 };
                 if start_agent(ctx, &mut routing, row, &start, "Bump agent started") {
                     tokio::task::block_in_place(|| stale_agents(ctx, &mut routing, &start.branch));
@@ -255,7 +257,7 @@ mod tests {
         assert_eq!(routing.handled, [3]);
         assert_eq!(routing.input.cells["3"], "Review agent started");
         assert_eq!(routing.input.agent, [json!(3)]);
-        assert_eq!(setup.calls(), "start_agent ABC-1/foo /review-pr https://g/mr/5\n");
+        assert_eq!(setup.calls(), "start_agent ABC-1/foo review-pr https://g/mr/5\n");
         assert_eq!(route_actions(&lines), ["5 review"]);
         assert!(!setup.store.dirs.events().exists());
     }
@@ -280,7 +282,7 @@ mod tests {
         assert_eq!(routing.handled, [3]);
         assert_eq!(routing.input.cells["3"], "work-start: not a git repo: /x");
         assert!(routing.input.agent.is_empty());
-        assert!(routing.input.close.is_empty());
+        assert!(routing.input.dismiss.is_empty());
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -361,7 +363,7 @@ mod tests {
 
         let (routing, lines) = execute(decisions, &[opened(1, 6), opened(2, 5)], &setup.context()).await;
 
-        assert_eq!(routing.input.close, [json!(1), json!(2)]);
+        assert_eq!(routing.input.dismiss, [json!(1), json!(2)]);
         assert_eq!(route_actions(&lines), ["6 none", "5 review"]);
     }
 }

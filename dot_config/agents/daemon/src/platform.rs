@@ -1,3 +1,4 @@
+use std::os::fd::AsRawFd;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -42,14 +43,13 @@ pub async fn online(host: Option<&str>) -> bool {
 }
 
 /// A new session, so that a stop of the process group of the caller does not stop the program.
-pub fn spawn_detached(program: &Path, args: &[&str], log: &Path) -> std::io::Result<()> {
-    let output = std::fs::OpenOptions::new().create(true).append(true).open(log)?;
+pub fn spawn_detached(program: &Path, args: &[&str]) -> std::io::Result<()> {
     let mut command = Command::new(program);
     command
         .args(args)
         .stdin(Stdio::null())
-        .stdout(output.try_clone()?)
-        .stderr(output);
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
     // SAFETY: setsid is async-signal-safe.
     unsafe {
         command.pre_exec(|| match libc::setsid() {
@@ -58,6 +58,18 @@ pub fn spawn_detached(program: &Path, args: &[&str], log: &Path) -> std::io::Res
         });
     }
     command.spawn().map(|_| ())
+}
+
+/// Points stdout and stderr at the file. The descriptors change, so that the child processes that
+/// inherit them also write to the file.
+pub fn redirect_output(file: &std::fs::File) -> std::io::Result<()> {
+    for fd in [libc::STDOUT_FILENO, libc::STDERR_FILENO] {
+        // SAFETY: dup2 on an open descriptor.
+        if unsafe { libc::dup2(file.as_raw_fd(), fd) } == -1 {
+            return Err(std::io::Error::last_os_error());
+        }
+    }
+    Ok(())
 }
 
 /// Must give the same 12 hex digits of the SHA-1 as `shasum`, the hash of the keys of the state

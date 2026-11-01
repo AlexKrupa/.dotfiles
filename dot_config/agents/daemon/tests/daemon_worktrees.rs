@@ -220,12 +220,11 @@ fn client_folder_drops_a_gone_repo() {
 #[test]
 fn daemon_start_adds_the_repo_of_each_subscription() {
     let w = Watchd::new();
-    std::fs::create_dir_all(w.watchd.join("subs")).unwrap();
     let sub = json!({
         "version": 4, "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub", "mrs": [],
         "interval": 120, "session": w.session_id(),
     });
-    std::fs::write(w.watchd.join("subs/app.json"), sub.to_string()).unwrap();
+    w.write_state("subs/app.json", &sub.to_string());
 
     let follow = w.follower(&w.env.dir);
 
@@ -309,7 +308,7 @@ fn managed_loop() -> &'static Checks {
         w.env.git(&work, &["checkout", "--", "f"]);
         wait_for(10, || items(&w, "work").is_empty());
         c.check(
-            "managed loop: the item closes after the fast-forward",
+            "managed loop: the item goes away after the fast-forward",
             format!(" {}", head(&w, &pusher)),
             format!("{} {}", items(&w, "work"), head(&w, &work)),
         );
@@ -323,7 +322,7 @@ fn managed_loop_fetches_and_fast_forwards() {
     for name in [
         "managed loop: the main checkout gets the new commit of origin",
         "managed loop: a blocked fast-forward is one event and one item",
-        "managed loop: the item closes after the fast-forward",
+        "managed loop: the item goes away after the fast-forward",
     ] {
         managed_loop().assert(name);
     }
@@ -599,7 +598,7 @@ fn hub_items() -> &'static Checks {
 
         let run = w.watch_wait(&[]);
         c.check(
-            "new hub: the open items come first",
+            "new hub: the pending items come first",
             "0 comment:1",
             format!("{} {}", run.code, support::each(&run.out, "item")),
         );
@@ -635,8 +634,8 @@ fn events_of_a_worktree_without_agent_become_hub_items() {
 }
 
 #[test]
-fn new_hub_gets_the_open_items_first() {
-    hub_items().assert("new hub: the open items come first");
+fn new_hub_gets_the_pending_items_first() {
+    hub_items().assert("new hub: the pending items come first");
 }
 
 #[test]
@@ -742,7 +741,7 @@ fn worktree_with_no_agent_keeps_the_needs_of_its_check() {
     let wt = stacked_worktree(&w);
     w.env.fake_spice(&wt, STACK);
     let key = format!("app-{}", support::hash12(&wt));
-    w.fake(&key, "state", r#"{"needs": ["failed"], "present": []}"#);
+    w.fake(&key, "state", r#"{"version": 4, "needs": ["failed"], "present": []}"#);
     let follow = w.follower(&w.env.dir);
     w.client_in(&wt, &["status"]);
 
@@ -762,7 +761,7 @@ fn worktree_whose_mrs_go_away_loses_their_needs() {
     let wt = stacked_worktree(&w);
     w.env.fake_spice(&wt, STACK);
     let key = format!("app-{}", support::hash12(&wt));
-    w.fake(&key, "state", r#"{"needs": ["ready"], "present": []}"#);
+    w.fake(&key, "state", r#"{"version": 4, "needs": ["ready"], "present": []}"#);
     let follow = w.follower(&w.env.dir);
     w.client_in(&wt, &["status"]);
     let found = wait_for(10, || !w.worktree_state(&wt)["needs"].is_null());

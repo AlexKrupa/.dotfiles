@@ -3,8 +3,11 @@ use std::path::Path;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-/// Files with no `version` field, and version 1, 2, and 3 files still load as converted.
+/// No migrations: a file of a different version is dropped. The daemon keeps the version of its
+/// state folder in `FORMAT_FILE`.
 pub const FORMAT_VERSION: u32 = 4;
+
+pub const FORMAT_FILE: &str = "format";
 
 #[derive(Serialize, Deserialize)]
 pub struct Versioned<T> {
@@ -15,7 +18,6 @@ pub struct Versioned<T> {
 
 pub enum Load<T> {
     Current(T),
-    Converted(T),
     Dropped(String),
 }
 
@@ -46,16 +48,12 @@ pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, LoadErr
     }
     let value: serde_json::Value = serde_json::from_str(&text).map_err(LoadError::Parse)?;
     let loaded = match value.get("version") {
-        None => Load::Converted(serde_json::from_value(value).map_err(LoadError::Parse)?),
-        Some(version) if version.as_u64().is_some_and(|version| (1..=3).contains(&version)) => {
-            let versioned: Versioned<T> = serde_json::from_value(value).map_err(LoadError::Parse)?;
-            Load::Converted(versioned.data)
-        }
         Some(version) if *version == FORMAT_VERSION => {
             let versioned: Versioned<T> = serde_json::from_value(value).map_err(LoadError::Parse)?;
             Load::Current(versioned.data)
         }
         Some(version) => Load::Dropped(format!("format {version} not supported")),
+        None => Load::Dropped("format none not supported".to_string()),
     };
     Ok(Some(loaded))
 }
@@ -87,7 +85,7 @@ pub fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::subs::{Agent, Mode};
+    use crate::core::subs::Agent;
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("watchd-persist-{}-{name}", std::process::id()));
@@ -100,14 +98,13 @@ mod tests {
         r#"{"key":"app","slug":"app","repo":"/r","mode":"hub","mrs":[],"interval":120,"session":"s","ended_mrs":[]}"#;
 
     #[test]
-    fn bash_subscription_file_without_version_loads_as_converted() {
-        let path = scratch("bash").join("app.json");
+    fn file_without_version_is_dropped() {
+        let path = scratch("none").join("app.json");
         std::fs::write(&path, BASH_SUB).unwrap();
 
         let loaded = load::<Agent>(&path).unwrap();
 
-        let expected: Agent = serde_json::from_str(BASH_SUB).unwrap();
-        assert!(matches!(loaded, Some(Load::Converted(sub)) if sub == expected));
+        assert!(matches!(loaded, Some(Load::Dropped(reason)) if reason == "format none not supported"));
     }
 
     #[test]
@@ -120,42 +117,6 @@ mod tests {
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.starts_with("{\n  \"version\": 4,\n"), "{text}");
         assert!(matches!(load::<Agent>(&path).unwrap(), Some(Load::Current(loaded)) if loaded == sub));
-    }
-
-    #[test]
-    fn version_1_record_loads_as_converted() {
-        let path = scratch("version-1").join("app.json");
-        let versioned = BASH_SUB.replacen('{', r#"{"version": 1, "#, 1);
-        std::fs::write(&path, &versioned).unwrap();
-
-        let loaded = load::<Agent>(&path).unwrap();
-
-        let expected: Agent = serde_json::from_str(BASH_SUB).unwrap();
-        assert!(matches!(loaded, Some(Load::Converted(sub)) if sub == expected));
-    }
-
-    #[test]
-    fn version_3_record_with_a_session_pid_loads_as_converted() {
-        let path = scratch("version-3").join("app.json");
-        let line = r#"{"version": 3, "key":"app","slug":"app","repo":"/r","mode":"hub","mrs":[],"interval":120,"session_pid":1,"client_pid":2,"client_at":0,"replaced_sessions":[],"ended_mrs":[]}"#;
-        std::fs::write(&path, line).unwrap();
-
-        let loaded = load::<Agent>(&path).unwrap();
-
-        assert!(matches!(loaded, Some(Load::Converted(sub)) if sub.session.is_empty()));
-    }
-
-    #[test]
-    fn version_2_stack_record_loads_as_author() {
-        let path = scratch("version-2").join("app.json");
-        let versioned = BASH_SUB
-            .replacen('{', r#"{"version": 2, "#, 1)
-            .replace(r#""mode":"hub""#, r#""mode":"stack""#);
-        std::fs::write(&path, &versioned).unwrap();
-
-        let loaded = load::<Agent>(&path).unwrap();
-
-        assert!(matches!(loaded, Some(Load::Converted(sub)) if sub.mode == Mode::Author));
     }
 
     #[test]

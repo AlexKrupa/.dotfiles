@@ -40,12 +40,15 @@ check "start-args: flags in the given order" $'0 --name\nT\n--effort\nhigh\n--mo
 run start-args '-x'
 check "start-args: a title with a leading - is the title" $'0 --name\n-x' "$code $out"
 
+run skill review-pr 'https://g/mr/5'
+check "skill review-pr URL: /review-pr URL" "0 /review-pr https://g/mr/5" "$code $out"
+
 run model opus
 check "unknown action: exit 3, no stdout" "3 " "$code $out"
 check "unknown action: stderr names the action" "claude-code: no model action" "$err"
 
 for args in "" "rename" "rename a b" "start-args ''" "start-args T --dangerous" \
-  "start-args T --model"; do
+  "start-args T --model" "skill" "skill ''"; do
   eval "run $args"
   check "usage error '$args': exit 2, no stdout" "2 " "$code $out"
 done

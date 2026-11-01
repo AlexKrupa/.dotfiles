@@ -176,7 +176,7 @@ check "a written idx is not written again" "" "$(slot wC "$(watch \
   '{"idx": "2 M", "watch_kind": "mine"}')")"
 agent='.result.snapshot.agents = [{pane_id: "wC:p1", workspace_id: "wC"}]'
 check "an agent with no kind is own work" "2 M" "$(slot wC "$agent")"
-work() { jq -r --argjson glyphs "$glyphs" 'include "work" {search: "../"}; work_glyphs($glyphs)' <<<"$1"; }
+work() { jq -r --argjson glyphs "$glyphs" 'include "work" {search: "../"}; work_glyphs($glyphs; false)' <<<"$1"; }
 check "glyphs: stack after kind" "R S w" \
   "$(work '{"watch_kind": "review", "watch_stage": "watching", "watch_stack": "1"}')"
 check "glyphs: stack first for mine" "S" "$(work '{"watch_stack": "1"}')"
@@ -184,6 +184,8 @@ check "glyphs: local conflict with no needs" "M X" \
   "$(work '{"watch_kind": "mine", "watch_conflict": "1"}')"
 check "glyphs: needs win over local conflict" "M w F" \
   "$(work '{"watch_kind": "mine", "watch_stage": "watching", "watch_needs": "failed", "watch_conflict": "1"}')"
+check "glyphs: the first needs value only" "M F" \
+  "$(work '{"watch_kind": "mine", "watch_needs": "failed,reply"}')"
 check "an agent keeps the kind of its space" "2 R s" "$(slot wC "$agent | $(watch \
   '{"watch_kind": "review"}')")"
 
@@ -241,7 +243,7 @@ check "a rank past 9 shows no number"              "<none>" "$(tok "$out" wZ:p1 
 out=$(agents '{}' "$(fixture '.result.snapshot.workspaces |= map(if .workspace_id == "wH"
   then .tokens = {watch_kind: "mine", watch_stage: "watching", watch_needs: "failed,reply"}
   else . end)')")
-check "a title starts with the first needs glyph only" "M w F · Herdr work" "$(tok "$out" wH:p1 title)"
+check "a title has all needs glyphs" "M w F C · Herdr work" "$(tok "$out" wH:p1 title)"
 out=$(agents '{}' "$(fixture '.result.snapshot.agents[0].tokens.work = "MwF pipeline failed"')")
 check "the old agent work token is cleared" "" "$(tok "$out" wH:p1 work)"
 

@@ -107,7 +107,7 @@ pub struct MrState {
 pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<T>, EngineError> {
     match persist::load(path).map_err(|error| EngineError::Other(format!("{}: {error}", path.display())))? {
         None => Ok(None),
-        Some(Load::Current(state) | Load::Converted(state)) => Ok(Some(state)),
+        Some(Load::Current(state)) => Ok(Some(state)),
         Some(Load::Dropped(reason)) => {
             let _ = std::fs::remove_file(path);
             eprintln!("watchd: {}: {reason}, record removed", path.display());
@@ -136,24 +136,5 @@ mod tests {
 
         assert!(loaded.is_none());
         assert!(!path.exists());
-    }
-
-    #[test]
-    fn bash_state_loads_and_saves_with_a_version() {
-        let dir = std::env::temp_dir().join(format!("watchd-state-{}-bash", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("app.json");
-        std::fs::write(&path, r#"{"todos": [4], "default_pipeline": null}"#).unwrap();
-
-        let state: HubState = load(&path).unwrap().unwrap();
-        save(&path, &state).unwrap();
-
-        let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved["version"], 4);
-        assert_eq!(saved["todos"], serde_json::json!([4]));
-        assert_eq!(saved["default_pipeline"], serde_json::Value::Null);
-        let again: HubState = load(&path).unwrap().unwrap();
-        assert_eq!(again.default_pipeline, Some(None));
     }
 }

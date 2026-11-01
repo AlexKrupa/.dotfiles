@@ -1,5 +1,5 @@
-//! The report of the last delivery of a subscription and of its open items, in the sections Needs
-//! you, Agent, and Info.
+//! The report of the last delivery of a subscription and of its pending items, in the sections
+//! Needs you, Agent, and Info.
 
 use std::collections::BTreeMap;
 
@@ -12,16 +12,17 @@ use crate::platform::local_time;
 
 /// The input of the model.
 #[derive(Clone, Debug, Default, Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReportInput {
-    /// The Proposal or result text of a row, which an open item keeps for the next reports.
+    /// The Proposal or result text of a row, which a pending item keeps for the next reports.
     #[serde(default)]
     pub cells: BTreeMap<String, serde_json::Value>,
-    /// The rows of the Agent section, whose open items close.
+    /// The rows of the Agent section, whose pending items go away.
     #[serde(default)]
     pub agent: Vec<serde_json::Value>,
-    /// Open items to close, also items that the model added.
+    /// Pending items to dismiss, also items that the model added.
     #[serde(default)]
-    pub close: Vec<serde_json::Value>,
+    pub dismiss: Vec<serde_json::Value>,
     #[serde(default)]
     pub add: Vec<Add>,
 }
@@ -120,7 +121,7 @@ pub fn build_report(
     now: i64,
 ) -> (Items, ReportData) {
     let agent: Vec<u64> = input.agent.iter().filter_map(number_of).collect();
-    let close: Vec<u64> = input.close.iter().filter_map(number_of).collect();
+    let dismiss: Vec<u64> = input.dismiss.iter().filter_map(number_of).collect();
     let cell = |n: u64| input.cells.get(&n.to_string()).map(text_of);
     // Of the events of one row, a comment wins over its unaddressed line.
     let mut events: Vec<&RoutedEvent> = Vec::new();
@@ -183,7 +184,7 @@ pub fn build_report(
     let mut state = updated.clone();
     state
         .items
-        .retain(|item| is_pull_item(&item.item) || (!agent.contains(&item.n) && !close.contains(&item.n)));
+        .retain(|item| is_pull_item(&item.item) || (!agent.contains(&item.n) && !dismiss.contains(&item.n)));
     let mut new_items: Vec<u64> = Vec::new();
     let mut added_rows: Vec<Row> = Vec::new();
     for add in &input.add {
@@ -223,7 +224,7 @@ pub fn build_report(
             since: None,
         });
     }
-    let open: Vec<u64> = state.items.iter().map(|item| item.n).collect();
+    let pending: Vec<u64> = state.items.iter().map(|item| item.n).collect();
     let item_row = |item: &Item, section: RowSection| Row {
         n: item.n,
         section,
@@ -274,7 +275,7 @@ pub fn build_report(
     );
     for event in &events {
         let row = event.row;
-        if !open.contains(&row) && !agent.contains(&row) && !close.contains(&row) {
+        if !pending.contains(&row) && !agent.contains(&row) && !dismiss.contains(&row) {
             rows.push(event_row(event, RowSection::Info));
         }
     }
@@ -351,7 +352,8 @@ pub fn sentence(event: &Event) -> String {
         EventKind::Approved => by(actor, "approved"),
         EventKind::Unapproved => by(actor, "removed the approval"),
         EventKind::Conflict => "Merge conflict".to_string(),
-        EventKind::Mergeable => "Ready to merge".to_string(),
+        EventKind::Mergeable if detail.is_empty() => "Ready to merge".to_string(),
+        EventKind::Mergeable => format!("Ready to merge, {detail}"),
         EventKind::Merged => "Merged".to_string(),
         EventKind::Closed => "Closed".to_string(),
         EventKind::Draft => by(actor, "marked it as draft"),
@@ -543,6 +545,22 @@ mod tests {
     }
 
     #[test]
+    fn report_input_with_the_old_field_close_is_an_error() {
+        let error = serde_json::from_str::<ReportInput>(r#"{"close": ["1"]}"#).unwrap_err();
+
+        assert!(error.to_string().contains("close"), "{error}");
+    }
+
+    #[test]
+    fn mergeable_row_gives_the_open_thread_count() {
+        let with_threads = mr_event(EventKind::Mergeable, 5, "", "2 open threads", "u");
+        let without_threads = mr_event(EventKind::Mergeable, 5, "", "", "u");
+
+        assert_eq!(sentence(&with_threads), "Ready to merge, 2 open threads");
+        assert_eq!(sentence(&without_threads), "Ready to merge");
+    }
+
+    #[test]
     fn sentence_of_a_blocked_pull_has_the_reason() {
         let event = Event::new(
             EventKind::PullBlocked,
@@ -611,8 +629,8 @@ mod tests {
 - develop {PL_URL}/88123"
             )
         );
-        let open: Vec<&str> = items.items.iter().map(|item| item.item.as_str()).collect();
-        assert_eq!(open, vec!["todo:11"]);
+        let pending: Vec<&str> = items.items.iter().map(|item| item.item.as_str()).collect();
+        assert_eq!(pending, vec!["todo:11"]);
     }
 
     #[test]
@@ -654,7 +672,7 @@ Add bar (!6)"
     }
 
     #[test]
-    fn report_close_keeps_the_item_of_a_blocked_pull() {
+    fn report_dismiss_keeps_the_item_of_a_blocked_pull() {
         let mut items = Items::default();
         let blocked = Event {
             item: Some("pull:main".to_string()),
@@ -663,14 +681,14 @@ Add bar (!6)"
         assign_rows(&mut items, vec![blocked], 100);
 
         let (items, _) = build_report(
-            &input(r#"{"close": ["1"], "agent": ["1"]}"#),
+            &input(r#"{"dismiss": ["1"], "agent": ["1"]}"#),
             &items,
             &[],
             &BTreeMap::new(),
             200,
         );
 
-        assert_eq!(items.items.len(), 1, "only a fast-forward closes it");
+        assert_eq!(items.items.len(), 1, "only a fast-forward removes it");
     }
 
     #[test]

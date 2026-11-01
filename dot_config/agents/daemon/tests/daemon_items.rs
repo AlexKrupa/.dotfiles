@@ -41,8 +41,7 @@ fn gone(items: &Value) -> &'static str {
 }
 
 fn write_items(w: &Watchd, key: &str, json: &str) {
-    std::fs::create_dir_all(w.watchd.join("items")).unwrap();
-    std::fs::write(w.watchd.join(format!("items/{key}.json")), format!("{json}\n")).unwrap();
+    w.write_state(&format!("items/{key}.json"), &format!("{json}\n"));
 }
 
 fn body(out: &str) -> String {
@@ -79,7 +78,7 @@ fn hub_items() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        w.fake("app", "state", r#"{"present": ["todo:11"]}"#);
+        w.fake("app", "state", r#"{"version": 4, "present": ["todo:11"]}"#);
         w.events("app", &[iev("todo", 5, "todo:11")]);
         let out = w.watch_wait(&[]).out;
         c.check(
@@ -109,7 +108,7 @@ fn hub_items() -> &'static Checks {
             ),
         );
         w.report(r#"{"add": [{"section": "needs", "iid": 5, "what": "w"}]}"#, &[]);
-        w.fake("app", "state", r#"{"present": []}"#);
+        w.fake("app", "state", r#"{"version": 4, "present": []}"#);
         w.events("app", &[ev("todo", 5)]);
         w.watch_wait(&[]);
         let items = || item_keys(&w.items_of("app"));
@@ -135,12 +134,12 @@ fn review_moves() -> &'static Checks {
         write_items(
             &w,
             "app",
-            r#"{"next": 4, "items": [{"n": 3, "item": "todo:11", "owner": "daemon", "iid": 5},
+            r#"{"version": 4, "next": 4, "items": [{"n": 3, "item": "todo:11", "owner": "daemon", "iid": 5},
             {"n": 2, "item": "todo:12", "owner": "daemon", "iid": 6}]}"#,
         );
         w.env
-            .write_engine_state("app", r#"{"present": ["todo:11", "todo:12"]}"#);
-        w.fake(&review, "state", r#"{"present": []}"#);
+            .write_engine_state("app", r#"{"version": 4, "present": ["todo:11", "todo:12"]}"#);
+        w.fake(&review, "state", r#"{"version": 4, "present": []}"#);
         w.events(&review, &[ev("comment", 5)]);
         w.watch_wait(&["--review", "--mr", "5"]);
         c.check(
@@ -177,7 +176,7 @@ fn review_unsubscribe() -> &'static Checks {
         write_items(
             &w,
             "app",
-            r#"{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#,
+            r#"{"version": 4, "next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#,
         );
         w.events(&review, &[ev("comment", 5)]);
         w.watch_wait(&["--review", "--mr", "5"]);
@@ -201,7 +200,7 @@ fn author_rows() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         let author = w.author_key();
-        w.fake(&author, "state", r#"{"present": ["thread:d1"]}"#);
+        w.fake(&author, "state", r#"{"version": 4, "present": ["thread:d1"]}"#);
         w.events(
             &author,
             &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")],
@@ -210,7 +209,7 @@ fn author_rows() -> &'static Checks {
         w.events(&author, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
         let second = w.watch_wait(&["--mr", "5"]);
         c.check(
-            "open item keeps its row in a second delivery",
+            "pending item keeps its row in a second delivery",
             "1 1 | 2 1",
             format!("{first} | {}", rows(&second.out)),
         );
@@ -229,7 +228,7 @@ fn hub_report() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        w.fake("app", "state", r#"{"present": ["todo:11", "main-failed:develop"]}"#);
+        w.fake("app", "state", r#"{"version": 4, "present": ["todo:11", "main-failed:develop"]}"#);
         w.events("app", &[
             json!({"kind": "todo", "iid": 5, "title": "Add foo", "url": format!("{MR_URL}/5"), "actor": "anna",
                 "detail": "review_requested", "branch": "b", "item": "todo:11"}).to_string(),
@@ -251,10 +250,10 @@ fn hub_report() -> &'static Checks {
 - Add foo (!5) {MR_URL}/5
 - develop {PL_URL}/88123"), with_body(&run));
         let items = || item_keys(&w.items_of("app"));
-        c.check("report: agent closes the item", r#"["todo:11"]"#, items());
+        c.check("report: agent removes the item", r#"["todo:11"]"#, items());
         w.report(r#"{"cells": {"1": "Review agent started"}}"#, &[]);
         let out = w.report("{}", &[]).out;
-        c.check("report: cell of an open item stays",
+        c.check("report: cell of a pending item stays",
             "| 1   | Needs you | Add foo | @anna requested your review         | Review agent started |",
             rows_of(&out, "| 1 ").join("\n"));
         let out = w.report(r#"{"cells": {"1": "a|b"}}"#, &[]).out;
@@ -265,10 +264,10 @@ fn hub_report() -> &'static Checks {
             .filter_map(|row| row.split(" | ").nth(4).map(|cell| cell.replace([' ', '|'], "")))
             .collect();
         c.check("report: a long cell is cut at 200 characters", format!("{}...", "x".repeat(197)), cell);
-        let out = w.report(r#"{"close": ["1"]}"#, &[]).out;
-        c.check("report: close", "0 []", format!("{} {}", out.matches("Needs you").count(), w.items_of("app")["items"]));
-        let out = w.report(r#"{"close": ["3"]}"#, &[]).out;
-        c.check("report: close of a row with no open item hides it", "0 1",
+        let out = w.report(r#"{"dismiss": ["1"]}"#, &[]).out;
+        c.check("report: dismiss", "0 []", format!("{} {}", out.matches("Needs you").count(), w.items_of("app")["items"]));
+        let out = w.report(r#"{"dismiss": ["3"]}"#, &[]).out;
+        c.check("report: dismiss of a row with no pending item hides it", "0 1",
             format!("{} {}", rows_of(&out, "| 3 ").len(), rows_of(&out, "| 1 ").len()));
         let out = w.report(r#"{"add": [{"section": "needs", "iid": 5, "what": "Fix waits, session not idle",
             "result": "Ask the agent"}]}"#, &[]).out;
@@ -350,7 +349,7 @@ fn work_report() -> &'static Checks {
         let mut c = Checks::default();
         let author = w.author_key();
         let mrs = ["--mr", "123", "--mr", "124"];
-        w.fake(&author, "state", r#"{"present": ["thread:d1", "thread:d2", "pipeline:123"]}"#);
+        w.fake(&author, "state", r#"{"version": 4, "present": ["thread:d1", "thread:d2", "pipeline:123"]}"#);
         w.events(&author, &[work_event("comment", 124, "bob", "Is this flow cold?", Some("thread:d2"), None).to_string()]);
         w.watch_wait(&mrs);
         w.report(r#"{"cells": {"1": "Yes. Answer: it starts on the first collect."}}"#, &mrs);
@@ -396,7 +395,7 @@ fn mr_with_no_rows() -> &'static Checks {
         w.fake(
             &author,
             "state",
-            r#"{"mrs": {"5": {"title": "Add foo"}, "6": {"title": "Add bar"}}, "present": []}"#,
+            r#"{"version": 4, "mrs": {"5": {"title": "Add foo"}, "6": {"title": "Add bar"}}, "present": []}"#,
         );
         w.events(&author, &[ev("approved", 5)]);
         w.watch_wait(&["--mr", "5", "--mr", "6"]);
@@ -426,7 +425,7 @@ fn hub_items_stay() -> &'static Checks {
         write_items(
             &w,
             "app",
-            r#"{"next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#,
+            r#"{"version": 4, "next": 2, "items": [{"n": 1, "item": "todo:11", "owner": "daemon", "iid": 5}]}"#,
         );
         w.events(&w.author_key(), &[ev("approved", 5)]);
         w.watch_wait(&["--mr", "5"]);
@@ -451,7 +450,7 @@ fn old_thread_since() -> &'static Checks {
         let w = Watchd::new();
         let mut c = Checks::default();
         let author = w.author_key();
-        w.fake(&author, "state", r#"{"present": ["thread:d1"]}"#);
+        w.fake(&author, "state", r#"{"version": 4, "present": ["thread:d1"]}"#);
         w.events(
             &author,
             &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")],
@@ -543,8 +542,8 @@ fn unsubscribe_of_a_review_items_go_back_to_the_hub() {
 }
 
 #[test]
-fn open_item_keeps_its_row_in_a_second_delivery() {
-    author_rows().assert("open item keeps its row in a second delivery");
+fn pending_item_keeps_its_row_in_a_second_delivery() {
+    author_rows().assert("pending item keeps its row in a second delivery");
 }
 
 #[test]
@@ -558,13 +557,13 @@ fn report_hub_table() {
 }
 
 #[test]
-fn report_agent_closes_the_item() {
-    hub_report().assert("report: agent closes the item");
+fn report_agent_removes_the_item() {
+    hub_report().assert("report: agent removes the item");
 }
 
 #[test]
-fn report_cell_of_an_open_item_stays() {
-    hub_report().assert("report: cell of an open item stays");
+fn report_cell_of_a_pending_item_stays() {
+    hub_report().assert("report: cell of a pending item stays");
 }
 
 #[test]
@@ -578,13 +577,13 @@ fn report_a_long_cell_is_cut_at_200_characters() {
 }
 
 #[test]
-fn report_close() {
-    hub_report().assert("report: close");
+fn report_dismiss() {
+    hub_report().assert("report: dismiss");
 }
 
 #[test]
-fn report_close_of_a_row_with_no_open_item_hides_it() {
-    hub_report().assert("report: close of a row with no open item hides it");
+fn report_dismiss_of_a_row_with_no_pending_item_hides_it() {
+    hub_report().assert("report: dismiss of a row with no pending item hides it");
 }
 
 #[test]

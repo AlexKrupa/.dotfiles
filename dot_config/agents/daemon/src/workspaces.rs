@@ -1,8 +1,6 @@
-//! The Rust code outside `HerdrWorkspaces` makes no herdr calls.
+//! The Rust code outside `ScriptWorkspaces` runs no workspace script.
 
-use std::path::Path;
-#[cfg(feature = "test-support")]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::paths::home;
 
@@ -20,7 +18,9 @@ pub trait Workspaces: Send + Sync {
 pub struct AgentStart {
     pub title: String,
     pub branch: String,
-    pub prompt: String,
+    /// The first prompt of the agent runs this skill on the URL.
+    pub skill: String,
+    pub url: String,
 }
 
 #[derive(Debug, PartialEq)]
@@ -30,34 +30,45 @@ pub enum StartError {
     Failed(String),
 }
 
-pub struct HerdrWorkspaces;
+/// The `work-start.sh` exit code of a branch that is open in a workspace already.
+const BUSY_EXIT_CODE: i32 = 5;
 
-/// Gives the stdout text, or the stderr text on failure.
-fn run_skill_script(script: &str, args: &[&std::ffi::OsStr], folder: &Path, stdin: &str) -> Result<String, String> {
-    use std::io::Write;
-    let path = home().join(".claude/skills").join(script);
-    let failed = |error: std::io::Error| format!("{}: {error}", path.display());
-    let mut child = std::process::Command::new(&path)
-        .args(args)
-        .current_dir(folder)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .map_err(failed)?;
-    if let Some(mut input) = child.stdin.take() {
-        input.write_all(stdin.as_bytes()).map_err(failed)?;
-    }
-    let output = child.wait_with_output().map_err(failed)?;
-    match output.status.success() {
-        true => Ok(String::from_utf8_lossy(&output.stdout).to_string()),
-        false => Err(String::from_utf8_lossy(&output.stderr).trim_end().to_string()),
+/// Runs the scripts in the skill folders under `scripts`.
+pub struct ScriptWorkspaces {
+    pub scripts: PathBuf,
+}
+
+impl ScriptWorkspaces {
+    /// Gives the stdout text, or on failure the exit code (none for a signal or a failed spawn)
+    /// with the stderr text.
+    fn run_skill_script(
+        &self,
+        script: &str,
+        args: &[&std::ffi::OsStr],
+        folder: &Path,
+    ) -> Result<String, (Option<i32>, String)> {
+        let path = self.scripts.join(script);
+        let output = std::process::Command::new(&path)
+            .args(args)
+            .current_dir(folder)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|error| (None, format!("{}: {error}", path.display())))?;
+        match output.status.success() {
+            true => Ok(String::from_utf8_lossy(&output.stdout).to_string()),
+            false => Err((
+                output.status.code(),
+                String::from_utf8_lossy(&output.stderr).trim_end().to_string(),
+            )),
+        }
     }
 }
 
-impl Workspaces for HerdrWorkspaces {
+impl Workspaces for ScriptWorkspaces {
     fn open_board(&self, repo: &Path) -> Result<(), String> {
-        run_skill_script("hub/hub-board.sh", &["--repo".as_ref(), repo.as_os_str()], repo, "").map(|_| ())
+        self.run_skill_script("hub/hub-board.sh", &["--repo".as_ref(), repo.as_os_str()], repo)
+            .map(|_| ())
+            .map_err(|(_, text)| text)
     }
 
     fn start_agent(&self, repo: &Path, start: &AgentStart) -> Result<(), StartError> {
@@ -66,20 +77,22 @@ impl Workspaces for HerdrWorkspaces {
             "--branch".as_ref(),
             start.branch.as_ref(),
             "--no-track".as_ref(),
-            // The daemon runs outside an agent pane, so work-start.sh cannot find the kind there.
-            "--kind".as_ref(),
-            "claude".as_ref(),
+            "--skill".as_ref(),
+            start.skill.as_ref(),
+            start.url.as_ref(),
         ];
-        run_skill_script("work/work-start.sh", &args, repo, &start.prompt)
+        self.run_skill_script("work/work-start.sh", &args, repo)
             .map(|_| ())
-            .map_err(|text| match text.contains("is open in herdr workspace") {
-                true => StartError::Busy,
-                false => StartError::Failed(text),
+            .map_err(|(code, text)| match code {
+                Some(BUSY_EXIT_CODE) => StartError::Busy,
+                _ => StartError::Failed(text),
             })
     }
 
     fn agent_branches(&self, repo: &Path) -> Result<Vec<String>, String> {
-        let text = run_skill_script("hub/hub-status.sh", &["--repo".as_ref(), repo.as_os_str()], repo, "")?;
+        let text = self
+            .run_skill_script("hub/hub-status.sh", &["--repo".as_ref(), repo.as_os_str()], repo)
+            .map_err(|(_, text)| text)?;
         // The fields: pane id, status, branch, cwd, title.
         Ok(text
             .lines()
@@ -117,7 +130,7 @@ impl Workspaces for FakeWorkspaces {
 
     /// The file `<dir>/start` gives the result: `ok` (also with no file), `busy`, or an error text.
     fn start_agent(&self, _repo: &Path, start: &AgentStart) -> Result<(), StartError> {
-        self.call(&format!("start_agent {} {}", start.branch, start.prompt));
+        self.call(&format!("start_agent {} {} {}", start.branch, start.skill, start.url));
         let result = std::fs::read_to_string(self.dir.join("start")).unwrap_or_default();
         match result.trim() {
             "" | "ok" => Ok(()),
@@ -139,5 +152,56 @@ pub fn workspaces_of() -> Box<dyn Workspaces> {
     if let Some(dir) = std::env::var_os("WATCHD_FAKE_WORKSPACES").filter(|value| !value.is_empty()) {
         return Box::new(FakeWorkspaces { dir: dir.into() });
     }
-    Box::new(HerdrWorkspaces)
+    let scripts = std::env::var_os("WATCHD_SCRIPTS")
+        .filter(|value| !value.is_empty())
+        .map_or_else(|| home().join(".config/agents/skills"), PathBuf::from);
+    Box::new(ScriptWorkspaces { scripts })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
+    use super::*;
+
+    /// The `work/work-start.sh` of the folder writes its arguments to `<folder>/args`, writes the
+    /// stderr text, and exits with the code.
+    fn scripts(name: &str, code: i32, stderr: &str) -> PathBuf {
+        let folder = std::env::temp_dir().join(format!("watchd-workspaces-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(folder.join("work")).unwrap();
+        let script = folder.join("work/work-start.sh");
+        let text = format!("#!/bin/sh\necho \"$@\" >\"$(dirname \"$0\")/../args\"\necho '{stderr}' >&2\nexit {code}\n");
+        std::fs::write(&script, text).unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        folder
+    }
+
+    #[test]
+    fn a_busy_exit_code_is_busy_and_other_failures_are_failed() {
+        let start = AgentStart {
+            title: "Add foo".to_string(),
+            branch: "ABC-1/foo".to_string(),
+            skill: "review-pr".to_string(),
+            url: "https://g/mr/5".to_string(),
+        };
+        let busy = scripts("busy", 5, "work-start: ABC-1/foo is open in workspace w1 already");
+        let failed = scripts("failed", 1, "work-start: not a git repo: /x");
+
+        let busy_result = ScriptWorkspaces { scripts: busy.clone() }.start_agent(&busy, &start);
+        let failed_result = ScriptWorkspaces {
+            scripts: failed.clone(),
+        }
+        .start_agent(&failed, &start);
+
+        assert_eq!(busy_result, Err(StartError::Busy));
+        assert_eq!(
+            failed_result,
+            Err(StartError::Failed("work-start: not a git repo: /x".to_string()))
+        );
+        assert_eq!(
+            std::fs::read_to_string(busy.join("args")).unwrap(),
+            "Add foo --branch ABC-1/foo --no-track --skill review-pr https://g/mr/5\n"
+        );
+    }
 }

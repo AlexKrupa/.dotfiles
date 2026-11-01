@@ -1,10 +1,12 @@
 # shellcheck shell=bash
-# Sourced. Finds the agent integration of a herdr pane. Writes nothing.
+# Sourced. Finds the agent integration of a herdr pane, or the only integration. Writes nothing.
 # - agent_kind <pane>: prints the herdr agent kind of the agent in <pane>. If the pane has no
 #   agent, prints an error and returns 1.
 # - agent_adapter <kind>: prints the path of the <integrations>/*/agent.sh whose `kind` output is
 #   <kind>. <integrations> is $AGENT_INTEGRATIONS, else integrations/ of the core. If no adapter
 #   matches, prints an error and returns 1.
+# - agent_default_kind: prints the kind of the only <integrations>/*/agent.sh. With 0 or 2 or more
+#   adapters, prints an error that asks for --kind and returns 1.
 # Errors go to stderr, with the name of the caller script.
 
 agent_lib_error() {
@@ -23,10 +25,15 @@ agent_kind() {
   fi
 }
 
-agent_adapter() {
-  local core integrations adapter
+agent_integrations() {
+  local core
   core=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-  integrations=${AGENT_INTEGRATIONS:-$core/integrations}
+  printf '%s\n' "${AGENT_INTEGRATIONS:-$core/integrations}"
+}
+
+agent_adapter() {
+  local integrations adapter
+  integrations=$(agent_integrations)
   for adapter in "$integrations"/*/agent.sh; do
     if [[ -x $adapter && $("$adapter" kind) == "$1" ]]; then
       printf '%s\n' "$adapter"
@@ -35,4 +42,18 @@ agent_adapter() {
   done
   agent_lib_error "no agent integration for herdr kind '$1'"
   return 1
+}
+
+agent_default_kind() {
+  local integrations adapter adapters=()
+  integrations=$(agent_integrations)
+  for adapter in "$integrations"/*/agent.sh; do
+    if [[ -x $adapter ]]; then adapters+=("$adapter"); fi
+  done
+  if ((${#adapters[@]} == 1)); then
+    "${adapters[0]}" kind
+  else
+    agent_lib_error "${#adapters[@]} agent integrations in $integrations: give the kind with --kind"
+    return 1
+  fi
 }

@@ -53,7 +53,7 @@ Each step is a folder `scenarios/<scenario>/NN-<step>/`:
 | `stack` | `stack-open`, `stack-conflict`, `stack-bottom-merged`, `stack-no-agent` |
 | `review` | `review-open`, `review-update` |
 | `errors` | `own-mr`, `check-error`, `hub-retry` |
-| `daemon` | `restart`, `migration` |
+| `daemon` | `restart`, `old-format` |
 
 `sample check` compares no sidebar. You do that by eye with `expect.md`. The tests are
 `sample.test.sh`.

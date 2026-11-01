@@ -76,9 +76,9 @@ check "branch-watching: a live agent record" yes "$(live_sub branch)"
 "$sample" run errors >/dev/null && "$sample" next >/dev/null
 check "check-error: no live agent record" no "$(live_sub branch)"
 "$sample" run daemon >/dev/null && "$sample" next >/dev/null
-check "migration: the version 1 worktree state loads" mine \
+check "old format: the version 1 worktree state is dropped" no \
   "$(cd "$SAMPLE_ROOT/repo" && "$SAMPLE_ROOT/bin/watchd" debug state \
-    | jq -r --arg path "$SAMPLE_ROOT/repo-branch" '.worktrees[$path].kind')"
+    | jq -r --arg path "$SAMPLE_ROOT/repo-branch" 'if .worktrees[$path].kind == "mine" then "yes" else "no" end')"
 
 mkdir -p "$tmp/scenarios/lost/01-lost"
 echo 'printf "{}\n" >"$SAMPLE_STATE/engine/nobody.jsonl"' >"$tmp/scenarios/lost/01-lost/step.sh"

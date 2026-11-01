@@ -136,7 +136,7 @@ impl TestEnv {
             repo: dir.join("app"),
             mock: dir.join("mock"),
             dir,
-            env: Vec::new(),
+            env: vec![("WATCHD_ENGINE_SAVE".to_string(), "1".to_string())],
         };
         env.git_repo(&env.repo, "https://gitlab.example.com/group/sub/app.git");
         env.fixture("user", r#"{"id": 1, "username": "me"}"#);

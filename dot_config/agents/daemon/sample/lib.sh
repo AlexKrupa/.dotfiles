@@ -52,9 +52,10 @@ event() { # event <role> <json>: an event for the next check of the role
   key=$(key_of "$1") && jq -c . <<<"$2" >>"$engine/$key.jsonl"
 }
 
+# The daemon drops a state file that has no `version` of the current format (src/persist.rs).
 engine_state() { # engine_state <role> <json>: the engine state, with the needs of the sidebar
   local key
-  key=$(key_of "$1") && jq . <<<"$2" >"$engine/$key.state"
+  key=$(key_of "$1") && jq '. + {version: 4}' <<<"$2" >"$engine/$key.state"
 }
 
 check_fail() { # check_fail <role> <count> <text>: the next <count> checks fail with the text

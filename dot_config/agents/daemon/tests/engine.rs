@@ -161,7 +161,7 @@ fn pushed(head: &str, old_base: &str, old_head: &str, new_base: &str) -> Line {
         .add("new_head", json!(head))
 }
 
-const EMPTY_HUB: &str = r#"{"todos": []}"#;
+const EMPTY_HUB: &str = r#"{"version": 4, "todos": []}"#;
 
 fn author_key(env: &TestEnv) -> String {
     format!("app-{}", env.worktree_hash())
@@ -379,7 +379,7 @@ fn default_pipeline() -> &'static Checks {
         env.run(&[]);
         env.fixture("pipelines", &failed_pipeline(75, "failed"));
         c.check("failure after a pass: previous success", "success", each(&env.run(&[]).out, "previous"));
-        env.write_engine_state("app", r#"{"todos": [], "mrs": {}, "default_pipeline": null}"#);
+        env.write_engine_state("app", r#"{"version": 4, "todos": [], "mrs": {}, "default_pipeline": null}"#);
         c.check("saved null pipeline: event with previous null", "null", each(&env.run(&[]).out, "previous"));
         env.fixture("pipelines", &failed_pipeline(88123, "failed"));
         env.fixture("jobs_88123", r#"[{"id": 501, "name": "unit-tests", "failure_reason": "script_failure"}]"#);
@@ -556,11 +556,18 @@ fn author_basics() -> &'static Checks {
             mr["detailedMergeStatus"] = json!("MERGEABLE");
             mr["mergeable"] = json!(true);
         });
-        discussions(&env, 5, &[thread("", vec![note(99, "anna", "Nit", None)])]);
+        discussions(
+            &env,
+            5,
+            &[
+                thread("", vec![note(99, "anna", "Nit", None)]),
+                thread("", vec![note(98, "anna", "Another nit", None)]),
+            ],
+        );
         let out = env.run(&["--mr", "5"]).out;
         c.check(
             "author: mergeable with open threads",
-            Line::sev("mergeable", 5, "", "now mergeable, 1 open thread(s)"),
+            Line::sev("mergeable", 5, "", "2 open threads"),
             out.lines()
                 .filter(|line| line.contains(r#""mergeable""#))
                 .collect::<Vec<_>>()
@@ -2046,4 +2053,25 @@ fn lookup_of_a_branch_with_no_mr_is_none() {
     let run = env.run(&["--lookup", "ABC-3/bar"]);
 
     assert_eq!((run.code, run.out.as_str()), (0, ""), "{}", run.err);
+}
+
+#[test]
+fn engine_debug_run_does_not_change_the_state() {
+    let mut env = TestEnv::new();
+    env.remove_env("WATCHD_ENGINE_SAVE");
+    let key = author_key(&env);
+    env.write_engine_state(
+        &key,
+        r#"{"version": 4, "mrs": {"5": {"state": "opened", "pipeline": {"id": 50, "status": "success"}}}}"#,
+    );
+    let saved = std::fs::read(env.engine_state(&key)).unwrap();
+    gql(&env, 5, pipeline(51, "SUCCESS"));
+    let event = Line::sev("pipeline", 5, "", "pipeline 51 passed").to_string();
+
+    let first = env.run(&["--mr", "5"]);
+    let again = env.run(&["--mr", "5"]);
+
+    assert_eq!((first.code, first.out.as_str()), (0, event.as_str()), "{}", first.err);
+    assert_eq!((again.code, again.out.as_str()), (0, event.as_str()), "{}", again.err);
+    assert_eq!(std::fs::read(env.engine_state(&key)).unwrap(), saved);
 }

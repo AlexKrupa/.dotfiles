@@ -1,7 +1,7 @@
 //! The daemon state files, with the daemon as the only writer: each function runs under its state
 //! lock.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -19,13 +19,19 @@ use crate::engine::router::Routing;
 use crate::engine::state::Need;
 use crate::key::is_worktree_key;
 use crate::local::repo_of;
-use crate::paths::StateDirs;
-use crate::persist::{Load, LoadError, load, save, write_atomic, write_json};
+use crate::paths::{StateDirs, session_id};
+use crate::persist::{FORMAT_FILE, FORMAT_VERSION, Load, LoadError, load, save, write_atomic, write_json};
 use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
 use crate::protocol::{DebugState, SubStatus, WatchRequest};
 use crate::report::{ReportInput, build_report, render};
 
 pub const ALL_ENDED: &str = "all MRs merged or closed";
+
+pub const UPGRADE_TEXT: &str =
+    "the watchd state format changed, and the watch of this session ended. Run the watch command again.";
+
+/// The entries of the state folder that a format change keeps: a running daemon holds them.
+const KEPT_ENTRIES: [&str; 4] = ["daemon.lock", "daemon.pid", "daemon.sock", "watchd.log"];
 
 fn unreadable() -> String {
     "report: jq could not read the input or the state".to_string()
@@ -92,7 +98,7 @@ impl Store {
     fn read_json<T: DeserializeOwned>(&self, path: &Path) -> Result<Option<T>, LoadError> {
         let reason = match load(path) {
             Ok(None) => return Ok(None),
-            Ok(Some(Load::Current(data) | Load::Converted(data))) => return Ok(Some(data)),
+            Ok(Some(Load::Current(data))) => return Ok(Some(data)),
             Ok(Some(Load::Dropped(reason))) => reason,
             Err(LoadError::Parse(error)) => error.to_string(),
             Err(error @ LoadError::Read(_)) => return Err(error),
@@ -136,6 +142,58 @@ impl Store {
 
     pub fn log(&self, slug: &str, key: &str, message: &str) {
         log(&self.dirs, slug, key, message);
+    }
+
+    /// No migrations: at a different format, all state goes away, and each session that had a
+    /// watch gets the upgrade error at its next wait. A new folder only gets the format file.
+    pub fn reset_on_format_change(&self) -> bool {
+        let format_path = self.dirs.watchd.join(FORMAT_FILE);
+        let format = std::fs::read_to_string(&format_path)
+            .ok()
+            .map(|text| text.trim().to_string());
+        if format == Some(FORMAT_VERSION.to_string()) {
+            return false;
+        }
+        let entries: Vec<PathBuf> = std::fs::read_dir(&self.dirs.watchd)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|entry| !KEPT_ENTRIES.iter().any(|kept| entry.file_name() == *kept))
+            .map(|entry| entry.path())
+            .collect();
+        let format_line = format!("{FORMAT_VERSION}\n");
+        if entries.is_empty() {
+            self.write_text(&format_path, &format_line);
+            return false;
+        }
+        // The raw field, because the record can have a different format. A session file with no
+        // record is a watch that ended or that the user stopped.
+        let sessions: BTreeSet<String> = std::fs::read_dir(self.dirs.watchd.join("subs"))
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| std::fs::read_to_string(entry.ok()?.path()).ok())
+            .filter_map(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .filter_map(|record| session_id(record["session"].as_str().map(str::to_string)).ok())
+            .collect();
+        for path in entries {
+            let _ = match path.is_dir() {
+                true => std::fs::remove_dir_all(&path),
+                false => std::fs::remove_file(&path),
+            };
+        }
+        let _ = std::fs::create_dir_all(self.dirs.watchd.join("sessions"));
+        for id in sessions {
+            let session = Session {
+                upgraded: true,
+                ..Session::default()
+            };
+            self.write_session(&id, &session);
+        }
+        self.write_text(&format_path, &format_line);
+        let old = format.filter(|format| !format.is_empty());
+        let old = old.as_deref().unwrap_or("none");
+        self.log("", "", &format!("state reset: format {old} to {FORMAT_VERSION}"));
+        true
     }
 
     /// Shrinks the log in place, because the log file is the stdout of the daemon.
@@ -384,7 +442,7 @@ impl Store {
         taken
     }
 
-    pub fn open_events(&self, key: &str) -> Vec<RoutedEvent> {
+    pub fn pending_events(&self, key: &str) -> Vec<RoutedEvent> {
         let items: Items = self.read(&self.dirs.items(key)).unwrap_or_default();
         items
             .items
@@ -553,32 +611,7 @@ impl Store {
         }
     }
 
-    /// The records of an older format have no session. Returns the count of ended records.
-    pub fn end_old_records(&self) -> usize {
-        let mut count = 0;
-        for entry in std::fs::read_dir(self.dirs.watchd.join("subs"))
-            .into_iter()
-            .flatten()
-            .flatten()
-        {
-            if let Ok(Some(Load::Converted(sub))) = load::<Agent>(&entry.path()) {
-                self.remove_record(&sub, "old format", None);
-                count += 1;
-            }
-        }
-        for entry in std::fs::read_dir(self.dirs.watchd.join("inbox"))
-            .into_iter()
-            .flatten()
-            .flatten()
-        {
-            if entry.file_name().to_string_lossy().ends_with(".owner") {
-                remove(&entry.path());
-            }
-        }
-        count
-    }
-
-    /// The hub keeps its items: the present rules close them, and a new hub session gets them.
+    /// The hub keeps its items: the present rules remove them, and a new hub session gets them.
     /// An ended key keeps its results until the next wait of its session.
     pub fn sweep(&self) {
         let mut keys = Vec::new();
@@ -750,22 +783,22 @@ impl Store {
         }
     }
 
-    pub fn open_item(&self, key: &str, item: &str) -> Option<Item> {
+    pub fn pending_item(&self, key: &str, item: &str) -> Option<Item> {
         let items: Items = self.read(&self.dirs.items(key))?;
-        items.items.into_iter().find(|open| open.item == item)
+        items.items.into_iter().find(|pending| pending.item == item)
     }
 
     fn live_hub(&self, slug: &str) -> bool {
         self.live_subs(Some(slug)).iter().any(|agent| agent.mode == Mode::Hub)
     }
 
-    pub fn close_item(&self, key: &str, item: &str) {
+    pub fn remove_item(&self, key: &str, item: &str) {
         let path = self.dirs.items(key);
         let Ok(Some(mut items)) = self.read_json::<Items>(&path) else {
             return;
         };
         let count = items.items.len();
-        items.items.retain(|open| open.item != item);
+        items.items.retain(|pending| pending.item != item);
         if items.items.len() < count {
             self.save_items(&path, &items);
         }
@@ -902,7 +935,7 @@ impl Store {
         }
     }
 
-    /// A new hub gets the open items of the hub first. A new session is away until its first
+    /// A new hub gets the pending items of the hub first. A new session is away until its first
     /// wait: with no waiter, its records end after the grace period.
     pub fn watch(&self, request: &WatchRequest, now: i64) {
         let old = self.sub(&request.key);
@@ -927,7 +960,7 @@ impl Store {
             self.write_session(&request.session, &own);
         }
         if old.is_none() && request.mode == Mode::Hub && !self.inbox_has_events(&request.key) {
-            self.append_lines(&self.dirs.inbox(&request.key), &self.open_events(&request.key));
+            self.append_lines(&self.dirs.inbox(&request.key), &self.pending_events(&request.key));
         }
         let ended: Vec<u64> = old
             .map(|old| {
@@ -985,6 +1018,12 @@ impl Store {
         }
     }
 
+    pub fn put_back_upgrade(&self, session: &str) {
+        let mut state = self.session(session).unwrap_or_default();
+        state.upgraded = true;
+        self.write_session(session, &state);
+    }
+
     pub fn unsubscribe(&self, key: &str, slug: &str, mode: Mode, session: &str) -> Result<(), String> {
         let sub = self.sub(key);
         if let Some(sub) = &sub
@@ -1029,7 +1068,7 @@ impl Store {
             input.cells.entry(row).or_insert(cell);
         }
         input.agent.extend(routed.agent);
-        input.close.extend(routed.close);
+        input.dismiss.extend(routed.dismiss);
         input.add.extend(routed.add);
         let text = self.build(key, mode, mrs, &input, &delivery)?;
         self.write_routing(key, &saved);

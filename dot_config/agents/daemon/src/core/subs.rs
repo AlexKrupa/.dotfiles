@@ -35,8 +35,6 @@ pub struct Agent {
     pub mode: Mode,
     pub mrs: Vec<u64>,
     pub interval: u64,
-    /// A record of format version 3 has no session: the daemon ends it at start.
-    #[serde(default)]
     pub session: String,
     #[serde(default)]
     pub ended_mrs: Vec<u64>,
@@ -61,6 +59,9 @@ pub struct Session {
     pub replaced: Vec<SessionKey>,
     #[serde(default)]
     pub ended: Vec<SessionKey>,
+    /// The state format changed: the next wait of the session gets the upgrade error.
+    #[serde(default)]
+    pub upgraded: bool,
 }
 
 /// Returns true if this made all MRs of the agent end. With no `--mr` list, the MRs of the

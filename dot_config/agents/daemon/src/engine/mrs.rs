@@ -784,7 +784,11 @@ fn mr_events(mr: &NormMr, old: &MrState, new: &MrState, me: &str) -> Vec<Event> 
         events.push(with_item(conflict, format!("conflict:{}", mr.iid)));
     }
     if new.mergeable == Some(true) && old.mergeable != Some(true) {
-        let detail = format!("now mergeable, {} open thread(s)", mr.open_threads);
+        let detail = match mr.open_threads {
+            0 => String::new(),
+            1 => "1 open thread".to_string(),
+            count => format!("{count} open threads"),
+        };
         events.push(event(EventKind::Mergeable, mr, "", &detail, None));
     }
     let was_open = old.state.as_deref() == Some("opened");

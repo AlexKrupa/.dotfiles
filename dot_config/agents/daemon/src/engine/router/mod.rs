@@ -87,7 +87,7 @@ impl Routing {
     pub fn add(&mut self, other: Routing) {
         self.input.cells.extend(other.input.cells);
         self.input.agent.extend(other.input.agent);
-        self.input.close.extend(other.input.close);
+        self.input.dismiss.extend(other.input.dismiss);
         self.input.add.extend(other.input.add);
         self.handled.extend(other.handled);
     }
@@ -101,8 +101,8 @@ impl Routing {
         self.input.cells = kept;
         let (agent, kept) = std::mem::take(&mut self.input.agent).into_iter().partition(of_rows);
         self.input.agent = kept;
-        let (close, kept) = std::mem::take(&mut self.input.close).into_iter().partition(of_rows);
-        self.input.close = kept;
+        let (dismiss, kept) = std::mem::take(&mut self.input.dismiss).into_iter().partition(of_rows);
+        self.input.dismiss = kept;
         let (handled, kept) = std::mem::take(&mut self.handled)
             .into_iter()
             .partition(|row| rows.contains(row));
@@ -111,7 +111,7 @@ impl Routing {
             input: ReportInput {
                 cells,
                 agent,
-                close,
+                dismiss,
                 add: std::mem::take(&mut self.input.add),
             },
             handled,
@@ -370,7 +370,7 @@ pub fn routing(decisions: &[Decision]) -> Routing {
                 routing.handled.push(row);
             }
             Action::Dismiss => {
-                routing.input.close.push(row.into());
+                routing.input.dismiss.push(row.into());
                 routing.handled.push(row);
             }
             Action::AskModel => asked.push(row),

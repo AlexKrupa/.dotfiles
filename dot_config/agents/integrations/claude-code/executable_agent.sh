@@ -4,9 +4,11 @@
 #        agent.sh effort <level>
 #        agent.sh rename <title>
 #        agent.sh start-args <title> [--model <model>] [--effort <level>]
+#        agent.sh skill <name> [<args>...]
 # Prints the Claude Code text of one agent action. Writes nothing.
 # - kind: the herdr agent kind.
 # - clear, effort, rename: the slash command, one line.
+# - skill: the prompt that runs the skill with the arguments, one line.
 # - start-args: the claude arguments, one on each line: --name, <title>, then the given flags and
 #   values in the given order.
 # Exit codes: 0 ok, 2 usage error, 3 the agent has no such action.
@@ -14,7 +16,7 @@ set -euo pipefail
 
 usage() {
   echo "claude-code: usage: agent.sh kind | clear <title> | effort <level> | rename <title> |" \
-    "start-args <title> [--model <model>] [--effort <level>]" >&2
+    "start-args <title> [--model <model>] [--effort <level>] | skill <name> [<args>...]" >&2
   exit 2
 }
 
@@ -40,6 +42,10 @@ case $action in
       shift 2
     done
     printf '%s\n' "${args[@]}"
+    ;;
+  skill)
+    [[ $# -ge 1 && -n $1 ]] || usage
+    echo "/$*"
     ;;
   *)
     echo "claude-code: no $action action" >&2

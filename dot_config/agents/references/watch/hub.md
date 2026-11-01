@@ -24,20 +24,20 @@ null. Its `previous` is the status of the earlier default-branch pipeline. All o
 events. The `actor` of an `opened` event is the MR author.
 
 Each event has `row`: the number of its row in the report. An event that waits for the user
-is an open item, for example a to-do item or a failed pipeline. The watch keeps the open items
-and closes them when GitLab shows that their cause is gone.
+is a pending item, for example a to-do item or a failed pipeline. The watch keeps the pending
+items and removes them when GitLab shows that their cause is gone.
 
 For each result with exit `0`, do these steps:
 
 1. For each `default-failed` event, do "Auto-debug". Start no agent for an `opened` or `todo`
    event. The daemon starts the review and bump agents (see "Review and bump agents"). Such an
-   event comes if the daemon cannot read the MR author. A new hub session also gets the open
+   event comes if the daemon cannot read the MR author. A new hub session also gets the pending
    items of the hub. Each action gives a cell: the Proposal or result text of a row.
 2. Run the host command "Report" with the JSON of your actions, and output its stdout word for
    word. The JSON fields:
    - `cells`: the text for each row, for example `{"2": "Review agent started"}`.
-   - `agent`: the rows of the events that an agent handles now. An open item in it closes.
-   - `close`: the rows that need nothing more.
+   - `agent`: the rows of the events that an agent handles now. A pending item in it goes away.
+   - `dismiss`: the rows that need nothing more.
    - `add`: a row with no event, as `{"section": "agent", "iid": <iid or null>, "what": "<text>",
      "result": "<text>"}`. The section `needs` opens an item that waits for the user.
 
@@ -50,8 +50,8 @@ row of the section `agent`. Run the report command with it, and output its stdou
 
 The watch daemon polls the MRs of each own worktree, also when no agent runs in the worktree, and
 the open MRs of the user that have no worktree. If no agent waits for an event of these MRs, its
-open item comes to the hub. The board shows it as one row, for example `!12: @anna commented`. The
-user starts work on it with `/work`.
+pending item comes to the hub. The board shows it as one row, for example `!12: @anna commented`.
+The user starts work on it with `/work`.
 
 ## Review and bump agents
 
@@ -62,7 +62,7 @@ for each new MR or to-do item of a bot: an MR author whose username has `renovat
 workspace. After a bump agent starts, the board shows `The bump agent of <old branch> is stale`
 for each older bump agent of the same dependency. Its workspace stays, because it can contain
 changes. The `opened` event of an MR of a person goes away with no row. If the start fails, the
-board shows the error text, and the row stays an open item. The user fixes the cause.
+board shows the error text, and the row stays a pending item. The user fixes the cause.
 
 ## Auto-debug
 

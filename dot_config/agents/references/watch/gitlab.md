@@ -14,6 +14,8 @@ of the watch daemon, on PATH.
 | Router result                         | `watchd route --iid <iid> --action <bump\|review\|none>`                                       |
 | Report                                | `printf '%s' '<json>' \| watchd report <flags of the watch command>`                           |
 | MR details: branches, author, labels  | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url>`                                        |
+| Author of an MR                       | `~/.config/agents/bin/fetch-gitlab-mr.sh resolve <url> \| jq -r .author`                       |
+| User of the session                   | `glab api user \| jq -r .username`                                                             |
 | Logs of the failed jobs of a pipeline | `~/.config/agents/bin/gitlab-pipeline.sh failed-logs <pipeline id>`                            |
 | Retry a job                           | `glab ci retry <job id>`                                                                       |
 | Retry a job and wait for the new job  | `~/.config/agents/skills/hub/hub-retry.sh <job id>`                                            |

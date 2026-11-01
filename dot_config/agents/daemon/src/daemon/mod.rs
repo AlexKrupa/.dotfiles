@@ -31,7 +31,7 @@ use crate::local::{
 };
 use crate::nap::{NapEnd, nap};
 use crate::paths::{StateDirs, home};
-use crate::platform::{full_wake, now_seconds, online};
+use crate::platform::{full_wake, now_seconds, online, redirect_output};
 use crate::workspaces::{Workspaces, workspaces_of};
 
 const LOCK_FD: &str = "WATCHD_LOCK_FD";
@@ -475,7 +475,7 @@ impl Daemon {
         true
     }
 
-    /// One open item while the fast-forward is blocked: an unchanged reason sends no new event.
+    /// One pending item while the fast-forward is blocked: an unchanged reason sends no new event.
     async fn pull(self: &Arc<Self>, slug: &str, repo: &Path, default: &str) {
         let (main, branch) = (repo.to_path_buf(), default.to_string());
         let result = match tokio::task::spawn_blocking(move || fast_forward(&main, &branch)).await {
@@ -492,12 +492,12 @@ impl Daemon {
                 if moved {
                     self.log(slug, "", &format!("fast-forward: {default}"));
                 }
-                memory.store.close_item(slug, &item);
+                memory.store.remove_item(slug, &item);
             }
             Err(blocked) => {
                 let text = blocked.text(default);
-                let open = memory.store.open_item(slug, &item).and_then(|open| open.event);
-                if open.is_some_and(|event| event.detail == text) {
+                let pending = memory.store.pending_item(slug, &item).and_then(|pending| pending.event);
+                if pending.is_some_and(|event| event.detail == text) {
                     return;
                 }
                 self.log(slug, "", &format!("pull blocked: {text}"));
@@ -782,11 +782,22 @@ pub async fn main() -> i32 {
     let _ = std::env::set_current_dir("/");
     let dirs = StateDirs::from_env();
     let store = Store::new(dirs.clone());
-    if let Err(error) = store.ensure_dirs() {
+    if let Err(error) = std::fs::create_dir_all(&dirs.watchd) {
         eprintln!("watchd: {}: {error}", dirs.watchd.display());
         return 1;
     }
     let Some(lock) = take_lock(&dirs) else { return 0 };
+    let log = std::fs::OpenOptions::new().create(true).append(true).open(dirs.log());
+    if let Err(error) = log.and_then(|log| redirect_output(&log)) {
+        eprintln!("watchd: {}: {error}", dirs.log().display());
+        return 1;
+    }
+    // The folders come after the reset, so that a new state folder gets no reset.
+    store.reset_on_format_change();
+    if let Err(error) = store.ensure_dirs() {
+        eprintln!("watchd: {}: {error}", dirs.watchd.display());
+        return 1;
+    }
     store.trim_log();
     let listener = match listen(&dirs) {
         Ok(listener) => listener,
@@ -861,7 +872,6 @@ async fn run(daemon: &Arc<Daemon>) -> End {
     let mut pruned_at = 0;
     {
         let memory = daemon.lock().await;
-        memory.store.end_old_records();
         for sub in memory.store.subs() {
             if let Some(repo) = block_in_place(|| repo_of(&sub.repo)) {
                 memory.store.add_repo(&repo);

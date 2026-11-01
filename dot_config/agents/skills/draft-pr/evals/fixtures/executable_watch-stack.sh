@@ -58,7 +58,17 @@ put "$host/retry" <<'EOF'
 echo "$1" >>"$(dirname "$0")/retried"
 echo "Retried job $1. New job: $(($1 + 1000))"
 EOF
-chmod +x "$host/watch" "$host/job-log" "$host/retry"
+put "$host/mr-author" <<'EOF'
+#!/bin/sh
+# Usage: mr-author <mr-url> - prints the username of the author of the MR.
+echo "test-dev"
+EOF
+put "$host/current-user" <<'EOF'
+#!/bin/sh
+# Usage: current-user - prints the username of the user of the session.
+echo "test-dev"
+EOF
+chmod +x "$host/watch" "$host/job-log" "$host/retry" "$host/mr-author" "$host/current-user"
 put "$host/host.md" <<EOF
 # Watch: test host
 
@@ -68,6 +78,8 @@ put "$host/host.md" <<EOF
 | Restart command                       | The same watch command                              |
 | Logs of the failed jobs of a pipeline | \`$host/job-log <pipeline-id>\`                     |
 | Retry a job                           | \`$host/retry <job-id>\`                            |
+| Author of an MR                       | \`$host/mr-author <mr-url>\`                        |
+| User of the session                   | \`$host/current-user\`                             |
 
 The id of an MR is \`!<iid>\`.
 EOF

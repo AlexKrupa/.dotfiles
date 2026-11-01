@@ -194,7 +194,7 @@ impl Watchd {
 
     pub fn command_of(&self, program: &Path) -> Command {
         let mut command = self.env.command_of(program);
-        for name in ["WATCHD_FAKE_ENGINE", "WATCHD_IDLE_SECONDS"] {
+        for name in ["WATCHD_FAKE_ENGINE", "WATCHD_IDLE_SECONDS", "WATCHD_ENGINE_SAVE"] {
             command.env_remove(name);
         }
         if self.fake_engine {
@@ -360,6 +360,15 @@ impl Watchd {
 
     pub fn clear_args(&self) {
         std::fs::write(self.events.join("args"), "").unwrap();
+    }
+
+    /// A state file that a test writes before the daemon starts needs the format file of the
+    /// state folder: with no format file, the daemon deletes the state.
+    pub fn write_state(&self, path: &str, text: &str) {
+        let file = self.watchd.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(self.watchd.join("format"), "4\n").unwrap();
+        std::fs::write(file, text).unwrap();
     }
 
     pub fn log(&self) -> String {

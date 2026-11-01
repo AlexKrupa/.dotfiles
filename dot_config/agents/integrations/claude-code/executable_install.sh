@@ -109,6 +109,33 @@ unlink_deprecated() {
 unlink_deprecated skills "skills/deprecated/*/"
 link_entries      skills "skills/*/"
 
+# Prints the source folder of a plugin from a directory marketplace with a relative plugin source.
+# Prints nothing for any other plugin.
+directory_plugin_folder() {
+  local plugin="$1" settings="$2"
+  local name="${plugin%@*}" marketplace="${plugin##*@}"
+  local root relative
+  root="$(jq -r --arg marketplace "$marketplace" '.extraKnownMarketplaces[$marketplace].source
+    | select(.source == "directory") | .path' "$settings")"
+  [ -f "$root/.claude-plugin/marketplace.json" ] || return 0
+  relative="$(jq -r --arg name "$name" '.plugins[] | select(.name == $name) | .source
+    | select(type == "string" and startswith("./"))' "$root/.claude-plugin/marketplace.json")"
+  [ -n "$relative" ] || return 0
+  (cd "$root/$relative" && pwd -P)
+}
+
+install_path() {
+  claude plugin list --json \
+    | jq -r --arg id "$1" '.[] | select(.scope == "user" and .id == $id) | .installPath'
+}
+
+# Succeeds if the install path of the plugin is the source folder or an equal copy of it.
+copy_matches() {
+  local path
+  path="$(install_path "$1")"
+  [ "$(cd "$path" && pwd -P)" = "$2" ] || diff -r "$path" "$2" >/dev/null
+}
+
 failed=0
 settings="$CLAUDE_DIR/settings.json"
 if [ -f "$settings" ]; then
@@ -122,9 +149,26 @@ if [ -f "$settings" ]; then
   installed="$(claude plugin list --json | jq -r '.[] | select(.scope == "user") | .id')"
   for plugin in $(jq -r '.enabledPlugins // {} | to_entries[] | select(.value) | .key' "$settings"); do
     if grep -qxF "$plugin" <<< "$installed"; then
-      add_entry "plugins/$plugin" "installed"
+      status="installed"
     elif claude plugin install "$plugin" --scope user >/dev/null; then
-      add_entry "plugins/$plugin" "NEW"
+      status="NEW"
+    else
+      add_entry "plugins/$plugin" "FAILED"
+      failed=1
+      continue
+    fi
+
+    source_folder="$(directory_plugin_folder "$plugin" "$settings")"
+    if [ -z "$source_folder" ] || copy_matches "$plugin" "$source_folder"; then
+      add_entry "plugins/$plugin" "$status"
+    elif claude plugin uninstall "$plugin" --scope user >/dev/null \
+      && claude plugin install "$plugin" --scope user >/dev/null; then
+      if copy_matches "$plugin" "$source_folder"; then
+        add_entry "plugins/$plugin" "$status"
+      else
+        add_entry "plugins/$plugin" "STALE" "$(tilde_path "$(install_path "$plugin")")"
+        failed=1
+      fi
     else
       add_entry "plugins/$plugin" "FAILED"
       failed=1

@@ -92,9 +92,10 @@ EOF
 chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab" \
   "$tmp/bin/herdr-start-fake" "$tmp/bin/watchd"
 # Fake integrations. The fake adapter prints --fake-name, the title, then the flags, one on each
-# line, and refuses a flag that is not --model or --effort. herdr-start-fake marks the sandbox
-# start command of the folder. The plain integration has no sandbox start command.
-mkdir -p "$tmp/integrations/fake" "$tmp/integrations/plain"
+# line, and refuses a flag that is not --model or --effort. Its skill line is "SKILL <name>
+# <args>". herdr-start-fake marks the sandbox start command of the folder. The plain integration
+# has no sandbox start command. $tmp/integrations has only the fake integration, $tmp/two has both.
+mkdir -p "$tmp/integrations/fake" "$tmp/two/plain"
 cat >"$tmp/integrations/fake/agent.sh" <<'EOF'
 #!/usr/bin/env bash
 case $1 in
@@ -108,13 +109,15 @@ case $1 in
       esac
     done
     printf '%s\n' --fake-name "$title" "$@" ;;
+  skill) shift; echo "SKILL $*" ;;
   *) exit 3 ;;
 esac
 EOF
-printf '#!/bin/sh\necho plain\n' >"$tmp/integrations/plain/agent.sh"
+printf '#!/bin/sh\necho plain\n' >"$tmp/two/plain/agent.sh"
+ln -s "$tmp/integrations/fake" "$tmp/two/fake"
 : >"$tmp/integrations/fake/herdr-start-fake"
 : >"$tmp/integrations/fake/herdr-start-fake.test.sh"
-chmod +x "$tmp/integrations/fake/agent.sh" "$tmp/integrations/plain/agent.sh"
+chmod +x "$tmp/integrations/fake/agent.sh" "$tmp/two/plain/agent.sh"
 export PATH="$tmp/bin:$PATH" WORK_NEXT="$tmp/bin/work-next" TMPDIR="$tmp" HERDR_ENV=1 \
   WATCHD="$tmp/bin/watchd" AGENT_INTEGRATIONS="$tmp/integrations"
 unset NONO_CAP_FILE
@@ -746,7 +749,7 @@ fresh
 push_branch ABC-5/review-me
 MOCK_WT_LIST='{"result":{"worktrees":[{"branch":"ABC-5/review-me","path":"/wt/old",
 "is_prunable":false,"open_workspace_id":"wX"}]}}' run p ABC-5 --branch ABC-5/review-me
-check "existing open: exit 1" 1 "$code"
+check "busy branch: exit 5" 5 "$code"
 check "existing open: message names the workspace" \
   "work-start: ABC-5/review-me is open in herdr workspace wX already" "$err"
 check "existing open: no agent start" "" "$(grep '^herdr agent start' "$MOCK_LOG")"
@@ -808,10 +811,10 @@ check "no session id: exit 1" 1 "$code"
 check "no session id: message" "work-start: no session id for the agent in pane wL:p1" "$err"
 check "no session id: no branch" no "$(has_branch ABC-2/second-part)"
 fresh
-MOCK_KIND=plain NONO_CAP_FILE="$tmp/cap" run p ABC-0 'typo'
+MOCK_KIND=plain NONO_CAP_FILE="$tmp/cap" AGENT_INTEGRATIONS="$tmp/two" run p ABC-0 'typo'
 check "no sandbox start command: exit 1" 1 "$code"
 check "no sandbox start command: message" \
-  "work-start: no sandbox start command in $tmp/integrations/plain" "$err"
+  "work-start: no sandbox start command in $tmp/two/plain" "$err"
 check "no sandbox start command: no branch" no "$(has_branch ABC-0/typo)"
 fresh
 run p ABC-0 'typo' -- --dangerous
@@ -837,5 +840,33 @@ fresh
 run p ABC-0 'typo' --kind fake
 check "given kind in new mode: exit 1" 1 "$code"
 check "given kind in new mode: no branch" no "$(has_branch ABC-0/typo)"
+
+# Existing mode with no --kind: the kind of the only integration. No lookup of the pane.
+fresh
+push_branch ABC-5/review-me
+MOCK_KIND= run p ABC-5 'Review me' --branch ABC-5/review-me --no-track
+check "existing with no kind and one adapter: that kind" \
+  "herdr agent start abc-5-review-me --kind fake --pane wT:p1 -- --fake-name [ABC-5] Review me" \
+  "$(grep '^herdr agent start' "$MOCK_LOG")"
+check "existing with no kind and one adapter: no pane lookup" "" \
+  "$(grep -e '^herdr pane current' -e '^herdr agent get' "$MOCK_LOG")"
+fresh
+push_branch ABC-5/review-me
+AGENT_INTEGRATIONS="$tmp/two" run p ABC-5 'Review me' --branch ABC-5/review-me --no-track
+check "existing with no kind and two adapters: exit 1" 1 "$code"
+check "existing with no kind and two adapters: message asks for --kind" \
+  "work-start: 2 agent integrations in $tmp/two: give the kind with --kind" "$err"
+check "existing with no kind and two adapters: no herdr call" "" "$(side_calls)"
+
+# --skill: the adapter gives the first prompt, and stdin gives none.
+fresh
+push_branch ABC-5/review-me
+run 'not a prompt' 'Review me' --branch ABC-5/review-me --no-track --skill review-pr https://g/mr/5
+check "existing with --skill: exit 0" 0 "$code"
+check "existing with --skill: the prompt is the adapter skill line" \
+  "SKILL review-pr https://g/mr/5" "$(cat "$MOCK_PROMPT")"
+fresh
+run p ABC-0 'typo' --skill review-pr https://g/mr/5
+check "given skill in new mode: exit 1" 1 "$code"
 
 exit $fail
