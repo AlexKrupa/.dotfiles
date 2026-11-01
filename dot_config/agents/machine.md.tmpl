@@ -11,6 +11,7 @@ Dotfiles managed with chezmoi (`chezmoi managed`).
   After the last task, run one `chezmoi re-add`, then do the finish with `review-me`.
 - A template (`.tmpl` in `chezmoi source-path`) has no live copy for `re-add`. Edit it in the
   source repo, commit and push it with git, then run `chezmoi apply <target>`.
+- After a change of `~/.config/agents/daemon/src`, run `~/.config/agents/daemon/build.sh`.
 - Update dotfiles automatically when applying confirmed or explicitly requested changes.
 - If a change is not confirmed - ask first.
 {{- else -}}
