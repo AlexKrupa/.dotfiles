@@ -167,17 +167,29 @@ impl Store {
             return;
         }
         // The raw fields, because the files can have a different format. A session file with no
-        // record is a watch that ended or that the user stopped. The owner PID lets a `/clear`
-        // rename take the upgrade error.
+        // record is a watch that ended or that the user stopped. A session that still waits for
+        // the upgrade error of an earlier reset keeps it, because that reset deleted the records.
+        // The owner PID lets a `/clear` rename take the upgrade error.
         let raw = |path: PathBuf| {
             let text = std::fs::read_to_string(path).ok()?;
             serde_json::from_str::<serde_json::Value>(&text).ok()
         };
-        let sessions: BTreeMap<String, Option<u32>> = std::fs::read_dir(self.dirs.watchd.join("subs"))
+        let watched = std::fs::read_dir(self.dirs.watchd.join("subs"))
             .into_iter()
             .flatten()
             .filter_map(|entry| raw(entry.ok()?.path()))
-            .filter_map(|record| session_id(record["session"].as_str().map(str::to_string)).ok())
+            .filter_map(|record| record["session"].as_str().map(str::to_string));
+        let upgraded = std::fs::read_dir(self.dirs.watchd.join("sessions"))
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                let id = path.file_stem()?.to_str()?.to_string();
+                (raw(path)?["upgraded"] == true).then_some(id)
+            });
+        let sessions: BTreeMap<String, Option<u32>> = watched
+            .chain(upgraded)
+            .filter_map(|id| session_id(Some(id)).ok())
             .map(|id| {
                 let owner_pid = raw(self.dirs.session(&id))
                     .and_then(|session| session["owner_pid"].as_u64())
@@ -1280,6 +1292,30 @@ mod tests {
         assert!(!format);
         assert!(log.contains(&format!("{}: not deleted: ", items.display())), "{log}");
         assert!(log.contains("state reset: format none stays, a delete failed"), "{log}");
+    }
+
+    #[test]
+    fn a_repeat_reset_keeps_the_upgrade_error_of_a_session_that_did_not_wait() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-repeat", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs::from_base(&base));
+        store.ensure_dirs().unwrap();
+        let upgraded = r#"{"version": 4, "owner_pid": 7, "upgraded": true}"#;
+        std::fs::write(store.dirs.session("s1"), upgraded).unwrap();
+        std::fs::write(store.dirs.session("s2"), r#"{"version": 4, "owner_pid": 8}"#).unwrap();
+
+        store.reset_on_format_change();
+        let s1 = store.session("s1");
+        let s2 = store.session("s2");
+        let _ = std::fs::remove_dir_all(&base);
+
+        let expected = Session {
+            owner_pid: Some(7),
+            upgraded: true,
+            ..Session::default()
+        };
+        assert_eq!(s1, Some(expected));
+        assert_eq!(s2, None);
     }
 
     #[test]

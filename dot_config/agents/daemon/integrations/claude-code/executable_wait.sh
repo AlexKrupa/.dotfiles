@@ -9,7 +9,8 @@
 #   watches. Any other input, no input, or input that is not JSON adds no flag.
 # Writes ${TMPDIR:-/tmp}/watchd-wait/<session>.error: the last error text that woke Claude. Claude
 # wakes one time for one error text. An exit 0 of watchd deletes the file. An error text that says
-# to run the watch command again always wakes Claude: watchd gives it one time for each event.
+# to run the watch command again always wakes Claude: watchd gives it one time for each format
+# change.
 # Output: nothing on stdout. On exit 2, stderr has the event lines of watchd, or the error text of
 #   watchd with the prefix `watchd error: `. Claude Code shows the stderr text to Claude.
 # Exit codes: 0 nothing to tell (no events, no watch, the session or the owner is not set, or the
