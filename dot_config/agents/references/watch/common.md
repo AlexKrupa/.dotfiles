@@ -110,6 +110,8 @@ Result:
 - A statement is wrong, or the comment refers to the wrong code: put its row in `dismiss`, and add
   a `needs` row with the error and a short proposed change.
 - Small points only, for example an unclear word: the cell of its row has the points.
+- Do not report what the MR author knows without help, for example that a rename also changes
+  the callers, or that a fix also updates its tests. Report only an error of the comment.
 
 Do not rewrite the full comment. The user edits it on the code host.
 
