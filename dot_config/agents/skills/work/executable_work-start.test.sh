@@ -634,7 +634,8 @@ herdr worktree create --cwd $work --branch ABC-5/review-me --no-focus" \
   "$(grep -E '^(git-spice|herdr worktree create)' "$MOCK_LOG")"
 check "existing: main not moved" "$before" "$(git -C "$work" rev-parse main)"
 check "existing: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
-check "existing: no kind" "" "$(grep '^watchd' "$MOCK_LOG")"
+check "existing: sets kind mine in the worktree" "watchd kind mine $tmp/wt-path" \
+  "$(grep '^watchd' "$MOCK_LOG") $(cat "$MOCK_LOG.folder")"
 
 fresh
 push_branch ABC-5/review-me
@@ -890,6 +891,7 @@ run 'not a prompt' 'Review me' --branch ABC-5/review-me --no-track --skill revie
 check "existing with --skill: exit 0" 0 "$code"
 check "existing with --skill: the prompt is the adapter skill line" \
   "SKILL review-pr https://g/mr/5" "$(cat "$MOCK_PROMPT")"
+check "existing with --skill: no kind" "" "$(grep '^watchd' "$MOCK_LOG")"
 fresh
 run p ABC-0 'typo' --skill review-pr https://g/mr/5
 check "given skill in new mode: exit 1" 1 "$code"

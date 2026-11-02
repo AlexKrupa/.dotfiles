@@ -38,8 +38,8 @@
 # the branch of another person. A worktree of NAME is used again. A workspace that is open already
 # stops the script. --reset-local first moves a local NAME to the origin tip, also in a worktree
 # with no local changes. The local commits go.
-# New and next mode set the kind `mine` of the new worktree with `watchd kind`. Existing mode does
-# not: the skill in the first prompt sets the kind.
+# New and next mode, and existing mode with no --skill, set the kind `mine` of the worktree with
+# `watchd kind`. With --skill, the skill sets the kind.
 # In a nono sandbox, new and existing mode start the agent with the herdr-start-* command of the
 # integration, and the only agent flag is --effort.
 # Prints JSON: mode, branch, base, tracked, worktree, pane_id, and in new and existing mode
@@ -324,6 +324,9 @@ if [[ -n $existing ]]; then
   if [[ -z $pane ]]; then
     echo "work-start: $branch is open in herdr workspace $workspace already" >&2
     exit 5
+  fi
+  if [[ -z $skill ]]; then
+    (cd "$worktree" && "$watch_client" kind mine) >/dev/null 2>&1 || true
   fi
   mode=existing base=""
 else

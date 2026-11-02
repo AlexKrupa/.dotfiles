@@ -98,9 +98,7 @@ def label_of($pane; $program):
    | to_entries[]
    | (.key + 1 | slot) as $slot
    | .value
-   | .workspace_id as $id
-   | (.tokens // {} | if any($rows[]; .workspace_id == $id) then work_agent_kind else . end
-      | work_glyphs($glyphs; false)) as $work
+   | (.tokens // {} | work_glyphs($glyphs; false)) as $work
    | ([$slot, $work] | map(select(. != "")) | join(" ")) as $idx
    | select((.tokens.idx // "") != $idx)
    | ["workspace", .workspace_id, "idx=" + $idx] | @tsv),
