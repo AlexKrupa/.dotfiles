@@ -370,7 +370,14 @@ if [[ -n ${NONO_CAP_FILE:-} ]]; then
 else
   start=(herdr agent start "$name" --kind "$kind" --pane "$pane" -- "${start_args[@]}")
 fi
-if ! out=$("${start[@]}" 2>&1); then
+# The shell of a new pane needs some time to show its prompt.
+started=""
+for _ in {1..30}; do
+  if out=$("${start[@]}" 2>&1); then started=1; break; fi
+  grep -q agent_pane_busy <<<"$out" || break
+  sleep 1
+done
+if [[ -z $started ]]; then
   if grep -q agent_not_ready <<<"$out"; then
     echo "work-start: agent not ready in pane $pane (branch $branch stays)" >&2
     exit 4

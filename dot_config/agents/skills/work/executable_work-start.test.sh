@@ -15,7 +15,8 @@ check() {
 }
 
 # Fake herdr: answers the calls work-start.sh makes and logs each call. MOCK_START_FAIL is the
-# error text of a failed `agent start`. MOCK_WT_LIST is the output of `worktree list`. `agent get`
+# error text of a failed `agent start`. The first MOCK_START_BUSY calls of `agent start` fail with
+# agent_pane_busy. MOCK_WT_LIST is the output of `worktree list`. `agent get`
 # gives the kind MOCK_KIND (default fake) and the session id MOCK_SESSION (default sid-1). An
 # empty value gives null. MOCK_OPEN_WARNING is a stderr line of a `worktree open` that succeeds.
 mkdir -p "$tmp/bin" "$tmp/wt-path"
@@ -34,6 +35,12 @@ case "$1 $2" in
     if [ -n "${MOCK_OPEN_WARNING:-}" ]; then echo "$MOCK_OPEN_WARNING" >&2; fi
     echo '{"result":{"workspace":{"workspace_id":"wO"},"root_pane":{"pane_id":"wO:p1"}}}' ;;
   "agent start")
+    busy=$(cat "$MOCK_LOG.busy" 2>/dev/null || echo 0)
+    if [ "$busy" -lt "${MOCK_START_BUSY:-0}" ]; then
+      echo $((busy + 1)) >"$MOCK_LOG.busy"
+      echo '{"error":{"code":"agent_pane_busy","message":"pane is not an available shell"}}' >&2
+      exit 1
+    fi
     if [ -n "${MOCK_START_FAIL:-}" ]; then echo "$MOCK_START_FAIL" >&2; exit 1; fi
     echo '{}' ;;
   "agent prompt")
@@ -360,6 +367,13 @@ check "not ready: exit 4" 4 "$code"
 check "not ready: message has the pane id" \
   "work-start: agent not ready in pane wT:p1 (branch ABC-0/typo stays)" "$err"
 check "not ready: no prompt" "" "$(grep '^herdr agent prompt' "$MOCK_LOG")"
+
+# The new pane is not at its shell prompt yet.
+fresh
+MOCK_START_BUSY=2 run p ABC-0 'typo'
+check "pane busy: exit 0 after retries" 0 "$code"
+check "pane busy: three start calls" 3 "$(grep -c '^herdr agent start' "$MOCK_LOG")"
+check "pane busy: prompt" p "$(cat "$MOCK_PROMPT")"
 
 # Other start failure.
 fresh
