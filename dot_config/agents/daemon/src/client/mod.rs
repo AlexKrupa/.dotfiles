@@ -615,6 +615,32 @@ pub async fn status() -> i32 {
     0
 }
 
+/// Reads the state files, so that a hook starts no daemon: mode, repo, and MRs, tab separated.
+pub fn watches(args: Vec<String>) -> i32 {
+    let mut session = None;
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--session" => match session_id(args.next()) {
+                Ok(id) => session = Some(id),
+                Err(message) => return die(&message),
+            },
+            _ => return die(&format!("unexpected argument: {arg}")),
+        }
+    }
+    let Some(session) = session else {
+        return die("watches needs --session");
+    };
+    for sub in Store::new(current_client().dirs).subs() {
+        if sub.session == session {
+            let mrs: Vec<String> = sub.mrs.iter().map(u64::to_string).collect();
+            let mrs = if mrs.is_empty() { "-".to_string() } else { mrs.join(",") };
+            println!("{}\t{}\t{mrs}", sub.mode.as_str(), sub.repo.display());
+        }
+    }
+    0
+}
+
 pub async fn debug_state() -> i32 {
     let client = current_client();
     let state = match ask(&client, &Request::DebugState, false).await {

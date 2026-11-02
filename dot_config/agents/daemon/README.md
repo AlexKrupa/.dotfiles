@@ -28,7 +28,7 @@ One binary has three roles:
 
 - Client: each `watchd watch`, `wait`, `status`, `kind`, `route`, `report`, or `follow` call is a
   process that sends one JSON line to the daemon on `daemon.sock` and prints the answer
-  (`src/protocol.rs`).
+  (`src/protocol.rs`). `watchd watches` reads the state files and does not connect.
 - Daemon: `watchd daemon` is one process for each user. It reads git and git-spice, polls GitLab,
   creates its state folder and log, writes all state files, and answers the clients. If no daemon
   runs, the first client starts it.
@@ -50,8 +50,8 @@ Callers:
 
 - The skills run `watchd watch`, `unsubscribe`, `status`, `route`, and `report`, as
   `references/watch/gitlab.md` tells them.
-- The Claude Code plugin (`integrations/claude-code/`) runs `watchd wait` in its hooks (see
-  "Claude Code plugin").
+- The Claude Code plugin (`integrations/claude-code/`) runs `watchd wait` and `watchd watches` in
+  its hooks (see "Claude Code plugin").
 - `bump`, `hub`, `review-pr`, `debug-gitlab`, and `skills/work/work-start.sh` run `watchd kind`. It
   sets the kind of work of the worktree of the current folder.
 - The herdr plugin `watch.sh` reads the stdout of `watchd follow`. It does not read the state files.
@@ -225,7 +225,7 @@ the `changed` signal, and the waiting connections read the files again.
 | `src/engine/` | The GitLab checks. `hub.rs` watches the project. `mrs.rs` watches the MRs of a worktree or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
 | `src/workspaces.rs` | The skill scripts of the board pane, the agent starts, and the agent list |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
-| `integrations/claude-code/` | The Claude Code plugin: hooks, `wait.sh`, and the runner file |
+| `integrations/claude-code/` | The Claude Code plugin: hooks, `wait.sh`, `context.sh`, and the runner file |
 | `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
 
 ## State files
@@ -270,17 +270,19 @@ The folder `integrations/claude-code/` is a Claude Code plugin. It has all Claud
 | File | Content |
 | --- | --- |
 | `.claude-plugin/plugin.json` | The name `watchd`. The plugin has no `version`, so Claude Code never pins it. |
-| `hooks/hooks.json` | The `SessionStart` and `Stop` hooks. Both run the live `~/.config/agents/daemon/integrations/claude-code/wait.sh` with `asyncRewake` and a timeout of one week. |
+| `hooks/hooks.json` | The `SessionStart`, `Stop`, and `StopFailure` hooks run the live `~/.config/agents/daemon/integrations/claude-code/wait.sh` with `asyncRewake` and a timeout of one week. `StopFailure` starts the next waiter after a turn that ends with an API error. The `SessionStart` hook with the matcher `compact` also runs the live `context.sh`, with no `asyncRewake`. |
 | `wait.sh` | Runs `watchd wait` with `CLAUDE_CODE_SESSION_ID` and `CLAUDE_PID`. For the `SessionStart` source `clear`, it adds `--rename-owner-session`. Exit 2 wakes Claude with the events or `watchd error: <text>` on stderr. |
 | `wait.test.sh` | The test of `wait.sh`, with a fake `watchd` in `WATCHD` |
+| `context.sh` | Runs `watchd watches` with `CLAUDE_CODE_SESSION_ID`. If the session has watches, it prints the `SessionStart` JSON with `additionalContext`: the watches, the path of `watch-runner.md`, and the rule for `watchd error:`. Else it prints nothing. |
+| `context.test.sh` | The test of `context.sh`, with a fake `watchd` in `WATCHD` |
 | `watch-runner.md` | The runner file: how the agent starts the watch and reads the results |
 
 Claude Code installs this local plugin from its folder, through the symlink
 `~/.claude/local-marketplace/watchd` of the marketplace `local-pins`. The installed plugin can be a
 copy in the plugin cache, for example `~/.claude/plugins/cache/local-pins/watchd/unknown/`. The copy
-keeps the old version of a changed file. The hooks run the live `wait.sh`. A change of `wait.sh`
-needs no step. After a change of `hooks.json` or of a different plugin file, run
-`~/.config/agents/integrations/claude-code/install.sh`. It installs a copy that differs from the
+keeps the old version of a changed file. The hooks run the live `wait.sh` and `context.sh`. A
+change of these scripts needs no step. After a change of `hooks.json` or of a different plugin
+file, run `~/.config/agents/integrations/claude-code/install.sh`. It installs a copy that differs from the
 folder again. The change takes effect at the next session start or after `/reload-plugins`.
 
 ## Migration

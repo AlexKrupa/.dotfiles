@@ -472,3 +472,29 @@ fn status_prints_away_for_an_away_session() {
     let row: Vec<&str> = status.lines().filter(|line| line.starts_with("app\t")).collect();
     assert_eq!(row, ["app\thub\t-\taway\t0"], "{status}");
 }
+
+#[test]
+fn watches_prints_the_watches_of_the_session_only() {
+    let w = Watchd::new();
+    let repo = w.env.repo.to_str().unwrap();
+    assert_eq!(w.watch(&[]).code, 0);
+    assert_eq!(w.watch(&["--review", "--mr", "5"]).code, 0);
+    let mut other = w.command();
+    other.args(["watch", "--session", "session-other", "--repo", repo, "--review", "--mr", "6"]);
+    assert_eq!(w.run(other).code, 0);
+
+    let run = w.client(&["watches", "--session", &w.session_id()]);
+
+    let expected = format!("hub\t{repo}\t-\nreview\t{repo}\t5");
+    assert_eq!((run.code, run.out, run.err.as_str()), (0, expected, ""));
+}
+
+#[test]
+fn watches_prints_nothing_and_starts_no_daemon_for_a_session_with_no_watch() {
+    let w = Watchd::new();
+
+    let run = w.client(&["watches", "--session", &w.session_id()]);
+
+    assert_eq!((run.code, run.out.as_str(), run.err.as_str()), (0, "", ""));
+    assert_eq!(w.daemon_pid(), None);
+}

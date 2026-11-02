@@ -39,6 +39,12 @@ enum Commands {
     },
     /// The daemon, the last poll of each repo, and the subscriptions.
     Status,
+    /// The watches of the session, from the state files, one line each: --session ID.
+    #[command(disable_help_flag = true)]
+    Watches {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// The kind of work of the worktree of the current folder: KIND.
     #[command(disable_help_flag = true)]
     Kind {
@@ -91,6 +97,7 @@ async fn main() {
         Commands::Wait { args } => client::wait(args).await,
         Commands::Unsubscribe { args } => client::unsubscribe(args).await,
         Commands::Status => client::status().await,
+        Commands::Watches { args } => client::watches(args),
         Commands::Kind { args } => client::kind(args).await,
         Commands::Route { args } => client::route(args).await,
         Commands::Report { args } => client::report(args).await,

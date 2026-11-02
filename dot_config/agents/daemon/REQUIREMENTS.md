@@ -438,8 +438,8 @@ from a design spec that the user approved.
 
 ## W11 Client commands
 
-- W11.1 The CLI has the subcommands `watch`, `wait`, `unsubscribe`, `status`, `kind`, `route`,
-  `report`, `follow`, and `board`.
+- W11.1 The CLI has the subcommands `watch`, `wait`, `unsubscribe`, `status`, `watches`, `kind`,
+  `route`, `report`, `follow`, and `board`.
 - W11.2 `watchd status` prints the daemon PID, the last poll time of each repo, and one line for
   each watch with its key, role, MRs, `live` or `away`, and inbox line count.
 - W11.3 `live` in `watchd status` and in the sidebar JSON means that the session is not away.
@@ -454,6 +454,9 @@ from a design spec that the user approved.
   event, and a new connection first gets the full sidebar.
 - W11.9 (spec) The sidebar state of `watchd follow` has the state of each worktree, keyed by
   worktree path.
+- W11.10 `watchd watches --session ID` prints one line for each watch of the session, with its
+  mode, repo, and MRs. It reads the state files and starts no daemon. A session with no watch
+  gives no output.
 
 ## W12 Reports
 
@@ -781,8 +784,9 @@ from a design spec that the user approved.
   tool and no `/exit` dialog.
 - W23.5 (spec) The plugin gives events as exit 2 with the events on stderr, and the `Stop` hook
   after each turn starts the next waiter.
-- W23.6 (spec) The `SessionStart` hook for all sources and the `Stop` hook run `wait.sh` with
-  `asyncRewake` and a one-week timeout.
+- W23.6 (spec) The `SessionStart` hook for all sources, the `Stop` hook, and the `StopFailure`
+  hook run `wait.sh` with `asyncRewake` and a one-week timeout. After a turn that ends with an API
+  error, the `StopFailure` hook starts the next waiter.
 - W23.7 (spec) Only the `SessionStart` source `clear` renames the session.
 - W23.8 (spec) After `/resume` in a running process, the old conversation is away and keeps its
   watches and inbox until it comes back or the grace period ends.
@@ -792,6 +796,9 @@ from a design spec that the user approved.
 - W23.10 While a watch runs, the user can use the same session for other prompts.
 - W23.11 The Claude Code install script installs only the plugins of the dotfiles, from
   `settings.json` and from the local marketplace with `watchd`.
+- W23.12 After a compaction, the plugin gives Claude the watches of the session, the path of the
+  runner file, and the rule to not start a watch again after a `watchd error:` text. The upgrade
+  error is not in this rule. A session with no watch gets no text.
 
 ## W24 Sample repo
 

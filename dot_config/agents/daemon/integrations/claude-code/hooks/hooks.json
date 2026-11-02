@@ -10,9 +10,31 @@
             "asyncRewake": true
           }
         ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.config/agents/daemon/integrations/claude-code/context.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.config/agents/daemon/integrations/claude-code/wait.sh\"",
+            "timeout": 604800,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
       {
         "hooks": [
           {
