@@ -412,18 +412,20 @@ from a design spec that the user approved.
   `claude-upgrade`.
 - W10.11 `watchd` has no knowledge of `claude-upgrade`.
 - W10.12 After any restart, each session that had a watch has the watch again, with no user input
-  and no model turn, except after a format change (W10.13).
+  and no model turn, except for a record that a format change cannot keep (W10.13).
 - W10.13 An upgrade has no migrations: at a change of the format version, the daemon deletes all
-  state, and a first check fetches the MR state again.
-- W10.14 After the state is deleted at a format change, the next `wait` of each session that had a
-  watch gets the upgrade error of W10.17, and the agent runs its watch command again.
+  state, except the watch records that the new format can read. A first check fetches the MR state
+  again.
+- W10.14 After a format change deletes a watch record, the next `wait` of its session gets the
+  upgrade error of W10.17, and the agent runs its watch command again.
 - W10.15 A change of the client API keeps no old path for old clients, and the skills change to the
   new names.
 - W10.16 After a change of the client API, an old watch client gets an error from the daemon, and
   the user starts each old watch again one time.
 - W10.17 At a change of the state format version, the new daemon deletes all state at its first
-  start. The next `wait` of each session that had a watch then gets an error that tells the agent
-  to run the watch command again.
+  start, except the watch records that the new format can read. The next `wait` of each session
+  with a deleted watch record then gets an error that tells the agent to run the watch command
+  again.
 - W10.18 The event log has one line for each event with the key, repo, MR title, time, and a sound
   class, and any program can read it.
 - W10.19 (spec) The event log keeps 7 days of events.

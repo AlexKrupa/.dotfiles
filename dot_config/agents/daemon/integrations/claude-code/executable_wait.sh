@@ -12,7 +12,8 @@
 # to run the watch command again always wakes Claude: watchd gives it one time for each format
 # change.
 # Output: nothing on stdout. On exit 2, stderr has the event lines of watchd, or the error text of
-#   watchd with the prefix `watchd error: `. Claude Code shows the stderr text to Claude.
+#   watchd with the prefix `watchd error: ` in place of `watchd: `. Claude Code shows the stderr
+#   text to Claude.
 # Exit codes: 0 nothing to tell (no events, no watch, the session or the owner is not set, or the
 #   same error text again), 2 wake Claude (the asyncRewake code)
 
@@ -45,5 +46,5 @@ fi
   && exit 0
 mkdir -p "$state_dir"
 printf '%s\n' "$error" >"$state_file"
-echo "watchd error: $error" >&2
+echo "watchd error: ${error#watchd: }" >&2
 exit 2

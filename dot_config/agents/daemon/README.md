@@ -245,7 +245,7 @@ the worktree. A review key also has `-review-IID` at the end.
 | `watchd/worktrees/HASH.json` | The state of one worktree: branch, key, stack, MRs, conflict, kind, stage. `HASH` is the first 12 characters of the SHA-1 of the path. |
 | `watchd/reviews.json` | The review links: a worktree and the MR that it reviews |
 | `watchd/subs/KEY.json` | One agent record, with the ID of its session |
-| `watchd/sessions/ID.json` | One session: the owner PID and `owner_gone_at`. `replaced` has the keys that a different session took. `ended` has the keys whose record ended while the session had them. `upgraded` is true from a format change to the next wait. |
+| `watchd/sessions/ID.json` | One session: the owner PID and `owner_gone_at`. `replaced` has the keys that a different session took. `ended` has the keys whose record ended while the session had them. `upgraded` is true from a format change that deleted a record of the session to the next wait. |
 | `watchd/inbox/KEY.jsonl` | Events that no waiter took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The pending items of the key |
@@ -295,7 +295,8 @@ path for the old format.
 - State files: `FORMAT_VERSION` in `src/persist.rs`. If you change the format, increase the version.
   The file `format` of the state folder has the version of the state. If it has a different
   version, or if a folder with state has no `format` file, the daemon deletes all state at its
-  start. It keeps only `daemon.lock`, `daemon.pid`, `daemon.sock`, and `watchd.log`. The next
-  `wait` of each session that had a watch gets an error that tells the agent to run the watch
-  command again. An engine state file of a different version goes away at its next read, and the
+  start. It keeps only `daemon.lock`, `daemon.pid`, `daemon.sock`, `watchd.log`, and the watch
+  records that the new format can read. The watches of these records continue with no client
+  action. The next `wait` of each session with a deleted record gets an error that tells the agent
+  to run the watch command again. An engine state file of a different version goes away at its next read, and the
   next check is a first check.

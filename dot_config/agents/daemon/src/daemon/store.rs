@@ -28,7 +28,7 @@ use crate::report::{ReportInput, build_report, render};
 pub const ALL_ENDED: &str = "all MRs merged or closed";
 
 pub const UPGRADE_TEXT: &str =
-    "the watchd state format changed, and the watch of this session ended. Run the watch command again.";
+    "the state format changed. The watch of this session ended. Run the watch command again.";
 
 /// The entries of the state folder that a format change keeps: a running daemon holds them.
 const KEPT_ENTRIES: [&str; 4] = ["daemon.lock", "daemon.pid", "daemon.sock", "watchd.log"];
@@ -144,8 +144,9 @@ impl Store {
         log(&self.dirs, slug, key, message);
     }
 
-    /// No migrations: at a different format, all state goes away, and each session that had a
-    /// watch gets the upgrade error at its next wait. A new folder only gets the format file.
+    /// No migrations: at a different format, all state goes away, except the records that the
+    /// current format can read. Each session of a record that it cannot read gets the upgrade
+    /// error at its next wait. A new folder only gets the format file.
     pub fn reset_on_format_change(&self) {
         let format_path = self.dirs.watchd.join(FORMAT_FILE);
         let format = std::fs::read_to_string(&format_path)
@@ -174,11 +175,29 @@ impl Store {
             let text = std::fs::read_to_string(path).ok()?;
             serde_json::from_str::<serde_json::Value>(&text).ok()
         };
-        let watched = std::fs::read_dir(self.dirs.watchd.join("subs"))
+        let (kept, unreadable): (Vec<_>, Vec<_>) = std::fs::read_dir(self.dirs.watchd.join("subs"))
             .into_iter()
             .flatten()
             .filter_map(|entry| raw(entry.ok()?.path()))
-            .filter_map(|record| record["session"].as_str().map(str::to_string));
+            .map(|record| (serde_json::from_value::<Agent>(record.clone()).ok(), record))
+            .partition(|(sub, _)| sub.is_some());
+        let kept: Vec<Agent> = kept.into_iter().filter_map(|(sub, _)| sub).collect();
+        let watched = unreadable
+            .into_iter()
+            .filter_map(|(_, record)| record["session"].as_str().map(str::to_string));
+        let owner_pid = |id: &str| {
+            raw(self.dirs.session(id))
+                .and_then(|session| session["owner_pid"].as_u64())
+                .and_then(|pid| u32::try_from(pid).ok())
+        };
+        let kept_sessions: BTreeMap<String, Option<u32>> = kept
+            .iter()
+            .filter_map(|sub| session_id(Some(sub.session.clone())).ok())
+            .map(|id| {
+                let pid = owner_pid(&id);
+                (id, pid)
+            })
+            .collect();
         let upgraded = std::fs::read_dir(self.dirs.watchd.join("sessions"))
             .into_iter()
             .flatten()
@@ -191,10 +210,8 @@ impl Store {
             .chain(upgraded)
             .filter_map(|id| session_id(Some(id)).ok())
             .map(|id| {
-                let owner_pid = raw(self.dirs.session(&id))
-                    .and_then(|session| session["owner_pid"].as_u64())
-                    .and_then(|pid| u32::try_from(pid).ok());
-                (id, owner_pid)
+                let pid = owner_pid(&id);
+                (id, pid)
             })
             .collect();
         let mut failed = false;
@@ -208,7 +225,16 @@ impl Store {
                 failed = true;
             }
         }
-        let _ = std::fs::create_dir_all(self.dirs.watchd.join("sessions"));
+        for folder in ["sessions", "subs"] {
+            let _ = std::fs::create_dir_all(self.dirs.watchd.join(folder));
+        }
+        for (id, owner_pid) in kept_sessions {
+            let session = Session {
+                owner_pid,
+                ..Session::default()
+            };
+            self.write_session(&id, &session);
+        }
         for (id, owner_pid) in sessions {
             let session = Session {
                 owner_pid,
@@ -216,6 +242,12 @@ impl Store {
                 ..Session::default()
             };
             self.write_session(&id, &session);
+        }
+        for sub in kept {
+            self.write_sub(&sub);
+            self.update_worktree(&sub.repo, |state| {
+                state.kind.get_or_insert(kind_of(sub.mode));
+            });
         }
         let old = format.filter(|format| !format.is_empty());
         let old = old.as_deref().unwrap_or("none");

@@ -262,9 +262,9 @@ fn network_down() -> &'static Checks {
     })
 }
 
-/// The state folder of a daemon of an older format: a hub watch of the session, an event in its
-/// inbox that the session did not get, a session whose watch the user stopped, and the files that
-/// a format change keeps.
+/// The state folder of a daemon of an older format: a hub watch of the session, a watch of session
+/// `s8` that the new format cannot read, an event in the inbox that the session did not get, a
+/// session whose watch the user stopped, and the files that a format change keeps.
 fn old_state(w: &Watchd, format: Option<&str>) {
     for folder in ["subs", "sessions", "inbox"] {
         std::fs::create_dir_all(w.watchd.join(folder)).unwrap();
@@ -276,13 +276,17 @@ fn old_state(w: &Watchd, format: Option<&str>) {
     std::fs::write(w.watchd.join("watchd.log"), "old line\n").unwrap();
     let id = w.session_id();
     let sub = json!({
-        "version": 4, "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub", "mrs": [],
+        "version": 3, "key": "app", "slug": "app", "repo": w.env.repo, "mode": "hub", "mrs": [],
         "interval": 1, "session": id, "ended_mrs": [],
     });
     std::fs::write(w.watchd.join("subs/app.json"), sub.to_string()).unwrap();
-    let session = json!({"version": 4, "owner_pid": w.session_pid(), "owner_gone_at": null});
+    let unreadable = json!({"version": 3, "key": "old", "watcher": "s8", "session": "s8"});
+    std::fs::write(w.watchd.join("subs/old.json"), unreadable.to_string()).unwrap();
+    let session = json!({"version": 3, "owner_pid": w.session_pid(), "owner_gone_at": null});
     std::fs::write(w.watchd.join(format!("sessions/{id}.json")), session.to_string()).unwrap();
     std::fs::write(w.watchd.join("sessions/stopped.json"), session.to_string()).unwrap();
+    let other = json!({"version": 3, "owner_pid": std::process::id(), "owner_gone_at": null});
+    std::fs::write(w.watchd.join("sessions/s8.json"), other.to_string()).unwrap();
     let routed = ev("pipeline", 5).replacen('}', r#","row":1}"#, 1);
     std::fs::write(w.watchd.join("inbox/app.jsonl"), format!("{routed}\n")).unwrap();
 }
@@ -309,10 +313,10 @@ fn format_change() -> &'static Checks {
             "state",
             r#"{"version": 4, "default_pipeline": {"id": 1, "status": "success"}}"#,
         );
-        let first = w.wait();
+        let unreadable = w.run(w.as_session(w.wait_command(), "s8", std::process::id()));
         c.check(
-            "a format change deletes the state and keeps the lock and the log",
-            "0 4 1 old line yes",
+            "a format change keeps the readable records, the lock, and the log",
+            "1 4 1 old line yes",
             format!(
                 "{} {} {} {} {}",
                 entry_count(&w.watchd.join("subs")),
@@ -322,16 +326,16 @@ fn format_change() -> &'static Checks {
                 yes_no(w.watchd.join("daemon.lock").exists())
             ),
         );
-        let second = w.wait();
+        let again = w.run(w.as_session(w.wait_command(), "s8", std::process::id()));
         c.check(
-            "a wait after an upgrade gets the upgrade error",
+            "a session with a record that the new format cannot read gets the upgrade error",
             "1 yes 0 []",
             format!(
                 "{} {} {} [{}]",
-                first.code,
-                yes_no(first.err.contains(UPGRADE_TEXT)),
-                second.code,
-                second.err
+                unreadable.code,
+                yes_no(unreadable.err.contains(UPGRADE_TEXT)),
+                again.code,
+                again.err
             ),
         );
         let other = w.run(w.as_session(w.wait_command(), "s9", std::process::id()));
@@ -346,32 +350,26 @@ fn format_change() -> &'static Checks {
             "0 [] []",
             format!("{} [{}] [{}]", stopped.code, stopped.out, stopped.err),
         );
-        assert_eq!(w.watch(&[]).code, 0);
         wait_for(10, || w.rounds_of("app") >= 1);
         c.check(
             "the first check after a reset sends no event",
-            "[] [] []",
-            format!(
-                "[{}] [{}] [{}]",
-                norow(&first.out),
-                norow(&second.out),
-                w.inbox_of("app")
-            ),
+            "[]",
+            format!("[{}]", w.inbox_of("app")),
         );
         w.events("app", &[ev("todo", 6)]);
         let run = w.wait();
         c.check(
-            "a new watch after an upgrade gets events again",
-            format!("0 {}", ev("todo", 6)),
-            format!("{} {}", run.code, norow(&run.out)),
+            "a kept watch gets events after a format change with no new watch command",
+            format!("0 {} []", ev("todo", 6)),
+            format!("{} {} [{}]", run.code, norow(&run.out), run.err),
         );
         c
     })
 }
 
 #[test]
-fn a_format_change_deletes_the_state_and_keeps_the_lock_and_the_log() {
-    format_change().assert("a format change deletes the state and keeps the lock and the log");
+fn a_format_change_keeps_the_readable_records_the_lock_and_the_log() {
+    format_change().assert("a format change keeps the readable records, the lock, and the log");
 }
 
 #[test]
@@ -380,8 +378,8 @@ fn a_session_with_a_session_file_but_no_record_gets_no_upgrade_error() {
 }
 
 #[test]
-fn a_wait_after_an_upgrade_gets_the_upgrade_error() {
-    format_change().assert("a wait after an upgrade gets the upgrade error");
+fn a_session_with_an_unreadable_record_gets_the_upgrade_error() {
+    format_change().assert("a session with a record that the new format cannot read gets the upgrade error");
 }
 
 #[test]
@@ -395,8 +393,8 @@ fn the_first_check_after_a_reset_sends_no_event() {
 }
 
 #[test]
-fn a_new_watch_after_an_upgrade_gets_events_again() {
-    format_change().assert("a new watch after an upgrade gets events again");
+fn a_kept_watch_gets_events_after_a_format_change() {
+    format_change().assert("a kept watch gets events after a format change with no new watch command");
 }
 
 fn inode_of(path: &Path) -> u64 {
@@ -424,14 +422,15 @@ fn live_upgrade() -> &'static Checks {
         wait_for(10, || w.rounds_of("app") >= 1 && w.waiting(&w.session_id()));
         let old = w.daemon_pid();
         let kept = kept_entries(&w);
-        let socket = inode_of(&w.watchd.join("daemon.sock"));
         std::fs::write(w.watchd.join("format"), "3\n").unwrap();
         install_copy(&copy);
+        wait_for(10, || w.log_count("state reset: format 3 to 4") == 1);
+        w.events("app", &[ev("todo", 7)]);
         let first = client.wait(10).unwrap();
         c.check(
-            "a live upgrade: the waiting client gets the upgrade error",
-            "1 yes",
-            format!("{} {}", first.code, yes_no(first.err.contains(UPGRADE_TEXT))),
+            "a live upgrade: the waiting client keeps the watch and gets its events",
+            format!("0 {} []", ev("todo", 7)),
+            format!("{} {} [{}]", first.code, norow(&first.out), first.err),
         );
         c.check(
             "a live upgrade: the daemon keeps the lock, PID, socket, and log",
@@ -444,28 +443,13 @@ fn live_upgrade() -> &'static Checks {
                 yes_no(w.daemon_pid() == old && is_daemon(old))
             ),
         );
-        let watch = w.run(watch_copy(&w, &copy, &[]));
-        w.events("app", &[ev("todo", 7)]);
-        let run = w.run(wait_copy(&w, &copy));
-        c.check(
-            "a live upgrade: the same socket serves the new watch, and its events arrive",
-            format!("0 {socket} 0 {} []", ev("todo", 7)),
-            format!(
-                "{} {} {} {} [{}]",
-                watch.code,
-                inode_of(&w.watchd.join("daemon.sock")),
-                run.code,
-                norow(&run.out),
-                run.err
-            ),
-        );
         c
     })
 }
 
 #[test]
-fn a_live_upgrade_the_waiting_client_gets_the_upgrade_error() {
-    live_upgrade().assert("a live upgrade: the waiting client gets the upgrade error");
+fn a_live_upgrade_the_waiting_client_keeps_the_watch_and_gets_its_events() {
+    live_upgrade().assert("a live upgrade: the waiting client keeps the watch and gets its events");
 }
 
 #[test]
@@ -474,19 +458,14 @@ fn a_live_upgrade_the_daemon_keeps_the_lock_pid_socket_and_log() {
 }
 
 #[test]
-fn a_live_upgrade_the_same_socket_serves_the_new_watch_and_its_events_arrive() {
-    live_upgrade().assert("a live upgrade: the same socket serves the new watch, and its events arrive");
-}
-
-#[test]
 fn a_missing_format_file_is_a_format_change() {
     let w = Watchd::new();
     old_state(&w, None);
 
-    let run = w.wait();
+    let run = w.run(w.as_session(w.wait_command(), "s8", std::process::id()));
 
     assert_eq!(run.code, 1, "{}", run.err);
-    assert_eq!(entry_count(&w.watchd.join("subs")), 0);
+    assert_eq!(entry_count(&w.watchd.join("subs")), 1);
     assert_eq!(format_of(&w), "4");
     assert_eq!(w.log_count("state reset: format none to 4"), 1, "{}", w.log());
 }
@@ -560,7 +539,7 @@ fn network_down_no_client_error_subscription_stays() {
 fn a_new_session_id_of_the_same_owner_after_an_upgrade_gets_the_upgrade_error() {
     let w = Watchd::new();
     old_state(&w, Some("3"));
-    let mut command = w.as_session(w.wait_command(), "cleared", w.session_pid());
+    let mut command = w.as_session(w.wait_command(), "cleared", std::process::id());
     command.arg("--rename-owner-session");
 
     let cleared = w.run(command);

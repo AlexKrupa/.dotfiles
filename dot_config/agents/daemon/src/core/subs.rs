@@ -59,7 +59,7 @@ pub struct Session {
     pub replaced: Vec<SessionKey>,
     #[serde(default)]
     pub ended: Vec<SessionKey>,
-    /// The state format changed: the next wait of the session gets the upgrade error.
+    /// A format change deleted a record of the session: the next wait gets the upgrade error.
     #[serde(default)]
     pub upgraded: bool,
 }
