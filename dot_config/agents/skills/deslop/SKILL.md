@@ -1,6 +1,6 @@
 ---
 name: deslop
-argument-hint: "[reply | uncommitted | staged | <path>... | <free-text target>]"
+argument-hint: "[reply | uncommitted | staged | path... | target] (none: branch)"
 description:
   Use when an agent wrote prose that ignores the writing rules - docs, code comments, docstrings,
   and commit messages on the current branch, in uncommitted or staged changes, or in a part of the

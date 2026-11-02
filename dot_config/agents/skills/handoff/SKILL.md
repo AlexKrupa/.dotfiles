@@ -3,7 +3,7 @@ name: handoff
 description: >-
   Use when the user runs /handoff. It frees the context of this session for the same work in a
   fresh session, or parks the work for later.
-argument-hint: "[park] [focus of the next session]"
+argument-hint: "[park] [focus] (none: refresh)"
 disable-model-invocation: true
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/handoff.sh *)

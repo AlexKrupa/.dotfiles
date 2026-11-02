@@ -5,7 +5,7 @@ description:
   for any issue tracker. Run only when the user calls /draft-ticket or when the instructions of
   another skill tell you to run draft-ticket. Do not run it for other requests about tickets,
   issues, or bug reports.
-argument-hint: "<what the ticket is about>"
+argument-hint: "<topic>"
 allowed-tools:
   - Bash(~/.config/agents/skills/draft-ticket/ticket-path.sh *)
   - Bash(~/.config/agents/skills/draft-ticket/ticket-id-rename.sh *)

@@ -4,7 +4,7 @@ description: >-
   Review of a merge request or pull request. Input: a URL, an id, a branch, or the current
   branch. Only GitLab merge requests work now. Adds MR context (description, discussions, labels,
   bot findings) to the branch audit. Read-only.
-argument-hint: "[mr-url | mr-id | branch | <empty>]"
+argument-hint: "[mr-url | mr-id | branch] (none: current branch)"
 disable-model-invocation: true
 allowed-tools:
   - Bash(~/.config/agents/bin/fetch-gitlab-mr.sh *)

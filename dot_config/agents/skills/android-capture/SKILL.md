@@ -5,7 +5,7 @@ description: >-
   device or emulator: for a PR or MR, before and after a change, in light and dark mode, or as a
   visual diff of two states. Also use when a PR draft for an Android UI change needs media and the
   user asks for it.
-argument-hint: "[what to capture]"
+argument-hint: "[target]"
 allowed-tools:
   - Bash(bash ${CLAUDE_SKILL_DIR}/capture.sh *)
   - Bash(~/.config/agents/bin/git-diff-context.sh *)

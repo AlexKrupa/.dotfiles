@@ -4,7 +4,7 @@ description: >-
   Use when the user runs /exec after a superpowers:writing-plans handoff, or when the Superpowers
   pipeline in the user instructions starts the execution of a saved plan. Executes the plan in a
   cleared session in the same herdr pane or, with "keep", in this agent session.
-argument-hint: "[keep] [subagent|native] [low|medium|high|xhigh|max]"
+argument-hint: "[keep] [subagent | native] [low | medium | high | xhigh | max]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/exec.sh *)

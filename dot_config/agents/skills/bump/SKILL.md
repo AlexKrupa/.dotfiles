@@ -1,7 +1,7 @@
 ---
 name: bump
 description: Use when the user asks to check, fix, or make one dependency bump.
-argument-hint: "<PR/MR URL | branch | commit | text>"
+argument-hint: "<mr-url | branch | commit | text>"
 disable-model-invocation: true
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/bump-host.sh *)
