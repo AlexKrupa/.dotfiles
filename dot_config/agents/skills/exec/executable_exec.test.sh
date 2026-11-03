@@ -32,6 +32,7 @@ export PATH="$tmp/bin:$PATH" HERDR_AFTER_TURN="$tmp/bin/after" MOCK_AFTER="$tmp/
 unset NONO_CAP_FILE
 plan="$tmp/plans/2026-09-30-foo.md"
 echo '# Foo plan' >"$plan"
+handoff="After the last task, read $here/SKILL.md, section \"Review handoff\", and follow it with review effort"
 
 # got: waits up to 5 s for the fake herdr-after-turn.sh, then prints what it got.
 got() {
@@ -39,7 +40,7 @@ got() {
   cat "$MOCK_AFTER" 2>/dev/null; rm -f "$MOCK_AFTER"
 }
 
-"$script" --fresh subagent medium "$plan" >/dev/null 2>&1; code=$?
+"$script" --fresh subagent medium medium "$plan" >/dev/null 2>&1; code=$?
 check "fresh subagent: exit 0" 0 "$code"
 check "fresh subagent: pane, clear name, effort, plan command" \
   "w1:p2
@@ -47,29 +48,29 @@ check "fresh subagent: pane, clear name, effort, plan command" \
 2026-09-30-foo
 effort medium
 ---
-/superpowers:subagent-driven-development $plan" "$(got)"
+/superpowers:subagent-driven-development $plan $handoff medium." "$(got)"
 
-"$script" native high "$plan" >/dev/null 2>&1; code=$?
+"$script" native high medium "$plan" >/dev/null 2>&1; code=$?
 check "same session native: exit 0" 0 "$code"
 check "same session native: no clear" \
   "w1:p2
 effort high
 ---
-/superpowers:executing-plans $plan" "$(got)"
+/superpowers:executing-plans $plan $handoff medium." "$(got)"
 
 cd "$tmp"
-"$script" --fresh native high plans/2026-09-30-foo.md >/dev/null 2>&1; code=$?
+"$script" --fresh native high medium plans/2026-09-30-foo.md >/dev/null 2>&1; code=$?
 check "relative path: exit 0" 0 "$code"
 check "relative path: absolute path in plan command" \
-  "/superpowers:executing-plans $plan" "$(got | tail -1)"
+  "/superpowers:executing-plans $plan $handoff medium." "$(got | tail -1)"
 
-MOCK_SLEEP=1 "$script" native high "$plan" >/dev/null 2>&1; code=$?
+MOCK_SLEEP=1 "$script" native high medium "$plan" >/dev/null 2>&1; code=$?
 check "no sandbox: exit 0 before the helper ends" "0 no" \
   "$code $([ -f "$MOCK_AFTER" ] && echo yes || echo no)"
-check "no sandbox: detached helper ends later" "/superpowers:executing-plans $plan" \
+check "no sandbox: detached helper ends later" "/superpowers:executing-plans $plan $handoff medium." \
   "$(got | tail -1)"
 
-out=$(MOCK_SLEEP=1 NONO_CAP_FILE="$tmp/cap" "$script" --fresh subagent medium "$plan" 2>&1)
+out=$(MOCK_SLEEP=1 NONO_CAP_FILE="$tmp/cap" "$script" --fresh subagent medium medium "$plan" 2>&1)
 code=$?
 check "sandbox: exit 0 after the helper ends" "0 yes" \
   "$code $([ -f "$MOCK_AFTER" ] && echo yes || echo no)"
@@ -80,16 +81,46 @@ check "sandbox: pane, clear name, effort, plan command" \
 2026-09-30-foo
 effort medium
 ---
-/superpowers:subagent-driven-development $plan" "$(got)"
+/superpowers:subagent-driven-development $plan $handoff medium." "$(got)"
 
-"$script" native high "$tmp/plans/none.md" >/dev/null 2>&1; code=$?
+"$script" native high xhigh "$plan" >/dev/null 2>&1; code=$?
+check "review effort: exit 0" 0 "$code"
+check "review effort: in the handoff sentence" \
+  "/superpowers:executing-plans $plan $handoff xhigh." "$(got | tail -1)"
+
+"$script" review medium "$plan" >/dev/null 2>&1; code=$?
+check "review: exit 0" 0 "$code"
+check "review: pane, clear name, effort, review command" \
+  "w1:p2
+--clear
+2026-09-30-foo execution
+effort medium
+---
+/exec review $plan" "$(got)"
+
+out=$(MOCK_SLEEP=1 NONO_CAP_FILE="$tmp/cap" "$script" review high "$plan" 2>&1)
+code=$?
+check "review sandbox: exit 0 after the helper ends" "0 yes" \
+  "$code $([ -f "$MOCK_AFTER" ] && echo yes || echo no)"
+check "review sandbox: result line" "exec review - high - $plan" "$out"
+check "review sandbox: review command" "/exec review $plan" "$(got | tail -1)"
+
+"$script" native high medium "$tmp/plans/none.md" >/dev/null 2>&1; code=$?
 check "no plan file: exit 1" 1 "$code"
-"$script" inline high "$plan" >/dev/null 2>&1; code=$?
+"$script" inline high medium "$plan" >/dev/null 2>&1; code=$?
 check "bad mode: exit 1" 1 "$code"
-"$script" native huge "$plan" >/dev/null 2>&1; code=$?
+"$script" native huge medium "$plan" >/dev/null 2>&1; code=$?
 check "bad effort: exit 1" 1 "$code"
-HERDR_ENV= "$script" native high "$plan" >/dev/null 2>&1; code=$?
+HERDR_ENV= "$script" native high medium "$plan" >/dev/null 2>&1; code=$?
 check "not in herdr: exit 1" 1 "$code"
+"$script" native high "$plan" >/dev/null 2>&1; code=$?
+check "no review effort: exit 1" 1 "$code"
+"$script" native high huge "$plan" >/dev/null 2>&1; code=$?
+check "bad review effort: exit 1" 1 "$code"
+"$script" review huge "$plan" >/dev/null 2>&1; code=$?
+check "review bad effort: exit 1" 1 "$code"
+"$script" review medium >/dev/null 2>&1; code=$?
+check "review no plan path: exit 1" 1 "$code"
 check "errors: no herdr-after-turn.sh" "" "$(got)"
 
 exit $fail

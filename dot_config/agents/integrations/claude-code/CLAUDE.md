@@ -18,8 +18,8 @@ accept the prompt.
 
 ## exec
 
-In the report of step 6, add one more sentence after "Do not type in this pane until the plan
-command shows.":
+The report of step 7 and the report of "Review handoff" end with a "Do not type in this pane"
+sentence. Add one more sentence after it:
 
 - Out of a `nono` sandbox: "The effort stays set for later sessions of this model: `/effort auto`
   resets it."
