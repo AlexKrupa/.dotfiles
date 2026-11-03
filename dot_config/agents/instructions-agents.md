@@ -33,12 +33,12 @@
 
 #### Superpowers
 
-- Use brainstorming in these cases only: I ask to brainstorm, I ask for a design, or the work is
-  larger than one session. For a change to a few files, implement it directly. This rule overrides
-  the `using-superpowers` and `brainstorming` skills.
+- Use `superpowers:brainstorming` in these cases only: I ask to brainstorm, I ask for a design, or
+  the work is larger than one session. For a change to a few files, implement it directly. This
+  rule overrides the `superpowers:using-superpowers` and `superpowers:brainstorming` skills.
 - Spec-to-draft pipeline: after I approve a spec, run these steps with no stop, unless I say
   otherwise
-  1. superpowers:writing-plans. Do not ask for a plan review or an execution mode.
+  1. `superpowers:writing-plans`. Do not ask for a plan review or an execution mode.
   2. Read `~/.config/agents/skills/exec/SKILL.md` and follow it with the saved plan
   3. `exec` does the review and the PR draft
 - Git: make commits (vertical slices). The `draft-pr` file is permitted.
