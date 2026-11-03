@@ -42,8 +42,8 @@
   2. Read `~/.config/agents/skills/exec/SKILL.md` and follow it with the saved plan
   3. `exec` does the review and the PR draft
 - Git: make commits (vertical slices). The `draft-pr` file is permitted.
-- Finishing a development branch: read `~/.config/agents/skills/exec/SKILL.md`, section "Review
-  handoff", and follow it
+- At the end of a plan execution (`superpowers:finishing-a-development-branch`): read
+  `~/.config/agents/skills/exec/SKILL.md`, section "Review handoff", and follow it
 
 ### Shorthand
 
