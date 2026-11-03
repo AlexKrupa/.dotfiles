@@ -434,7 +434,7 @@ fn board_draws_the_board_file_again_after_a_change() {
         drawn,
         [
             "No report yet.\n",
-            "\x1b[2m10:00\x1b[0m\n\n\x1b[1m\x1b[90mINFO\x1b[0m\n\x1b[1m1 \x1b[0m first row"
+            "\x1b[2m10:00\x1b[0m\n\n\n\x1b[1mProject\x1b[0m\n\n  \x1b[1m\x1b[90mINFO\x1b[0m\n\n  \x1b[1m1 \x1b[0m first row"
         ]
     );
 }

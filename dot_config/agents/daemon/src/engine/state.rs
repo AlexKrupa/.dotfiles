@@ -102,6 +102,8 @@ pub struct MrState {
     pub base: Option<String>,
     pub head: Option<String>,
     pub resolved: Option<Vec<String>>,
+    #[serde(default)]
+    pub url: Option<String>,
 }
 
 pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<T>, EngineError> {

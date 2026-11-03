@@ -380,6 +380,15 @@ fn cell(text: &str) -> String {
 
 /// One line of 200 characters at most.
 pub(crate) fn short(text: &str) -> String {
+    let one_line = one_line(text);
+    match one_line.chars().count() > 200 {
+        true => one_line.chars().take(197).collect::<String>() + "...",
+        false => one_line,
+    }
+}
+
+/// The text with each line break as one space.
+pub(crate) fn one_line(text: &str) -> String {
     let mut one_line = String::new();
     let mut in_break = false;
     for char in text.chars() {
@@ -390,10 +399,7 @@ pub(crate) fn short(text: &str) -> String {
         }
         in_break = char == '\r' || char == '\n';
     }
-    match one_line.chars().count() > 200 {
-        true => one_line.chars().take(197).collect::<String>() + "...",
-        false => one_line,
-    }
+    one_line
 }
 
 pub(crate) fn what(row: &Row) -> String {

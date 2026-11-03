@@ -1174,9 +1174,7 @@ impl Store {
         let (hour, minute, _) = local_time(now_seconds());
         let time = format!("{hour:02}:{minute:02}");
         let text = render(mode, &time, mrs, &data);
-        if mode == Mode::Hub {
-            self.write_board(key, &Board::of(&time, &data));
-        }
+        self.write_board(key, &Board::of(&time, &data));
         Ok(text)
     }
 
@@ -1482,9 +1480,18 @@ mod tests {
         store.ensure_dirs().unwrap();
 
         let text = store.report("app", Mode::Hub, &[], &ReportInput::default()).unwrap();
+        store
+            .report("app-a", Mode::Author, &[], &ReportInput::default())
+            .unwrap();
+        store
+            .report("app-r-review-7", Mode::Review, &[7], &ReportInput::default())
+            .unwrap();
 
         let board: Board = serde_json::from_str(&std::fs::read_to_string(store.dirs.board("app")).unwrap()).unwrap();
         assert_eq!(board.time, text);
         assert_eq!(board.rows, []);
+        for key in ["app-a", "app-r-review-7"] {
+            assert!(store.dirs.board(key).exists(), "no board file of {key}");
+        }
     }
 }

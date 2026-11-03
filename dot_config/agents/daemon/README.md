@@ -55,6 +55,8 @@ Callers:
 - `bump`, `hub`, `review-pr`, `debug-gitlab`, and `skills/work/work-start.sh` run `watchd kind`. It
   sets the kind of work of the worktree of the current folder.
 - The herdr plugin `watch.sh` reads the stdout of `watchd follow`. It does not read the state files.
+- `watchd kind hub` and the `watchd watch` of an author or review watch run
+  `skills/work/board-pane.sh`. The script opens the board pane, which runs `watchd board`.
 
 ## Managed repos
 
@@ -220,10 +222,10 @@ the `changed` signal, and the waiting connections read the files again.
 | `src/daemon/` | The main loop, the local round, the managed loops, the checks, the lock, the restart. `store.rs` writes the state files. |
 | `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
-| `src/board.rs` | The text of `watchd board`: one block for each row, with the URL of the comment, the MR, or the pipeline |
+| `src/board.rs` | The text of `watchd board`: one group for each MR with the status line and the MR URL, then the rows, with the URL of the comment or the pipeline |
 | `src/core/` | Logic with no input or output: agent records, pending items, event log lines, worktree state and targets, the event kinds and needs of each mode (`filter.rs`) |
 | `src/engine/` | The GitLab checks. `hub.rs` watches the project. `mrs.rs` watches the MRs of a worktree or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
-| `src/workspaces.rs` | The skill scripts of the board pane, the agent starts, and the agent list |
+| `src/workspaces.rs` | The skill scripts of the board pane (`work/board-pane.sh`), the agent starts, and the agent list |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
 | `integrations/claude-code/` | The Claude Code plugin: hooks, `wait.sh`, `context.sh`, and the runner file |
 | `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
@@ -249,7 +251,7 @@ the worktree. A review key also has `-review-IID` at the end.
 | `watchd/inbox/KEY.jsonl` | Events that no waiter took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The pending items of the key |
-| `watchd/items/KEY.board` | The newest hub report as JSON. `watchd board` draws it at the width of its pane. |
+| `watchd/items/KEY.board` | The newest report of the key as JSON, for each mode. `watchd board` draws it at the width of its pane, with the MR state of `watch-gitlab/KEY.json`, or of `watch-gitlab/SLUG-own.json` for the hub. |
 | `watchd/items/KEY.retries` | The retry count of each failed job of the hub, as `<pipeline id>:<job name>` |
 | `watch-gitlab/KEY.json` | The engine state: what GitLab showed at the last check |
 

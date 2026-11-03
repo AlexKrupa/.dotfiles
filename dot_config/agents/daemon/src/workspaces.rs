@@ -5,8 +5,9 @@ use std::path::{Path, PathBuf};
 use crate::paths::home;
 
 pub trait Workspaces: Send + Sync {
-    /// Opens the board pane next to the current pane, if none is open.
-    fn open_board(&self, repo: &Path) -> Result<(), String>;
+    /// Opens the board pane next to the current pane, if none is open. The pane runs
+    /// `watchd board --repo <repo>` with the board args.
+    fn open_board(&self, repo: &Path, board_args: &[String]) -> Result<(), String>;
 
     /// Starts an agent on the existing branch, in its own worktree workspace.
     fn start_agent(&self, repo: &Path, start: &AgentStart) -> Result<(), StartError>;
@@ -65,8 +66,13 @@ impl ScriptWorkspaces {
 }
 
 impl Workspaces for ScriptWorkspaces {
-    fn open_board(&self, repo: &Path) -> Result<(), String> {
-        self.run_skill_script("hub/hub-board.sh", &["--repo".as_ref(), repo.as_os_str()], repo)
+    fn open_board(&self, repo: &Path, board_args: &[String]) -> Result<(), String> {
+        let mut args: Vec<&std::ffi::OsStr> = vec!["--repo".as_ref(), repo.as_os_str()];
+        if !board_args.is_empty() {
+            args.push("--".as_ref());
+            args.extend(board_args.iter().map(std::ffi::OsStr::new));
+        }
+        self.run_skill_script("work/board-pane.sh", &args, repo)
             .map(|_| ())
             .map_err(|(_, text)| text)
     }
@@ -123,8 +129,9 @@ impl FakeWorkspaces {
 
 #[cfg(feature = "test-support")]
 impl Workspaces for FakeWorkspaces {
-    fn open_board(&self, repo: &Path) -> Result<(), String> {
-        self.call(&format!("open_board {}", repo.display()));
+    fn open_board(&self, repo: &Path, board_args: &[String]) -> Result<(), String> {
+        let args: String = board_args.iter().map(|arg| format!(" {arg}")).collect();
+        self.call(&format!("open_board {}{args}", repo.display()));
         Ok(())
     }
 

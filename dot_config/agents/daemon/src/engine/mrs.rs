@@ -687,6 +687,7 @@ fn new_state(mr: &NormMr, old: &MrState, me: &str) -> MrState {
         base: mr.base.clone(),
         head: mr.head.clone(),
         resolved: Some(mr.resolved_mine.iter().map(|thread| thread.id.clone()).collect()),
+        url: Some(mr.url.clone()),
     }
 }
 
@@ -1215,6 +1216,17 @@ esac
         let saved = std::fs::read_to_string(&ctx.state).unwrap();
         let state: MrsState = serde_json::from_str(&saved).unwrap();
         assert_eq!(state.mrs.len(), 20);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_saves_the_mr_url() {
+        let ctx = context("url", vec![1]);
+
+        check_mrs(&ctx).await.unwrap();
+
+        let saved = std::fs::read_to_string(&ctx.state).unwrap();
+        let state: MrsState = serde_json::from_str(&saved).unwrap();
+        assert_eq!(state.mrs["1"].url.as_deref(), Some("u"));
     }
 
     #[tokio::test(flavor = "multi_thread")]

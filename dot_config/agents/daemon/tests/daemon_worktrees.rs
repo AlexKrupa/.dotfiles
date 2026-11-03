@@ -915,12 +915,42 @@ fn kind_hub_opens_the_board() {
 }
 
 #[test]
+fn author_watch_opens_the_board() {
+    let w = Watchd::new();
+    let wt = stacked_worktree(&w);
+    let calls = || std::fs::read_to_string(w.workspaces().join("calls")).unwrap_or_default();
+
+    let mut watch = w.watch_command(&[]);
+    watch.current_dir(&wt);
+    let run = w.run(watch);
+
+    assert_eq!(run.code, 0, "{}", run.err);
+    let wt = wt.canonicalize().unwrap();
+    assert_eq!(calls(), format!("open_board {}\n", wt.display()));
+}
+
+#[test]
+fn review_watch_opens_the_board_with_review_flags() {
+    let w = Watchd::new();
+    let wr = review_worktree(&w, "r");
+    let calls = || std::fs::read_to_string(w.workspaces().join("calls")).unwrap_or_default();
+
+    let mut watch = w.watch_command(&["--review", "--mr", "7"]);
+    watch.current_dir(&wr);
+    let run = w.run(watch);
+
+    assert_eq!(run.code, 0, "{}", run.err);
+    let wr = wr.canonicalize().unwrap();
+    assert_eq!(calls(), format!("open_board {} --review --mr 7\n", wr.display()));
+}
+
+#[test]
 fn kind_hub_runs_the_board_script_of_the_scripts_folder() {
     use std::os::unix::fs::PermissionsExt;
     let w = Watchd::new();
     let scripts = w.env.dir.join("scripts");
-    std::fs::create_dir_all(scripts.join("hub")).unwrap();
-    let script = scripts.join("hub/hub-board.sh");
+    std::fs::create_dir_all(scripts.join("work")).unwrap();
+    let script = scripts.join("work/board-pane.sh");
     std::fs::write(&script, "#!/bin/sh\necho \"$@\" >\"$(dirname \"$0\")/../args\"\n").unwrap();
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
 

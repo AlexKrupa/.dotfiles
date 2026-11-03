@@ -488,20 +488,31 @@ from a design spec that the user approved.
 
 - W13.1 `watchd board` shows the current hub report and draws it again after each event, and router
   events stay visible after the notification.
-- W13.2 The board is a persistent pane to the right of the hub agent pane, and it opens by itself at
-  hub start.
-- W13.3 (spec) `watchd kind hub` opens the board pane, and if a board pane of the repo exists, it
-  opens no second pane.
-- W13.4 (spec) If the board pane cannot open, `watchd kind hub` prints the error and exits 0.
+- W13.2 The board is a persistent pane to the right of the agent pane in the hub workspace and in
+  each workspace with an author or review watch. It opens by itself at hub start and at the first
+  watch.
+- W13.3 (spec) `watchd kind hub` and the `watchd watch` of an author or review watch open the board
+  pane. If the workspace has a board pane, they open no second pane.
+- W13.4 (spec) If the board pane cannot open, `watchd kind hub` or `watchd watch` prints the error
+  and exits 0.
 - W13.5 The daemon writes the board rows as JSON for `watchd board`, and `watchd report` and the
   agents keep the Markdown text.
 - W13.6 The board shows text formatted for the terminal, not a raw Markdown table.
-- W13.7 The board draws one block for each row with the number, MR, what happened, and proposal,
-  under a heading for each section.
+- W13.7 (spec) The board draws one group for each MR: the title, the status line, and the MR URL,
+  then the rows of the MR under a heading for each section. Each row has the number, what happened,
+  and the proposal.
 - W13.8 The board wraps the text to the pane width and draws again when the pane size changes.
 - W13.9 The board shows the "Needs you" heading in red and the "Agent" heading in yellow.
-- W13.10 Each board row has a clickable terminal link to its MR or directly to the comment, and the
-  board has no URL list.
+- W13.10 Each MR header has a clickable terminal link to the MR, and each row has a link directly to
+  its comment, pipeline, or job. The board has no URL list.
+- W13.11 (spec) The status line of an MR shows `merged` or `closed`. Else it shows the draft state,
+  `ready to merge`, the approvers, and a local conflict, joined with ` - `.
+- W13.12 (spec) The board shows no rows for approval, draft, ready, merged, closed, mergeable, and
+  passed pipeline events, because the status line shows them. The other rows keep their numbers.
+- W13.13 (spec) The MR header shows the MR URL in dim. A row with the MR URL shows no URL line.
+- W13.14 (spec) The board pane stays until the user closes the workspace.
+- W13.15 (spec) The board pane of a review watch runs `watchd board --review --mr IID`, and it shows
+  the report of the review key.
 
 ## W14 Notifications
 

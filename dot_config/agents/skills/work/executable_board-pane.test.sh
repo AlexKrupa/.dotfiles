@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Checks hub-board.sh with a fake herdr.
+# Checks board-pane.sh with a fake herdr.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
-script="$here/hub-board.sh"
+script="$here/board-pane.sh"
 d=$(cd "$(mktemp -d)" && pwd -P) || exit 1
 trap 'rm -rf "$d"' EXIT
 fail=0
@@ -52,6 +52,13 @@ check "board pane exists: no split" "" "$(grep -E 'split|run|rename' "$MOCK_LOG"
 echo '{"result":{"panes":[]}}' >"$MOCK_PANES"
 out=$(MOCK_FAIL=split "$script" --repo "$repo" 2>&1); code=$?
 check "split fails: exit 1" 1 "$code"
-check "split fails: herdr text" "hub-board: no room for a split" "$out"
+check "split fails: herdr text" "board-pane: no room for a split" "$out"
+
+echo '{"result":{"panes":[]}}' >"$MOCK_PANES"
+: >"$MOCK_LOG"
+"$script" --repo "$repo" -- --review --mr 42; code=$?
+check "flags are quoted: exit 0" 0 "$code"
+check "flags are quoted" "herdr pane run w1:p9 watchd board --repo $d/my\\ repo --review --mr 42" \
+  "$(grep 'pane run' "$MOCK_LOG")"
 
 exit "$fail"
