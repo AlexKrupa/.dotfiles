@@ -268,7 +268,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
     code
 }
 
-/// The flags of `watchd board` that give the key of the target. A review watch has one MR.
+/// A review watch has exactly one MR.
 fn board_args(mode: Mode, mrs: &[u64]) -> Vec<String> {
     match mode {
         Mode::Author | Mode::Hub => Vec::new(),
@@ -570,8 +570,7 @@ pub async fn board(args: Vec<String>) -> i32 {
     }
 }
 
-/// Draws again only for a new text, so that a change of the board file, of a state file, or of
-/// the pane width draws again.
+/// It compares the text, so that a change of a state file also draws again.
 fn draw_board(dirs: &StateDirs, target: &Target, shown: &mut Option<String>) {
     let file = std::fs::read_to_string(dirs.board(&target.key)).unwrap_or_default();
     let board = serde_json::from_str::<Board>(&file).unwrap_or_default();
@@ -616,7 +615,6 @@ fn board_status(dirs: &StateDirs, target: &Target) -> Status {
     Status { mrs, known }
 }
 
-/// The data of a state file of the current format.
 fn current<T: serde::de::DeserializeOwned>(path: &Path) -> Option<T> {
     match persist::load(path) {
         Ok(Some(Load::Current(data))) => Some(data),

@@ -679,7 +679,10 @@ impl Store {
     /// An ended key keeps its results until the next wait of its session.
     pub fn sweep(&self) {
         let mut keys = Vec::new();
-        for (dir, suffixes) in [("inbox", &[".jsonl", ".error"][..]), ("items", &[".json"][..])] {
+        for (dir, suffixes) in [
+            ("inbox", &[".jsonl", ".error"][..]),
+            ("items", &[".json", ".board"][..]),
+        ] {
             let Ok(entries) = std::fs::read_dir(self.dirs.watchd.join(dir)) else {
                 continue;
             };
@@ -713,6 +716,7 @@ impl Store {
             }
             if is_worktree_key(&key) {
                 remove(&self.dirs.items(&key));
+                remove(&self.dirs.board(&key));
             }
             self.log("", &key, "results of an ended subscription removed");
         }
@@ -1467,6 +1471,25 @@ mod tests {
 
         assert!(text.contains("router cell 1"), "{text}");
         assert_eq!(store.routing("app").handled, [3]);
+    }
+
+    #[test]
+    fn sweep_removes_the_board_file_of_an_ended_worktree_key() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-sweep-board", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
+        store.ensure_dirs().unwrap();
+        let key = "app-0123456789ab";
+        store.report(key, Mode::Author, &[], &ReportInput::default()).unwrap();
+        store.report("app", Mode::Hub, &[], &ReportInput::default()).unwrap();
+
+        store.sweep();
+
+        assert!(!store.dirs.board(key).exists(), "the board file of {key} stays");
+        assert!(store.dirs.board("app").exists(), "the hub board file is gone");
     }
 
     #[test]

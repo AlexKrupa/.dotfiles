@@ -1,5 +1,4 @@
-//! The report of `watchd board`: one group for each MR, with the title, the status line, and the MR
-//! URL, then the rows of the MR, wrapped to the width of the pane. A URL is plain text.
+//! The text of `watchd board`: one group for each MR, wrapped to the width of the pane.
 
 use std::collections::BTreeMap;
 
@@ -7,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::engine::event::{Event, EventKind};
 use crate::engine::state::MrState;
-use crate::report::{ReportData, RowSection, one_line, what};
+use crate::report::{ReportData, RowSection, one_line, what, without_anchor};
 
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Board {
@@ -55,12 +54,10 @@ const SECTION_INDENT: usize = 2;
 /// The columns left of the row text, after the section indent. The row number is in them.
 const INDENT: usize = 3;
 
-/// The approvers that the status line names. It counts the others.
 const SHOWN_APPROVERS: usize = 3;
 
 const SECTIONS: [RowSection; 3] = [RowSection::NeedsYou, RowSection::Agent, RowSection::Info];
 
-/// The parts of the MR state, joined with ` - `. A merged or closed MR has no other part.
 pub fn status_line(mr: &MrState, local_conflict: bool) -> Option<String> {
     if let Some(state) = mr
         .state
@@ -94,7 +91,6 @@ pub fn status_line(mr: &MrState, local_conflict: bool) -> Option<String> {
     }
 }
 
-/// The rows of one MR, or of no MR for `iid` `None`.
 struct Group<'a> {
     iid: Option<u64>,
     rows: Vec<&'a BoardRow>,
@@ -119,7 +115,7 @@ impl Board {
                 mr_url: row
                     .iid
                     .and_then(|iid| data.known.get(&iid)?.url.as_deref())
-                    .map(|url| url.split('#').next().unwrap_or(url).to_string())
+                    .map(without_anchor)
                     .filter(|url| !url.is_empty()),
                 what: one_line(&what(row)),
                 result: one_line(&row.result),
@@ -143,7 +139,6 @@ impl Board {
         lines.join("\n")
     }
 
-    /// The MRs of the status first, then the MR with the most urgent row, then the rows with no MR.
     fn groups(&self, status: &Status) -> Vec<Group<'_>> {
         let mut groups: Vec<Group> = status
             .mrs
@@ -177,7 +172,6 @@ impl Board {
 }
 
 impl Group<'_> {
-    /// Two empty lines, the header, then each section with rows.
     fn draw(&self, columns: usize, status: &Status) -> Vec<String> {
         let known = self.iid.and_then(|iid| status.known.get(&iid));
         let mr_url = known
@@ -229,7 +223,6 @@ impl Group<'_> {
     }
 }
 
-/// The number, the text, the `->` result, and the URL if it is not the MR URL.
 fn draw_row(row: &BoardRow, mr_url: Option<&str>, columns: usize) -> Vec<String> {
     let width = columns.saturating_sub(SECTION_INDENT + INDENT).max(10);
     let indent = " ".repeat(SECTION_INDENT + INDENT);
@@ -260,7 +253,7 @@ fn urgency(section: RowSection) -> u8 {
     }
 }
 
-/// An event that the status line of its MR shows. A failed pipeline has jobs.
+/// The events that go on the status line, not in a row. Only a failed pipeline has jobs.
 fn is_state_change(event: &Event) -> bool {
     match event.kind {
         EventKind::Approved

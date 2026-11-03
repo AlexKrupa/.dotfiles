@@ -109,7 +109,7 @@ fn number_of(value: &serde_json::Value) -> Option<u64> {
     text_of(value).parse().ok()
 }
 
-fn without_anchor(url: &str) -> String {
+pub(crate) fn without_anchor(url: &str) -> String {
     url.split('#').next().unwrap_or_default().to_string()
 }
 

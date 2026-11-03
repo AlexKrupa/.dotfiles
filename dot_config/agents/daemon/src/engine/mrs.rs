@@ -994,6 +994,13 @@ mod tests {
     }
 
     #[test]
+    fn check_saves_the_mr_url() {
+        let (state, _) = compare(&mr(|_| {}), None);
+
+        assert_eq!(state.mrs["5"].url.as_deref(), Some("u"));
+    }
+
+    #[test]
     fn transient_merge_status_keeps_the_last_stable_values() {
         let (old, _) = compare(
             &mr(|m| {
@@ -1216,17 +1223,6 @@ esac
         let saved = std::fs::read_to_string(&ctx.state).unwrap();
         let state: MrsState = serde_json::from_str(&saved).unwrap();
         assert_eq!(state.mrs.len(), 20);
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn check_saves_the_mr_url() {
-        let ctx = context("url", vec![1]);
-
-        check_mrs(&ctx).await.unwrap();
-
-        let saved = std::fs::read_to_string(&ctx.state).unwrap();
-        let state: MrsState = serde_json::from_str(&saved).unwrap();
-        assert_eq!(state.mrs["1"].url.as_deref(), Some("u"));
     }
 
     #[tokio::test(flavor = "multi_thread")]
