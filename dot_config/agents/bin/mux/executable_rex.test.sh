@@ -113,7 +113,7 @@ check "a failed rex call in pane-labeled: rex stderr" 'Error: block target "b9" 
 # - blocks.<session>: the output of `block ls -s <session> --json`
 # - <block>.<method>: the output of `block call -b <block> <method>`, default {}
 # - <block>.gone: each `block call -b <block>` fails, as for a block that `block ls` still lists
-# - events: the lines of `rex events`, which then stays open
+# - events: the lines of `rex events` after its client_connected line. Then the stream stays open.
 # `ls --json` prints $MOCK_SESSIONS. `block inspect` gives the session s1. `new` gives the
 # session s9 with the block b9.
 mock=$tmp/mock
@@ -128,7 +128,7 @@ case "$1 $2" in
   "block call")
     if [ -f "$MOCK_DIR/$4.gone" ]; then echo "Error: block target \"$4\" not found" >&2; exit 3; fi
     if [ -f "$MOCK_DIR/$4.$5" ]; then cat "$MOCK_DIR/$4.$5"; else echo '{}'; fi ;;
-  "events -s") cat "$MOCK_DIR/events" 2>/dev/null; exec sleep 30 ;;
+  "events -s") echo '{"type":"client_connected"}'; cat "$MOCK_DIR/events" 2>/dev/null; exec sleep 30 ;;
   "new "*) echo '{"session_id":"s9","initial_windows":[{"window_id":"w9","block_ids":["b9"]}]}' ;;
   *) echo '{}' ;;
 esac
@@ -177,6 +177,19 @@ rex send-key -b b1 enter" "$(grep -v -e program_status -e ' pwd$' "$MOCK_LOG")"
 check "agent-start: reads the status until it has a record" yes \
   "$([ "$(grep -c program_status "$MOCK_LOG")" -ge 2 ] && echo yes || echo no)"
 
+# Each argument comes back unchanged from a parse in fish and in a POSIX shell.
+reset_mock
+echo '{"pwd":"file://host/repo"}' >"$mock/b1.pwd"
+status idle >"$mock/b1.program_status"
+args=("it's" 'x\' 'a\\b' '\'"'"'$(echo INJECTED)"\'"'" '$HOME (echo S) `echo T`')
+"$script" agent-start b1 feat printf -- '[%s]' "${args[@]}"
+sent=$(sed -n 's/^rex send -b b1 //p' "$MOCK_LOG")
+expected=$(printf '[%s]' "${args[@]}")
+check "agent-start quotes the arguments for sh" "$expected" "$(sh -c "$sent" 2>&1)"
+if command -v fish >/dev/null; then
+  check "agent-start quotes the arguments for fish" "$expected" "$(fish --no-config -c "$sent" 2>&1)"
+fi
+
 reset_mock
 echo '{"pwd":"file://host/repo"}' >"$mock/b1.pwd"
 echo '{"records":[]}' >"$mock/b1.program_status"
@@ -202,11 +215,24 @@ check "pane-run sends after the wait also with no reported directory: send" "rex
   "$(grep '^rex send ' "$MOCK_LOG")"
 
 reset_mock
-out=$("$script" agent-prompt b1 $'line 1\nline 2' 2>&1); code=$?
-check "agent-prompt pastes the text, then presses enter: exit 0" 0 "$code"
-check "agent-prompt pastes the text, then presses enter: rex calls" \
-  "$(printf 'rex send -b b1 \033[200~line 1|line 2\033[201~\nrex send-key -b b1 enter')" \
+status idle >"$mock/b1.program_status"
+out=$("$script" agent-prompt b1 $'line 1\nline 2\e[201~' 2>&1); code=$?
+check "agent-prompt pastes the text with no ESC, then presses enter: exit 0" 0 "$code"
+check "agent-prompt pastes the text with no ESC, then presses enter: rex calls" \
+  "$(printf 'rex block call -b b1 program_status\nrex send -b b1 \033[200~line 1|line 2[201~\033[201~\nrex send-key -b b1 enter')" \
   "$(cat "$MOCK_LOG")"
+
+reset_mock
+echo '{"records":[]}' >"$mock/b1.program_status"
+err=$("$script" agent-prompt b1 hi 2>&1 >/dev/null); code=$?
+check "agent-prompt in a pane with no agent: exit 1 and no send" "1 mux/rex: no agent in b1 0" \
+  "$code $err $(grep -c '^rex send' "$MOCK_LOG")"
+
+reset_mock
+status blocked >"$mock/b1.program_status"
+err=$("$script" agent-prompt b1 hi 2>&1 >/dev/null); code=$?
+check "agent-prompt to a blocked agent: exit 1 and no send" \
+  "1 mux/rex: the agent in b1 waits for an answer 0" "$code $err $(grep -c '^rex send' "$MOCK_LOG")"
 
 reset_mock
 status idle >"$mock/b1.program_status"
@@ -305,13 +331,13 @@ reset_mock
 export MOCK_SESSIONS='{"sessions":[{"session_id":"s1","label":"my-repo"},{"session_id":"s3","label":"my-repo/feat"}]}'
 out=$("$script" worktree-list "$repo" 2>&1); code=$?
 check "worktree-list prints the session of an open worktree: exit 0" 0 "$code"
-check "worktree-list prints the session of an open worktree, no prunable worktree: output" \
-  $'main\t$tmp/my-repo\t\nAB-1/new-thing\t$tmp/worktrees/my-repo/AB-1/new-thing\t\nfeat\t$tmp/worktrees/my-repo/feat\ts3' \
+check "worktree-list prints the session of an open worktree and of the main checkout, no prunable worktree: output" \
+  $'main\t$tmp/my-repo\ts1\nAB-1/new-thing\t$tmp/worktrees/my-repo/AB-1/new-thing\t\nfeat\t$tmp/worktrees/my-repo/feat\ts3' \
   "${out//$tmp/\$tmp}"
 
 out=$("$script" worktree-list "$tmp/worktrees/my-repo/feat" 2>&1); code=$?
 check "worktree-list from a linked worktree: the same repo name" \
-  $'main\t$tmp/my-repo\t\nAB-1/new-thing\t$tmp/worktrees/my-repo/AB-1/new-thing\t\nfeat\t$tmp/worktrees/my-repo/feat\ts3' \
+  $'main\t$tmp/my-repo\ts1\nAB-1/new-thing\t$tmp/worktrees/my-repo/AB-1/new-thing\t\nfeat\t$tmp/worktrees/my-repo/feat\ts3' \
   "${out//$tmp/\$tmp}"
 
 err=$("$script" worktree-create "$repo" feat 2>&1 >/dev/null); code=$?

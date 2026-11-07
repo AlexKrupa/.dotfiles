@@ -1,4 +1,4 @@
--- Migrated from Herdr (~/.config/herdr/config.toml). Prefix: ctrl+space.
+-- Prefix: ctrl+space.
 
 -- Send the prefix key to programs that use it.
 rex.bind("ctrl+space>ctrl+space", "pane.send_key", { key = "ctrl+space" })
@@ -101,7 +101,6 @@ local shell = "com.superlogical.terminal.shell"
 rex.bind("cmd+p", "pane.go_to")
 rex.bind("alt+shift+s", "pane.go_to")
 
--- The cwd of the foreground program, else the directory that the block reported last.
 local function block_cwd(block_id)
   local process = rex.block.call(terminal, "process", { block_id = block_id })
   if process and process.foreground and process.foreground.cwd then
@@ -124,7 +123,6 @@ local function split_right(ctx, label, options, focus)
   if err ~= nil then error(err, 0) end
 end
 
--- The blocks of the window that has block_id, or nil.
 local function window_blocks(block_id)
   local view, err = rex.session.view{}
   if err ~= nil then error(err, 0) end

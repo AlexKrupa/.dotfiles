@@ -1,14 +1,13 @@
 #!/bin/bash
 # Usage: rex.sh <operation> [arguments]
 # The Rex backend of bin/mux.sh, with the same operations, output and exit codes. A workspace is a
-# Rex session, a pane is a Rex block.
+# Rex session. A pane is a Rex block.
 set -uo pipefail
 
 die() { echo "mux/rex: $1" >&2; exit 1; }
 
 rex_cli=${REX_BIN_DIR:+$REX_BIN_DIR/}rex
 
-# Usage: query FILTER REX_ARGUMENTS. Prints the jq -r FILTER of the rex output.
 query() {
   local filter=$1 json
   shift
@@ -16,14 +15,11 @@ query() {
   jq -r "$filter" <<<"$json" || exit 1
 }
 
-# Usage: call REX_ARGUMENTS. Runs rex with no output.
 call() { "$rex_cli" "$@" >/dev/null || exit 1; }
 
-# A jq filter: the fields of an array as one TSV line. Tab, CR and LF in a field become a space.
 tsv='map(. // "" | tostring | gsub("[\t\r\n]"; " ")) | join("\t")'
 
-# Usage: pane_cwd PANE. The cwd of the foreground program, else the directory that the pane
-# reported last: a file:// URL with a host and percent-encoded bytes, or a plain path.
+# The reported directory is a file:// URL with a host and percent-encoded bytes, or a plain path.
 pane_cwd() {
   local cwd
   cwd=$(query '.foreground.cwd // empty' block call -b "$1" process) || exit 1
@@ -38,14 +34,11 @@ pane_cwd() {
   printf '%s\n' "$cwd"
 }
 
-# Usage: agent_state PANE. The state of the root program status record (the first), empty if the
-# pane has no record. Claude Code reports its state with OSC 7501.
+# The first record is the root program. Claude Code reports its state with OSC 7501.
 agent_state() { query '.records[0].state // empty' block call -b "$1" program_status; }
 
-# Usage: field TEXT. TEXT as one TSV field: tab, CR and LF become a space.
 field() { printf '%s' "${1//[$'\t\r\n']/ }"; }
 
-# Usage: repo_name REPO. The folder name of the main worktree of REPO.
 repo_name() {
   local main
   main=$(git -C "$1" worktree list --porcelain | sed -n '1s/^worktree //p')
@@ -53,8 +46,6 @@ repo_name() {
   printf '%s\n' "${main##*/}"
 }
 
-# Usage: open_session NAME PATH BRANCH. Opens a session with the label NAME/BRANCH in PATH, after
-# the session with the label NAME. Prints TSV: session, first block.
 open_session() {
   local created session block sessions repo_session
   created=$("$rex_cli" new "$1/$3" --cwd "$2" --json) || exit 1
@@ -67,8 +58,7 @@ open_session() {
   printf '%s\t%s\n' "$session" "$block"
 }
 
-# Usage: wait_shell PANE. Waits until the shell of PANE reports its directory (OSC 7), at most
-# MUX_PANE_READY_SECONDS (default 10). A new shell drops the text typed before its first prompt.
+# A new shell drops the text typed before its first prompt.
 wait_shell() {
   local deadline=$((SECONDS + ${MUX_PANE_READY_SECONDS:-10}))
   while [[ -z $(query '.pwd // empty' block call -b "$1" pwd) ]] && ((SECONDS < deadline)); do
@@ -104,7 +94,8 @@ case $operation in
   pane-labeled)
     session=$(query '.session_id' block inspect "$1" --json) || exit 1
     blocks=$("$rex_cli" block ls -s "$session" --json) || exit 1
-    jq -e --arg label "$2" 'any(.blocks[]; .label == $label)' <<<"$blocks" >/dev/null
+    # jq -e exits 4 or 5 for bad input, and 4 means no multiplexer.
+    jq -e --arg label "$2" 'any(.blocks[]; .label == $label)' <<<"$blocks" >/dev/null || exit 1
     ;;
   workspace-first-pane)
     query '[.windows[].layers[].blocks[].block_id][0] // empty' session inspect "$1" --json
@@ -123,11 +114,16 @@ case $operation in
     shift 3
     [[ ${1:-} == -- ]] || die "usage: agent-start <pane> <name> <kind> -- <agent arguments>"
     shift
-    # Single quotes, and '"'"' for a quote: the same words in POSIX shells and fish.
+    # Single quotes, with '"'"' for a quote and '"\\"' for a backslash: the same words in POSIX
+    # shells and fish. fish reads \' and \\ in single quotes as escapes.
     quote="'\"'\"'"
+    backslash="'\"\\\\\"'"
     command="'$kind'"
-    for arg in "$@"; do command+=" '${arg//\'/$quote}'"; done
-    # The label outlives a server restart, so a resume action can find the agents by their kind.
+    for arg in "$@"; do
+      arg=${arg//\'/$quote}
+      command+=" '${arg//\\/$backslash}'"
+    done
+    # A resume action finds the agents by this label: the label stays after a server restart.
     call block rename "$pane" "$kind: $name"
     wait_shell "$pane"
     call send -b "$pane" "$command"
@@ -143,7 +139,6 @@ case $operation in
     seconds=${MUX_AGENT_WAIT_SECONDS:-600}
     deadline=$((SECONDS + seconds))
     session=$(query '.session_id' block inspect "$1" --json) || exit 1
-    # The stream starts before the state check, so a change between the two is in the stream.
     dir=$(mktemp -d) || exit 1
     mkfifo "$dir/events" || exit 1
     # No stderr: the trap kill makes rex print "Error: interrupted".
@@ -153,6 +148,8 @@ case $operation in
     disown "$events"
     trap 'kill "$events" 2>/dev/null; rm -rf "$dir"' EXIT
     exec 3<"$dir/events"
+    # After the first line, client_connected, the stream has each change after the state check.
+    IFS= read -r -t 5 _ <&3
     case $(agent_state "$1") in idle | done) exit 0 ;; esac
     filter='.payload.event | select(.type == "block_event") | .payload
       | select(.block_id == $pane and .name == "program_status_changed") | .payload.record.state'
@@ -167,8 +164,15 @@ case $operation in
     die "the agent in $1 did not end its turn in $seconds s"
     ;;
   agent-prompt)
-    # A bracketed paste, so a newline in the text does not submit the prompt early.
-    call send -b "$1" $'\e[200~'"$2"$'\e[201~'
+    # As in herdr. With no agent, the shell runs the text. In a dialog, Enter selects an answer.
+    state=$(agent_state "$1") || exit 1
+    case $state in
+      "") die "no agent in $1" ;;
+      blocked) die "the agent in $1 waits for an answer" ;;
+    esac
+    # A bracketed paste: a newline in the text does not submit the prompt early. With no ESC,
+    # the text cannot end the paste.
+    call send -b "$1" $'\e[200~'"${2//$'\e'/}"$'\e[201~'
     call send-key -b "$1" enter
     ;;
   agent-list)
@@ -176,13 +180,12 @@ case $operation in
     for session in $sessions; do
       blocks=$(query '.blocks[].block_id' block ls -s "$session" --json) || exit 1
       for block in $blocks; do
-        # `block ls` also lists a block whose terminal is gone. Its calls fail.
+        # `block ls` also lists a block whose terminal is gone, and its calls fail.
         state=$(agent_state "$block" 2>/dev/null) || continue
         [[ -n $state ]] || continue
-        cwd=$(pane_cwd "$block") || exit 1
-        title=$(query '.title // empty' block call -b "$block" title) || exit 1
-        jq -nr --arg pane "$block" --arg state "$state" --arg cwd "$cwd" --arg title "$title" \
-          "[\$pane, \$state, \$cwd, \$title] | $tsv"
+        cwd=$(pane_cwd "$block" 2>/dev/null) || continue
+        title=$(query '.title // empty' block call -b "$block" title 2>/dev/null) || continue
+        printf '%s\t%s\t%s\t%s\n' "$block" "$(field "$state")" "$(field "$cwd")" "$(field "$title")"
       done
     done
     ;;
@@ -196,9 +199,13 @@ case $operation in
       /^branch / { branch = substr($0, 8); sub(/^refs\/heads\//, "", branch) }
       /^prunable/ { prunable = 1 }
       END { flush() }') || exit 1
+    # The first worktree is the main checkout. It is in the repo session, with the label <name>.
+    main=1
     while IFS=$'\t' read -r path branch; do
       [[ -n $path ]] || continue
-      session=$(jq -r --arg label "$name/$branch" \
+      if [[ -n $main ]]; then label=$name; else label=$name/$branch; fi
+      main=""
+      session=$(jq -r --arg label "$label" \
         'first(.sessions[] | select(.label == $label) | .session_id) // empty' <<<"$sessions")
       printf '%s\t%s\t%s\n' "$(field "$branch")" "$(field "$path")" "$session"
     done <<<"$worktrees"
@@ -210,7 +217,7 @@ case $operation in
     ;;
   worktree-create)
     name=$(repo_name "$1") || exit 1
-    # The worktree folder of herdr, so both multiplexers find the same worktrees.
+    # The worktree folder of herdr: both multiplexers find the same worktrees.
     path=${MUX_WORKTREE_ROOT:-$HOME/.herdr/worktrees}/$name/$2
     # With no local branch, the worktree gets a new branch from HEAD, as in herdr.
     if git -C "$1" show-ref --verify --quiet "refs/heads/$2"; then

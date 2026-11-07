@@ -6,7 +6,6 @@ set -uo pipefail
 
 die() { echo "mux/herdr: $1" >&2; exit 1; }
 
-# Usage: query FILTER HERDR_ARGUMENTS. Prints the jq -r FILTER of the herdr output.
 query() {
   local filter=$1 json
   shift
@@ -14,10 +13,8 @@ query() {
   jq -r "$filter" <<<"$json" || exit 1
 }
 
-# Usage: call HERDR_ARGUMENTS. Runs herdr with no output.
 call() { herdr "$@" >/dev/null || exit 1; }
 
-# A jq filter: the fields of an array as one TSV line. Tab, CR and LF in a field become a space.
 tsv='map(. // "" | tostring | gsub("[\t\r\n]"; " ")) | join("\t")'
 
 operation=${1:-}
@@ -42,7 +39,8 @@ case $operation in
   pane-labeled)
     workspace=$(query '.result.pane.workspace_id' pane current --pane "$1") || exit 1
     panes=$(herdr pane list --workspace "$workspace") || exit 1
-    jq -e --arg label "$2" 'any(.result.panes[]; .label == $label)' <<<"$panes" >/dev/null
+    # jq -e exits 4 or 5 for bad input, and 4 means no multiplexer.
+    jq -e --arg label "$2" 'any(.result.panes[]; .label == $label)' <<<"$panes" >/dev/null || exit 1
     ;;
   workspace-first-pane) query '.result.panes[0].pane_id' pane list --workspace "$1" ;;
   workspace-label) query '.result.workspace.label' workspace get "$1" ;;

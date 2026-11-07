@@ -9,10 +9,10 @@
 #                            agent and unzoom the pane
 #
 # <pane> is the active pane of the multiplexer key binding. `branch` and `mr`
-# split it. A `branch` split runs `tuicr.sh
-# pane`, which keeps the agent pane ID, the repo and its own PID in a state dir
-# named by its own pane ID. `send` finds that dir from the focused pane. It
-# ignores `mr` panes and each tuicr that this script did not open.
+# split it. A `branch` split runs `tuicr.sh pane`, which keeps the agent pane
+# ID, the repo and its own PID in a state dir named by its own pane ID. `send`
+# finds that dir from <pane>. It ignores `mr` panes and each tuicr that this
+# script did not open.
 #
 # tuicr resolves `-r` to commit IDs at startup, and neither `:e` nor
 # `diff_watch_interval_ms` resolves it again. So `branch` from a `branch` pane,
@@ -95,7 +95,7 @@ send_comments() (
         + .value.content) | join("\n"))')
 
   if ! err=$("$mux" agent-prompt "$agent" "$text" 2>&1 >/dev/null); then
-    # herdr errors are JSON, other errors are text.
+    # herdr errors are JSON, and other errors are plain text.
     "$mux" notify "tuicr comments not sent" \
       "$(printf '%s' "$err" | jq -Rrs '(fromjson? | .error.message?) // .')"
     exit 1
@@ -127,8 +127,6 @@ case $1 in
     else
       cmd="exec tuicr"
     fi
-    # foreground_cwd follows an agent that moves into a worktree. cwd keeps
-    # the directory of the shell that started the agent.
     cwd=$("$mux" pane-cwd "$active")
     split=$("$mux" pane-split "$active" "${cwd:-$PWD}" --focus) || exit 1
     "$mux" pane-run "$split" "$cmd" || exit 1
@@ -137,7 +135,9 @@ case $1 in
     ;;
 
   pane)
-    dir=$(state_dir "$("$mux" pane-current)")
+    # With no pane ID, the state dir is the root, and the EXIT trap removes it.
+    pane=$("$mux" pane-current) || fail "Cannot find the pane of this tuicr"
+    dir=$(state_dir "$pane")
     mkdir -p "$dir" || fail "Cannot create $dir"
     trap 'rm -rf "$dir"' EXIT
     printf '%s\n' "$2" >"$dir/agent"

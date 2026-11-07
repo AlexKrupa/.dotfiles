@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: hub-status.sh [--repo PATH]
 # Lists the multiplexer agents that run in the linked worktrees of a repo. One TSV line for each
-# agent: pane_id, status, branch, cwd, title. The title is last, so an empty title does not move
-# the other fields.
+# agent: pane_id, status, branch, cwd, title. The title is last: an empty title does not move the
+# other fields.
 # Exit codes: 0 ok (no lines if no agent matches), 1 error
 set -euo pipefail
 
@@ -24,7 +24,6 @@ linked=$(awk '/^worktree /{print substr($0, 10)}' <<<"$list" | tail -n +2)
 [[ -n $linked ]] || exit 0
 
 agents=$("$bin/mux.sh" agent-list 2>/dev/null) || die "agent-list failed"
-# Only the title can be empty in a matching line, so `read` with a tab IFS keeps the fields.
 LINKED=$linked awk -F'\t' '
   BEGIN { count = split(ENVIRON["LINKED"], paths, "\n") }
   {

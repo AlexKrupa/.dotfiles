@@ -1,10 +1,10 @@
 #!/bin/bash
 # Usage: mux.sh <operation> [arguments]
 # Runs the operation in the multiplexer of this pane: bin/mux/herdr.sh if HERDR_ENV is 1, else
-# bin/mux/rex.sh if REX_SESSION is set. herdr comes first, because in a herdr pane inside a Rex
-# terminal the inner multiplexer owns the pane. A workspace is a herdr workspace or a Rex session.
-# Writes nothing. Output: one value on each line, or TSV lines. Tab, CR and LF in a TSV field
-# become a space.
+# bin/mux/rex.sh if REX_SESSION is set. herdr comes first, because a herdr pane inside a Rex
+# terminal belongs to herdr. A workspace is a herdr workspace or a Rex session.
+# Writes nothing, except worktree-create: a git worktree, and a branch if it is new.
+# Output: one value on each line, or TSV lines. Tab, CR and LF in a TSV field become a space.
 # - pane-current: the pane id of this process
 # - pane-cwd <pane>: the cwd of the foreground program, else of the pane
 # - pane-split <pane> <cwd> [--focus]: the id of a new pane to the right

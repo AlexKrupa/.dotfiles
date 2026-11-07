@@ -11,9 +11,9 @@ config=$HOME/.config/herdr/plugins/config/local.watch/config.json
 watchd=${WATCHD:-$HOME/.local/bin/watchd}
 notify_opened=$(jq -c '.notify_opened // ["bump"]' "$config" 2>/dev/null) \
   || notify_opened='["bump"]'
-declare -A opened # "<key> <iid>": the opened event line
+declare -A opened
 
-show() { # show <group>: a JSON array of log lines, as notify.jq takes it
+show() {
   local note title body
   note=$(jq -c --argjson notify_opened "$notify_opened" -f "$plugin/notify.jq" <<<"$1") || return 0
   [[ -n $note ]] || return 0

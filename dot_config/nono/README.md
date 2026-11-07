@@ -167,7 +167,8 @@ Claude can write a profile draft to `~/.config/nono/profile-drafts/`. Apply it w
   <name> --kind claude --pane <pane> -- --name <title> [--effort <effort>]` outside the sandbox.
   It refuses arguments that start with `-` and unknown effort levels. Its `herdr` policy allows
   only `agent start`. `/work` uses it in the sandbox, and there `--effort` is the only Claude
-  flag.
+  flag. It works only in herdr. In Rex, it exits 4, because the policy passes no `REX_*`
+  variables and no Rex socket.
 - The `herdr` command gets the `HERDR_*` variables. `--current` finds the caller pane.
 - The launcher sets `HERDR_AGENT=claude`. Thus Herdr detects the sandboxed `claude`, and
   `herdr agent list` shows it with its state. In Herdr, the launcher sets the pane title

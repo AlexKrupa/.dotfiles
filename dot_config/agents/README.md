@@ -82,7 +82,8 @@ folder in `integrations/`.
 - `daemon/` - the GitLab watch: one Rust program, `watchd`, with the daemon (one process for each
   machine), the check engine, and the client commands. `daemon/build.sh` builds it and installs it
   to `~/.local/bin/watchd`. `hub`, `draft-pr`, `review-pr`, `bump`, and `debug-gitlab` use it. The
-  herdr plugin `watch` reads its event log with `watchd follow`.
+  herdr plugin `watch` and the Rex watch pane (`~/.config/rex/watch.sh`) read its event log with
+  `watchd follow`.
 - `bin/watch/watch-lib.sh` - the sleep, wake, and network rules of `skills/hub/hub-retry.sh`.
 - `references/` - the rules that two or more skills read by absolute path
   (`~/.config/agents/references/...`). The installers do not make symlinks for them.
@@ -122,7 +123,9 @@ scripts, the scripts have no `--help`, no prompts, and no color.
 ## Tests
 
 The scripts in `bin/` and `skills/` need bash 5 or later, for example Homebrew bash. They do not
-support the macOS `/bin/bash` 3.2.
+support the macOS `/bin/bash` 3.2. Exception: `bin/mux.sh`, `bin/mux/*.sh` and
+`integrations/claude-code/start-claude` use `/bin/bash` 3.2, because the nono policy of
+`start-claude` passes no `PATH`.
 
 - The test file of a script is `<script>.test.sh`, in the same folder. Start it with
   `bash <file>`.

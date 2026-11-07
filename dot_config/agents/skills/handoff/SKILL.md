@@ -60,6 +60,6 @@ Input: the skill arguments are optional free text.
      this pane until the prompt shows." The log of the helper is
      `${TMPDIR:-/tmp}/handoff-refresh.log`. The last line of the reply is
      `` 📄 Handoff: `<path>` ``.
-   - Exit `4` (not in herdr): tell the user to clear the session, then send the line that the
-     script printed.
+   - Exit `4` (not in a multiplexer): tell the user to clear the session, then send the line that
+     the script printed.
    - Exit `1`: the stderr text, word for word.

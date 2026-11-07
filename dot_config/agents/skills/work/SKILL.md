@@ -110,7 +110,8 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
    - No base and no agent flags. If the user gave a model or an effort, tell the user to set it
      in the agent after the clear.
    - Handoff: the word `fresh` or `continue` in the message, as an option word like a model
-     word. If the message has neither word, use `continue`.
+     word. If the message has neither word, use `continue`. In a Rex pane, use `fresh`.
+     `continue` fails there, because Rex gives no agent session id.
      - `fresh`: the handoff has only the stack base. Add no handoff options.
      - `continue`: add `--continue`. If the MR URL of the current branch is in this session,
        add `--mr <URL>`. Else the script finds it with `glab`. Write a summary of this session
@@ -191,8 +192,8 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
      worktree stay as they are: the user fixes the cause, then runs `/work` again.
    - Exit `1` and the stderr text ends with `(branch <branch> stays)`, new, split, or next mode:
      also tell the user that `/work` again needs a new branch name. The branch in the message
-     stays. If the message names `agent-start` or `agent-prompt`, its worktree workspace
-     stays too. The user can continue there or remove them.
+     stays. If the message names `agent-start` or `agent-prompt`, its worktree workspace stays
+     too. The user can continue there or remove them.
    - Exit `1` and the stderr text ends with `(branch <branch> stays)`, existing mode: also tell
      the user that the worktree workspace stays. The user can continue there, or close it
      and run `/work` again.
