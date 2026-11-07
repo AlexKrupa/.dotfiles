@@ -1,19 +1,37 @@
 #!/bin/bash
 # Usage: herdr.sh <operation> [arguments]
 # The herdr backend of bin/mux.sh, with the same operations, output and exit codes.
-# Exit codes: 0 ok, 1 error (stderr has the herdr error text)
+# Exit codes: 0 ok, 1 error (stderr has the herdr error message), 5 the pane is busy, 6 the agent is
+# not ready
 set -uo pipefail
 
 die() { echo "mux/herdr: $1" >&2; exit 1; }
 
+# herdr prints an error as JSON on stderr: {"error": {"code", "message"}}. The callers get only the
+# message and the exit code of the operation.
+# No temp file: the nono policy of start-claude passes no PATH, so only bash builtins and herdr work.
+run() {
+  local errors code message
+  { errors=$(herdr "$@" 2>&1 >&3 3>&-); } 3>&1 && return 0
+  code=$(jq -r '.error.code? // empty' <<<"$errors" 2>/dev/null)
+  message=$(jq -r '.error.message? // empty' <<<"$errors" 2>/dev/null)
+  [[ -n $message ]] || message=${code:-$errors}
+  echo "$message" >&2
+  case $code in
+    agent_pane_busy) exit 5 ;;
+    agent_not_ready) exit 6 ;;
+    *) exit 1 ;;
+  esac
+}
+
 query() {
   local filter=$1 json
   shift
-  json=$(herdr "$@") || exit 1
+  json=$(run "$@") || exit $?
   jq -r "$filter" <<<"$json" || exit 1
 }
 
-call() { herdr "$@" >/dev/null || exit 1; }
+call() { run "$@" >/dev/null; }
 
 tsv='map(. // "" | tostring | gsub("[\t\r\n]"; " ")) | join("\t")'
 
@@ -30,6 +48,7 @@ case $operation in
     ;;
   pane-run) call pane run "$1" "$2" ;;
   pane-rename) call pane rename "$1" "$2" ;;
+  pane-read) run agent read "$1" --source recent --lines "$2" ;;
   pane-zoom)
     case $2 in
       on | off) call pane zoom "$1" "--$2" ;;
@@ -37,8 +56,8 @@ case $operation in
     esac
     ;;
   pane-labeled)
-    workspace=$(query '.result.pane.workspace_id' pane current --pane "$1") || exit 1
-    panes=$(herdr pane list --workspace "$workspace") || exit 1
+    workspace=$(query '.result.pane.workspace_id' pane current --pane "$1") || exit $?
+    panes=$(run pane list --workspace "$workspace") || exit $?
     # jq -e exits 4 or 5 for bad input, and 4 means no multiplexer.
     jq -e --arg label "$2" 'any(.result.panes[]; .label == $label)' <<<"$panes" >/dev/null || exit 1
     ;;

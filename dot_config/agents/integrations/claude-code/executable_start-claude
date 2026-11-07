@@ -4,7 +4,8 @@
 #   mux.sh agent-start <pane> <name> claude -- --name <title> [--effort <effort>]
 # In a nono sandbox, this is the only way to start an agent. The sandbox policy runs this script
 # outside the session sandbox, so it accepts only these arguments.
-# Exit codes: 0 ok, 1 the start failed, 2 bad arguments, 4 not in a multiplexer
+# Exit codes: 0 ok, 1 the start failed, 2 bad arguments, 4 not in a multiplexer, 5 the pane is
+# busy, 6 the agent is not ready
 # /bin/bash, not env bash: the nono policy of this script passes no PATH.
 set -euo pipefail
 

@@ -198,7 +198,7 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
      the user that the worktree workspace stays. The user can continue there, or close it
      and run `/work` again.
    - Exit `4`: the stderr text names the pane id. Run
-     `herdr agent read <pane-id> --source visible` and report what blocks the agent.
+     `~/.config/agents/bin/mux.sh pane-read <pane-id> 40` and report what blocks the agent.
      The prompt was not sent. Tell the user to send the message in that pane after the block is
      gone.
 

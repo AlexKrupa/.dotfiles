@@ -46,10 +46,15 @@ repo_name() {
   printf '%s\n' "${main##*/}"
 }
 
+# Lines: session id, worktree path. The label of a session can change, its id cannot.
+worktree_sessions=${XDG_STATE_HOME:-$HOME/.local/state}/mux-rex/worktree-sessions
+
 open_session() {
   local created session block sessions repo_session
   created=$("$rex_cli" new "$1/$3" --cwd "$2" --json) || exit 1
   session=$(jq -r '.session_id' <<<"$created") || exit 1
+  mkdir -p "${worktree_sessions%/*}" && printf '%s\t%s\n' "$session" "$2" >>"$worktree_sessions" \
+    || exit 1
   block=$(jq -r '.initial_windows[0].block_ids[0]' <<<"$created") || exit 1
   sessions=$("$rex_cli" ls --json) || exit 1
   repo_session=$(jq -r --arg label "$1" \
@@ -85,6 +90,7 @@ case $operation in
     call send-key -b "$1" enter
     ;;
   pane-rename) call block rename "$1" "$2" ;;
+  pane-read) "$rex_cli" capture -b "$1" --trim --unwrap | tail -n "$2" ;;
   pane-zoom)
     case $2 in
       on | off) call zoom -b "$1" "--$2" ;;
@@ -131,7 +137,10 @@ case $operation in
     seconds=${MUX_AGENT_START_SECONDS:-60}
     deadline=$((SECONDS + seconds))
     while [[ -z $(agent_state "$pane") ]]; do
-      ((SECONDS < deadline)) || die "the agent in $pane reported no status in $seconds s"
+      if ((SECONDS >= deadline)); then
+        echo "mux/rex: the agent in $pane reported no status in $seconds s" >&2
+        exit 6
+      fi
       sleep 0.5
     done
     ;;
@@ -199,13 +208,22 @@ case $operation in
       /^branch / { branch = substr($0, 8); sub(/^refs\/heads\//, "", branch) }
       /^prunable/ { prunable = 1 }
       END { flush() }') || exit 1
+    live=$(jq -r '.sessions[].session_id' <<<"$sessions") || exit 1
     # The first worktree is the main checkout. It is in the repo session, with the label <name>.
     main=1
     while IFS=$'\t' read -r path branch; do
       [[ -n $path ]] || continue
       if [[ -n $main ]]; then label=$name; else label=$name/$branch; fi
       main=""
-      session=$(jq -r --arg label "$label" \
+      # The last live session that open_session made for the path, else a session with the label.
+      session=$(LIVE=$live WORKTREE=$path awk -F'\t' '
+        BEGIN {
+          count = split(ENVIRON["LIVE"], ids, "\n")
+          for (i = 1; i <= count; i++) alive[ids[i]] = 1
+        }
+        $2 == ENVIRON["WORKTREE"] && ($1 in alive) { session = $1 }
+        END { print session }' "$worktree_sessions" 2>/dev/null)
+      [[ -n $session ]] || session=$(jq -r --arg label "$label" \
         'first(.sessions[] | select(.label == $label) | .session_id) // empty' <<<"$sessions")
       printf '%s\t%s\t%s\n' "$(field "$branch")" "$(field "$path")" "$session"
     done <<<"$worktrees"

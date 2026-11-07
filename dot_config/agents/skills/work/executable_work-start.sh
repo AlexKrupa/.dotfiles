@@ -373,12 +373,16 @@ fi
 # The shell of a new pane needs some time to show its prompt.
 started=""
 for _ in {1..30}; do
-  if out=$("${start[@]}" 2>&1); then started=1; break; fi
-  grep -q agent_pane_busy <<<"$out" || break
+  code=0
+  out=$("${start[@]}" 2>&1) || code=$?
+  if ((code == 0)); then started=1; break; fi
+  # Exit 5: the pane is busy.
+  ((code == 5)) || break
   sleep 1
 done
 if [[ -z $started ]]; then
-  if grep -q agent_not_ready <<<"$out"; then
+  # Exit 6: the agent is not ready.
+  if ((code == 6)); then
     echo "work-start: agent not ready in pane $pane (branch $branch stays)" >&2
     exit 4
   fi

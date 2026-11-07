@@ -13,12 +13,14 @@ check() {
 }
 
 # Fake herdr: logs each call on one line, with "|" for newlines in the arguments. Prints
-# $MOCK_OUT, default {}. MOCK_FAIL=1 prints an error to stderr and exits 1.
+# $MOCK_OUT, default {}. MOCK_FAIL=1 prints an error to stderr and exits 1. MOCK_ERROR prints its
+# value to stderr and exits 1.
 mkdir -p "$tmp/bin"
 cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
 printf 'herdr %s' "$*" | tr '\n' '|' >>"$MOCK_LOG"; echo >>"$MOCK_LOG"
 if [ -n "${MOCK_FAIL:-}" ]; then echo 'herdr: pane w1:p9 not found' >&2; exit 1; fi
+if [ -n "${MOCK_ERROR:-}" ]; then printf '%s\n' "$MOCK_ERROR" >&2; exit 1; fi
 printf '%s\n' "${MOCK_OUT:-{\}}"
 EOF
 chmod +x "$tmp/bin/herdr"
@@ -105,6 +107,9 @@ operation agent-kind "herdr agent get w1:p1" "claude" \
 operation agent-session "herdr agent get w1:p1" "c04f" \
   '{"result":{"agent":{"agent_session":{"value":"c04f"}}}}' -- agent-session w1:p1
 
+operation pane-read "herdr agent read w1:p1 --source recent --lines 40" "line 1
+line 2" $'line 1\nline 2' -- pane-read w1:p1 40
+
 operation agent-start "herdr agent start feat --kind claude --pane w1:p1 -- --name a b --effort high" \
   "" '{}' -- agent-start w1:p1 feat claude -- --name "a b" --effort high
 
@@ -137,5 +142,19 @@ check "a failed herdr call: herdr stderr" "herdr: pane w1:p9 not found" "$err"
 err=$(MOCK_FAIL=1 "$script" pane-labeled w1:p1 x 2>&1 >/dev/null); code=$?
 check "a failed herdr call in pane-labeled: exit 1" 1 "$code"
 check "a failed herdr call in pane-labeled: herdr stderr" "herdr: pane w1:p9 not found" "$err"
+
+err=$(MOCK_ERROR='{"error":{"code":"pane_not_found","message":"pane nope not found"}}' \
+  "$script" pane-current 2>&1 >/dev/null); code=$?
+check "a herdr JSON error: exit 1 and the message" "1 pane nope not found" "$code $err"
+
+err=$(MOCK_ERROR='{"error":{"code":"agent_pane_busy","message":"pane is not an available shell"}}' \
+  "$script" agent-start w1:p1 feat claude -- 2>&1 >/dev/null); code=$?
+check "agent-start in a busy pane: exit 5 and the message" "5 pane is not an available shell" \
+  "$code $err"
+
+err=$(MOCK_ERROR='{"error":{"code":"agent_not_ready"}}' \
+  "$script" agent-start w1:p1 feat claude -- 2>&1 >/dev/null); code=$?
+check "agent-start with an agent that is not ready: exit 6 and the code" "6 agent_not_ready" \
+  "$code $err"
 
 exit $fail

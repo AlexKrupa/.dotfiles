@@ -23,7 +23,8 @@ if [ -n "${MOCK_OUT:-}" ]; then printf '%s\n' "$MOCK_OUT"; else echo '{}'; fi
 EOF
 chmod +x "$tmp/bin/rex"
 unset REX_BIN_DIR
-export PATH="$tmp/bin:$PATH" MOCK_LOG="$tmp/calls.log" REX_SESSION=s1 REX_BLOCK=b1
+export PATH="$tmp/bin:$PATH" MOCK_LOG="$tmp/calls.log" REX_SESSION=s1 REX_BLOCK=b1 \
+  XDG_STATE_HOME=$tmp/state
 
 # Usage: operation NAME CALLS OUTPUT MOCK_OUT -- ARGUMENTS. Runs the script with ARGUMENTS and
 # checks the rex calls and the output.
@@ -56,6 +57,8 @@ operation "pane-split --focus" "rex split -b b1 --split right --cwd /r --focus=t
 operation pane-run "rex block call -b b1 pwd
 rex send -b b1 echo 'a b'
 rex send-key -b b1 enter" "" '{"pwd":"file://host/repo"}' -- pane-run b1 "echo 'a b'"
+
+operation pane-read "rex capture -b b1 --trim --unwrap" $'c\nd' $'a\nb\nc\nd' -- pane-read b1 2
 
 operation pane-rename "rex block rename b1 watchd board" "" '{}' -- pane-rename b1 "watchd board"
 
@@ -194,7 +197,7 @@ reset_mock
 echo '{"pwd":"file://host/repo"}' >"$mock/b1.pwd"
 echo '{"records":[]}' >"$mock/b1.program_status"
 err=$(MUX_AGENT_START_SECONDS=1 "$script" agent-start b1 feat claude -- 2>&1 >/dev/null); code=$?
-check "agent-start with no status after the timeout: exit 1" 1 "$code"
+check "agent-start with no status after the timeout: exit 6" 6 "$code"
 check "agent-start with no status after the timeout: error" \
   "mux/rex: the agent in b1 reported no status in 1 s" "$err"
 
@@ -338,6 +341,19 @@ check "worktree-list prints the session of an open worktree and of the main chec
 out=$("$script" worktree-list "$tmp/worktrees/my-repo/feat" 2>&1); code=$?
 check "worktree-list from a linked worktree: the same repo name" \
   $'main\t$tmp/my-repo\ts1\nAB-1/new-thing\t$tmp/worktrees/my-repo/AB-1/new-thing\t\nfeat\t$tmp/worktrees/my-repo/feat\ts3' \
+  "${out//$tmp/\$tmp}"
+
+reset_mock
+export MOCK_SESSIONS='{"sessions":[{"session_id":"s1","label":"renamed-repo"},{"session_id":"s9","label":"tidy-otter"}]}'
+out=$("$script" worktree-list "$repo" 2>&1); code=$?
+check "worktree-list finds a renamed session by the session that worktree-open made" \
+  $'main\t$tmp/my-repo\t\nAB-1/new-thing\t$tmp/worktrees/my-repo/AB-1/new-thing\ts9\nfeat\t$tmp/worktrees/my-repo/feat\ts9' \
+  "${out//$tmp/\$tmp}"
+
+export MOCK_SESSIONS='{"sessions":[{"session_id":"s1","label":"my-repo"}]}'
+out=$("$script" worktree-list "$repo" 2>&1); code=$?
+check "worktree-list leaves out a session that is gone" \
+  $'main\t$tmp/my-repo\ts1\nAB-1/new-thing\t$tmp/worktrees/my-repo/AB-1/new-thing\t\nfeat\t$tmp/worktrees/my-repo/feat\t' \
   "${out//$tmp/\$tmp}"
 
 err=$("$script" worktree-create "$repo" feat 2>&1 >/dev/null); code=$?

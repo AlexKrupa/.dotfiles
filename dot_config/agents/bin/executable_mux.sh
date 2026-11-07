@@ -10,6 +10,7 @@
 # - pane-split <pane> <cwd> [--focus]: the id of a new pane to the right
 # - pane-run <pane> <command>
 # - pane-rename <pane> <label>
+# - pane-read <pane> <lines>: the last <lines> lines of the screen and scrollback, as text
 # - pane-zoom <pane> on|off
 # - pane-labeled <pane> <label>: exit 0 if the workspace of <pane> has a pane with <label>, else 1
 # - workspace-first-pane <workspace>: the first pane id
@@ -22,12 +23,14 @@
 # - worktree-create <repo> <branch>: TSV path, workspace, root pane
 # - agent-kind <pane>: the agent kind, for example claude. Empty if the pane has no agent.
 # - agent-session <pane>: the agent session id
-# - agent-start <pane> <name> <kind> -- <agent arguments>
+# - agent-start <pane> <name> <kind> -- <agent arguments>: exit 5 if the pane is busy, 6 if the
+#   agent is not ready
 # - agent-wait <pane>: exit 0 when the agent is idle or done, 1 after 600 s
 # - agent-prompt <pane> <text>: submits <text>
 # - agent-list: TSV pane, status, cwd, title
 # - notify <title> <body>
-# Exit codes: 0 ok, 1 error (stderr has the backend error text), 4 not in a multiplexer
+# Exit codes: 0 ok, 1 error (stderr has the backend error text), 4 not in a multiplexer, 5 and 6
+# as the operation says
 # No dirname: a caller can run this script with no PATH.
 here=${BASH_SOURCE[0]%/*}
 if [[ ${HERDR_ENV:-} == 1 ]]; then

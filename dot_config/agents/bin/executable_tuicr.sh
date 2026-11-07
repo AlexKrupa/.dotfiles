@@ -95,9 +95,9 @@ send_comments() (
         + .value.content) | join("\n"))')
 
   if ! err=$("$mux" agent-prompt "$agent" "$text" 2>&1 >/dev/null); then
-    # herdr errors are JSON, and other errors are plain text.
-    "$mux" notify "tuicr comments not sent" \
-      "$(printf '%s' "$err" | jq -Rrs '(fromjson? | .error.message?) // .')"
+    # Also stderr: a Rex action has no terminal for the notification, and shows stderr.
+    printf 'tuicr comments not sent: %s\n' "$err" >&2
+    "$mux" notify "tuicr comments not sent" "$err" 2>/dev/null
     exit 1
   fi
   jq --argjson new "$new" '. + ($new | map({(.id): .content}) | add)' "$sent" \

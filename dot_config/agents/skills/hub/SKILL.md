@@ -1,8 +1,8 @@
 ---
 name: hub
 description: >-
-  Use when the user runs /hub in a repo's main checkout to manage the herdr worktree agents of
-  that repo, watch its GitLab review requests, mentions, dependency bump MRs, and default branch
+  Use when the user runs /hub in a repo's main checkout to manage the worktree agents of that
+  repo, watch its GitLab review requests, mentions, dependency bump MRs, and default branch
   pipelines, start review agents, bump agents, and debug agents, or asks the hub for the status of
   its agents.
 disable-model-invocation: true
@@ -14,9 +14,9 @@ allowed-tools:
 
 # hub
 
-This session is the hub of the repo. The hub manages the agents in the repo's herdr worktree
-workspaces, and tells the user about GitLab events for MRs of other people and the default branch.
-The draft-pr watch reports the user's own MRs. The hub reports the pending items of own worktrees
+This session is the hub of the repo. The hub manages the agents in the repo's worktree workspaces.
+It tells the user about GitLab events for MRs of other people and the default branch. The
+draft-pr watch reports the user's own MRs. The hub reports the pending items of own worktrees
 with no agent. The session runs in the main checkout, which stays on the default branch. The watch
 daemon `watchd` keeps the checkout on the newest commit of that branch. If it cannot fast-forward
 the checkout, the watch gives a `pull-blocked` item with the reason, for example changes in tracked
@@ -41,7 +41,7 @@ Give the status when `/hub` starts, and each time the user asks for it.
    cwd, title. If the script exits `1`, report its stderr text.
 2. For each agent, find what it does:
    - If the title tells it, use the title.
-   - Else, run `herdr agent read <pane-id> --source recent --lines 60`. Find the last message of
+   - Else, run `~/.config/agents/bin/mux.sh pane-read <pane-id> 60`. Find the last message of
      the agent on the screen. Use one short sentence from it.
 3. Output one line for each agent:
 

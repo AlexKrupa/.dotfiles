@@ -165,6 +165,12 @@ rex.action{
 }
 rex.bind("alt+d", "nvim_toggle")
 
+-- A running agent reports a program status record. The shell of a restored block has none.
+local function has_agent(block_id)
+  local status = rex.block.call(terminal, "program_status", { block_id = block_id })
+  return status ~= nil and status.records ~= nil and #status.records > 0
+end
+
 -- After a server restart, Rex restores the blocks with their labels, but not their programs.
 -- mux.sh agent-start gives an agent block the label "<kind>: <name>".
 rex.action{
@@ -176,7 +182,7 @@ rex.action{
     for _, window in ipairs(view.windows) do
       for _, layer in ipairs(window.layers) do
         for _, block in ipairs(layer.blocks) do
-          if (block.label or ""):sub(1, 7) == "claude:" then
+          if (block.label or ""):sub(1, 7) == "claude:" and not has_agent(block.block_id) then
             rex.block.call(terminal, "write",
               { block_id = block.block_id, data = "claude --continue\r" })
           end
