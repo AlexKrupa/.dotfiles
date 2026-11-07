@@ -124,6 +124,7 @@ mkdir -p "$mock"
 cat >"$tmp/bin/rex" <<'EOF'
 #!/bin/bash
 printf 'rex %s' "$*" | tr '\n' '|' >>"$MOCK_LOG"; echo >>"$MOCK_LOG"
+if [ "$1" = --autostart=false ]; then shift; fi
 case "$1 $2" in
   "ls --json") printf '%s\n' "$MOCK_SESSIONS" ;;
   "block inspect") echo '{"session_id":"s1"}' ;;
@@ -286,6 +287,17 @@ out=$("$script" agent-list 2>&1); code=$?
 check "agent-list replaces tabs and newlines in titles with spaces: exit 0" 0 "$code"
 check "agent-list replaces tabs and newlines in titles with spaces, skips a gone block: output" \
   $'b1\tworking\t/repo\ta b c d\nb3\tidle\t/wt/feat\t' "$out"
+
+out=$("$script" repo-pane /wt 2>&1); code=$?
+check "repo-pane finds a block in the folder or below it, skips a gone block" "0 b3" "$code $out"
+check "repo-pane does not start a Rex server" yes \
+  "$(grep -q '^rex --autostart=false ls --json$' "$MOCK_LOG" && echo yes || echo no)"
+
+"$script" repo-pane /nothing >/dev/null 2>&1; code=$?
+check "repo-pane with no block in the folder: exit 1" 1 "$code"
+
+out=$(env -u REX_BLOCK MUX_PANE=b7 "$script" pane-current 2>&1)
+check "pane-current with MUX_PANE and no REX_BLOCK" b7 "$out"
 
 
 # Worktree operations, with a real git repo. The repo name is the folder name of the main worktree.

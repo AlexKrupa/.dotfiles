@@ -38,7 +38,19 @@ tsv='map(. // "" | tostring | gsub("[\t\r\n]"; " ")) | join("\t")'
 operation=${1:-}
 shift
 case $operation in
-  pane-current) query '.result.pane.pane_id' pane current --current ;;
+  pane-current)
+    if [[ -n ${MUX_PANE:-} ]]; then printf '%s\n' "$MUX_PANE"; exit 0; fi
+    query '.result.pane.pane_id' pane current --current
+    ;;
+  repo-pane)
+    panes=$(run pane list) || exit $?
+    pane=$(jq -r --arg folder "$1" 'first(.result.panes[]
+      | select([.cwd, .foreground_cwd] | map(strings)
+        | any(. == $folder or startswith($folder + "/")))
+      | .pane_id) // empty' <<<"$panes") || exit 1
+    [[ -n $pane ]] || exit 1
+    printf '%s\n' "$pane"
+    ;;
   pane-cwd) query '.result.pane | .foreground_cwd // .cwd' pane get "$1" ;;
   pane-split)
     focus=()

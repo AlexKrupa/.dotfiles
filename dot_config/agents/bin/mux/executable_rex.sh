@@ -6,7 +6,16 @@ set -uo pipefail
 
 die() { echo "mux/rex: $1" >&2; exit 1; }
 
-rex_cli=${REX_BIN_DIR:+$REX_BIN_DIR/}rex
+# The watch daemon has no REX_BIN_DIR and no rex on its PATH.
+rex_app_bin="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current"
+rex_app_bin+="/Rex Server.app/Contents/MacOS"
+if [[ -n ${REX_BIN_DIR:-} ]]; then
+  rex_cli=$REX_BIN_DIR/rex
+elif command -v rex >/dev/null; then
+  rex_cli=rex
+else
+  rex_cli=$rex_app_bin/rex
+fi
 
 query() {
   local filter=$1 json
@@ -75,8 +84,24 @@ operation=${1:-}
 shift
 case $operation in
   pane-current)
-    [[ -n ${REX_BLOCK:-} ]] || die "REX_BLOCK is not set"
-    printf '%s\n' "$REX_BLOCK"
+    pane=${REX_BLOCK:-${MUX_PANE:-}}
+    [[ -n $pane ]] || die "REX_BLOCK is not set"
+    printf '%s\n' "$pane"
+    ;;
+  repo-pane)
+    # No autostart: with no running server, Rex has no pane in the folder.
+    sessions=$(query '.sessions[].session_id' --autostart=false ls --json) || exit 1
+    for session in $sessions; do
+      blocks=$(query '.blocks[].block_id' block ls -s "$session" --json) || exit 1
+      for block in $blocks; do
+        cwd=$(pane_cwd "$block" 2>/dev/null) || continue
+        if [[ $cwd == "$1" || $cwd == "$1"/* ]]; then
+          printf '%s\n' "$block"
+          exit 0
+        fi
+      done
+    done
+    exit 1
     ;;
   pane-cwd) pane_cwd "$1" ;;
   pane-split)

@@ -107,6 +107,18 @@ operation agent-kind "herdr agent get w1:p1" "claude" \
 operation agent-session "herdr agent get w1:p1" "c04f" \
   '{"result":{"agent":{"agent_session":{"value":"c04f"}}}}' -- agent-session w1:p1
 
+: >"$MOCK_LOG"
+out=$(MUX_PANE=w2:p5 "$script" pane-current 2>&1)
+check "pane-current with MUX_PANE: the pane, no herdr call" "w2:p5 " "$out $(cat "$MOCK_LOG")"
+
+panes='{"result":{"panes":[{"pane_id":"w1:p1","cwd":"/repo-other"},{"pane_id":"w2:p1","cwd":"/x","foreground_cwd":"/repo/sub"}]}}'
+operation "repo-pane finds a pane in the folder or below it" "herdr pane list" "w2:p1" "$panes" \
+  -- repo-pane /repo
+
+: >"$MOCK_LOG"
+MOCK_OUT=$panes "$script" repo-pane /nothing >/dev/null 2>&1; code=$?
+check "repo-pane with no pane in the folder: exit 1" 1 "$code"
+
 operation pane-read "herdr agent read w1:p1 --source recent --lines 40" "line 1
 line 2" $'line 1\nline 2' -- pane-read w1:p1 40
 

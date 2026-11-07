@@ -49,7 +49,17 @@ impl ScriptWorkspaces {
         folder: &Path,
     ) -> Result<String, (Option<i32>, String)> {
         let path = self.scripts.join(script);
-        let output = std::process::Command::new(&path)
+        let mut command = std::process::Command::new(&path);
+        // The daemon keeps the multiplexer variables of the pane that started it. bin/mux.sh
+        // finds the multiplexer of the repo with MUX_REPO instead.
+        for (name, _) in std::env::vars_os() {
+            let text = name.to_string_lossy();
+            if text.starts_with("HERDR_") || text.starts_with("REX_") {
+                command.env_remove(&name);
+            }
+        }
+        let output = command
+            .env("MUX_REPO", folder)
             .args(args)
             .current_dir(folder)
             .stdin(std::process::Stdio::null())
@@ -214,5 +224,27 @@ mod tests {
             args.unwrap(),
             "Add foo --branch ABC-1/foo --no-track --skill review-pr https://g/mr/5\n"
         );
+    }
+
+    #[test]
+    fn a_script_gets_the_repo_and_no_multiplexer_variables_of_the_daemon() {
+        let folder = std::env::temp_dir().join(format!("watchd-workspaces-{}-env", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(folder.join("work")).unwrap();
+        let script = folder.join("work/board-pane.sh");
+        std::fs::write(&script, "#!/bin/sh\nenv >\"$(dirname \"$0\")/../env\"\n").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let result = ScriptWorkspaces { scripts: folder.clone() }.open_board(&folder, &[]);
+        let env = std::fs::read_to_string(folder.join("env")).unwrap_or_default();
+        let _ = std::fs::remove_dir_all(&folder);
+
+        assert_eq!(result, Ok(()));
+        assert!(env.lines().any(|line| line == format!("MUX_REPO={}", folder.display())));
+        let leaked: Vec<&str> = env
+            .lines()
+            .filter(|line| line.starts_with("HERDR_") || line.starts_with("REX_"))
+            .collect();
+        assert_eq!(leaked, Vec::<&str>::new());
     }
 }

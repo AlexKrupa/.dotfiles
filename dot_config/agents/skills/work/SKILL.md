@@ -10,6 +10,7 @@ disable-model-invocation: true
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/work-start.sh *)
   - Bash(~/.config/agents/bin/fetch-gitlab-mr.sh *)
+  - Bash(~/.config/agents/bin/mux.sh pane-read *)
 ---
 
 # work

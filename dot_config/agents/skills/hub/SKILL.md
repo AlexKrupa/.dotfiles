@@ -10,6 +10,7 @@ allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/hub-status.sh *)
   - Bash(${CLAUDE_SKILL_DIR}/../work/work-start.sh *)
   - Bash(watchd *)
+  - Bash(~/.config/agents/bin/mux.sh pane-read *)
 ---
 
 # hub
