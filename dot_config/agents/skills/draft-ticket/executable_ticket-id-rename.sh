@@ -5,9 +5,10 @@
 # - Branch names: <placeholder>/<rest> becomes <ticket-id>/<rest>, with git-spice.
 # - Commits: the id in each message, and in each line that the chain adds to its base. Lines from
 #   the base and the author and committer data stay. Branches above the chain get a restack.
-# - Herdr: a label with the placeholder id, of a workspace that has a worktree of a branch.
-# - --title: after the turn of the calling agent session, bin/herdr-after-turn.sh submits the
-#   action "rename [<ticket-id>] <title>" in its pane. Outside Herdr, the script prints the action.
+# - Multiplexer: a label with the placeholder id, of a workspace that has a worktree of a branch.
+# - --title: after the turn of the calling agent session, bin/after-turn.sh submits the action
+#   "rename [<ticket-id>] <title>" in its pane. Outside a multiplexer, the script prints the
+#   action.
 # - Worktree directories: the names do not change. The calling agent session runs in one of them.
 # A branch with an upstream stops the script before it changes anything, with a "pushed:" line
 # for each branch, and the MR URL when git-spice knows it. With --push, the script pushes each
@@ -101,9 +102,13 @@ done
 ((${#pushed[@]} == 0)) || $push || die "branches are pushed: run again with --push to rename them on the remote too" 2
 
 # The worktree list has the old branch names only before the rename.
-in_herdr=false
-[[ ${HERDR_ENV-} == 1 ]] && in_herdr=true
-if $in_herdr; then worktrees=$(herdr worktree list --cwd "$PWD"); fi
+code=0
+pane=$("$bin/mux.sh" pane-current 2>&1) || code=$?
+case $code in
+  0) in_mux=true; worktrees=$("$bin/mux.sh" worktree-list "$PWD") ;;
+  4) in_mux=false ;;
+  *) die "cannot find the multiplexer pane of this session: $pane" ;;
+esac
 
 # Line numbers, for each file at commit $1, of the lines with the placeholder id that the chain
 # adds to $fork: "<path>\t<number> <number>...".
@@ -200,15 +205,14 @@ for b in "${pushed[@]}"; do
   echo "pushed: $new (deleted $remote/$b)"
 done
 
-if $in_herdr; then
+if $in_mux; then
   for b in "${chain[@]}"; do
-    workspace=$(jq -r --arg b "$b" \
-      '.result.worktrees[] | select(.branch == $b) | .open_workspace_id // empty' <<<"$worktrees")
+    workspace=$(awk -F'\t' -v b="$b" '$1 == b { print $3 }' <<<"$worktrees")
     [[ -n $workspace ]] || continue
-    label=$(herdr workspace get "$workspace" | jq -r '.result.workspace.label')
+    label=$("$bin/mux.sh" workspace-label "$workspace")
     new_label=$(with_id <<<"$label")
     [[ $new_label != "$label" ]] || continue
-    herdr workspace rename "$workspace" "$new_label" >/dev/null
+    "$bin/mux.sh" workspace-rename "$workspace" "$new_label"
     echo "workspace: $workspace $label -> $new_label"
   done
 fi
@@ -222,9 +226,8 @@ fi
 
 if [[ -n $title ]]; then
   action="rename [$ticket] $title"
-  if $in_herdr; then
-    pane=$(herdr pane current --current | jq -r '.result.pane.pane_id')
-    nohup "$bin/herdr-after-turn.sh" "$pane" "$action" </dev/null \
+  if $in_mux; then
+    nohup "$bin/after-turn.sh" "$pane" "$action" </dev/null \
       >>"${TMPDIR:-/tmp}/ticket-id-rename.log" 2>&1 &
     echo "session: queued $action"
   else

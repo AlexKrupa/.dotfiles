@@ -25,7 +25,8 @@ case "$1 $2" in
 esac
 EOF
 chmod +x "$d/bin/herdr"
-export PATH="$d/bin:$PATH" MOCK_LOG="$d/calls.log" MOCK_AGENTS="$d/agents.json"
+unset REX_SESSION
+export PATH="$d/bin:$PATH" MOCK_LOG="$d/calls.log" MOCK_AGENTS="$d/agents.json" HERDR_ENV=1
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$d/gitconfig"
 git config --global user.name tester
 git config --global user.email tester@example.com
@@ -77,7 +78,7 @@ check "no agents: no output" "" "$out"
 
 out=$(MOCK_FAIL=1 "$script" --repo "$d/work" 2>&1); code=$?
 check "herdr fails: exit 1" 1 "$code"
-check "herdr fails: message" "hub-status: herdr agent list failed" "$out"
+check "herdr fails: message" "hub-status: agent-list failed" "$out"
 
 out=$("$script" --repo "$d/elsewhere" 2>&1); code=$?
 check "not a repo: exit 1" 1 "$code"

@@ -1,6 +1,7 @@
 # shellcheck shell=bash
-# Sourced. Finds the agent integration of a herdr pane, or the only integration. Writes nothing.
-# - agent_kind <pane>: prints the herdr agent kind of the agent in <pane>. If the pane has no
+# Sourced. Finds the agent integration of a multiplexer pane, or the only integration. Writes
+# nothing.
+# - agent_kind <pane>: prints the agent kind of the agent in <pane>. If the pane has no
 #   agent, prints an error and returns 1.
 # - agent_adapter <kind>: prints the path of the <integrations>/*/agent.sh whose `kind` output is
 #   <kind>. <integrations> is $AGENT_INTEGRATIONS, else integrations/ of the core. If no adapter
@@ -16,7 +17,7 @@ agent_lib_error() {
 
 agent_kind() {
   local kind
-  kind=$(herdr agent get "$1" | jq -r '.result.agent.agent // empty') || return 1
+  kind=$("$(dirname "${BASH_SOURCE[0]}")/mux.sh" agent-kind "$1") || return 1
   if [[ -n $kind ]]; then
     printf '%s\n' "$kind"
   else
@@ -40,7 +41,7 @@ agent_adapter() {
       return 0
     fi
   done
-  agent_lib_error "no agent integration for herdr kind '$1'"
+  agent_lib_error "no agent integration for agent kind '$1'"
   return 1
 }
 

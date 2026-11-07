@@ -12,7 +12,7 @@ allowed-tools:
 
 # exec
 
-Runs a superpowers plan in two phases. Each phase has its own session in the same herdr pane:
+Runs a superpowers plan in two phases. Each phase has its own session in the same multiplexer pane:
 
 1. Execution: implements the plan. A helper script sets the effort and submits the superpowers
    execution command with the plan path. The script first clears this agent session, unless the
@@ -36,7 +36,7 @@ and `review <effort>`. All are optional.
 
 ## Prerequisites
 
-The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
+The session runs in a herdr pane or a Rex pane. The script checks it.
 
 ## Steps
 
@@ -75,12 +75,12 @@ The session runs in a herdr pane (`HERDR_ENV=1`). The script checks it.
    the output file of the task once. If the file is empty, read it again. A first line
    `<label> - <effort> - <plan>` is exit `0`. A line that starts with `exec:` is exit `1`.
 
-   If the script exits `1` with "exec: this session does not run in a herdr pane", use the
+   If the script exits `1` with "exec: this session does not run in a multiplexer pane", use the
    superpowers execution skill of the mode in this session, with the plan path:
    `superpowers:subagent-driven-development` for `subagent`, `superpowers:executing-plans` for
-   `native`. Before that, tell it in one line: "No herdr pane: the plan runs in this session, with
-   the effort of this session." After the last task, do "Review handoff". This fallback ends the
-   steps. Do not do step 7.
+   `native`. Before that, tell it in one line: "No multiplexer pane: the plan runs in this session,
+   with the effort of this session." After the last task, do "Review handoff". This fallback ends
+   the steps. Do not do step 7.
 7. Report the result, then end the turn. The script waits until the turn ends, so the turn has no
    more tool calls after the report.
    - Exit `0`: the stdout line, then one line per decision: `Mode: <mode> - <how>.`,
@@ -107,7 +107,7 @@ If the prompt gave no review effort, use `medium`.
    <skill folder>/exec.sh review <review effort> '<plan path>'
    ```
 
-   If the script exits `1` with "exec: this session does not run in a herdr pane", read
+   If the script exits `1` with "exec: this session does not run in a multiplexer pane", read
    `review.md` in the skill folder and follow it in this session.
 3. Report the result, then end the turn:
    - Exit `0`: the stdout line, then "This session clears after this turn." Then: "Do not type in

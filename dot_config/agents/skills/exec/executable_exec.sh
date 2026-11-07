@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: exec.sh [--fresh] <subagent|native> <effort> <review-effort> <plan-path>
 #        exec.sh review <effort> <plan-path>
-# Starts bin/herdr-after-turn.sh detached. After this agent turn, it sets the effort and submits a
+# Starts bin/after-turn.sh detached. After this agent turn, it sets the effort and submits a
 # command with the absolute plan path:
 # - Execution: the superpowers execution command, with a sentence that starts the review handoff
 #   after the last task. With --fresh, it first clears the session, with the plan file name as the
@@ -13,7 +13,8 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd -P)
-AFTER_TURN=${HERDR_AFTER_TURN:-$here/../../bin/herdr-after-turn.sh}
+bin=$here/../../bin
+AFTER_TURN=${AFTER_TURN:-$bin/after-turn.sh}
 
 die() { echo "exec: $1" >&2; exit 1; }
 usage="usage: exec.sh [--fresh] <subagent|native> <effort> <review-effort> <plan-path>
@@ -45,7 +46,13 @@ else
   check_effort "$effort"
   check_effort "$review_effort"
 fi
-[[ ${HERDR_ENV:-} == 1 ]] || die "this session does not run in a herdr pane"
+code=0
+pane=$("$bin/mux.sh" pane-current 2>&1) || code=$?
+case $code in
+  0) ;;
+  4) die "this session does not run in a multiplexer pane" ;;
+  *) die "cannot find the multiplexer pane of this session: $pane" ;;
+esac
 [[ -f $plan ]] || die "no plan file at $plan"
 plan="$(cd "$(dirname "$plan")" && pwd)/$(basename "$plan")"
 name=$(basename "$plan" .md)
@@ -60,9 +67,6 @@ else
   [[ -z $fresh ]] || clear=(--clear "$name")
   prompt="/superpowers:$skill $plan After the last task, read $here/SKILL.md, section \"Review handoff\", and follow it with review effort $review_effort."
 fi
-
-pane=$(herdr pane current --current | jq -r '.result.pane.pane_id // empty') || true
-[[ -n $pane ]] || die "cannot find the herdr pane of this session"
 
 if [[ -n ${NONO_CAP_FILE:-} ]]; then
   # nono denies herdr calls from a detached process: its ancestry does not reach the sandbox

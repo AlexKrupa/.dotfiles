@@ -29,7 +29,8 @@ case "$1 $2" in
 esac
 EOF
 chmod +x "$d/bin/herdr"
-export PATH="$d/bin:$PATH" MOCK_LOG="$d/calls.log" MOCK_PANES="$d/panes.json"
+unset REX_SESSION
+export PATH="$d/bin:$PATH" MOCK_LOG="$d/calls.log" MOCK_PANES="$d/panes.json" HERDR_ENV=1
 repo="$d/my repo"
 mkdir -p "$repo"
 
@@ -38,8 +39,9 @@ echo '{"result":{"panes":[{"pane_id":"w1:p1","label":null}]}}' >"$MOCK_PANES"
 check "no board pane: exit 0" 0 "$code"
 check "no board pane: split, run, label" "$(printf '%s\n' \
   'herdr pane current --current' \
+  'herdr pane current --pane w1:p1' \
   'herdr pane list --workspace w1' \
-  "herdr pane split w1:p1 --direction right --cwd $repo" \
+  "herdr pane split --pane w1:p1 --direction right --cwd $repo" \
   "herdr pane run w1:p9 watchd board --repo $(printf '%q' "$repo")" \
   'herdr pane rename w1:p9 watchd board')" "$(cat "$MOCK_LOG")"
 

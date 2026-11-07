@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Usage: hub-status.sh [--repo PATH]
-# Lists the herdr agents that run in the linked worktrees of a repo. One TSV line for each agent:
-# pane_id, status, branch, cwd, title. The title is last, so an empty title does not move the
-# other fields.
+# Lists the multiplexer agents that run in the linked worktrees of a repo. One TSV line for each
+# agent: pane_id, status, branch, cwd, title. The title is last, so an empty title does not move
+# the other fields.
 # Exit codes: 0 ok (no lines if no agent matches), 1 error
 set -euo pipefail
+
+bin=$(cd "$(dirname "$0")/../../bin" && pwd)
 
 die() { echo "hub-status: $1" >&2; exit 1; }
 
@@ -21,15 +23,14 @@ list=$(git -C "$repo" worktree list --porcelain 2>/dev/null) || die "not a git r
 linked=$(awk '/^worktree /{print substr($0, 10)}' <<<"$list" | tail -n +2)
 [[ -n $linked ]] || exit 0
 
-agents=$(herdr agent list 2>/dev/null) || die "herdr agent list failed"
-jq -r --arg linked "$linked" '
-  ($linked | split("\n")) as $paths
-  | .result.agents[]
-  | select((.cwd // "") as $cwd
-      | any($paths[]; . as $p | $cwd == $p or ($cwd | startswith($p + "/"))))
-  | [.pane_id, .agent_status, .cwd,
-     ((.terminal_title_stripped // "") | gsub("[\t\n\r]"; " "))]
-  | @tsv' <<<"$agents" \
+agents=$("$bin/mux.sh" agent-list 2>/dev/null) || die "agent-list failed"
+# Only the title can be empty in a matching line, so `read` with a tab IFS keeps the fields.
+LINKED=$linked awk -F'\t' '
+  BEGIN { count = split(ENVIRON["LINKED"], paths, "\n") }
+  {
+    for (i = 1; i <= count; i++)
+      if ($3 == paths[i] || index($3, paths[i] "/") == 1) { print; next }
+  }' <<<"$agents" \
   | while IFS=$'\t' read -r pane status cwd title; do
       branch=$(git -C "$cwd" branch --show-current 2>/dev/null || true)
       printf '%s\t%s\t%s\t%s\t%s\n' "$pane" "$status" "$branch" "$cwd" "$title"

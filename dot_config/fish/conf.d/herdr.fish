@@ -124,6 +124,7 @@ end
 # Panes get them, because each pane runs a login fish.
 if status is-interactive
   and not set -q HERDR_PANE_ID
+  and not set -q REX_SESSION
   and not set -q INSIDE_EMACS
   and not set -q VIM
   and not set -q NVIM

@@ -12,7 +12,8 @@
 # existing mode: "[<ticket-id>] <title>", "<title>" with no ticket id (one positional argument is
 # the title), or NAME with no title. A leading "Draft: " and ticket id ("[<ticket-id>] ",
 # "<ticket-id>: ", "<ticket-id> ") of the title go.
-# In new and next mode, the agent in the herdr pane of this script gives the kind of the new agent.
+# In new and next mode, the agent in the multiplexer pane of this script gives the kind of the new
+# agent.
 # In existing mode, --kind KIND gives it, else the kind of the only agent integration. Existing
 # mode has no pane lookup. bin/agent-lib.sh finds the integration of that kind, and its adapter
 # gives the agent arguments. --continue puts the session id of the agent in the pane in the
@@ -20,7 +21,7 @@
 # adapter line that runs the skill SKILL on URL.
 # Mode "new" (main checkout): creates the branch from the default branch of origin (origin/HEAD)
 # after a fast-forward, or from the remote ref REF. Tracks it on the default branch with
-# git-spice. Opens it as a new herdr worktree workspace, starts an agent there, and submits the
+# git-spice. Opens it as a new worktree workspace, starts an agent there, and submits the
 # prompt. --split selects this mode in a linked worktree too. With --continue, the prompt gets a
 # handoff: the session id, the current branch, and the summary on fd 3.
 # "tops" prints the top branches of the git-spice stack above the current branch, one on each
@@ -29,7 +30,7 @@
 # on top of BRANCH. Adds a handoff to the prompt: the stack base. With --continue, the handoff also
 # has the session id, the MR of the current branch (URL, else from glab), the files in
 # ~/.ai/<repo>/{specs,plans,reviews} with the ticket key of the current branch (no search for the
-# placeholder ID), and the summary on fd 3. Then starts bin/herdr-after-turn.sh, which clears this
+# placeholder ID), and the summary on fd 3. Then starts bin/after-turn.sh, which clears this
 # agent session after the turn, renames it, and submits the prompt. In a nono sandbox
 # (NONO_CAP_FILE is set), prints the JSON, then runs the helper in the foreground. The agent runs
 # the script as a background task there.
@@ -40,7 +41,7 @@
 # with no local changes. The local commits go.
 # New and next mode, and existing mode with no --skill, set the kind `mine` of the worktree with
 # `watchd kind`. With --skill, the skill sets the kind.
-# In a nono sandbox, new and existing mode start the agent with the herdr-start-* command of the
+# In a nono sandbox, new and existing mode start the agent with the start-* command of the
 # integration, and the only agent flag is --effort.
 # Prints JSON: mode, branch, base, tracked, worktree, pane_id, and in new and existing mode
 # workspace_id, agent.
@@ -54,7 +55,7 @@ bin=$(cd "$here/../../bin" && pwd)
 source "$bin/git-lib.sh"
 # shellcheck source=../../bin/agent-lib.sh
 source "$bin/agent-lib.sh"
-WORK_NEXT=${WORK_NEXT:-$bin/herdr-after-turn.sh}
+WORK_NEXT=${WORK_NEXT:-$bin/after-turn.sh}
 watch_client=${WATCHD:-$HOME/.local/bin/watchd}
 spice_ref=refs/spice/data
 
@@ -158,20 +159,19 @@ fi
 if [[ -n $existing && -z $kind ]]; then kind=$(agent_default_kind) || exit 1; fi
 pane=""
 if [[ -z $kind || -n $continue ]]; then
-  pane=$(herdr pane current --current | jq -r '.result.pane.pane_id // empty') || true
-  [[ -n $pane ]] || die "cannot find the herdr pane of this session"
+  pane=$("$bin/mux.sh" pane-current) || die "cannot find the multiplexer pane of this session"
 fi
 [[ -n $kind ]] || kind=$(agent_kind "$pane") || exit 1
 adapter=$(agent_adapter "$kind") || exit 1
 session=""
 if [[ -n $continue ]]; then
-  session=$(herdr agent get "$pane" | jq -r '.result.agent.agent_session.value // empty') || true
+  session=$("$bin/mux.sh" agent-session "$pane") || true
   [[ -n $session ]] || die "no session id for the agent in pane $pane"
 fi
 if [[ -n $existing$split || $(mode_of) == new ]]; then
   if [[ -n ${NONO_CAP_FILE:-} ]]; then
     starter=""
-    for file in "$(dirname "$adapter")"/herdr-start-*; do
+    for file in "$(dirname "$adapter")"/start-*; do
       if [[ -e $file && $file != *.test.sh ]]; then starter=$file; fi
     done
     [[ -n $starter ]] || die "no sandbox start command in $(dirname "$adapter")"
@@ -317,12 +317,12 @@ if [[ -n $existing ]]; then
   fi
 
   # Stdout only: a stderr warning of a success is not JSON. A failure shows its own stderr.
-  opened=$("$here/herdr-worktree.sh" "$branch" --repo "$main") || die "herdr-worktree.sh failed"
+  opened=$("$here/worktree.sh" "$branch" --repo "$main") || die "worktree.sh failed"
   worktree=$(jq -r '.path' <<<"$opened")
   workspace=$(jq -r '.workspace_id' <<<"$opened")
   pane=$(jq -r '.root_pane_id' <<<"$opened")
   if [[ -z $pane ]]; then
-    echo "work-start: $branch is open in herdr workspace $workspace already" >&2
+    echo "work-start: $branch is open in workspace $workspace already" >&2
     exit 5
   fi
   if [[ -z $skill ]]; then
@@ -355,11 +355,8 @@ else
     tracked=true
   fi
 
-  made=$(herdr worktree create --cwd "$main" --branch "$branch" --no-focus) \
-    || fail "herdr worktree create failed"
-  worktree=$(jq -r '.result.worktree.path' <<<"$made")
-  workspace=$(jq -r '.result.workspace.workspace_id' <<<"$made")
-  pane=$(jq -r '.result.root_pane.pane_id' <<<"$made")
+  made=$("$bin/mux.sh" worktree-create "$main" "$branch") || fail "worktree-create failed"
+  IFS=$'\t' read -r worktree workspace pane <<<"$made"
   mode=new
   (cd "$worktree" && "$watch_client" kind mine) >/dev/null 2>&1 || true
 fi
@@ -371,7 +368,7 @@ if [[ -n ${NONO_CAP_FILE:-} ]]; then
   # nono denies `herdr agent start` in the sandbox, and finds this mediated command by name on PATH.
   start=("$(basename "$starter")" "$name" "$pane" "$title" ${start_effort:+"$start_effort"})
 else
-  start=(herdr agent start "$name" --kind "$kind" --pane "$pane" -- "${start_args[@]}")
+  start=("$bin/mux.sh" agent-start "$pane" "$name" "$kind" -- "${start_args[@]}")
 fi
 # The shell of a new pane needs some time to show its prompt.
 started=""
@@ -385,10 +382,10 @@ if [[ -z $started ]]; then
     echo "work-start: agent not ready in pane $pane (branch $branch stays)" >&2
     exit 4
   fi
-  fail "herdr agent start failed: $out"
+  fail "agent-start failed: $out"
 fi
 
-herdr agent prompt "$pane" "$prompt" >/dev/null || fail "herdr agent prompt failed"
+"$bin/mux.sh" agent-prompt "$pane" "$prompt" || fail "agent-prompt failed"
 
 jq -n --arg mode "$mode" --arg branch "$branch" --arg base "$base" --argjson tracked "$tracked" \
   --arg worktree "$worktree" --arg workspace "$workspace" --arg pane "$pane" --arg agent "$name" \

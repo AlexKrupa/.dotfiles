@@ -5,7 +5,7 @@ set -u
 here=$(cd "$(dirname "$0")" && pwd)
 sample=$here/sample
 tmp=$(cd "$(mktemp -d)" && pwd -P) || exit 1
-export SAMPLE_ROOT=$tmp/root SAMPLE_STATE=$tmp/state SAMPLE_NO_HERDR=1
+export SAMPLE_ROOT=$tmp/root SAMPLE_STATE=$tmp/state SAMPLE_NO_MUX=1
 trap '"$sample" stop >/dev/null 2>&1; rm -rf "$tmp"' EXIT
 fail=0
 

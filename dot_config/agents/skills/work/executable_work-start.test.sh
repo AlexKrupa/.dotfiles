@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks work-start.sh with real git repos, the real shared bin/ scripts, and fake herdr, glab,
-# git-spice, and herdr-after-turn.sh.
+# git-spice, and after-turn.sh.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -70,7 +70,7 @@ case "$1 $2" in
   "log short") printf '%s\n' "${MOCK_SPICE_LOG:-}" ;;
 esac
 EOF
-# Fake herdr-after-turn.sh: after $MOCK_SLEEP seconds, writes its arguments and stdin to
+# Fake after-turn.sh: after $MOCK_SLEEP seconds, writes its arguments and stdin to
 # $MOCK_NEXT.
 cat >"$tmp/bin/work-next" <<'EOF'
 #!/bin/sh
@@ -86,9 +86,9 @@ if [ "$1 $2" = "mr list" ] && [ -n "${MOCK_GLAB_MRS:-}" ]; then echo "$MOCK_GLAB
 echo "unexpected glab call: $*" >&2; exit 2
 EOF
 # Fake mediated start command of the fake integration in a nono sandbox: logs each call.
-cat >"$tmp/bin/herdr-start-fake" <<'EOF'
+cat >"$tmp/bin/start-fake" <<'EOF'
 #!/bin/sh
-printf 'herdr-start-fake'  >>"$MOCK_LOG"
+printf 'start-fake'  >>"$MOCK_LOG"
 printf ' [%s]' "$@" >>"$MOCK_LOG"
 echo >>"$MOCK_LOG"
 EOF
@@ -98,10 +98,10 @@ printf 'watchd %s\n' "$*" >>"$MOCK_LOG"
 pwd -P >"$MOCK_LOG.folder"
 EOF
 chmod +x "$tmp/bin/herdr" "$tmp/bin/git-spice" "$tmp/bin/work-next" "$tmp/bin/glab" \
-  "$tmp/bin/herdr-start-fake" "$tmp/bin/watchd"
+  "$tmp/bin/start-fake" "$tmp/bin/watchd"
 # Fake integrations. The fake adapter prints --fake-name, the title, then the flags, one on each
 # line, and refuses a flag that is not --model or --effort. Its skill line is "SKILL <name>
-# <args>". herdr-start-fake marks the sandbox start command of the folder. The plain integration
+# <args>". start-fake marks the sandbox start command of the folder. The plain integration
 # has no sandbox start command. $tmp/integrations has only the fake integration, $tmp/two has both.
 mkdir -p "$tmp/integrations/fake" "$tmp/two/plain"
 cat >"$tmp/integrations/fake/agent.sh" <<'EOF'
@@ -123,12 +123,12 @@ esac
 EOF
 printf '#!/bin/sh\necho plain\n' >"$tmp/two/plain/agent.sh"
 ln -s "$tmp/integrations/fake" "$tmp/two/fake"
-: >"$tmp/integrations/fake/herdr-start-fake"
-: >"$tmp/integrations/fake/herdr-start-fake.test.sh"
+: >"$tmp/integrations/fake/start-fake"
+: >"$tmp/integrations/fake/start-fake.test.sh"
 chmod +x "$tmp/integrations/fake/agent.sh" "$tmp/two/plain/agent.sh"
 export PATH="$tmp/bin:$PATH" WORK_NEXT="$tmp/bin/work-next" TMPDIR="$tmp" HERDR_ENV=1 \
   WATCHD="$tmp/bin/watchd" AGENT_INTEGRATIONS="$tmp/integrations"
-unset NONO_CAP_FILE
+unset NONO_CAP_FILE REX_SESSION
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$tmp/gitconfig"
 git config --global user.name tester
 git config --global user.email tester@example.com
@@ -187,7 +187,7 @@ side_calls() {
   grep -v -e '^herdr pane current --current$' -e '^herdr agent get wL:p1$' "$MOCK_LOG"
 }
 
-# wait_next: waits up to 5 s for the fake herdr-after-turn.sh, then prints what it got.
+# wait_next: waits up to 5 s for the fake after-turn.sh, then prints what it got.
 wait_next() {
   for _ in $(seq 50); do [ -f "$MOCK_NEXT" ] && break; sleep 0.1; done
   cat "$MOCK_NEXT" 2>/dev/null
@@ -255,19 +255,19 @@ check "flags: session name with the ticket and agent flags passed" \
 check "flags: prompt arrives with no changes" $'ABC-7\n\nFix `x` in "$HOME" dir' \
   "$(cat "$MOCK_PROMPT")"
 
-# In a nono sandbox, herdr-start-fake starts the agent, and --effort is the only agent flag.
+# In a nono sandbox, start-fake starts the agent, and --effort is the only agent flag.
 fresh
 NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it' -- --effort high
 check "sandbox flags: exit 0" 0 "$code"
-check "sandbox flags: herdr-start-fake gets name, pane, title, effort" \
-  "herdr-start-fake [abc-7-add-it] [wT:p1] [[ABC-7] Add it] [high]" \
-  "$(grep -e '^herdr-start-fake' -e '^herdr agent start' "$MOCK_LOG")"
+check "sandbox flags: start-fake gets name, pane, title, effort" \
+  "start-fake [abc-7-add-it] [wT:p1] [[ABC-7] Add it] [high]" \
+  "$(grep -e '^start-fake' -e '^herdr agent start' "$MOCK_LOG")"
 check "sandbox flags: prompt sent" p "$(cat "$MOCK_PROMPT")"
 fresh
 NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it'
-check "sandbox no flags: herdr-start-fake gets no effort" \
-  "herdr-start-fake [abc-7-add-it] [wT:p1] [[ABC-7] Add it]" \
-  "$(grep '^herdr-start-fake' "$MOCK_LOG")"
+check "sandbox no flags: start-fake gets no effort" \
+  "start-fake [abc-7-add-it] [wT:p1] [[ABC-7] Add it]" \
+  "$(grep '^start-fake' "$MOCK_LOG")"
 fresh
 NONO_CAP_FILE="$tmp/cap" run p ABC-7 'Add it' -- --model opus --effort high
 check "sandbox model: exit 1" 1 "$code"
@@ -380,7 +380,7 @@ fresh
 MOCK_START_FAIL='boom' run p ABC-0 'typo'
 check "start fails: exit 1" 1 "$code"
 
-# Next mode: a stacked branch in the same worktree, then herdr-after-turn.sh.
+# Next mode: a stacked branch in the same worktree, then after-turn.sh.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 cwd="$d/linked" run $'ABC-2\n\nFix `x` in "$HOME"' ABC-2 'Second part'
@@ -391,7 +391,7 @@ check "next: git-spice creates the branch" \
   "git-spice branch create ABC-2/second-part --no-commit" "$(grep '^git-spice' "$MOCK_LOG")"
 check "next: worktree now on the new branch" ABC-2/second-part \
   "$(git -C "$d/linked" branch --show-current)"
-check "next: herdr-after-turn.sh gets pane, --clear old branch, rename, prompt, fresh handoff" \
+check "next: after-turn.sh gets pane, --clear old branch, rename, prompt, fresh handoff" \
   "wL:p1
 --clear
 ABC-1/old
@@ -409,23 +409,23 @@ check "next: no glab call" "" "$(grep '^glab' "$MOCK_LOG")"
 check "next: main checkout stays on main" main "$(git -C "$work" branch --show-current)"
 check "next: sets kind mine" "watchd kind mine" "$(grep '^watchd' "$MOCK_LOG")"
 
-# Next mode with no sandbox: herdr-after-turn.sh is detached. In a nono sandbox: the JSON, then
-# herdr-after-turn.sh in the foreground.
+# Next mode with no sandbox: after-turn.sh is detached. In a nono sandbox: the JSON, then
+# after-turn.sh in the foreground.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 MOCK_SLEEP=1 cwd="$d/linked" run p ABC-2 'Second part'
-check "next no sandbox: exit 0 before herdr-after-turn.sh ends" "0 no" \
+check "next no sandbox: exit 0 before after-turn.sh ends" "0 no" \
   "$code $([ -f "$MOCK_NEXT" ] && echo yes || echo no)"
-check "next no sandbox: herdr-after-turn.sh ends later" $'wL:p1\n--clear\nABC-1/old' \
+check "next no sandbox: after-turn.sh ends later" $'wL:p1\n--clear\nABC-1/old' \
   "$(wait_next | head -n3)"
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 MOCK_SLEEP=1 NONO_CAP_FILE="$tmp/cap" cwd="$d/linked" run p ABC-2 'Second part'
-check "next sandbox: exit 0 after herdr-after-turn.sh ends" "0 yes" \
+check "next sandbox: exit 0 after after-turn.sh ends" "0 yes" \
   "$code $([ -f "$MOCK_NEXT" ] && echo yes || echo no)"
 check "next sandbox: JSON" "next ABC-2/second-part ABC-1/old wL:p1" \
   "$(jq -r '"\(.mode) \(.branch) \(.base) \(.pane_id)"' <<<"$out")"
-check "next sandbox: herdr-after-turn.sh gets pane, --clear old branch, rename" \
+check "next sandbox: after-turn.sh gets pane, --clear old branch, rename" \
   $'wL:p1\n--clear\nABC-1/old\nrename [ABC-2] Second part' "$(head -n4 "$MOCK_NEXT")"
 
 # Stack tops above the current branch.
@@ -553,7 +553,7 @@ Summary of the previous session:
 FooTest is flaky on main." "$(cat "$MOCK_PROMPT")"
 check "split: linked worktree stays on its branch" ABC-1/old \
   "$(git -C "$d/linked" branch --show-current)"
-check "split: no herdr-after-turn.sh" "" "$(cat "$MOCK_NEXT" 2>/dev/null)"
+check "split: no after-turn.sh" "" "$(cat "$MOCK_NEXT" 2>/dev/null)"
 
 # Split, fresh: the prompt has no handoff.
 fresh
@@ -581,7 +581,7 @@ cwd="$d/linked" run p ABC-0 --split --branch ABC-1/old
 check "split --branch: exit 1" 1 "$code"
 check "split bad options: no herdr call" "" "$(side_calls)"
 
-# Next mode with changes in the worktree. The 5 s wait for herdr-after-turn.sh is expected here.
+# Next mode with changes in the worktree. The 5 s wait for after-turn.sh is expected here.
 fresh
 git -C "$work" worktree add -q "$d/linked" -b ABC-1/old
 echo draft >"$d/linked/draft.txt"
@@ -589,7 +589,7 @@ cwd="$d/linked" run p ABC-2 'Second part'
 check "next dirty: exit 1" 1 "$code"
 check "next dirty: message" "work-start: the worktree has changes: the old work is not done" "$err"
 check "next dirty: no branch" no "$(has_branch ABC-2/second-part)"
-check "next dirty: no herdr-after-turn.sh" "" "$(wait_next)"
+check "next dirty: no after-turn.sh" "" "$(wait_next)"
 
 # Next mode with --base or agent flags.
 fresh
@@ -767,7 +767,7 @@ MOCK_WT_LIST='{"result":{"worktrees":[{"branch":"ABC-5/review-me","path":"/wt/ol
 "is_prunable":false,"open_workspace_id":"wX"}]}}' run p ABC-5 --branch ABC-5/review-me
 check "busy branch: exit 5" 5 "$code"
 check "existing open: message names the workspace" \
-  "work-start: ABC-5/review-me is open in herdr workspace wX already" "$err"
+  "work-start: ABC-5/review-me is open in workspace wX already" "$err"
 check "existing open: no agent start" "" "$(grep '^herdr agent start' "$MOCK_LOG")"
 
 # Existing branch with a worktree and no open workspace.
@@ -823,7 +823,7 @@ check "existing bad options: no herdr call" "" "$(side_calls)"
 fresh
 MOCK_KIND=none run p ABC-0 'typo'
 check "unknown kind: exit 1" 1 "$code"
-check "unknown kind: message" "work-start: no agent integration for herdr kind 'none'" "$err"
+check "unknown kind: message" "work-start: no agent integration for agent kind 'none'" "$err"
 check "unknown kind: no branch" no "$(has_branch ABC-0/typo)"
 fresh
 MOCK_KIND= run p ABC-0 'typo'
@@ -861,7 +861,7 @@ check "given kind: no pane lookup" "" \
 fresh
 MOCK_KIND=plain run p ABC-5 --branch ABC-5/review-me --kind none
 check "given unknown kind: exit 1" 1 "$code"
-check "given unknown kind: message" "work-start: no agent integration for herdr kind 'none'" "$err"
+check "given unknown kind: message" "work-start: no agent integration for agent kind 'none'" "$err"
 fresh
 run p ABC-0 'typo' --kind fake
 check "given kind in new mode: exit 1" 1 "$code"

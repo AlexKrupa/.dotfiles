@@ -1,7 +1,7 @@
 ---
 name: work
 description: >-
-  When the user runs /work, use this skill. It starts a ticket, or work with no ticket: in a new herdr
+  When the user runs /work, use this skill. It starts a ticket, or work with no ticket: in a new
   worktree workspace with its own agent, or as the next stacked branch in the current
   worktree. Also continues an existing branch, GitLab MR, or MR pipeline in its own workspace.
   Also splits a different issue off the default branch into a new workspace with a handoff.
@@ -22,7 +22,7 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
 
 ## Prerequisites
 
-- The session runs in a herdr pane (`HERDR_ENV=1`).
+- The session runs in a herdr pane or a Rex pane.
 - The current folder is in the repo: the main checkout or one of its worktrees.
 
 ## Modes
@@ -191,10 +191,10 @@ tracker URL, a branch, a GitLab MR, a base, a model, and an effort, in any order
      worktree stay as they are: the user fixes the cause, then runs `/work` again.
    - Exit `1` and the stderr text ends with `(branch <branch> stays)`, new, split, or next mode:
      also tell the user that `/work` again needs a new branch name. The branch in the message
-     stays. If the message names `herdr agent start` or `herdr agent prompt`, its herdr worktree
-     workspace stays too. The user can continue there or remove them.
+     stays. If the message names `agent-start` or `agent-prompt`, its worktree workspace
+     stays too. The user can continue there or remove them.
    - Exit `1` and the stderr text ends with `(branch <branch> stays)`, existing mode: also tell
-     the user that the herdr worktree workspace stays. The user can continue there, or close it
+     the user that the worktree workspace stays. The user can continue there, or close it
      and run `/work` again.
    - Exit `4`: the stderr text names the pane id. Run
      `herdr agent read <pane-id> --source visible` and report what blocks the agent.

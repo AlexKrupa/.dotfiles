@@ -291,23 +291,24 @@ command = "chmarax.herdr-nvim.toggle"
 description = "nvim sidebar"
 
 # --- Custom commands: tuicr ---
+# HERDR_ENV=1: tuicr.sh finds the multiplexer through bin/mux.sh.
 
 [[keys.command]]
 key = "alt+a"
 type = "shell"
-command = "~/.config/herdr/bin/tuicr.sh branch"
+command = "HERDR_ENV=1 ~/.config/agents/bin/tuicr.sh branch \"$HERDR_ACTIVE_PANE_ID\""
 description = "tuicr: review branch vs its parent, next to the agent"
 
 [[keys.command]]
 key = "alt+A"
 type = "shell"
-command = "~/.config/herdr/bin/tuicr.sh send"
+command = "HERDR_ENV=1 ~/.config/agents/bin/tuicr.sh send \"$HERDR_ACTIVE_PANE_ID\""
 description = "tuicr: send comments to the agent"
 
 [[keys.command]]
 key = "ctrl+alt+a"
 type = "shell"
-command = "~/.config/herdr/bin/tuicr.sh mr"
+command = "HERDR_ENV=1 ~/.config/agents/bin/tuicr.sh mr \"$HERDR_ACTIVE_PANE_ID\""
 description = "tuicr: target selector, for MRs"
 
 # Avoid alt+f/alt+b: some terminals send Opt+Right->ESC-f, Opt+Left->ESC-b for readline word-jump

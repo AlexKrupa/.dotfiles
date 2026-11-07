@@ -1,0 +1,29 @@
+#!/bin/bash
+# Usage: start-claude <name> <pane> <title> [<effort>]
+# Starts a Claude Code agent in a multiplexer pane:
+#   mux.sh agent-start <pane> <name> claude -- --name <title> [--effort <effort>]
+# In a nono sandbox, this is the only way to start an agent. The sandbox policy runs this script
+# outside the session sandbox, so it accepts only these arguments.
+# Exit codes: 0 ok, 1 the start failed, 2 bad arguments, 4 not in a multiplexer
+# /bin/bash, not env bash: the nono policy of this script passes no PATH.
+set -euo pipefail
+
+die() { echo "start-claude: $1" >&2; exit 2; }
+
+[[ $# -eq 3 || $# -eq 4 ]] || die "usage: start-claude <name> <pane> <title> [<effort>]"
+name=$1 pane=$2 title=$3 effort=${4:-}
+for arg in "$name" "$pane" "$title"; do
+  [[ -n $arg && $arg != -* ]] || die "empty argument, or an argument that starts with -: '$arg'"
+done
+effort_args=()
+if [[ $# -eq 4 ]]; then
+  case $effort in
+    low | medium | high | xhigh | max) effort_args=(--effort "$effort") ;;
+    *) die "effort must be low, medium, high, xhigh, or max, not '$effort'" ;;
+  esac
+fi
+
+# No dirname: the policy passes no PATH.
+here=${BASH_SOURCE[0]%/*}
+exec /bin/bash "$here/../../bin/mux.sh" agent-start "$pane" "$name" claude -- --name "$title" \
+  ${effort_args[@]+"${effort_args[@]}"}

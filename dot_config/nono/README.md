@@ -161,9 +161,9 @@ Claude can write a profile draft to `~/.config/nono/profile-drafts/`. Apply it w
   `pane current/move/close`, and `pane report-metadata` (statusline labels).
 - The sandbox blocks `agent attach`, `agent start`, `pane run`, `pane send-keys`, and all other
   subcommands.
-- `herdr-start-claude <name> <pane> <title> [<effort>]` in
+- `start-claude <name> <pane> <title> [<effort>]` in
   `~/.config/agents/integrations/claude-code` is a mediated command, and the launcher puts that
-  directory first on `PATH`. It runs `herdr agent start
+  directory first on `PATH`. It runs `mux.sh agent-start`, which runs `herdr agent start
   <name> --kind claude --pane <pane> -- --name <title> [--effort <effort>]` outside the sandbox.
   It refuses arguments that start with `-` and unknown effort levels. Its `herdr` policy allows
   only `agent start`. `/work` uses it in the sandbox, and there `--effort` is the only Claude
@@ -177,7 +177,7 @@ Claude can write a profile draft to `~/.config/nono/profile-drafts/`. Apply it w
   task. `nono` blocks `herdr` calls from a detached process ("caller ancestry did not reach
   session root").
 
-Risk: with `herdr-start-claude`, the sandbox can start `claude` in a pane of a repo with no repo
+Risk: with `start-claude`, the sandbox can start `claude` in a pane of a repo with no repo
 file, and prompt it. That agent can then do work outside the sandbox. The sandbox can also send
 input to an agent that runs already, with `herdr agent prompt` and `herdr agent send-keys`.
 
@@ -215,4 +215,4 @@ The test file writes a temporary `repo-sbx-test-repo.json` in the profile direct
 `~/.ai/sbx-test-repo`. It removes both at the end. It also makes `~/.claude-sandbox/config` and
 its links, as a sandboxed start does.
 
-`~/.config/agents/integrations/claude-code/herdr-start-claude.test.sh` tests the wrapper.
+`~/.config/agents/integrations/claude-code/start-claude.test.sh` tests the wrapper.

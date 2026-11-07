@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks handoff.sh with a real git repo, fake herdr, and a fake herdr-after-turn.sh.
+# Checks handoff.sh with a real git repo, fake herdr, and a fake after-turn.sh.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -28,7 +28,8 @@ EOF
 chmod +x "$tmp/bin/herdr" "$tmp/after-turn"
 
 git init -q "$tmp/my-repo"
-export PATH="$tmp/bin:$PATH" HOME="$tmp/home" MOCK_LOG="$tmp/log"
+unset REX_SESSION
+export PATH="$tmp/bin:$PATH" HOME="$tmp/home" MOCK_LOG="$tmp/log" HERDR_ENV=1
 export HANDOFF_AFTER_TURN="$tmp/after-turn" HANDOFF_DATE=2026-10-18-1430
 cd "$tmp/my-repo" || exit 1
 
@@ -48,9 +49,9 @@ file="$tmp/home/.ai/my-repo/handoffs/2026-10-18-1430-retry-logic.md"
 check "refresh: missing file fails" 1 "$?"
 
 echo handoff >"$file"
-out=$(HERDR_ENV= "$script" refresh "$file" 2>&1)
-check "refresh: outside herdr exits 4" 4 "$?"
-check "refresh: outside herdr prints the line" "Continue from \`$file\`." "$out"
+out=$(env -u HERDR_ENV -u REX_SESSION "$script" refresh "$file" 2>&1)
+check "refresh prints the prompt and exits 4 outside a multiplexer: exit 4" 4 "$?"
+check "refresh prints the prompt and exits 4 outside a multiplexer: prompt" "Continue from \`$file\`." "$out"
 
 rm -f "$MOCK_LOG"
 HERDR_ENV=1 NONO_CAP_FILE= "$script" refresh "$file" >/dev/null

@@ -60,7 +60,7 @@ folder in `integrations/`.
 - `integrations/claude-code/` - the Claude Code integration: the installer `install.sh` and
   `CLAUDE.md`, the Claude notes for the skills.
 - `integrations/<agent>/agent.sh` - the runtime adapter. In the core, it is the only place with the
-  commands and flags of an agent. The sandbox start command `herdr-start-*` of the integration and
+  commands and flags of an agent. The sandbox start command `start-*` of the integration and
   the daemon also have them.
 - `skills/<name>/SKILL.md` - one skill for each folder. The skills are not in groups, because
   Claude Code finds skills only at this level. If only one skill uses a script, the script is in
@@ -72,8 +72,11 @@ folder in `integrations/`.
   a script, search the skills for the script name.
 - `bin/git-lib.sh`, `bin/gitlab-lib.sh` - the shared functions of the git scripts and of the
   GitLab scripts. The scripts source these files.
-- `bin/agent-lib.sh` - finds the herdr agent kind of a pane or of the only adapter, and the
-  `agent.sh` adapter of that kind. The scripts that send agent actions source it.
+- `bin/agent-lib.sh` - finds the agent kind of a pane or of the only adapter, and the `agent.sh`
+  adapter of that kind. The scripts that send agent actions source it.
+- `bin/mux.sh` - the multiplexer interface. It runs `bin/mux/herdr.sh` in herdr and
+  `bin/mux/rex.sh` in Rex. Only these backends call `herdr` or `rex`. The other scripts call
+  `mux.sh` and do not read `HERDR_*` or `REX_*`.
 - `bin/repo-slug.sh` - gives the `~/.ai/<repo-name>/` slug of a repo. `instructions-agents.md`,
   the skills, and the fish configuration use it.
 - `daemon/` - the GitLab watch: one Rust program, `watchd`, with the daemon (one process for each
@@ -102,13 +105,14 @@ scripts, the scripts have no `--help`, no prompts, and no color.
 - stdout contains only the result for the caller. The script writes errors to stderr, with the
   script name and the value that failed. For example: `work-start: agent not ready in pane 3`.
 - Output format: a single value is one plain line, for example a path. Flat fields are
-  `key: value` lines. Records are JSON, with one object on each line.
+  `key: value` lines. Records are JSON, with one object on each line. `bin/mux.sh` prints TSV
+  records.
 - The exit codes are 0 and 1. If a skill must act on a different code, use a code from the shared
-  list: 2 not found, 3 ambiguous, 4 missing dependency, auth, or herdr, 5 network, 6 timeout. These
-  scripts give some codes a different meaning:
+  list: 2 not found, 3 ambiguous, 4 missing dependency, auth, or multiplexer, 5 network, 6 timeout.
+  These scripts give some codes a different meaning:
   - `watchd engine`: 4 network, 5 permanent error.
   - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
-  - `integrations/claude-code/herdr-start-claude`: the exit code of herdr, 2 bad arguments.
+  - `integrations/claude-code/start-claude`: 2 bad arguments.
   - `integrations/claude-code/agent.sh`: 2 usage error, 3 the agent has no such action.
   - `install-skills.sh`: 2 no agent name.
   - `daemon/integrations/claude-code/wait.sh`: 2 wake Claude (the `asyncRewake` code).

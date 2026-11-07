@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks exec.sh with a fake herdr and a fake herdr-after-turn.sh.
+# Checks exec.sh with a fake herdr and a fake after-turn.sh.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -18,7 +18,7 @@ cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
 echo '{"result":{"pane":{"pane_id":"w1:p2"}}}'
 EOF
-# Fake herdr-after-turn.sh: after $MOCK_SLEEP seconds, writes its arguments and stdin to
+# Fake after-turn.sh: after $MOCK_SLEEP seconds, writes its arguments and stdin to
 # $MOCK_AFTER.
 cat >"$tmp/bin/after" <<'EOF'
 #!/bin/sh
@@ -27,14 +27,14 @@ sleep "${MOCK_SLEEP:-0}"
 mv "$MOCK_AFTER.tmp" "$MOCK_AFTER"
 EOF
 chmod +x "$tmp/bin/herdr" "$tmp/bin/after"
-export PATH="$tmp/bin:$PATH" HERDR_AFTER_TURN="$tmp/bin/after" MOCK_AFTER="$tmp/after.out" \
+export PATH="$tmp/bin:$PATH" AFTER_TURN="$tmp/bin/after" MOCK_AFTER="$tmp/after.out" \
   TMPDIR="$tmp" HERDR_ENV=1
-unset NONO_CAP_FILE
+unset NONO_CAP_FILE REX_SESSION
 plan="$tmp/plans/2026-09-30-foo.md"
 echo '# Foo plan' >"$plan"
 handoff="After the last task, read $here/SKILL.md, section \"Review handoff\", and follow it with review effort"
 
-# got: waits up to 5 s for the fake herdr-after-turn.sh, then prints what it got.
+# got: waits up to 5 s for the fake after-turn.sh, then prints what it got.
 got() {
   for _ in $(seq 50); do [ -f "$MOCK_AFTER" ] && break; sleep 0.1; done
   cat "$MOCK_AFTER" 2>/dev/null; rm -f "$MOCK_AFTER"
@@ -111,8 +111,9 @@ check "no plan file: exit 1" 1 "$code"
 check "bad mode: exit 1" 1 "$code"
 "$script" native huge medium "$plan" >/dev/null 2>&1; code=$?
 check "bad effort: exit 1" 1 "$code"
-HERDR_ENV= "$script" native high medium "$plan" >/dev/null 2>&1; code=$?
-check "not in herdr: exit 1" 1 "$code"
+err=$(HERDR_ENV= "$script" native high medium "$plan" 2>&1 >/dev/null); code=$?
+check "outside a multiplexer: exit 1" 1 "$code"
+check "outside a multiplexer: error" "exec: this session does not run in a multiplexer pane" "$err"
 "$script" native high "$plan" >/dev/null 2>&1; code=$?
 check "no review effort: exit 1" 1 "$code"
 "$script" native high huge "$plan" >/dev/null 2>&1; code=$?
@@ -121,6 +122,6 @@ check "bad review effort: exit 1" 1 "$code"
 check "review bad effort: exit 1" 1 "$code"
 "$script" review medium >/dev/null 2>&1; code=$?
 check "review no plan path: exit 1" 1 "$code"
-check "errors: no herdr-after-turn.sh" "" "$(got)"
+check "errors: no after-turn.sh" "" "$(got)"
 
 exit $fail

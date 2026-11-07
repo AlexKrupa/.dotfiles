@@ -131,7 +131,7 @@
                       "get"
                     ]
                   },
-                  "reason": "herdr-worktree.sh"
+                  "reason": "worktree.sh"
                 },
                 {
                   "argv": {
@@ -140,7 +140,7 @@
                       "current"
                     ]
                   },
-                  "reason": "exec, herdr-worktree.sh"
+                  "reason": "exec, worktree.sh"
                 },
                 {
                   "argv": {
@@ -149,7 +149,7 @@
                       "move"
                     ]
                   },
-                  "reason": "herdr-worktree.sh"
+                  "reason": "worktree.sh"
                 },
                 {
                   "argv": {
@@ -158,7 +158,7 @@
                       "close"
                     ]
                   },
-                  "reason": "herdr-worktree.sh"
+                  "reason": "worktree.sh"
                 },
                 {
                   "argv": {
@@ -205,12 +205,12 @@
                       "start"
                     ]
                   },
-                  "reason": "starts any agent with any arguments: use herdr-start-claude"
+                  "reason": "starts any agent with any arguments: use start-claude"
                 }
               ]
             }
           },
-          "herdr-start-claude": {
+          "start-claude": {
             "sandbox": {
               "unix_socket_bind": [
                 "$HOME/.config/herdr/herdr.sock"
@@ -239,14 +239,14 @@
                       "start"
                     ]
                   },
-                  "reason": "herdr-start-claude checks the arguments"
+                  "reason": "start-claude checks the arguments"
                 }
               ]
             }
           }
         }
       },
-      "herdr-start-claude": {
+      "start-claude": {
         "can_use": [
           "herdr"
         ],

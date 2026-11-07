@@ -135,26 +135,27 @@ settle() { # waits until the daemon takes all event files of the fake engine
   return 1
 }
 
-# The agent loop runs in the root pane of the worktree workspace. With SAMPLE_NO_HERDR=1, or in the
+# The agent loop runs in the root pane of the worktree workspace. With SAMPLE_NO_MUX=1, or in the
 # main checkout, which has the pane of `sample ui`, it runs in the background. The files
-# $SAMPLE_STATE/agents/<role>.<name> keep the herdr workspace, the pane, and the loop PID.
+# $SAMPLE_STATE/agents/<role>.<name> keep the multiplexer workspace, the pane, and the loop PID.
 agents=$SAMPLE_STATE/agents
+mux=$HOME/.config/agents/bin/mux.sh
 
-agent_open() { # agent_open <role>: opens the worktree workspace in herdr
+agent_open() { # agent_open <role>: opens the worktree workspace in the multiplexer
   local branch opened workspace pane
-  if [ "${SAMPLE_NO_HERDR:-}" = 1 ] || [ "$(worktree_of "$1")" = "$repo" ] \
+  if [ "${SAMPLE_NO_MUX:-}" = 1 ] || [ "$(worktree_of "$1")" = "$repo" ] \
     || [ -s "$agents/$1.pane" ]; then
     return 0
   fi
   branch=$(git -C "$(worktree_of "$1")" symbolic-ref --short HEAD) || return 1
-  opened=$("$HOME/.config/agents/skills/work/herdr-worktree.sh" "$branch" --repo "$repo") || return 1
+  opened=$("$HOME/.config/agents/skills/work/worktree.sh" "$branch" --repo "$repo") || return 1
   workspace=$(jq -r .workspace_id <<<"$opened")
   pane=$(jq -r .root_pane_id <<<"$opened")
   # A workspace that was open gives no root pane.
   if [ -z "$pane" ]; then
-    pane=$(herdr pane list --workspace "$workspace" | jq -r '.result.panes[0].pane_id // empty')
+    pane=$("$mux" workspace-first-pane "$workspace") || return 1
   fi
-  [ -n "$pane" ] || { echo "no pane in the herdr workspace $workspace" >&2; return 1; }
+  [ -n "$pane" ] || { echo "no pane in the workspace $workspace" >&2; return 1; }
   echo "$workspace" >"$agents/$1.workspace"
   echo "$pane" >"$agents/$1.pane"
 }
@@ -165,9 +166,9 @@ agent_run() { # agent_run <role> [<watch argument>...]: starts the loop, waits f
   key=$(key_of "$role") || return 1
   rm -f "$agents/$role.pid"
   if [ -s "$agents/$role.pane" ]; then
-    herdr pane run "$(cat "$agents/$role.pane")" "$(printf '%q ' env SAMPLE_ROOT="$SAMPLE_ROOT" \
+    "$mux" pane-run "$(cat "$agents/$role.pane")" "$(printf '%q ' env SAMPLE_ROOT="$SAMPLE_ROOT" \
       SAMPLE_STATE="$SAMPLE_STATE" "$sample_dir/agent-loop" "$(worktree_of "$role")" \
-      "$agents/$role.pid" "$@")" >/dev/null
+      "$agents/$role.pid" "$@")"
   else
     nohup "$sample_dir/agent-loop" "$(worktree_of "$role")" "$agents/$role.pid" "$@" \
       >>"$agents/$role.log" 2>&1 </dev/null &
@@ -192,9 +193,9 @@ agent_stop() { # agent_stop <role>: ends the agent session, the workspace stays
 
 agent_close() { # agent_close <role>: ends the agent session and closes the workspace
   agent_stop "$1"
-  # The workspace can be gone: you closed it, or herdr started again.
+  # The workspace can be gone: you closed it, or the multiplexer started again.
   if [ -s "$agents/$1.workspace" ]; then
-    herdr workspace close "$(cat "$agents/$1.workspace")" >/dev/null 2>&1 || true
+    "$mux" workspace-close "$(cat "$agents/$1.workspace")" >/dev/null 2>&1 || true
   fi
   rm -f "$agents/$1.workspace" "$agents/$1.pane"
 }

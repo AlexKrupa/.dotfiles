@@ -17,7 +17,7 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null HOME="$tmp/home"
 export GIT_AUTHOR_NAME="Test Dev" GIT_AUTHOR_EMAIL=dev@example.com
 export GIT_COMMITTER_NAME="Test Dev" GIT_COMMITTER_EMAIL=dev@example.com
 mkdir -p "$HOME"
-unset HERDR_ENV HERDR_PANE_ID HERDR_WORKSPACE_ID HERDR_TAB_ID
+unset REX_SESSION HERDR_ENV HERDR_PANE_ID HERDR_WORKSPACE_ID HERDR_TAB_ID
 
 # new_repo <name>: sets $repo to a repo with git-spice on main. main has a TODO(AB-0) of other
 # work and an AB-01 id that only looks like the placeholder.
@@ -196,7 +196,7 @@ chmod +x "$tmp/integrations/fake/agent.sh"
 
 feat_repo herdr
 (cd "$repo" && PATH="$tmp/bin:$PATH" MOCK_LOG="$tmp/herdr.log" HERDR_ENV=1 \
-  HERDR_AFTER_TURN_SLEEP=0 AGENT_INTEGRATIONS="$tmp/integrations" "$script" AB-0 AB-17 --title 'Add `f` for $HOME') \
+  AFTER_TURN_SLEEP=0 AGENT_INTEGRATIONS="$tmp/integrations" "$script" AB-0 AB-17 --title 'Add `f` for $HOME') \
   >"$tmp/out" 2>"$tmp/err"; code=$?
 for _ in 1 2 3 4 5 6 7 8 9 10; do
   grep -q '^herdr agent prompt' "$tmp/herdr.log" && break

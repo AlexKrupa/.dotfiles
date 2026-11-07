@@ -268,7 +268,8 @@
       ],
       "strictAllowlist": true,
       "allowUnixSockets": [
-        "~/.config/herdr/herdr.sock"
+        "~/.config/herdr/herdr.sock",
+        "~/Library/Application Support/rex/server.sock"
       ],
       "allowLocalBinding": true,
       "allowMachLookup": [
