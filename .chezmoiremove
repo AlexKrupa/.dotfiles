@@ -22,3 +22,9 @@
 .config/agents/claude.sh
 .config/agents/bin/herdr-start-claude
 .config/agents/bin/herdr-start-claude.test.sh
+.config/agents/bin/herdr-after-turn.sh
+.config/agents/bin/herdr-after-turn.test.sh
+.config/agents/integrations/claude-code/herdr-start-claude
+.config/agents/integrations/claude-code/herdr-start-claude.test.sh
+.config/agents/skills/work/herdr-worktree.sh
+.config/herdr/bin/tuicr.sh
