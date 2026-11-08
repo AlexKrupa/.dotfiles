@@ -6,6 +6,9 @@ set -uo pipefail
 
 die() { echo "mux/rex: $1" >&2; exit 1; }
 
+# With REX_SESSION, the rex CLI finds only the blocks of that session, and a worktree has its own.
+unset REX_SESSION
+
 # The watch daemon has no REX_BIN_DIR and no rex on its PATH.
 rex_app_bin="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current"
 rex_app_bin+="/Rex Server.app/Contents/MacOS"

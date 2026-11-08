@@ -125,6 +125,10 @@ cat >"$tmp/bin/rex" <<'EOF'
 #!/bin/bash
 printf 'rex %s' "$*" | tr '\n' '|' >>"$MOCK_LOG"; echo >>"$MOCK_LOG"
 if [ "$1" = --autostart=false ]; then shift; fi
+if [ -n "${MOCK_SESSION_SCOPE:-}" ] && [ -n "${REX_SESSION:-}" ]; then
+  echo 'Error: block target "b9" not found' >&2
+  exit 3
+fi
 case "$1 $2" in
   "ls --json") printf '%s\n' "$MOCK_SESSIONS" ;;
   "block inspect") echo '{"session_id":"s1"}' ;;
@@ -147,6 +151,12 @@ status() { # status <state>: a program_status result
   printf '{"records":[{"state":"%s","app":"claude-code","effective_app":"claude-code"}]}\n' "$1"
 }
 reset_mock() { rm -f "$mock"/*; : >"$MOCK_LOG"; }
+
+# With REX_SESSION, the rex CLI finds only the blocks of that session. A new worktree session is
+# another session.
+reset_mock
+err=$(MOCK_SESSION_SCOPE=1 "$script" pane-rename b9 x 2>&1); code=$?
+check "an operation reaches a block of another session than REX_SESSION" "0 " "$code $err"
 
 reset_mock
 status idle >"$mock/b1.program_status"
