@@ -32,8 +32,7 @@ open_in_yazi() {
 if [ -f "$match" ]; then
   # SVG is XML (text) but usually wanted as a preview, not an edit.
   case "$match" in
-    *.svg|*.SVG) exec open "$match" ;;
-    *.png|*.PNG|*.jpg|*.JPG|*.jpeg|*.JPEG|*.webp|*.WEBP|*.gif|*.GIF)
+    *.svg|*.SVG|*.png|*.PNG|*.jpg|*.JPG|*.jpeg|*.JPEG|*.webp|*.WEBP|*.gif|*.GIF)
       open_in_yazi "$(cd "$(dirname "$match")" && pwd)" "'$(basename "$match")'" ;;
   esac
   enc=$(file -b --mime-encoding -- "$match" 2>/dev/null || echo binary)

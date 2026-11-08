@@ -252,3 +252,4 @@ Layout:
 - Run Gradle commands in quiet mode (`-q`), unless output is needed for debugging
 - Android devices, emulators, SDK, screenshots, UI inspection: use the `android` CLI (`android-cli`
   skill), not `adb`, `emulator`, or `sdkmanager`
+- After a change to Compose UI: render and examine it with the `compose-preview` skill
