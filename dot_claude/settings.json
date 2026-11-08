@@ -114,21 +114,6 @@
     "claude-opus-4-7",
     "claude-opus-4-6[1m]"
   ],
-  "skillOverrides": {
-    "android-intent-security": "off",
-    "compose-animations": "off",
-    "compose-component-design": "off",
-    "compose-focus-navigation": "off",
-    "compose-performance": "off",
-    "compose-state-and-effects": "off",
-    "compose-ui-testing-patterns": "off",
-    "kotlin-api-design": "off",
-    "kotlin-control-flow": "off",
-    "navigation-3": "off",
-    "r8-analyzer": "off",
-    "styles": "off",
-    "testing-setup": "off"
-  },
   "hooks": {
     "PreToolUse": [
       {
@@ -231,6 +216,12 @@
       "source": {
         "source": "directory",
         "path": "/Users/alexkrupa/.claude/local-marketplace"
+      }
+    },
+    "android-cli-plugin": {
+      "source": {
+        "source": "github",
+        "repo": "android/android-cli-plugin"
       }
     }
   },

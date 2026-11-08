@@ -14,7 +14,7 @@ brew "bat" # cat alternative with syntax highlighting
 brew "age" # file encryption
 brew "atuin" # persistent shell history
 brew "bandwhich" # network monitor, requires sudo
-brew "static-var/tap/build-brief" # build output summarizer
+# brew "static-var/tap/build-brief" # build output summarizer
 brew "chezmoi" # dotfiles management
 brew "colima" # containers
 brew "coreutils" # for gnu date
