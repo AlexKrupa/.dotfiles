@@ -23,7 +23,6 @@
       "Bash(./gradlew *)",
       "Bash(adb *)",
       "Bash(brew list:*)",
-      "Bash(build-brief *)",
       "Bash(cat *)",
       "Bash(diff *)",
       "Bash(echo *)",
