@@ -16,8 +16,8 @@ cursor_blink = false
 [preview]
 wrap            = "no"
 tab_size        = 2
-max_width       = 2400
-max_height      = 2400
+max_width       = 3200
+max_height      = 3200
 image_delay     = 30
 
 [opener]
