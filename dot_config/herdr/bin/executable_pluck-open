@@ -14,10 +14,27 @@ case "$match" in
 esac
 [ -e "$match" ] || [ ! -e "$HOME/$match" ] || match="$HOME/$match"
 
+open_in_yazi() {
+  local cwd=$1
+  shift
+  # The picker tab is still focused here. The split must use the source pane ID. equalize
+  # takes its tab and pane from the environment, the same as the split key.
+  local pane
+  pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$cwd" \
+    --focus | jq -r .result.pane.pane_id)
+  HERDR_ACTIVE_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_ACTIVE_PANE_ID="$pane" \
+    "$bin/balance-panes.sh" equalize right
+  # `y` is the fish wrapper from conf.d/yazi.fish: on quit the pane shell stays in the
+  # directory yazi ended in. This pane is closed by key, and the close key evens what is left.
+  exec herdr pane run "$pane" y "$@"
+}
+
 if [ -f "$match" ]; then
   # SVG is XML (text) but usually wanted as a preview, not an edit.
   case "$match" in
     *.svg|*.SVG) exec open "$match" ;;
+    *.png|*.PNG|*.jpg|*.JPG|*.jpeg|*.JPEG|*.webp|*.WEBP|*.gif|*.GIF)
+      open_in_yazi "$(cd "$(dirname "$match")" && pwd)" "'$(basename "$match")'" ;;
   esac
   enc=$(file -b --mime-encoding -- "$match" 2>/dev/null || echo binary)
   # `file` reports an empty file as binary.
@@ -32,15 +49,7 @@ if [ -f "$match" ]; then
 fi
 
 if [ -d "$match" ]; then
-  # The picker tab is still focused here. The split must use the source pane ID. equalize
-  # takes its tab and pane from the environment, the same as the split key.
-  pane=$(herdr pane split --pane "$HERDR_PLUCK_PANE_ID" --direction right --cwd "$match" \
-    --focus | jq -r .result.pane.pane_id)
-  HERDR_ACTIVE_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_ACTIVE_PANE_ID="$pane" \
-    "$bin/balance-panes.sh" equalize right
-  # `y` is the fish wrapper from conf.d/yazi.fish: on quit the pane shell stays in the
-  # directory yazi ended in. This pane is closed by key, and the close key evens what is left.
-  exec herdr pane run "$pane" y
+  open_in_yazi "$match"
 fi
 
 exec open "$match"

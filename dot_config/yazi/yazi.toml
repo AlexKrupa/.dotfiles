@@ -1,5 +1,5 @@
 [mgr]
-ratio          = [ 2, 4, 3 ]
+ratio          = [ 2, 4, 4 ]
 sort_by        = "alphabetical"
 sort_sensitive = false
 sort_reverse 	 = false
@@ -16,8 +16,8 @@ cursor_blink = false
 [preview]
 wrap            = "no"
 tab_size        = 2
-max_width       = 1000
-max_height      = 1000
+max_width       = 2400
+max_height      = 2400
 image_delay     = 30
 
 [opener]
