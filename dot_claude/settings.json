@@ -3,10 +3,8 @@
   "respectGitignore": true,
   "env": {
     "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "0",
-    "CLAUDE_CODE_DISABLE_AUTO_UPDATE": "1",
     "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
-    "CLAUDE_CODE_NO_FLICKER": "0",
     "CLAUDE_CODE_PROMPT_CACHE_TTL": "1h",
     "DISABLE_AUTOUPDATER": "1",
     "ENABLE_LSP_TOOL": "1",
@@ -21,7 +19,6 @@
     "allow": [
       "Bash(~/.config/agents/bin/repo-slug.sh)",
       "Bash(./gradlew *)",
-      "Bash(adb *)",
       "Bash(brew list:*)",
       "Bash(cat *)",
       "Bash(diff *)",
@@ -64,10 +61,6 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "mcp__claude_ai_Context7__query-docs",
       "mcp__claude_ai_Context7__resolve-library-id",
-      "mcp__context7__query-docs",
-      "mcp__context7__resolve-library-id",
-      "mcp__plugin_context7_context7__query-docs",
-      "mcp__plugin_context7_context7__resolve-library-id",
       "Bash(git-spice branch checkout:*)",
       "Bash(git-spice branch create:*)",
       "Bash(git-spice branch track:*)",
@@ -173,23 +166,11 @@
   },
   "enabledPlugins": {
     "cc-plugin-telemetry@builtin": false,
-    "clangd-lsp@claude-plugins-official": false,
-    "claude-code-setup@claude-plugins-official": false,
-    "claude-md-management@claude-plugins-official": false,
     "cowork-plugin-management@synced": false,
-    "gopls-lsp@claude-plugins-official": false,
-    "jdtls-lsp@claude-plugins-official": false,
-    "kotlin-lsp@claude-plugins-official": false,
-    "ksrc@respawn-tools": false,
-    "lua-lsp@claude-plugins-official": false,
     "nono@nolabs-ai": false,
     "skins@hellosverre-mods": true,
-    "pyright-lsp@claude-plugins-official": false,
     "rust-analyzer-lsp@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": false,
     "simple-english@simple-english": true,
-    "swift-lsp@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": false,
     "superpowers@local-pins": true,
     "watchd@local-pins": true
   },
@@ -226,90 +207,6 @@
     }
   },
   "outputStyle": "Brief",
-  "sandbox": {
-    "enabled": false,
-    "failIfUnavailable": true,
-    "autoAllowBashIfSandboxed": true,
-    "allowUnsandboxedCommands": false,
-    "network": {
-      "allowedDomains": [
-        "*.gradle.com",
-        "*.githubusercontent.com",
-        "*.gradle.org",
-        "*.maven.org",
-        "*.npmjs.org",
-        "*.sonatype.org",
-        "api.adoptium.net",
-        "api.foojay.io",
-        "api.github.com",
-        "central.sonatype.com",
-        "crates.io",
-        "dl.google.com",
-        "download.jetbrains.com",
-        "github.com",
-        "gitlab.com",
-        "index.crates.io",
-        "jitpack.io",
-        "maven.google.com",
-        "registry.npmjs.org",
-        "repo.maven.apache.org",
-        "services.gradle.org",
-        "static.crates.io"
-      ],
-      "strictAllowlist": true,
-      "allowUnixSockets": [
-        "~/.config/herdr/herdr.sock",
-        "~/Library/Application Support/rex/server.sock"
-      ],
-      "allowLocalBinding": true,
-      "allowMachLookup": [
-        "com.apple.trustd.agent",
-        "com.apple.FSEvents"
-      ]
-    },
-    "filesystem": {
-      "allowWrite": [
-        "~/.ai",
-        "~/.android",
-        "~/.cache",
-        "~/.cargo",
-        "~/.config/.android",
-        "~/.emulator_console_auth_token",
-        "~/.gradle",
-        "~/.local/share/android",
-        "~/.m2",
-        "~/.npm",
-        "~/Library/Application Support/kotlin",
-        "/private/var/folders/*/*/T/**/*"
-      ],
-      "denyWrite": [
-        "~/.gradle/gradle.properties",
-        "~/.gradle/init.d",
-        "~/.gradle/init.gradle",
-        "~/.gradle/init.gradle.kts"
-      ]
-    },
-    "credentials": {
-      "files": [
-        {
-          "path": "~/.mitmproxy",
-          "mode": "deny"
-        },
-        {
-          "path": "~/.ssh",
-          "mode": "deny"
-        },
-        {
-          "path": "~/.config/gh",
-          "mode": "deny"
-        },
-        {
-          "path": "~/.config/1Password",
-          "mode": "deny"
-        }
-      ]
-    }
-  },
   "feedbackDrafts": "off",
   "syntaxHighlightingDisabled": false,
   "alwaysThinkingEnabled": true,
@@ -321,13 +218,7 @@
     "claude-opus-5-5": {
       "effortLevel": "medium"
     },
-    "claude-opus-5": {
-      "effortLevel": "medium"
-    },
     "claude-sonnet-5-5": {
-      "effortLevel": "high"
-    },
-    "claude-sonnet-5": {
       "effortLevel": "high"
     }
   },
@@ -342,33 +233,5 @@
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "autoMode": {
-    "environment": [
-      "### Org-wide",
-      "**Organization**: None configured",
-      "**Cloud provider(s)**: None configured",
-      "**Repository visibility**: Not queryable here (no remotes configured); assume private",
-      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
-      "**Secrets management**: None configured",
-      "**Default / protected branches**: Not queryable here (no remotes configured — origin/HEAD unset)",
-      "**CI/CD deploy targets**: None configured",
-      "**Network posture**: None configured",
-      "**Host containment**: None configured — assume Claude Code runs on an ordinary developer machine or CI runner with open internet",
-      "**Source control**: The trusted repo (/Users/alexkrupa/.config/fish) only — no remotes configured, no additional orgs configured",
-      "**Trusted internal domains**: None configured",
-      "**Trusted cloud buckets**: None configured",
-      "**Key internal services**: None configured",
-      "**Internal package registry**: None configured",
-      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar; note local.fish contains machine-specific aliases and API keys per CLAUDE.md",
-      "**Data retention / declassification**: None configured",
-      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment",
-      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
-      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
-      "### User-specific",
-      "**Primary use of Claude Code**: software development (personal dotfiles / Fish shell configuration)",
-      "**Trusted repo**: /Users/alexkrupa/.config/fish (no remotes configured — local-only repo)",
-      "**Org-specific CLIs**: None configured — repo uses fish, brew, gradle wrapper (gw), adb, git-spice (gs) as personal tooling, not org-specific"
-    ]
-  },
   "autoConnectIde": false
 }
