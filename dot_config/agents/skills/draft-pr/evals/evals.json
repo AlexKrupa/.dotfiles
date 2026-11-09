@@ -228,7 +228,7 @@
       "expected_output": "A unit test does not compile, because the branch renamed Tag.label() to Tag.displayName() and one call site in TagTest.kt uses the old name. The cause is clear and the fix is obvious. The session renames the call site, folds the fix into Add Tag model, submits with --update-only, and reports the fix under Agent. It puts no row for the failure under Needs you.",
       "checks": [
         {"type": "log_not_regex", "patterns": ["^\\+.*\\.label\\(\\)"], "text": "The old call site is gone from the branch"},
-        {"type": "tool_count", "tool": "Bash", "input_regex": "git-spice[^|;&]*stack submit[^|;&]*--update-only", "min": 1, "max": 1, "text": "Submits the stack once with --update-only"},
+        {"type": "tool_count", "tool": "Bash", "input_regex": "git-spice[^|;&]*stack submit[^|;&]*--update-only", "input_not_regex": "/report\\b", "min": 1, "max": 1, "text": "Submits the stack once with --update-only"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
         {"type": "report_regex", "patterns": ["\"agent\"\\s*:\\s*\\[[^\\]]*\\b1\\b"], "text": "Report puts row 1 under agent"},
