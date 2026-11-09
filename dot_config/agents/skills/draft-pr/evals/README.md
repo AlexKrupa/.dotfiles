@@ -13,8 +13,8 @@ of the first turn, and the transcript with fixed checks.
 - `run.py` - builds the repos, runs `claude -p`, copies the PR file from `~/.ai/<repo-slug>/prs/`
   to `outputs/prs/`, writes `outputs/git-state.txt`, deletes `~/.ai/<repo-slug>/`, and grades.
   The runs use a temp `XDG_STATE_HOME`, so their watch daemon is not the real daemon.
-- `shims/git-spice` - `run.py` puts it on PATH. In the fixture repos, `submit` succeeds with no
-  forge, and `log --json` gets `change` objects from `<repo>.changes.json`.
+- `shims/git-spice` - `run.py` puts it on PATH. In the fixture repos, `submit` pushes to the local
+  bare `origin`, and `log --json` gets `change` objects from `<repo>.changes.json`.
 - `grade.py` - PR and branch-state check types. Writes `grading.json` for skill-creator's viewer.
 
 The shared harness, `compare.py`, and the fixture helpers are in `~/.config/agents/evals/`.
