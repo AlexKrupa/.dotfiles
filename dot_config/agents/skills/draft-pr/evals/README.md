@@ -1,8 +1,8 @@
 # draft-pr evals
 
-Regression evals for the `draft-pr` skill. Each eval builds a small notes-app repo, runs
-`/draft-pr` in it with headless `claude -p`, and grades the PR file, the branch state, the reply
-of the first turn, and the transcript with fixed checks.
+Regression evals for the `draft-pr` skill. Each eval builds a small notes-app repo and runs
+`/draft-pr` in it with headless `claude -p`. Fixed checks grade the PR file, the branch state, the
+reply of the first turn, and the transcript.
 
 ## Files
 
@@ -17,7 +17,7 @@ of the first turn, and the transcript with fixed checks.
   bare `origin`, and `log --json` gets `change` objects from `<repo>.changes.json`.
 - `grade.py` - PR and branch-state check types. Writes `grading.json` for skill-creator's viewer.
 
-The shared harness, `compare.py`, and the fixture helpers are in `~/.config/agents/evals/`.
+`harness.py`, `compare.py`, and the fixture helpers are in `~/.config/agents/evals/`.
 
 ## Run
 
