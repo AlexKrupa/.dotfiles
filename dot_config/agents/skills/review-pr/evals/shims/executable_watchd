@@ -1,0 +1,14 @@
+#!/bin/sh
+# Eval shim for watchd. `report` saves the JSON of the report actions to <repo>.host/report.json.
+# All else is the real watchd.
+here=$(cd "$(dirname "$0")" && pwd -P)
+if [ "$1" = report ]; then
+  host="$(git rev-parse --show-toplevel).host"
+  mkdir -p "$host"
+  cat >>"$host/report.json"
+  echo >>"$host/report.json"
+  echo "Report saved."
+  exit 0
+fi
+real=$(PATH=$(printf %s "$PATH" | tr : '\n' | grep -vx "$here" | paste -sd: -); command -v watchd)
+exec "$real" "$@"
