@@ -20,8 +20,8 @@ allowed-tools:
 Writes one PR draft as a Markdown file: metadata, title, description, and review comments. A person
 or a wrapper skill (for example a GitLab `/mr` skill) reads the file and publishes it. The draft
 does not depend on the code host. This skill does not publish. After the wrapper publishes, the
-wrapper tells this skill to watch the MRs (see "Watch"). During the watch, a fix is pushed only when
-it is clear, obvious, and needs no decision of the user.
+wrapper tells this skill to watch the MRs (see "Watch"). If a fix during the watch is clear, obvious,
+and needs no decision of the user, the agent pushes it. Else the agent does not push.
 
 Before it writes, it prepares the branch: it syncs and restacks with git-spice, and it squashes
 repair commits. The reviewer gets a clean branch and a description that agrees with it.
@@ -139,7 +139,8 @@ change since the last full write of the draft, the script prints `reuse: yes`. A
 base is not a change.
 
 - `reuse: yes`: skip steps 5 to 7. In the file, set `base` (see "File format"), `draft` from the
-  arguments, `diff-base`, and `diff-head`. If the arguments have notes, add them to the sections
+  arguments, `diff-base`, and `diff-head`. If the file has no `visual-change`, read the diff and
+  add it. If the arguments have notes, add them to the sections
   that they are about, for example Testing. Do not write the other sections again. The user's
   edits in the file stay. Tell "draft reused, no content change" in the 🧹 line. Go to step 8.
 - `reuse: no`, or the user asks for a new draft: continue with step 5.
@@ -154,8 +155,8 @@ If step 3 changed commits, run `git-diff-context.sh` again. Then read:
 - the sources that the user points to: a ticket, a plan, a spec, a URL
 - if the diff alone does not explain a change, the code around the diff
 
-Read enough to find the changes, the high-impact changes, the focus files, and the code for review
-comments. Do not look for defects. That is the job of `review-diff`.
+Read enough to find the changes, the high-impact changes, the focus files, the value of
+`visual-change` (see "File format"), and the code for review comments. Do not look for defects. That is the job of `review-diff`.
 
 ### 6. Local conventions
 
@@ -188,6 +189,7 @@ draft: false
 base: main
 ticket: ABC-123
 breaking: false
+visual-change: false
 diff-base: 3f9c2a1d8e7b6a5f4c3d2e1f0a9b8c7d6e5f4a3b
 diff-head: 8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b
 ---
@@ -232,6 +234,8 @@ Metadata fields. The wrapper uses them to select the labels of its platform.
   is `main`). The script reads the stack parent from git-spice after the sync.
 - `ticket`: the ticket id. If there is no ticket, omit the field.
 - `breaking`: `true` only for a contract break or a one-way door from "High-impact changes".
+- `visual-change`: required. If the diff changes layouts, UI components, styles, themes, icons, or
+  user-visible strings, write `true`. Else write `false`. A wrapper skill reads it before it publishes.
 - `diff-base`, `diff-head`: the merge base and the head of the branch at the last full write. Step
   4 uses them. A wrapper skill does not use them.
 
@@ -322,13 +326,18 @@ Sections, in this order:
    - 🚧 Draft suggestion: the description has high-impact changes, or the diff has high-risk code
      (concurrency, security, data migration).
    - 🧪 Manual check: a user-visible change, and no source tells how it was tested. Give the test
-     steps, and the screenshots or video to capture during those steps.
-   - 📸 Capture suggestion: a UI change with no media and no changed reference images of screenshot
-     tests, and no 🧪 line already tells what to capture. Do not capture until the user asks.
-     When the user asks, use the media capture skill for the platform of the app, if one is
-     available.
+     steps.
 
-3. The last line: `` 📄 PR draft: `<path>` ``.
+3. If all of these are true, write the question
+   `📸 Capture <the changed screens or flow> for the description?` on its own line:
+   - `visual-change` is `true`.
+   - The description has no media.
+   - The diff changes no reference images of screenshot tests.
+
+   Capture only after the user answers yes. If a media capture skill for the platform of the app
+   is available, use it. When a wrapper skill runs this skill, ask the question before the wrapper
+   publishes.
+4. The last line: `` 📄 PR draft: `<path>` ``.
 
 When the user asks for changes, edit the same file. Each reply that changes the file ends with the
 `📄 PR draft:` line.

@@ -187,9 +187,21 @@
       "name": "ui-capture-suggestion",
       "fixture": "fixtures/settings-ui-change.sh",
       "prompt": "/draft-pr",
-      "expected_output": "A feature PR with no media. The reply has a capture suggestion. The agent starts no capture.",
+      "expected_output": "A feature PR with no media. The reply asks a capture question. The agent starts no capture.",
       "checks": [
-        {"type": "reply_regex", "patterns": ["(?s)📸|🧪.*(screenshot|capture)"], "text": "Reply has a capture suggestion, or a manual check that tells what to capture"},
+        {"type": "pr_regex", "case": true, "patterns": ["^visual-change: true$"], "text": "Frontmatter marks a visual change"},
+        {"type": "reply_regex", "patterns": ["(?m)^.*📸[^\\n]*\\?\\s*$"], "text": "Reply asks a capture question"},
+        {"type": "tool_count", "tool": "Skill", "input_regex": "android-capture", "max": 0, "text": "Does not use the android-capture skill"}
+      ]
+    },
+    {
+      "id": 16,
+      "name": "ui-capture-wrapper",
+      "fixture": "fixtures/settings-ui-change.sh",
+      "prompt": "/draft-pr This is the first step of a wrapper skill that publishes the MR after the draft. Stop before you publish.",
+      "expected_output": "The reply asks a capture question before the publish step. The agent starts no capture.",
+      "checks": [
+        {"type": "reply_regex", "patterns": ["(?m)^.*📸[^\\n]*\\?\\s*$"], "text": "Reply asks a capture question"},
         {"type": "tool_count", "tool": "Skill", "input_regex": "android-capture", "max": 0, "text": "Does not use the android-capture skill"}
       ]
     },
