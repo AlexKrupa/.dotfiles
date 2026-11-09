@@ -153,11 +153,7 @@ def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, ef
     cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
            "--permission-mode", "dontAsk", "--allowedTools", allowed_tools,
            "--add-dir", *map(str, add_dirs), "--no-session-persistence",
-           "--settings", settings, "--strict-mcp-config"]
-    if model:
-        cmd += ["--model", model]
-    if effort:
-        cmd += ["--effort", effort]
+           "--settings", settings, "--strict-mcp-config", "--model", model, "--effort", effort]
     env = claude_env()
     start = time.time()
     with open(run_dir / "transcript.jsonl", "w") as out, open(run_dir / "stderr.txt", "w") as err:
@@ -189,8 +185,7 @@ def collect_result(run_dir, wall_seconds, effort, keep):
         "num_turns": result.get("num_turns"),
         "is_error": result.get("is_error", True),
         "model": init and init.get("model"),
-        # No --effort flag: the run used effortLevel from the user's settings.
-        "effort": effort or "default",
+        "effort": effort,
         "isolation_problems": isolation_problems(init, keep),
         "instructions_sha": instructions_sha(),
     }, indent=2))
@@ -372,8 +367,8 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
     p.add_argument("evals", nargs="*", help="eval names (default: all except slow)")
     p.add_argument("-n", "--runs", type=int, default=3)
     p.add_argument("-j", "--jobs", type=int, default=4)
-    p.add_argument("--model")
-    p.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"])
+    p.add_argument("--model", default="opus")
+    p.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], default="medium")
     p.add_argument("--timeout", type=int, default=900)
     p.add_argument("--baseline", action="store_true",
                    help="run the evals that have a baseline_prompt, with all skills off")
