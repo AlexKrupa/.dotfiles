@@ -68,7 +68,14 @@ put "$host/current-user" <<'EOF'
 # Usage: current-user - prints the username of the user of the session.
 echo "test-dev"
 EOF
-chmod +x "$host/watch" "$host/job-log" "$host/retry" "$host/mr-author" "$host/current-user"
+put "$host/report" <<'EOF'
+#!/bin/sh
+# Fake `watchd report`: saves the JSON of the report actions.
+cat >>"$(dirname "$0")/report.json"
+echo >>"$(dirname "$0")/report.json"
+echo "Report saved."
+EOF
+chmod +x "$host/watch" "$host/job-log" "$host/retry" "$host/mr-author" "$host/current-user" "$host/report"
 put "$host/host.md" <<EOF
 # Watch: test host
 
@@ -80,6 +87,7 @@ put "$host/host.md" <<EOF
 | Retry a job                           | \`$host/retry <job-id>\`                            |
 | Author of an MR                       | \`$host/mr-author <mr-url>\`                        |
 | User of the session                   | \`$host/current-user\`                             |
+| Report                                | \`printf '%s' '<json>' \| $host/report\`           |
 
 The id of an MR is \`!<iid>\`.
 EOF

@@ -5,7 +5,8 @@ Usage: grade.py <iteration-dir>
 
 Reads each <iteration-dir>/eval-<name>/<config>/run-<k>/ and writes grading.json there. A run dir
 has: outputs/prs/*.md (the PR files), outputs/git-state.txt, outputs/branch-log.txt,
-outputs/final_reply.md, transcript.jsonl, and repo-diff.txt. `reply_*` checks read the reply of
+outputs/report.json (the Report calls of a watch eval), outputs/final_reply.md, transcript.jsonl, and
+repo-diff.txt. `reply_*` checks read the reply of
 the first turn in transcript.jsonl.
 """
 import re
@@ -27,6 +28,10 @@ def run_check(check, run):
         return regex(check, run["state"], t == "state_regex")
     if t in ("log_regex", "log_not_regex"):
         return regex(check, run["log"], t == "log_regex")
+    if t in ("report_regex", "report_not_regex"):
+        if not run["report"]:
+            return False, "no Report call"
+        return regex(check, run["report"], t == "report_regex")
     prs = run["prs"]
     if t == "pr_count":
         return len(prs) == check["equals"], f"{len(prs)} file(s): {[p.name for p in prs]}"
@@ -58,12 +63,14 @@ def first_reply(run_dir):
 def load_run(run_dir):
     state = run_dir / "outputs" / "git-state.txt"
     log = run_dir / "outputs" / "branch-log.txt"
+    report = run_dir / "outputs" / "report.json"
     return {
         **harness.load_common(run_dir),
         "reply": first_reply(run_dir),
         "prs": sorted((run_dir / "outputs" / "prs").glob("*.md")),
         "state": state.read_text() if state.exists() else "",
         "log": log.read_text() if log.exists() else "",
+        "report": report.read_text() if report.exists() else "",
     }
 
 

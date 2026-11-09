@@ -53,6 +53,9 @@ def collect(ev, ctx, run_dir):
     (run_dir / "outputs" / "branch-log.txt").write_text(subprocess.run(
         ["git", "-C", ctx["repo"], "log", "-p", "--format=commit %s", "main..tags-in-list"],
         capture_output=True, text=True).stdout)
+    report = Path(f"{ctx['repo']}.host") / "report.json"
+    if report.exists():
+        (run_dir / "outputs" / "report.json").write_text(report.read_text())
 
 
 if __name__ == "__main__":

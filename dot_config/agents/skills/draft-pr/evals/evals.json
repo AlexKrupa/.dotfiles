@@ -1,7 +1,7 @@
 {
   "skill_name": "draft-pr",
   "skills": ["draft-pr", "android-capture"],
-  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then copies the PR files from ~/.ai/<repo-slug>/prs/ to outputs/prs/, writes outputs/git-state.txt, and deletes ~/.ai/<repo-slug>/. `pr_*` checks read all PR files joined. `pr_body_*` checks read them without the frontmatter. `state_*` checks read git-state.txt: `main-head <subject>`, then for each branch except main, `branch <name>`, then `subject <s>` for each commit in main..<name>, then `ancestors <refs>`. Regexes are case-insensitive unless a check sets `case`, except `reply_*` checks. `@name` in `patterns` or `input_regex` names a list in `pattern_sets`. `log_*` checks read branch-log.txt: `git log -p` of main..tags-in-list.",
+  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then copies the PR files from ~/.ai/<repo-slug>/prs/ to outputs/prs/, writes outputs/git-state.txt, and deletes ~/.ai/<repo-slug>/. `pr_*` checks read all PR files joined. `pr_body_*` checks read them without the frontmatter. `report_*` checks read outputs/report.json, the JSON of the Report calls of a watch eval. `state_*` checks read git-state.txt: `main-head <subject>`, then for each branch except main, `branch <name>`, then `subject <s>` for each commit in main..<name>, then `ancestors <refs>`. Regexes are case-insensitive unless a check sets `case`, except `reply_*` checks. `@name` in `patterns` or `input_regex` names a list in `pattern_sets`. `log_*` checks read branch-log.txt: `git log -p` of main..tags-in-list.",
   "pattern_sets": {
     "slop": ["(?i)\\brobust", "(?i)\\bleverag", "(?i)\\bgenuine", "(?i)\\bstreamlin", "(?i)\\bseamless", "(?i)worth noting", "(?i)\\bimportantly\\b", "(?i)serves as", "—", "–"],
     "host_writes": ["\\bglab\\b", "\\bgh\\s", "\\bcurl\\b", "\\bgit\\s+push\\b", "\\bherdr\\b"]
@@ -85,7 +85,7 @@
       "name": "watch-lint",
       "fixture": "fixtures/watch-lint.sh",
       "common": false,
-      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
       "expected_output": "The session reads the log, removes the wildcard import, folds the fix into Add Tag model, restacks, submits with --update-only, does not start a second watch, and reports the fix under Agent.",
       "checks": [
         {"type": "log_not_regex", "patterns": ["^\\+import java\\.util\\.\\*"], "text": "The wildcard import is gone from the branch"},
@@ -94,7 +94,7 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "/watch\\b(?:(?!\\\\n)[^|;&])*--interval", "max": 0, "text": "Does not start a second watch: the watch continues"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Agent$", "!11"], "text": "Reply has an Agent section for !11"}
+        {"type": "report_regex", "patterns": ["\"agent\"\\s*:\\s*\\[[^\\]]*\\b1\\b"], "text": "Report puts row 1 under agent"}
       ]
     },
     {
@@ -102,13 +102,14 @@
       "name": "watch-busy",
       "fixture": "fixtures/watch-busy.sh",
       "common": false,
-      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
       "expected_output": "The working tree has a change, so the session does not fix. It reports the lint failure under Needs you as a fix that waits.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b", "max": 0, "text": "Does not submit"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "(?i)fix waits"], "text": "Reply has the waiting fix under Needs you"}
+        {"type": "report_regex", "patterns": ["(?i)fix waits"], "text": "Report has the waiting fix"},
+        {"type": "report_not_regex", "patterns": ["\"agent\"\\s*:\\s*\\[[^\\]]*\\b1\\b"], "text": "Report does not put the failure under agent"}
       ]
     },
     {
@@ -116,13 +117,14 @@
       "name": "watch-test-failure",
       "fixture": "fixtures/watch-test-failure.sh",
       "common": false,
-      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 502 failed\",\"branch\":\"tags-model\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 502 failed\",\"branch\":\"tags-model\"}\n```",
       "expected_output": "A unit test asserts an ARGB value. The fix changes a test expectation or the behavior, so it needs a decision of the user. The session reports the cause and a proposed fix under Needs you. It does not change the branch.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b|/retry\\b", "max": 0, "text": "Does not submit and does not retry"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "TagTest"], "text": "Reply has the failed test under Needs you"}
+        {"type": "report_regex", "patterns": ["TagTest"], "text": "Report has the failed test"},
+        {"type": "report_not_regex", "patterns": ["\"agent\"\\s*:\\s*\\[[^\\]]*\\b1\\b"], "text": "Report does not put the failure under agent"}
       ]
     },
     {
@@ -130,14 +132,14 @@
       "name": "watch-runner-failure",
       "fixture": "fixtures/watch-runner-failure.sh",
       "common": false,
-      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"\",\"detail\":\"pipeline 503 failed\",\"branch\":\"tags-in-list\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"row\":1,\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"\",\"detail\":\"pipeline 503 failed\",\"branch\":\"tags-in-list\"}\n```",
       "expected_output": "The runner failed. The session retries job 9003 once and reports it under Agent.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\s+9003\\b", "min": 1, "max": 1, "text": "Retries job 9003 once"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b", "max": 0, "text": "Does not submit"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Agent$", "(?i)retr"], "text": "Reply has the retry under Agent"}
+        {"type": "report_regex", "patterns": ["\"agent\"\\s*:\\s*\\[[^\\]]*\\b1\\b", "(?i)retr"], "text": "Report puts the retry under agent"}
       ]
     },
     {
@@ -145,15 +147,16 @@
       "name": "watch-comments",
       "fixture": "fixtures/watch-comments.sh",
       "common": false,
-      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_701\",\"actor\":\"anna\",\"detail\":\"Why Long and not Int for the color? Int is enough for ARGB.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n{\"kind\":\"reaction\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"bob\",\"detail\":\":thumbsup: on the MR\",\"branch\":\"tags-in-list\"}\n{\"kind\":\"approved\",\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"bob\",\"detail\":\"approved\",\"branch\":\"tags-in-list\"}\n{\"kind\":\"unaddressed\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_701\",\"actor\":\"anna\",\"detail\":\"Why Long and not Int for the color? Int is enough for ARGB.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"comment\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_701\",\"actor\":\"anna\",\"detail\":\"Why Long and not Int for the color? Int is enough for ARGB.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n{\"kind\":\"reaction\",\"row\":2,\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"bob\",\"detail\":\":thumbsup: on the MR\",\"branch\":\"tags-in-list\"}\n{\"kind\":\"approved\",\"row\":3,\"iid\":12,\"title\":\"Show tags in the note list\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/12\",\"actor\":\"bob\",\"detail\":\"approved\",\"branch\":\"tags-in-list\"}\n{\"kind\":\"unaddressed\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_701\",\"actor\":\"anna\",\"detail\":\"Why Long and not Int for the color? Int is enough for ARGB.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
       "expected_output": "The session assesses the question of @anna (Int holds ARGB, so the comment is valid) and proposes an answer or fix under Needs you, one item for the thread. The reaction and the approval are under Info. Groups in stack order: !11 before !12.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b|/retry\\b", "max": 0, "text": "Does not submit and does not retry"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "(?m)^Info$", "@anna", "@bob", ":thumbsup:", "(?s)!11.*!12"], "text": "Reply has Needs you for @anna, Info for @bob, and !11 before !12"},
-        {"type": "reply_not_regex", "patterns": ["(?ms)^\\s*\\d+\\.[^\\n]*@anna.*^\\s*\\d+\\.[^\\n]*@anna"], "text": "The comment and its thread are one item"},
-        {"type": "reply_not_regex", "patterns": ["(?i)(suggested|draft|proposed) (reply|response)", "(?im)^>?\\s*(hi|hey|thanks)\\b.*@?anna"], "text": "Writes no reply text for the reviewer"}
+        {"type": "report_regex", "patterns": ["\"cells\"\\s*:\\s*\\{[^}]*\"1\"\\s*:"], "text": "Report has the assessment in the cell of row 1"},
+        {"type": "report_not_regex", "patterns": ["\"cells\"\\s*:\\s*\\{[^}]*\"[23]\"\\s*:"], "text": "Report leaves the reaction and the approval as Info"},
+        {"type": "report_not_regex", "patterns": ["\"add\""], "text": "The comment and its thread are one row"},
+        {"type": "report_not_regex", "patterns": ["(?i)(suggested|draft|proposed) (reply|response)", "(?im)^>?\\s*(hi|hey|thanks)\\b.*@?anna"], "text": "Writes no reply text for the reviewer"}
       ]
     },
     {
@@ -173,13 +176,13 @@
       "name": "watch-suggestion",
       "fixture": "fixtures/watch-suggestion.sh",
       "common": false,
-      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_702\",\"actor\":\"anna\",\"detail\":\"A raw Long for the color is easy to mix up with other numbers. Give it its own type.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"comment\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_702\",\"actor\":\"anna\",\"detail\":\"A raw Long for the color is easy to mix up with other numbers. Give it its own type.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":5}\n```",
       "expected_output": "The session assesses the suggestion of @anna and shows the probable change as code: a value class for the color in Tag.kt. No code change, no host write.",
       "checks": [
         {"type": "repo_unchanged", "text": "The fixture repo does not change"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "@anna"], "text": "Reply has Needs you for @anna"},
-        {"type": "reply_regex", "patterns": ["(?m)^```(diff|kotlin|kt)?$", "value class"], "text": "Shows the probable change as code with a value class"}
+        {"type": "report_regex", "patterns": ["\"cells\"\\s*:\\s*\\{[^}]*\"1\"\\s*:"], "text": "Report has the assessment in the cell of row 1"},
+        {"type": "report_regex", "patterns": ["value class"], "text": "Report has the proposed change with a value class"}
       ]
     },
     {
@@ -221,15 +224,15 @@
       "name": "watch-obvious-fix",
       "fixture": "fixtures/watch-obvious-fix.sh",
       "common": false,
-      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 504 failed\",\"branch\":\"tags-model\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 504 failed\",\"branch\":\"tags-model\"}\n```",
       "expected_output": "A unit test does not compile, because the branch renamed Tag.label() to Tag.displayName() and one call site in TagTest.kt uses the old name. The cause is clear and the fix is obvious. The session renames the call site, folds the fix into Add Tag model, submits with --update-only, and reports the fix under Agent. It puts no row for the failure under Needs you.",
       "checks": [
         {"type": "log_not_regex", "patterns": ["^\\+.*\\.label\\(\\)"], "text": "The old call site is gone from the branch"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-spice[^|;&]*stack submit[^|;&]*--update-only", "min": 1, "max": 1, "text": "Submits the stack once with --update-only"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Agent$", "!11"], "text": "Reply has an Agent section for !11"},
-        {"type": "reply_not_regex", "patterns": ["(?ms)^Needs you$(?:(?!^(?:Agent|Info)$).)*?(?:\\b504\\b|TagTest|label\\(\\))"], "text": "Reply has no Needs you row for the failure"}
+        {"type": "report_regex", "patterns": ["\"agent\"\\s*:\\s*\\[[^\\]]*\\b1\\b"], "text": "Report puts row 1 under agent"},
+        {"type": "report_not_regex", "patterns": ["\"section\"\\s*:\\s*\"needs\""], "text": "Report has no needs row for the failure"}
       ]
     },
     {
@@ -237,13 +240,14 @@
       "name": "watch-other-author",
       "fixture": "fixtures/watch-other-author.sh",
       "common": false,
-      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
+      "prompt": "{intro}\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"pipeline\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 501 failed\",\"branch\":\"tags-model\"}\n```",
       "expected_output": "The lint fix of !11 is obvious, but a push restacks and pushes the stack, and anna is the author of !12. The session runs the author check for each MR of the stack, does not submit, and puts the proposed fix (remove the wildcard import in Tag.kt) under Needs you, with the MR of anna.",
       "checks": [
         {"type": "tool_count", "tool": "Bash", "input_regex": "\\bsubmit\\b[^|;&]*--update-only", "max": 0, "text": "Does not submit with --update-only"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "/retry\\b", "max": 0, "text": "Does not retry a job"},
         {"type": "tool_count", "tool": "Bash", "input_regex": "@host_writes", "max": 0, "text": "Does not call the host or push directly"},
-        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "(?s)^Needs you$.*(?i:wildcard|java\\.util\\.\\*)", "(?i)anna|!12"], "text": "Reply has a Needs you row with the proposed fix, and names the MR of anna"}
+        {"type": "report_regex", "patterns": ["(?i)wildcard|java\\.util\\.\\*", "(?i)anna|!12"], "text": "Report has the proposed fix and names the MR of anna"},
+        {"type": "report_not_regex", "patterns": ["\"agent\"\\s*:\\s*\\[[^\\]]*\\b1\\b"], "text": "Report does not put the failure under agent"}
       ]
     }
   ]
