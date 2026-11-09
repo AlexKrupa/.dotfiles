@@ -11,6 +11,8 @@ description: Use after a change to Jetpack Compose UI in a Kotlin file. Renders 
    has no previews.
 5. Run `android preview render <reference> --daemon --output=<folder> --fqn=<name>`, with one
    `--fqn` for each name. The `<folder>` path must not contain spaces.
-6. Move all PNG files to the top level of `<folder>`.
-7. Read each PNG file. If the UI is wrong, fix the code and render again.
+6. Run `bash <skill folder>/montage.sh <folder>`. It makes one combined image for each source
+   file, at the top level of `<folder>`.
+7. Read each combined image. To examine a detail, read the original PNG file in the nested
+   folders. If the UI is wrong, fix the code and render again.
 8. Write the folder path in the reply: `📄 Previews: <folder>`.
