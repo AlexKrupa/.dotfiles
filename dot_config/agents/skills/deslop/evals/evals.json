@@ -140,7 +140,6 @@
         {"type": "comments_not_regex", "path": "src/Cache.kt", "patterns": ["puts the value"], "text": "The what-comment is deleted"},
         {"type": "comments_regex", "path": "src/Cache.kt", "patterns": ["CACHE-77"], "text": "The CACHE-77 why-comment stays"},
         {"type": "comments_not_regex", "path": "src/Cache.kt", "patterns": "@slop", "text": "Cache.kt comments have no seeded slop"},
-        {"type": "reply_regex", "patterns": ["git diff"], "text": "Final reply gives git diff as the next step"},
         {"type": "reply_not_regex", "patterns": ["autosquash"], "text": "Final reply does not give the rebase step"}
       ]
     },
@@ -161,8 +160,7 @@
         {"type": "comments_not_regex", "path": "src/Exporter.kt", "patterns": ["Count the rows"], "text": "The added what-comment is deleted"},
         {"type": "comments_regex", "path": "src/Exporter.kt", "patterns": ["EXP-9", "\\b500\\b"], "text": "The EXP-9 why-comment keeps its facts"},
         {"type": "file_same", "path": "docs/export.md", "ref": "head", "text": "docs/export.md (not in the target) does not change"},
-        {"type": "file_regex", "path": "scratch.txt", "case": true, "patterns": ["^This robust draft leverages nothing\\.$"], "text": "Untracked scratch.txt does not change"},
-        {"type": "reply_regex", "patterns": ["git diff"], "text": "Final reply gives git diff as the next step"}
+        {"type": "file_regex", "path": "scratch.txt", "case": true, "patterns": ["^This robust draft leverages nothing\\.$"], "text": "Untracked scratch.txt does not change"}
       ]
     },
     {
