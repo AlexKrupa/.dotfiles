@@ -41,8 +41,8 @@ Two types of client stay connected:
 
 - Waiter: `watchd wait` gets the events of all watches of one session. A `watchd watch` call is
   short: it writes an agent record for the key of its folder and mode, with the session ID, and
-  exits. An agent record only selects events. The polling of a managed repo continues with no
-  agent.
+  exits. An agent record selects events. The polling of the MRs of a managed repo continues with
+  no agent. The project-wide check needs a hub agent (see "Targets").
 - Follower: `watchd follow` gets the sidebar state, then each new event log line and each sidebar
   change. The herdr plugin `watch.sh` is a follower.
 
@@ -173,9 +173,10 @@ flowchart TB
   loop waits: 120 seconds with a live hub agent of the repo, 900 seconds with none. A live agent
   with a shorter `--interval` makes the wait shorter. A poke ends the wait early. After a network
   error or a system sleep, the loop waits for the network.
-- Targets: the hub (the project), each review link, the MRs of each worktree and of each live
-  author agent, and the own open MRs with no worktree (key `<slug>-own`). An MR is in one author
-  or own target only.
+- Targets: each review link, and the MRs of each worktree and of each live author agent. A repo
+  with a hub agent also has the hub (the project) and the own open MRs with no worktree (key
+  `<slug>-own`). An away hub session counts until its record ends. An MR is in one author or own
+  target only.
 - MR lookup: for a branch with no git-spice MR, the loop asks GitLab for the open MR of the branch
   one time. A result is a review link.
 - Check: the engine gives one event set for each MR, with no mode. Then the check does these

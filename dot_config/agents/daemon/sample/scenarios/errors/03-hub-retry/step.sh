@@ -1,5 +1,4 @@
 # The router runs only for a live hub agent. Runner failures get retries and no agent start.
-agent start hub
 retry 601 '{"id": 602, "name": "unit-tests", "status": "pending", "failure_reason": null}'
 job 602 '{"id": 602, "name": "unit-tests", "status": "running", "failure_reason": null}' \
   '{"id": 602, "name": "unit-tests", "status": "failed", "failure_reason": "runner_system_failure"}'

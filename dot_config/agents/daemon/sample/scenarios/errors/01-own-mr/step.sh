@@ -1,4 +1,5 @@
 # An MR of mine with no worktree in the hub state makes the daemon check the own target.
+agent start hub
 engine_state hub '{"needs": [], "own_mrs": [{"iid": 9}]}'
 settle
 event own '{"kind": "comment", "iid": 9, "title": "Fix the login timeout",

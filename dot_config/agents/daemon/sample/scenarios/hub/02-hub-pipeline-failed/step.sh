@@ -1,4 +1,5 @@
 # A job that fails in its script makes the router ask the model, so the hub item stays open.
+agent start hub
 engine_state hub '{"needs": ["main-failed"]}'
 event hub '{"kind": "default-failed", "iid": null, "title": null,
   "url": "https://gitlab.example.com/sample/repo/-/pipelines/88", "actor": "",

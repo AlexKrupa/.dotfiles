@@ -90,10 +90,10 @@ from a design spec that the user approved.
 
 - W3.1 The daemon polls GitLab for the open MRs of each worktree, with or without an agent watch.
 - W3.2 The daemon stops the GitLab polling of a worktree when all its MRs are merged or closed.
-- W3.3 The daemon polls the project-wide state of each managed repo, the hub check, also with no hub
-  agent.
-- W3.4 The hub check also finds the open MRs of the user and polls an own MR that has no managed
-  worktree.
+- W3.3 While a managed repo has a hub agent, the daemon polls the project-wide state of the repo,
+  the hub check. A repo with no hub agent has no hub check and sends no notification from it.
+- W3.4 While a managed repo has a hub agent, the hub check finds the open MRs of the user, and the
+  daemon polls an own MR that has no managed worktree.
 - W3.5 The daemon fetches an MR that two watches or two sources name only one time in each round.
 - W3.6 A managed repo polls every 120 s while a hub agent of the repo is live, and every 15 minutes
   with no hub agent.

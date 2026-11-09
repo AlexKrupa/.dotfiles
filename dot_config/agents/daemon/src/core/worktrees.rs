@@ -124,7 +124,11 @@ pub fn targets(
         repo: folder.to_path_buf(),
         mrs,
     };
-    let mut list = vec![target(slug.to_string(), Mode::Hub, repo, Vec::new())];
+    let hub = agents.iter().any(|agent| agent.mode == Mode::Hub);
+    let mut list = match hub {
+        true => vec![target(slug.to_string(), Mode::Hub, repo, Vec::new())],
+        false => Vec::new(),
+    };
     let mut taken: Vec<u64> = Vec::new();
     let agent_reviews = agents
         .iter()
@@ -170,7 +174,7 @@ pub fn targets(
         .map(|mr| mr.iid)
         .filter(|iid| !taken.contains(iid))
         .collect();
-    if !own.is_empty() {
+    if hub && !own.is_empty() {
         list.push(target(format!("{slug}-own"), Mode::Author, repo, own));
     }
     list
@@ -385,6 +389,26 @@ mod tests {
         (key.to_string(), mode, repo.to_string(), mrs.to_vec())
     }
 
+    fn hub_agent() -> Agent {
+        agent("app", Mode::Hub, "/r", &[])
+    }
+
+    #[test]
+    fn targets_have_no_hub_and_no_own_mrs_with_no_hub_agent() {
+        let worktrees = [worktree("/r/a", &[12], &[])];
+        let agents = [agent("app-/r/b", Mode::Author, "/r/b", &[13])];
+
+        let targets = targets(Path::new("/r"), "app", &worktrees, &own(&[14]), &[], &agents, &key_of);
+
+        assert_eq!(
+            summary(&targets),
+            [
+                row("app-/r/a", Mode::Author, "/r/a", &[12]),
+                row("app-/r/b", Mode::Author, "/r/b", &[13]),
+            ]
+        );
+    }
+
     #[test]
     fn targets_have_one_hub_and_one_author_per_worktree_with_mrs() {
         let worktrees = [
@@ -393,7 +417,7 @@ mod tests {
             worktree("/r/b", &[13, 14], &[]),
         ];
 
-        let targets = targets(Path::new("/r"), "app", &worktrees, &[], &[], &[], &key_of);
+        let targets = targets(Path::new("/r"), "app", &worktrees, &[], &[], &[hub_agent()], &key_of);
 
         assert_eq!(
             summary(&targets),
@@ -410,7 +434,7 @@ mod tests {
     fn targets_skip_a_worktree_with_all_mrs_ended() {
         let worktrees = [worktree("/r/a", &[12], &[12]), worktree("/r/b", &[13, 14], &[13])];
 
-        let targets = targets(Path::new("/r"), "app", &worktrees, &[], &[], &[], &key_of);
+        let targets = targets(Path::new("/r"), "app", &worktrees, &[], &[], &[hub_agent()], &key_of);
 
         assert_eq!(
             summary(&targets),
@@ -425,7 +449,15 @@ mod tests {
     fn targets_put_own_mrs_without_worktree_in_the_own_key() {
         let worktrees = [worktree("/r/a", &[12], &[])];
 
-        let targets = targets(Path::new("/r"), "app", &worktrees, &own(&[12, 14]), &[], &[], &key_of);
+        let targets = targets(
+            Path::new("/r"),
+            "app",
+            &worktrees,
+            &own(&[12, 14]),
+            &[],
+            &[hub_agent()],
+            &key_of,
+        );
 
         assert_eq!(
             targets.last().map(|target| (target.key.as_str(), target.mrs.clone())),
@@ -451,7 +483,7 @@ mod tests {
             &worktrees,
             &own(&[12, 20, 30]),
             &reviews,
-            &[],
+            &[hub_agent()],
             &key_of,
         );
 
@@ -482,7 +514,7 @@ mod tests {
         let targets = targets(Path::new("/r"), "app", &[], &[], &reviews, &[], &key_of);
 
         let keys: Vec<&str> = targets.iter().map(|target| target.key.as_str()).collect();
-        assert_eq!(keys, ["app", "app-/r/c-review-20", "app-/r/d-review-20"]);
+        assert_eq!(keys, ["app-/r/c-review-20", "app-/r/d-review-20"]);
     }
 
     #[test]
