@@ -4,8 +4,8 @@
 Usage: grade.py <iteration-dir>
 
 Reads each <iteration-dir>/eval-<name>/<config>/run-<k>/ and writes grading.json there. A run dir
-has: outputs/reviews/*.md (the review reports), outputs/git-state.txt, transcript.jsonl, and
-repo-diff.txt. `reply_*` checks read the reply of the first turn in transcript.jsonl.
+has: outputs/reviews/*.md (the review reports), outputs/git-state.txt, outputs/watch-report.json
+(the `watchd report` calls), transcript.jsonl, and repo-diff.txt. `reply_*` checks read the reply of the first turn in transcript.jsonl.
 """
 import sys
 from pathlib import Path
@@ -24,6 +24,10 @@ def run_check(check, run):
         if not run["report"]:
             return False, "no report file"
         return harness.regex_check(check, run["report"], t == "report_regex", ignore_case=True)
+    if t in ("watch_report_regex", "watch_report_not_regex"):
+        if not run["watch_report"]:
+            return False, "no watchd report call"
+        return harness.regex_check(check, run["watch_report"], t == "watch_report_regex", ignore_case=True)
     if t in ("state_regex", "state_not_regex"):
         return harness.regex_check(check, run["state"], t == "state_regex", ignore_case=True)
     raise ValueError(f"unknown check type {t}")
@@ -40,11 +44,13 @@ def first_reply(run_dir):
 def load_run(run_dir):
     state = run_dir / "outputs" / "git-state.txt"
     reports = sorted((run_dir / "outputs" / "reviews").glob("*.md"))
+    watch_report = run_dir / "outputs" / "watch-report.json"
     return {
         **harness.load_common(run_dir),
         "reply": first_reply(run_dir),
         "report": "\n".join(p.read_text() for p in reports),
         "state": state.read_text() if state.exists() else "",
+        "watch_report": watch_report.read_text() if watch_report.exists() else "",
     }
 
 

@@ -1,7 +1,7 @@
 {
   "skill_name": "review-pr",
   "skills": ["review-pr", "review-diff"],
-  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then copies the reports from ~/.ai/<repo-slug>/reviews/ to outputs/reviews/, writes outputs/git-state.txt, and deletes ~/.ai/<repo-slug>/. `{name}` in a prompt is the `name=` value from the fixture.",
+  "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, then copies the reports from ~/.ai/<repo-slug>/reviews/ to outputs/reviews/, writes outputs/git-state.txt, and deletes ~/.ai/<repo-slug>/. `watch_report_*` checks read outputs/watch-report.json, the JSON of the `watchd report` calls. `{name}` in a prompt is the `name=` value from the fixture.",
   "pattern_sets": {
     "host_writes": ["\\bglab\\b", "\\bgh\\s", "\\bcurl\\b", "\\bgit\\s+push\\b", "\\bherdr\\b"]
   },
@@ -23,7 +23,7 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-interdiff\\.sh", "min": 1, "text": "Runs git-interdiff.sh"},
         {"type": "tool_count", "tool": "Skill", "input_regex": "review-diff", "max": 0, "text": "Does not review the full MR again"},
         {"type": "report_regex", "patterns": ["(?m)^## Update", "(?s)## Update.*substring"], "text": "The report has an update with the substring finding"},
-        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "substring|short\\(\\)", "(?i)M1[^\\n]*(fixed|resolved)|(fixed|resolved)[^\\n]*M1"], "text": "Reply has the new finding under Needs you and tells that M1 is fixed"}
+        {"type": "watch_report_regex", "patterns": ["\"section\"\\s*:\\s*\"needs\"", "substring|short\\(\\)", "(?i)M1[^\\n]*(fixed|resolved)|(fixed|resolved)[^\\n]*M1"], "text": "Watch report has the new finding as a needs row and tells that M1 is fixed"}
       ]
     },
     {
@@ -36,28 +36,28 @@
         {"type": "tool_count", "tool": "Bash", "input_regex": "git-interdiff\\.sh", "min": 1, "text": "Runs git-interdiff.sh"},
         {"type": "tool_count", "tool": "Skill", "input_regex": "review-diff", "max": 0, "text": "Does not review the full MR again"},
         {"type": "report_not_regex", "patterns": ["(?m)^## Update"], "text": "The report has no update"},
-        {"type": "reply_regex", "patterns": ["(?i)no content change"], "text": "Reply tells that the push has no content change"}
+        {"type": "watch_report_regex", "patterns": ["(?i)no content change"], "text": "Watch report tells that the push has no content change"}
       ]
     },
     {
       "id": 3,
       "name": "watch-comments",
       "fixture": "fixtures/review-base.sh",
-      "prompt": "{intro} The review watch of !11 runs.\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_802\",\"actor\":\"anna\",\"detail\":\"Tag names are always ASCII, so the locale does not matter.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":6}\n{\"kind\":\"comment\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_803\",\"actor\":\"bob\",\"detail\":\"Nice, small change.\",\"branch\":\"tags-model\"}\n{\"kind\":\"pipeline\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 601 failed\",\"branch\":\"tags-model\"}\n{\"kind\":\"approved\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"bob\",\"detail\":\"approved\",\"branch\":\"tags-model\"}\n{\"kind\":\"unaddressed\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_802\",\"actor\":\"anna\",\"detail\":\"Tag names are always ASCII, so the locale does not matter.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":6}\n```",
+      "prompt": "{intro} The review watch of !11 runs.\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"comment\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_802\",\"actor\":\"anna\",\"detail\":\"Tag names are always ASCII, so the locale does not matter.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":6}\n{\"kind\":\"comment\",\"row\":2,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_803\",\"actor\":\"bob\",\"detail\":\"Nice, small change.\",\"branch\":\"tags-model\"}\n{\"kind\":\"pipeline\",\"row\":3,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"\",\"detail\":\"pipeline 601 failed\",\"branch\":\"tags-model\"}\n{\"kind\":\"approved\",\"row\":4,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11\",\"actor\":\"bob\",\"detail\":\"approved\",\"branch\":\"tags-model\"}\n{\"kind\":\"unaddressed\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_802\",\"actor\":\"anna\",\"detail\":\"Tag names are always ASCII, so the locale does not matter.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":6}\n```",
       "expected_output": "The reply of @anna is wrong: the default locale changes how ASCII 'i' becomes upper case. The session puts its assessment and a proposed response under Needs you, as one item. The comment of @bob, the failed pipeline, and the approval are under Info. No retry, no reply.",
       "checks": [
-        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "(?m)^Info$", "@anna", "@bob", "(?i)pipeline", "(?i)turkish|locale"], "text": "Reply has Needs you for @anna with an assessment, and Info for @bob and the pipeline"},
-        {"type": "reply_not_regex", "patterns": ["(?ms)^\\s*\\d+\\.[^\\n]*@anna.*^\\s*\\d+\\.[^\\n]*@anna"], "text": "The comment and its thread are one item"}
+        {"type": "watch_report_regex", "patterns": ["\"cells\"\\s*:\\s*\\{[^}]*\"1\"\\s*:", "(?i)turkish|locale"], "text": "Watch report has the assessment for @anna in the cell of row 1"},
+        {"type": "watch_report_not_regex", "patterns": ["\"add\"[^\\]]*anna"], "text": "The comment and its thread are one row"}
       ]
     },
     {
       "id": 4,
       "name": "watch-resolved",
       "fixture": "fixtures/review-base.sh",
-      "prompt": "{intro} The review watch of !11 runs.\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"resolved\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_801\",\"actor\":\"anna\",\"detail\":\"Use uppercase(Locale.ROOT) here.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":6}\n```",
+      "prompt": "{intro} The review watch of !11 runs.\n\nStop hook feedback: the watch sent events. Output:\n```\n{\"kind\":\"resolved\",\"row\":1,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_801\",\"actor\":\"anna\",\"detail\":\"Use uppercase(Locale.ROOT) here.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":6}\n```",
       "expected_output": "The MR head did not change, so no commit fixes the thread. The session puts it under Needs you as resolved with no fix.",
       "checks": [
-        {"type": "reply_regex", "patterns": ["(?m)^Needs you$", "(?i)no fix|not fixed|without a (fix|change)|no (code )?change"], "text": "Reply has the thread under Needs you as resolved with no fix"}
+        {"type": "watch_report_regex", "patterns": ["(?i)no fix|not fixed|without a (fix|change)|no (code )?change"], "text": "Watch report has the thread as resolved with no fix"}
       ]
     },
     {
@@ -77,11 +77,10 @@
       "id": 6,
       "name": "watch-resolved-after-push",
       "fixture": "fixtures/review-amend.sh",
-      "prompt": "{intro} The review watch of !11 runs.\n\nStop hook feedback: the watch sent events. Output:\n```\n{event}\n{\"kind\":\"resolved\",\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_801\",\"actor\":\"anna\",\"detail\":\"Use uppercase(Locale.ROOT) here.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":6}\n```",
+      "prompt": "{intro} The review watch of !11 runs.\n\nStop hook feedback: the watch sent events. Output:\n```\n{event}\n{\"kind\":\"resolved\",\"row\":2,\"iid\":11,\"title\":\"Add Tag model\",\"url\":\"https://gitlab.example.com/notes/app/-/merge_requests/11#note_801\",\"actor\":\"anna\",\"detail\":\"Use uppercase(Locale.ROOT) here.\",\"branch\":\"tags-model\",\"path\":\"app/src/main/kotlin/notes/Tag.kt\",\"line\":6}\n```",
       "expected_output": "The push fixes M1, and @anna resolved the M1 thread. The session handles the push first. It compares the thread with the change since the full review, finds the fix, and puts the thread under Info, not as resolved with no fix.",
       "checks": [
-        {"type": "reply_regex", "patterns": ["(?m)^Info$"], "text": "Reply has an Info section"},
-        {"type": "reply_not_regex", "patterns": ["(?i)resolved with no fix"], "text": "Reply does not put the fixed thread under resolved with no fix"}
+        {"type": "watch_report_not_regex", "patterns": ["(?i)resolved with no fix"], "text": "Watch report does not put the fixed thread under resolved with no fix"}
       ]
     }
   ]

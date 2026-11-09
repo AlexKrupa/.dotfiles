@@ -42,10 +42,13 @@ def git_state(repo):
 def collect(ev, ctx, run_dir):
     harness.collect_work_dir(ctx, run_dir, "reviews")
     (run_dir / "outputs" / "git-state.txt").write_text(git_state(ctx["repo"]))
+    report = Path(f"{ctx['repo']}.host") / "report.json"
+    if report.exists():
+        (run_dir / "outputs" / "watch-report.json").write_text(report.read_text())
 
 
 if __name__ == "__main__":
-    # The glab shim fails each GitLab call of the watch engine.
+    # The glab shim fails each GitLab call of the watch engine. The watchd shim saves the report.
     os.environ["PATH"] = f"{SHIMS}:{os.environ['PATH']}"
     # Own watch daemon state: no run joins the real daemon. The eval daemon exits 60 seconds after
     # its last subscription ends.

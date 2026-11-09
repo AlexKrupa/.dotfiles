@@ -16,6 +16,8 @@ the transcript.
   `XDG_STATE_HOME`, so their watch daemon is not the real daemon.
 - `shims/glab` - `run.py` puts it on PATH. It fails each `api` call of the watch engine with
   exit 1. All other calls fail too, except `auth`.
+- `shims/watchd` - `run.py` puts it on PATH. It saves the JSON of `watchd report` to
+  `<repo>.host/report.json`. All other commands run the real `watchd`.
 - `grade.py` - report and branch-state check types. Writes `grading.json` for skill-creator's
   viewer.
 

@@ -31,6 +31,6 @@ git update-ref refs/remotes/origin/tags-model "$reviewed"
 
 jq -nc --arg ob "$base" --arg oh "$reviewed" --arg nb "$main2" --arg nh "$new" \
   --arg u https://gitlab.example.com/notes/app/-/merge_requests/11 \
-  '{kind: "pushed", iid: 11, title: "Add Tag model", url: $u, actor: "",
+  '{row: 1, kind: "pushed", iid: 11, title: "Add Tag model", url: $u, actor: "",
     detail: "pushed \($nh[0:8])", branch: "tags-model",
     old_base: $ob, old_head: $oh, new_base: $nb, new_head: $nh}' | sed 's/^/event=/'
