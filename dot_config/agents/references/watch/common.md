@@ -137,3 +137,6 @@ The sections:
   pipeline passed. An item keeps its number, so the user can say "fix 1".
 - Agent shows the actions that you did for the events of this result.
 - Info shows the other events of this result.
+
+A watch reply has no next action, except two cases: an item under Needs you, or a merge that the
+role file suggests.

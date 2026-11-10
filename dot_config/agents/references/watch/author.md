@@ -47,6 +47,7 @@ to run the unsubscribe command. This also covers a sync that deletes a merged br
 | `pipeline`, failed | See "Pipeline failures" | Agent or Needs you    |
 | `conflict`         | See "Conflicts"         | Agent or Needs you    |
 | `merged`           | See "Merged MRs"        | Info, Agent/Needs you |
+| `mergeable`        | Suggest to merge the MR | Info                  |
 | `comment`          | See "Comments"          | Needs you            |
 | `pushed`           | See "Pushes"            | Needs you            |
 
