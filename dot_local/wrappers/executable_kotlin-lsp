@@ -1,0 +1,7 @@
+#!/bin/sh
+# AGP 9 fails to create the Compose Preview task of a variant with no unit tests, and the
+# language server import creates every task. Builds outside the language server keep the
+# default, so their unit test tasks do less work.
+# `export` cannot set a name with a dot.
+exec env 'ORG_GRADLE_PROJECT_android.onlyEnableUnitTestForTheTestedBuildType=false' \
+  /opt/homebrew/bin/kotlin-lsp "$@"
