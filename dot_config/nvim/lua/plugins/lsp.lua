@@ -135,6 +135,62 @@ return {
         return vim.lsp.rpc.start(command, dispatchers, { cwd = config.root_dir })
       end
 
+      -- A library file has no project root. It uses the server of the last Kotlin buffer, which is
+      -- the buffer that the jump came from, so that a next jump inside the library also works.
+      -- `#` cannot show that buffer, because the new buffer loads in a temporary window.
+      local last_kotlin_lsp_root
+      vim.api.nvim_create_autocmd({ 'BufEnter', 'LspAttach' }, {
+        group = vim.api.nvim_create_augroup('kotlin-lsp-last-root', { clear = true }),
+        callback = function(event)
+          local client = vim.lsp.get_clients({ name = 'kotlin_lsp', bufnr = event.buf })[1]
+          if client then
+            last_kotlin_lsp_root = client.root_dir
+          end
+        end,
+      })
+
+      local function find_kotlin_lsp_root(bufnr, on_dir)
+        if vim.startswith(vim.api.nvim_buf_get_name(bufnr), 'jar:') then
+          if last_kotlin_lsp_root then
+            on_dir(last_kotlin_lsp_root)
+          end
+          return
+        end
+        -- Each marker searches all parents before the next, so a module `build.gradle.kts` does not
+        -- win over the repo `settings.gradle.kts`. Same order as `~/.local/wrappers/kotlin-lsp`.
+        local root_dir = vim.fs.root(bufnr, { 'settings.gradle.kts', 'settings.gradle', 'build.gradle.kts', 'build.gradle' })
+        if root_dir then
+          on_dir(root_dir)
+        end
+      end
+
+      -- kotlin-lsp gives a library symbol as `jar:///<jar path>!/<entry path>` in a sources jar.
+      -- `vim.lsp.enable` attaches only to a buffer with no `buftype`, so `BufWriteCmd` stops writes.
+      local kotlin_lsp_jar_group = vim.api.nvim_create_augroup('kotlin-lsp-jar', { clear = true })
+      vim.api.nvim_create_autocmd('BufWriteCmd', {
+        pattern = 'jar:///*',
+        group = kotlin_lsp_jar_group,
+        callback = function(event)
+          error(('kotlin_lsp: %s is a library file in a jar, it is read-only'):format(event.match))
+        end,
+      })
+      vim.api.nvim_create_autocmd('BufReadCmd', {
+        pattern = 'jar:///*',
+        group = kotlin_lsp_jar_group,
+        callback = function(event)
+          local jar_path, entry_path = event.match:match '^jar://(.-)!/(.+)$'
+          local result = vim.system({ 'unzip', '-p', jar_path, entry_path }, { text = true }):wait()
+          if result.code ~= 0 then
+            error(('kotlin_lsp: cannot read %s from %s: %s'):format(entry_path, jar_path, result.stderr))
+          end
+          local text = result.stdout:gsub('\n$', '')
+          vim.api.nvim_buf_set_lines(event.buf, 0, -1, false, vim.split(text, '\n'))
+          vim.bo[event.buf].modified = false
+          vim.bo[event.buf].modifiable = false
+          vim.bo[event.buf].filetype = vim.filetype.match { filename = entry_path } or ''
+        end,
+      })
+
       -- On an unbuilt Android project the server lists every missing `build/` artifact in one
       -- message, which forces a hit-enter prompt. Only generated code needs those artifacts.
       local function shorten_kotlin_lsp_message(err, result, ctx)
@@ -159,9 +215,7 @@ return {
         jdtls = {},
         kotlin_lsp = {
           cmd = start_kotlin_lsp,
-          -- Each marker searches all parents before the next, so a module `build.gradle.kts` does
-          -- not win over the repo `settings.gradle.kts`. Same order as `~/.local/wrappers/kotlin-lsp`.
-          root_markers = { 'settings.gradle.kts', 'settings.gradle', 'build.gradle.kts', 'build.gradle' },
+          root_dir = find_kotlin_lsp_root,
           handlers = { ['window/showMessage'] = shorten_kotlin_lsp_message },
         },
         ktfmt = {},
