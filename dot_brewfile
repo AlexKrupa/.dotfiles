@@ -7,6 +7,7 @@ cask_args appdir: '/Applications', no_quarantine: true
 tap "buo/cask-upgrade"  # better cask upgrading (see `cu`)
 
 # CLI tools
+# Commented lines are optional.
 brew "7zip"
 brew "bash"
 brew "bat" # cat alternative with syntax highlighting
@@ -19,7 +20,7 @@ brew "chezmoi" # dotfiles management
 brew "colima" # containers
 brew "coreutils" # for gnu date
 brew "curl"
-brew "czkawka" # duplicate file finder
+# brew "czkawka" # duplicate file finder
 brew "diskonaut" # disk usage TUI
 brew "difftastic" # structural diff
 brew "duf" # disk usage/free utility, df alternative
@@ -28,7 +29,6 @@ brew "exiftool" # read/write metadata
 brew "fd" # find alternative
 brew "ffmpeg" # video converter / compressor
 brew "fish" # shell
-# brew "fjira" # Jira CLI
 # brew "fpp" # pipe path picker, e.g. git status | fpp
 brew "fx" # JSON viewer / processor
 brew "fzf" # fuzzy finder
@@ -44,7 +44,7 @@ brew "gitleaks" # secret scanner
 brew "gnupg" # "openssl"
 brew "grc" # command output colorizer
 # brew "gum" # easy CLI tools
-brew "herdr" # modern tmux with native agents
+brew "herdr" # multiplexer with agents
 # brew "httpie" # HTTP client, curl alternative
 brew "htop" # system monitor
 brew "imagemagick" # image converter / compressor
@@ -71,7 +71,7 @@ brew "rga" # ripgrep but for everything (e.g. pdf, jpg, docx, etc)
 brew "shellcheck" # shell script linter
 brew "slides" # markdown slides, terminal presentation
 brew "starship" # shell prompt
-brew "tailscale"
+# brew "tailscale"
 brew "tlrc" # tldr - docs, manpages alternative
 # brew "tmux"
 # brew "tpm" # tmux plugin manager
@@ -79,8 +79,8 @@ brew "tree-sitter"
 brew "tree-sitter-cli" # used by NeoVim
 brew "tokei" # project metric counter (e.g. LOC, complexity)
 brew "universal-ctags" # code tag generator
-brew "xdg-ninja" # XDG convention helper
-brew "yt-dlp" # YouTube downloader
+# brew "xdg-ninja" # XDG convention helper
+# brew "yt-dlp" # YouTube downloader
 brew "zoxide" # smart cd replacement
 
 # yazi file manager
@@ -132,9 +132,9 @@ cask "1password" # restart-on-upgrade: 1Password:com.1password.1password
 # cask "1password-cli" # required for Raycast/Alfred integration
 cask "nikitabobko/tap/aerospace" # restart-on-upgrade: AeroSpace:bobko.aerospace
 cask "battery" # stop charge at 80%
-cask "bettercmdtab" # restart-on-upgrade: BetterCmdTab:pro.bettercmdtab.BetterCmdTab
+# cask "bettercmdtab" # restart-on-upgrade: BetterCmdTab:pro.bettercmdtab.BetterCmdTab
 # cask "betterdisplay" # display manager
-cask "bettertouchtool" # restart-on-upgrade: BetterTouchTool:com.hegenberg.BetterTouchTool
+# cask "bettertouchtool" # restart-on-upgrade: BetterTouchTool:com.hegenberg.BetterTouchTool
 # cask "bruno" # API-client, Postman alternative
 # cask "calibre" # ebook manager
 cask "claude-code@latest" # AI coding agent
@@ -142,7 +142,7 @@ cask "claude-code@latest" # AI coding agent
 # cask "discord"
 cask "espanso" # text expander # restart-on-upgrade: Espanso:com.federicoterzi.espanso
 # cask "handbrake-app" # video converter / compressor
-cask "handy" # speech-to-text # restart-on-upgrade: Handy:com.pais.handy
+# cask "handy" # speech-to-text # restart-on-upgrade: Handy:com.pais.handy
 cask "ghostty" # terminal emulator
 # cask "google-drive"
 cask "google-chrome" # prompt-on-upgrade: Google Chrome:com.google.Chrome
@@ -175,7 +175,7 @@ cask "shottr" # screenshot tool
 cask "stats" # system monitor in the menu bar
 cask "sublime-text" # text editor
 # cask "table-tool" # CSV editor
-cask "thaw" # hide menu bar icons # restart-on-upgrade: Thaw:com.stonerl.Thaw
+# cask "thaw" # hide menu bar icons # restart-on-upgrade: Thaw:com.stonerl.Thaw
 cask "the-unarchiver" # unzip
 # cask "visual-studio-code"
 # cask "vlc" # video player
