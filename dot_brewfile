@@ -113,9 +113,9 @@ brew "go" # builds ksrc in ~/.local/share/ksrc
 # JavaScript
 brew "oven-sh/bun/bun" # JS runtime / package manager
 brew "node"
-npm "@mermaid-js/mermaid-cli" # mmdc - Mermaid diagram renderer
-npm "ccusage" # Claude Code token usage report
-npm "skills" # agent skills installer
+brew "ccusage" # Claude Code token usage report
+brew "mermaid-cli" # mmdc - Mermaid diagram renderer, uses Chrome (see fish conf.d/puppeteer.fish)
+brew "skills" # agent skills installer
 
 # Python
 brew "uv" # also manages Python versions (`uv python install`)
