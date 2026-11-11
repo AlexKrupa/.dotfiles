@@ -1,6 +1,6 @@
 # input-tweaks
 
-Background program for macOS that adds trackpad gestures and media key control.
+macOS background program for trackpad gestures and media keys.
 
 | Input | Where | Action |
 | --- | --- | --- |
@@ -9,4 +9,4 @@ Background program for macOS that adds trackpad gestures and media key control.
 | 3 finger click | All apps | Middle click |
 | Play/pause, next, previous keys | All apps | Control Spotify. If Spotify does not run, macOS gets the key. |
 
-Install with `./install.sh`, then give Accessibility permission. Remove with `./uninstall.sh`.
+Install with `./install.sh`, then give the program Accessibility permission. Remove with `./uninstall.sh`.
