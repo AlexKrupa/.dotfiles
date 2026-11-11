@@ -1,16 +1,14 @@
+{{- $repository := joinPath .chezmoi.homeDir "src/kotlin-lsp-android" -}}
 #!/bin/sh
-# Builds the `kotlin-lsp` proxy of kotlin-lsp-android at a pinned commit. The proxy replaces the
+# Builds the `kotlin-lsp` proxy of kotlin-lsp-android at the local `main`. The proxy replaces the
 # Homebrew `kotlin-lsp` for all LSP clients, because ~/.local/wrappers is first on PATH.
 set -eu
 
-commit=22e05b25c15d45fd0e82fdd7e58e84a2faa9d403
-repository="$HOME/src/kotlin-lsp-android"
+{{ if stat (joinPath $repository ".git") -}}
+# The commit of `main` changes the content of this script, so chezmoi runs it again.
+commit={{ output "git" "-C" $repository "rev-parse" "main" | trim }}
+repository="{{ $repository }}"
 output="$HOME/.local/wrappers/kotlin-lsp"
-
-if [ ! -d "$repository/.git" ]; then
-  echo "kotlin-lsp-android: $repository not found, skipped"
-  exit 0
-fi
 
 if ! command -v go >/dev/null; then
   echo "kotlin-lsp-android: go not on PATH, skipped"
@@ -31,3 +29,6 @@ git -C "$repository" archive "$commit" | tar -x -C "$source_dir"
 chmod 755 "$temporary_output"
 mv "$temporary_output" "$output"
 echo "kotlin-lsp-android: built $commit"
+{{ else -}}
+echo "kotlin-lsp-android: {{ $repository }} not found, skipped"
+{{ end -}}
