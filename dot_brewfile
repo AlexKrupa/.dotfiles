@@ -107,6 +107,9 @@ brew "gradle-completion"
 brew "rogcat" # logcat viewer
 brew "scrcpy" # screen mirroring
 
+# Go
+brew "go" # builds ksrc in ~/.local/share/ksrc
+
 # JavaScript
 brew "oven-sh/bun/bun" # JS runtime / package manager
 brew "node"
