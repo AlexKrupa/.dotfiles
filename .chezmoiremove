@@ -28,3 +28,5 @@
 .config/agents/integrations/claude-code/herdr-start-claude.test.sh
 .config/agents/skills/work/herdr-worktree.sh
 .config/herdr/bin/tuicr.sh
+.config/herdr/plugins/watch/notify.jq
+.config/herdr/plugins/config/local.watch/config.json
