@@ -129,10 +129,32 @@ return {
       -- blink.cmp adds capabilities that nvim does not have by default.
       local capabilities = require('blink.cmp').get_lsp_capabilities()
 
+      -- Each consumer of locations, for example Telescope, gets the sources from `kotlin_lsp_sources`,
+      -- because the change is in the RPC client, not in a handler.
+      local kotlin_lsp_location_methods = {
+        ['textDocument/declaration'] = true,
+        ['textDocument/definition'] = true,
+        ['textDocument/implementation'] = true,
+        ['textDocument/typeDefinition'] = true,
+      }
+
       -- The wrapper finds the project root from its working directory.
       local function start_kotlin_lsp(dispatchers, config)
         local command = { vim.fn.expand '~/.local/wrappers/kotlin-lsp', '--stdio' }
-        return vim.lsp.rpc.start(command, dispatchers, { cwd = config.root_dir })
+        local rpc = vim.lsp.rpc.start(command, dispatchers, { cwd = config.root_dir })
+        local request = rpc.request
+        rpc.request = function(method, params, callback, notify_reply_callback)
+          if not kotlin_lsp_location_methods[method] then
+            return request(method, params, callback, notify_reply_callback)
+          end
+          return request(method, params, function(err, result)
+            -- The sources search waits for `rg` and `unzip`, which a fast event cannot do.
+            vim.schedule(function()
+              callback(err, err == nil and require('kotlin_lsp_sources').to_sources(result, params, config.root_dir) or result)
+            end)
+          end, notify_reply_callback)
+        end
+        return rpc
       end
 
       -- A library file has no project root. It uses the server of the last Kotlin buffer, which is
@@ -181,16 +203,9 @@ return {
           end
           return result.stdout, vim.filetype.match { filename = entry_path }
         end
-        local client = vim.iter(vim.lsp.get_clients { name = 'kotlin_lsp' }):find(function(candidate)
-          return candidate.root_dir == last_kotlin_lsp_root
-        end)
-        if not client then
-          error(('kotlin_lsp: no server for %s to decompile %s'):format(last_kotlin_lsp_root, uri))
-        end
-        local response = client:request_sync('workspace/executeCommand', { command = 'decompile', arguments = { uri } }, 10000)
-        local decompiled = response and response.result
+        local decompiled = require('kotlin_lsp_sources').decompile(uri, last_kotlin_lsp_root)
         if not decompiled then
-          error(('kotlin_lsp: cannot decompile %s: %s'):format(uri, vim.inspect(response and response.err)))
+          error(('kotlin_lsp: the server for %s cannot decompile %s'):format(last_kotlin_lsp_root, uri))
         end
         return decompiled.code, decompiled.language
       end
