@@ -145,18 +145,6 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
     return Unmanaged.passUnretained(event)
 }
 
-let promptOption = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-if !AXIsProcessTrustedWithOptions([promptOption: true] as CFDictionary) {
-    fputs(
-        "input-tweaks: waiting for Accessibility permission for \(CommandLine.arguments[0]). "
-            + "Add it in System Settings > Privacy & Security > Accessibility.\n",
-        stderr
-    )
-    // An exit and a restart would show the prompt again
-    while !AXIsProcessTrusted() { sleep(5) }
-    fputs("input-tweaks: Accessibility permission granted\n", stderr)
-}
-
 let cgEventTypes: [CGEventType] = [
     .leftMouseDown, .leftMouseDragged, .leftMouseUp,
     .rightMouseDown, .rightMouseDragged, .rightMouseUp,
@@ -165,6 +153,19 @@ let cgEventTypes: [CGEventType] = [
 let eventTypeRawValues = cgEventTypes.map(\.rawValue)
     + [gestureEventTypeRawValue, systemDefinedEventTypeRawValue]
 let eventMask = eventTypeRawValues.reduce(UInt64(0)) { mask, rawValue in mask | (1 << UInt64(rawValue)) }
+
+let promptOption = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+guard AXIsProcessTrustedWithOptions([promptOption: true] as CFDictionary) else {
+    fputs(
+        "input-tweaks: no Accessibility permission for \(CommandLine.arguments[0]). "
+            + "Add it in System Settings > Privacy & Security > Accessibility, then run install.sh.\n",
+        stderr
+    )
+    // Exit code 0 stops launchd restarts, which show the prompt again. An event tap created in a
+    // process that waited for the permission blocked all trackpad input.
+    exit(0)
+}
+
 guard let tap = CGEvent.tapCreate(
     tap: .cgSessionEventTap,
     place: .headInsertEventTap,

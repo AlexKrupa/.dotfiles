@@ -9,4 +9,5 @@ macOS background program for trackpad gestures and media keys.
 | 3 finger click | All apps | Middle click |
 | Play/pause, next, previous keys | All apps | Control Spotify. If Spotify does not run, macOS gets the key. |
 
-Install with `./install.sh`, then give the program Accessibility permission. Remove with `./uninstall.sh`.
+Install with `./install.sh`, give the program Accessibility permission, then run `./install.sh`
+again. Remove with `./uninstall.sh`.

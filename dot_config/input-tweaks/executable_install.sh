@@ -13,7 +13,7 @@ domain=gui/$(id -u)
 if [[ main.swift -nt $binary ]]; then
     mkdir -p "$(dirname "$binary")"
     swiftc -O main.swift -o "$binary"
-    echo "Built $binary. Give it Accessibility permission when macOS asks."
+    echo "Built $binary. Give it Accessibility permission when macOS asks, then run install.sh again."
 fi
 
 mkdir -p "$(dirname "$agent")"
