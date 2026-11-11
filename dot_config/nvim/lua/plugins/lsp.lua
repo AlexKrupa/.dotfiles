@@ -28,7 +28,7 @@ return {
       {
         dir = '~/src/me/kotlin-lsp-android',
         config = function()
-          require('kotlin_lsp_android').setup()
+          require('kotlin_lsp_android').setup({ executable = vim.fn.expand('~/.local/wrappers/kotlin-lsp') })
         end,
       },
     },
