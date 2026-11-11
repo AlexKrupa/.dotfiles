@@ -11,13 +11,17 @@ local started_fetches = {}
 local decompiled_by_uri = {}
 
 ---@return { code: string, language: string }? stub source of a class file from the server
+local function find_client(root_dir)
+  return vim.iter(vim.lsp.get_clients { name = 'kotlin_lsp' }):find(function(candidate)
+    return candidate.root_dir == root_dir
+  end)
+end
+
 function M.decompile(uri, root_dir)
   if decompiled_by_uri[uri] then
     return decompiled_by_uri[uri]
   end
-  local client = vim.iter(vim.lsp.get_clients { name = 'kotlin_lsp' }):find(function(candidate)
-    return candidate.root_dir == root_dir
-  end)
+  local client = find_client(root_dir)
   if not client then
     return nil
   end
@@ -324,9 +328,10 @@ local function find_declarations(sources, package_name, class_name, symbol)
 end
 
 -- The server does not know the source files that this module opens, so it locates nothing in
--- them. A name lookup in the same sources replaces it: a type through the imports and the package
--- of the file, any other name through declarations in the file, the package, and then all sources.
--- It finds nothing in other libraries, and it lists all members of the same name.
+-- them. A name lookup replaces it: a type through the imports and the package of the file, any
+-- other name through declarations in the file, the package, and then all sources of the library.
+-- A name from another library goes to the server by its full name. The lookup lists all members of
+-- the same name.
 local name_lookup_limit = 30
 
 ---@return string? sources of a document that this module opened
@@ -338,8 +343,28 @@ local function find_document_sources(uri)
   return vim.uri_to_fname(uri):match '^(.*/sources/android%-[^/]+)/'
 end
 
+-- The server finds the class file of a full name, and that class file maps to sources like any
+-- location from the server.
 ---@return lsp.Location[]?
-local function find_by_name(params)
+local function find_in_other_libraries(full_names, params, root_dir)
+  local client = find_client(root_dir)
+  if not client then
+    return nil
+  end
+  for _, full_name in ipairs(full_names) do
+    local response = client:request_sync('workspace/symbol', { query = full_name }, 10000)
+    local found = vim.iter(response and response.result or {}):find(function(item)
+      return item.name == full_name
+    end)
+    if found then
+      return M.to_sources({ found.location }, params, root_dir)
+    end
+  end
+  return nil
+end
+
+---@return lsp.Location[]?
+local function find_by_name(params, root_dir)
   local sources = find_document_sources(params.textDocument.uri)
   local symbol = find_symbol(params)
   if not (sources and symbol) then
@@ -349,6 +374,8 @@ local function find_by_name(params)
   local lines = vim.api.nvim_buf_get_lines(vim.uri_to_bufnr(params.textDocument.uri), 0, -1, false)
   -- Each scope is a list of files or directories. The first scope with a declaration wins.
   local scopes = {}
+  -- Full names to ask the server for, when no scope has a declaration.
+  local full_names = {}
   for _, line in ipairs(lines) do
     local imported = line:match('^import%s+static%s+([%w_.]+)%.' .. symbol .. '%f[^%w_]') or line:match('^import%s+([%w_.]+)%.' .. symbol .. '%f[^%w_]')
     if imported then
@@ -360,6 +387,11 @@ local function find_by_name(params)
           return vim.fn.fnamemodify(path, ':t:r') == class_name
         end, package_name and find_package_files(directory, package_name) or {})
       end
+      -- An import that is not in this library names a declaration in another library, so a
+      -- declaration of the same name in this library is not the target.
+      if #files == 0 then
+        return find_in_other_libraries({ imported .. '.' .. symbol }, params, root_dir) or {}
+      end
       table.insert(scopes, files)
     end
   end
@@ -370,6 +402,7 @@ local function find_by_name(params)
     local package_name = line:match '^package%s+([%w_.]+)' or line:match '^import%s+([%w_.]+)%.%*'
     if package_name then
       table.insert(scopes, find_package_files(directory, package_name))
+      table.insert(full_names, package_name .. '.' .. symbol)
     end
   end
   table.insert(scopes, { directory })
@@ -389,7 +422,7 @@ local function find_by_name(params)
       end
     end
   end
-  return {}
+  return find_in_other_libraries(full_names, params, root_dir) or {}
 end
 
 -- The stub of the class file has the signature of the overload that the server located.
@@ -414,7 +447,7 @@ end
 ---@return lsp.Location|lsp.Location[]|lsp.LocationLink[]|nil
 function M.to_sources(result, params, root_dir)
   if result == nil or (vim.islist(result) and #result == 0) then
-    return find_by_name(params) or result
+    return find_by_name(params, root_dir) or result
   end
   local locations = vim.islist(result) and result or { result }
   local mapped = {}
