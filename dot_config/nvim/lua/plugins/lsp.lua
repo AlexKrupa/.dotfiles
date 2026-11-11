@@ -26,7 +26,7 @@ return {
 
       -- The plugin must be on the runtimepath before `require('kotlin_lsp_android')` below.
       {
-        dir = '~/src/kotlin-lsp-android',
+        dir = '~/src/me/kotlin-lsp-android',
         config = function()
           require('kotlin_lsp_android').setup()
         end,
