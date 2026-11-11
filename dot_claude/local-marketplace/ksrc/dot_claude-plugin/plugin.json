@@ -1,0 +1,4 @@
+{
+  "name": "ksrc",
+  "description": "Search and read the sources of Gradle dependencies with the ksrc MCP server"
+}
