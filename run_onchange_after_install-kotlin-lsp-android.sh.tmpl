@@ -10,9 +10,11 @@ commit={{ output "git" "-C" $repository "rev-parse" "main" | trim }}
 repository="{{ $repository }}"
 output="$HOME/.local/wrappers/kotlin-lsp"
 
+# Exit 1, not 0: chezmoi does not run a successful run_onchange script again, so a skip would
+# leave the proxy unbuilt after Go is installed.
 if ! command -v go >/dev/null; then
-  echo "kotlin-lsp-android: go not on PATH, skipped"
-  exit 0
+  echo "kotlin-lsp-android: go not on PATH. Run ~/.brew.sh, then chezmoi apply" >&2
+  exit 1
 fi
 
 # The build reads the commit from an archive. A checkout would change the files of the repository.
