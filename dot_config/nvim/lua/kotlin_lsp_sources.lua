@@ -240,61 +240,156 @@ end
 local declaration_line_count = 40
 
 -- `sources` is an archive (a sources jar or a source zip) or a directory (Android SDK sources).
----@return { location: lsp.Location, path: string, line_index: integer }[]
-local function find_declarations(sources, package_name, class_name, symbol)
-  local is_directory = vim.fn.isdirectory(sources) == 1
-  local directory = is_directory and sources or extract(sources)
-  local escaped_package = package_name:gsub('%.', '\\.')
-  local package_files = vim.system({ 'rg', '-l', '-g', '*.kt', '-g', '*.java', '^package ' .. escaped_package .. ';?\\s*$', directory }, { text = true }):wait()
-  local files = vim.split(vim.trim(package_files.stdout), '\n', { trimempty = true })
-  if #files == 0 then
-    return {}
+---@return string directory with the source files
+---@return fun(path: string): string uri of a source file in the directory
+local function open_sources(sources)
+  if vim.fn.isdirectory(sources) == 1 then
+    return sources, vim.uri_from_fname
   end
+  local directory = extract(sources)
+  return directory, function(path)
+    return ('jar://%s!/%s'):format(sources, path:sub(#directory + 2))
+  end
+end
+
+---@return string[] paths of the source files of a package
+local function find_package_files(directory, package_name)
+  local escaped_package = package_name:gsub('%.', '\\.')
+  local pattern = '^package ' .. escaped_package .. ';?\\s*$'
+  local result = vim.system({ 'rg', '-l', '-g', '*.kt', '-g', '*.java', pattern, directory }, { text = true }):wait()
+  return vim.split(vim.trim(result.stdout), '\n', { trimempty = true })
+end
+
+---@param paths string[] files or directories
+---@param types_only boolean
+---@return { path: string, line_index: integer, character: integer }[]
+local function search_declarations(paths, symbol, types_only)
   local function search(pattern, globs)
     local command = { 'rg', '-n', '--column', '--no-heading', '--with-filename', '-e', pattern }
     for _, glob in ipairs(globs) do
       vim.list_extend(command, { '-g', glob })
     end
-    return vim.trim(vim.system(vim.list_extend(command, files), { text = true }):wait().stdout)
+    return vim.trim(vim.system(vim.list_extend(command, paths), { text = true }):wait().stdout)
   end
-  local type_or_kotlin_member = '\\b(class|interface|object|enum|record|typealias|fun|val|var)\\s+(<[^>]*>\\s*)?([\\w.<>?, ]+\\.)?'
-    .. symbol
-    .. '\\b|@interface\\s+'
-    .. symbol
-    .. '\\b'
-  -- A Java member has a type before its name. A call in a method body can match too, so this
-  -- search runs only when no type or Kotlin member matches.
-  local java_member = '^\\s*[\\w@<>\\[\\],.? ]+\\s' .. symbol .. '\\s*[(=;]'
-  -- For a symbol with the name of the class file, the server located the class, not a function of
-  -- the same name, for example the builder function `Json()` next to the class `Json`.
   local type_declaration = '\\b(class|interface|object|enum|record|typealias)\\s+' .. symbol .. '\\b|@interface\\s+' .. symbol .. '\\b'
-  local matches = symbol == class_name and search(type_declaration, {}) or ''
-  if matches == '' then
-    matches = search(type_or_kotlin_member, {})
-  end
-  if matches == '' then
+  local declaration = type_declaration .. '|\\b(fun|val|var)\\s+(<[^>]*>\\s*)?([\\w.<>?, ]+\\.)?' .. symbol .. '\\b'
+  -- A Java member has a type before its name. A call in a method body can match too, so this
+  -- search runs only when no other declaration matches.
+  local java_member = '^\\s*[\\w@<>\\[\\],.? ]+\\s' .. symbol .. '\\s*[(=;]'
+  local matches = search(types_only and type_declaration or declaration, { '*.kt', '*.java' })
+  if matches == '' and not types_only then
     matches = search(java_member, { '*.java' })
   end
-  local locations = {}
-  local preferred = {}
+  local declarations = {}
   for match in vim.gsplit(matches, '\n', { trimempty = true }) do
     local path, line, column = match:match '^(.-):(%d+):(%d+):'
-    local position = { line = tonumber(line) - 1, character = tonumber(column) - 1 }
-    local declaration = {
-      location = {
-        uri = is_directory and vim.uri_from_fname(path) or ('jar://%s!/%s'):format(sources, path:sub(#directory + 2)),
-        range = { start = position, ['end'] = position },
-      },
-      path = path,
-      line_index = position.line,
-    }
+    table.insert(declarations, { path = path, line_index = tonumber(line) - 1, character = tonumber(column) - 1 })
+  end
+  return declarations
+end
+
+---@return { location: lsp.Location, path: string, line_index: integer }
+local function to_declaration(uri_for, match)
+  local position = { line = match.line_index, character = match.character }
+  return {
+    location = { uri = uri_for(match.path), range = { start = position, ['end'] = position } },
+    path = match.path,
+    line_index = match.line_index,
+  }
+end
+
+---@return { location: lsp.Location, path: string, line_index: integer }[]
+local function find_declarations(sources, package_name, class_name, symbol)
+  local directory, uri_for = open_sources(sources)
+  local files = find_package_files(directory, package_name)
+  if #files == 0 then
+    return {}
+  end
+  -- For a symbol with the name of the class file, the server located the class, not a function of
+  -- the same name, for example the builder function `Json()` next to the class `Json`.
+  local matches = symbol == class_name and search_declarations(files, symbol, true) or {}
+  if #matches == 0 then
+    matches = search_declarations(files, symbol, false)
+  end
+  local declarations = {}
+  local preferred = {}
+  for _, match in ipairs(matches) do
     -- The file named after the class holds its members: `Foo.java` for `Foo`, `Foo.kt` for the
     -- Kotlin file facade `FooKt`. A facade with `@file:JvmName` can be spread over several files.
-    local file_name = vim.fn.fnamemodify(path, ':t:r')
+    local file_name = vim.fn.fnamemodify(match.path, ':t:r')
     local named_after_class = file_name == class_name or file_name .. 'Kt' == class_name
-    table.insert(named_after_class and preferred or locations, declaration)
+    table.insert(named_after_class and preferred or declarations, to_declaration(uri_for, match))
   end
-  return #preferred > 0 and preferred or locations
+  return #preferred > 0 and preferred or declarations
+end
+
+-- The server does not know the source files that this module opens, so it locates nothing in
+-- them. A name lookup in the same sources replaces it: a type through the imports and the package
+-- of the file, any other name through declarations in the file, the package, and then all sources.
+-- It finds nothing in other libraries, and it lists all members of the same name.
+local name_lookup_limit = 30
+
+---@return string? sources of a document that this module opened
+local function find_document_sources(uri)
+  local archive = uri:match '^jar://(.-)!/.+%.kt$' or uri:match '^jar://(.-)!/.+%.java$'
+  if archive then
+    return archive
+  end
+  return vim.uri_to_fname(uri):match '^(.*/sources/android%-[^/]+)/'
+end
+
+---@return lsp.Location[]?
+local function find_by_name(params)
+  local sources = find_document_sources(params.textDocument.uri)
+  local symbol = find_symbol(params)
+  if not (sources and symbol) then
+    return nil
+  end
+  local directory, uri_for = open_sources(sources)
+  local lines = vim.api.nvim_buf_get_lines(vim.uri_to_bufnr(params.textDocument.uri), 0, -1, false)
+  -- Each scope is a list of files or directories. The first scope with a declaration wins.
+  local scopes = {}
+  for _, line in ipairs(lines) do
+    local imported = line:match('^import%s+static%s+([%w_.]+)%.' .. symbol .. '%f[^%w_]') or line:match('^import%s+([%w_.]+)%.' .. symbol .. '%f[^%w_]')
+    if imported then
+      local files = find_package_files(directory, imported)
+      if #files == 0 then
+        -- The import names a class: a nested class or a static member of `<package>.<class>`.
+        local package_name, class_name = imported:match '^(.*)%.([%w_]+)$'
+        files = vim.tbl_filter(function(path)
+          return vim.fn.fnamemodify(path, ':t:r') == class_name
+        end, package_name and find_package_files(directory, package_name) or {})
+      end
+      table.insert(scopes, files)
+    end
+  end
+  local document_path = params.textDocument.uri:match '^jar://' and directory .. '/' .. params.textDocument.uri:match '!/(.+)$'
+    or vim.uri_to_fname(params.textDocument.uri)
+  table.insert(scopes, { document_path })
+  for _, line in ipairs(lines) do
+    local package_name = line:match '^package%s+([%w_.]+)' or line:match '^import%s+([%w_.]+)%.%*'
+    if package_name then
+      table.insert(scopes, find_package_files(directory, package_name))
+    end
+  end
+  table.insert(scopes, { directory })
+  -- A capitalized name is usually a type, but it can also be a function, for example a composable.
+  local passes = symbol:match '^%u' and { true, false } or { false }
+  for _, types_only in ipairs(passes) do
+    for _, paths in ipairs(scopes) do
+      local matches = #paths > 0 and search_declarations(paths, symbol, types_only) or {}
+      if #matches > 0 then
+        return vim
+          .iter(matches)
+          :take(name_lookup_limit)
+          :map(function(match)
+            return to_declaration(uri_for, match).location
+          end)
+          :totable()
+      end
+    end
+  end
+  return {}
 end
 
 -- The stub of the class file has the signature of the overload that the server located.
@@ -318,8 +413,8 @@ end
 ---@param result lsp.Location|lsp.Location[]|lsp.LocationLink[]|nil
 ---@return lsp.Location|lsp.Location[]|lsp.LocationLink[]|nil
 function M.to_sources(result, params, root_dir)
-  if result == nil then
-    return nil
+  if result == nil or (vim.islist(result) and #result == 0) then
+    return find_by_name(params) or result
   end
   local locations = vim.islist(result) and result or { result }
   local mapped = {}

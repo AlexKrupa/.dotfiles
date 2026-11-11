@@ -172,7 +172,9 @@ return {
       })
 
       local function find_kotlin_lsp_root(bufnr, on_dir)
-        if vim.startswith(vim.api.nvim_buf_get_name(bufnr), 'jar:') then
+        local name = vim.api.nvim_buf_get_name(bufnr)
+        local is_library_file = vim.startswith(name, 'jar:') or name:match '/sources/android%-[^/]+/' ~= nil
+        if is_library_file then
           if last_kotlin_lsp_root then
             on_dir(last_kotlin_lsp_root)
           end
