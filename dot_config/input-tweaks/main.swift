@@ -144,13 +144,15 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
 }
 
 let promptOption = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-guard AXIsProcessTrustedWithOptions([promptOption: true] as CFDictionary) else {
+if !AXIsProcessTrustedWithOptions([promptOption: true] as CFDictionary) {
     fputs(
-        "input-tweaks: no Accessibility permission for \(CommandLine.arguments[0]). "
+        "input-tweaks: waiting for Accessibility permission for \(CommandLine.arguments[0]). "
             + "Add it in System Settings > Privacy & Security > Accessibility.\n",
         stderr
     )
-    exit(1)
+    // An exit and a restart would show the prompt again
+    while !AXIsProcessTrusted() { sleep(5) }
+    fputs("input-tweaks: Accessibility permission granted\n", stderr)
 }
 
 let eventMask: UInt64 = (1 << UInt64(gestureEventTypeRawValue))
