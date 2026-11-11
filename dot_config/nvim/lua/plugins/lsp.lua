@@ -23,6 +23,14 @@ return {
       { 'j-hui/fidget.nvim', opts = {} },
 
       'saghen/blink.cmp',
+
+      -- The plugin must be on the runtimepath before `require('kotlin_lsp_android')` below.
+      {
+        dir = '~/src/kotlin-lsp-android',
+        config = function()
+          require('kotlin_lsp_android').setup()
+        end,
+      },
     },
     config = function()
       vim.api.nvim_create_autocmd('LspAttach', {
@@ -129,111 +137,6 @@ return {
       -- blink.cmp adds capabilities that nvim does not have by default.
       local capabilities = require('blink.cmp').get_lsp_capabilities()
 
-      -- Each consumer of locations, for example Telescope, gets the sources from `kotlin_lsp_sources`,
-      -- because the change is in the RPC client, not in a handler.
-      local kotlin_lsp_location_methods = {
-        ['textDocument/declaration'] = true,
-        ['textDocument/definition'] = true,
-        ['textDocument/implementation'] = true,
-        ['textDocument/typeDefinition'] = true,
-      }
-
-      -- The wrapper finds the project root from its working directory.
-      local function start_kotlin_lsp(dispatchers, config)
-        local command = { vim.fn.expand '~/.local/wrappers/kotlin-lsp', '--stdio' }
-        local rpc = vim.lsp.rpc.start(command, dispatchers, { cwd = config.root_dir })
-        local request = rpc.request
-        rpc.request = function(method, params, callback, notify_reply_callback)
-          if not kotlin_lsp_location_methods[method] then
-            return request(method, params, callback, notify_reply_callback)
-          end
-          return request(method, params, function(err, result)
-            -- The sources search waits for `rg` and `unzip`, which a fast event cannot do.
-            vim.schedule(function()
-              callback(err, err == nil and require('kotlin_lsp_sources').to_sources(result, params, config.root_dir) or result)
-            end)
-          end, notify_reply_callback)
-        end
-        return rpc
-      end
-
-      -- A library file has no project root. It uses the server of the last Kotlin buffer, which is
-      -- the buffer that the jump came from, so that a next jump inside the library also works.
-      -- `#` cannot show that buffer, because the new buffer loads in a temporary window.
-      local last_kotlin_lsp_root
-      vim.api.nvim_create_autocmd({ 'BufEnter', 'LspAttach' }, {
-        group = vim.api.nvim_create_augroup('kotlin-lsp-last-root', { clear = true }),
-        callback = function(event)
-          local client = vim.lsp.get_clients({ name = 'kotlin_lsp', bufnr = event.buf })[1]
-          if client then
-            last_kotlin_lsp_root = client.root_dir
-          end
-        end,
-      })
-
-      local function find_kotlin_lsp_root(bufnr, on_dir)
-        local name = vim.api.nvim_buf_get_name(bufnr)
-        local is_library_file = vim.startswith(name, 'jar:') or name:match '/sources/android%-[^/]+/' ~= nil
-        if is_library_file then
-          if last_kotlin_lsp_root then
-            on_dir(last_kotlin_lsp_root)
-          end
-          return
-        end
-        -- `jdtls` owns the Java files of a project. `java` is in `filetypes` for Java library files.
-        if vim.bo[bufnr].filetype == 'java' then
-          return
-        end
-        -- Each marker searches all parents before the next, so a module `build.gradle.kts` does not
-        -- win over the repo `settings.gradle.kts`. Same order as `~/.local/wrappers/kotlin-lsp`.
-        local root_dir = vim.fs.root(bufnr, { 'settings.gradle.kts', 'settings.gradle', 'build.gradle.kts', 'build.gradle' })
-        if root_dir then
-          on_dir(root_dir)
-        end
-      end
-
-      -- kotlin-lsp gives a library symbol as `jar:///<jar path>!/<entry path>`: a source file in a
-      -- sources jar, or a class file. Its `decompile` command returns no text for a source file.
-      ---@return string text
-      ---@return string? filetype
-      local function read_kotlin_lsp_jar_entry(uri)
-        local jar_path, entry_path = uri:match '^jar://(.-)!/(.+)$'
-        if entry_path:match '%.kt$' or entry_path:match '%.java$' then
-          local result = vim.system({ 'unzip', '-p', jar_path, entry_path }, { text = true }):wait()
-          if result.code ~= 0 then
-            error(('kotlin_lsp: cannot read %s from %s: %s'):format(entry_path, jar_path, result.stderr))
-          end
-          return result.stdout, vim.filetype.match { filename = entry_path }
-        end
-        local decompiled = require('kotlin_lsp_sources').decompile(uri, last_kotlin_lsp_root)
-        if not decompiled then
-          error(('kotlin_lsp: the server for %s cannot decompile %s'):format(last_kotlin_lsp_root, uri))
-        end
-        return decompiled.code, decompiled.language
-      end
-
-      -- `vim.lsp.enable` attaches only to a buffer with no `buftype`, so `BufWriteCmd` stops writes.
-      local kotlin_lsp_jar_group = vim.api.nvim_create_augroup('kotlin-lsp-jar', { clear = true })
-      vim.api.nvim_create_autocmd('BufWriteCmd', {
-        pattern = 'jar:///*',
-        group = kotlin_lsp_jar_group,
-        callback = function(event)
-          error(('kotlin_lsp: %s is a library file in a jar, it is read-only'):format(event.match))
-        end,
-      })
-      vim.api.nvim_create_autocmd('BufReadCmd', {
-        pattern = 'jar:///*',
-        group = kotlin_lsp_jar_group,
-        callback = function(event)
-          local text, filetype = read_kotlin_lsp_jar_entry(event.match)
-          vim.bo[event.buf].swapfile = false
-          vim.api.nvim_buf_set_lines(event.buf, 0, -1, false, vim.split((text:gsub('\n$', '')), '\n'))
-          vim.bo[event.buf].modified = false
-          vim.bo[event.buf].modifiable = false
-          vim.bo[event.buf].filetype = filetype or ''
-        end,
-      })
-
       -- On an unbuilt Android project the server lists every missing `build/` artifact in one
       -- message, which forces a hit-enter prompt. Only generated code needs those artifacts.
       local function shorten_kotlin_lsp_message(err, result, ctx)
@@ -269,9 +172,9 @@ return {
           end,
         },
         kotlin_lsp = {
-          cmd = start_kotlin_lsp,
+          cmd = require('kotlin_lsp_android').cmd,
           filetypes = { 'kotlin', 'java' },
-          root_dir = find_kotlin_lsp_root,
+          root_dir = require('kotlin_lsp_android').root_dir,
           handlers = { ['window/showMessage'] = shorten_kotlin_lsp_message },
         },
         ktfmt = {},
