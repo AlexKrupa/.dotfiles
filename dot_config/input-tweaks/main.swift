@@ -102,13 +102,6 @@ func handleMouse(_ type: CGEventType, _ event: CGEvent) {
     }
 }
 
-func runSpotifyCommand(_ command: String) {
-    var error: NSDictionary?
-    NSAppleScript(source: "tell application id \"\(spotifyBundleIdentifier)\" to \(command)")?
-        .executeAndReturnError(&error)
-    if let error { fputs("input-tweaks: Spotify \(command) failed: \(error)\n", stderr) }
-}
-
 // Returns true when the event goes to Spotify and must not reach other apps
 func handleMediaKey(_ event: CGEvent) -> Bool {
     guard let nsEvent = NSEvent(cgEvent: event), nsEvent.subtype.rawValue == mediaKeySubtype else {
@@ -122,8 +115,11 @@ func handleMediaKey(_ event: CGEvent) -> Bool {
     let keyDown = (nsEvent.data1 & 0xFF00) >> 8 == 0x0A
     let keyRepeat = nsEvent.data1 & 0x1 == 1
     if keyDown && !keyRepeat {
-        // An Apple Event can take longer than the event tap timeout
-        DispatchQueue.main.async { runSpotifyCommand(command) }
+        // In a separate process, a slow Apple Event or an Automation prompt cannot block the event tap
+        let osascript = Process()
+        osascript.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        osascript.arguments = ["-e", "tell application id \"\(spotifyBundleIdentifier)\" to \(command)"]
+        try? osascript.run()
     }
     return true
 }
@@ -161,8 +157,7 @@ guard AXIsProcessTrustedWithOptions([promptOption: true] as CFDictionary) else {
             + "Add it in System Settings > Privacy & Security > Accessibility, then run install.sh.\n",
         stderr
     )
-    // Exit code 0 stops launchd restarts, which show the prompt again. An event tap created in a
-    // process that waited for the permission blocked all trackpad input.
+    // Exit code 0 stops launchd restarts, which show the prompt again
     exit(0)
 }
 

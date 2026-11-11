@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Stops input-tweaks and removes the binary and the launchd agent
 set -euo pipefail
 
 label=local.input-tweaks
