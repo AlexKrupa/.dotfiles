@@ -133,6 +133,9 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
         if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
     case .leftMouseDown, .leftMouseDragged, .leftMouseUp:
         handleMouse(type, event)
+    case .scrollWheel:
+        // macOS scrolls on 3 finger movement when no system gesture uses 3 fingers
+        if touchCount == fingerCount { return nil }
     default:
         if type.rawValue == gestureEventTypeRawValue { handleGesture(event) }
         if type.rawValue == systemDefinedEventTypeRawValue && handleMediaKey(event) { return nil }
@@ -155,6 +158,7 @@ let eventMask: UInt64 = (1 << UInt64(gestureEventTypeRawValue))
     | (1 << UInt64(CGEventType.leftMouseDown.rawValue))
     | (1 << UInt64(CGEventType.leftMouseDragged.rawValue))
     | (1 << UInt64(CGEventType.leftMouseUp.rawValue))
+    | (1 << UInt64(CGEventType.scrollWheel.rawValue))
 guard let tap = CGEvent.tapCreate(
     tap: .cgSessionEventTap,
     place: .headInsertEventTap,
