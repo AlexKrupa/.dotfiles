@@ -88,12 +88,13 @@ func convertToMiddleButton(_ event: CGEvent, type: CGEventType) {
 
 func handleMouse(_ type: CGEventType, _ event: CGEvent) {
     switch type {
-    case .leftMouseDown:
+    // macOS often reports a 3 finger click as a right click
+    case .leftMouseDown, .rightMouseDown:
         middleButtonDown = touchCount == fingerCount
         if middleButtonDown { convertToMiddleButton(event, type: .otherMouseDown) }
-    case .leftMouseDragged:
+    case .leftMouseDragged, .rightMouseDragged:
         if middleButtonDown { convertToMiddleButton(event, type: .otherMouseDragged) }
-    case .leftMouseUp:
+    case .leftMouseUp, .rightMouseUp:
         if middleButtonDown { convertToMiddleButton(event, type: .otherMouseUp) }
         middleButtonDown = false
     default:
@@ -131,7 +132,8 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
     switch type {
     case .tapDisabledByTimeout, .tapDisabledByUserInput:
         if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
-    case .leftMouseDown, .leftMouseDragged, .leftMouseUp:
+    case .leftMouseDown, .leftMouseDragged, .leftMouseUp,
+        .rightMouseDown, .rightMouseDragged, .rightMouseUp:
         handleMouse(type, event)
     case .scrollWheel:
         // macOS scrolls on 3 finger movement when no system gesture uses 3 fingers
@@ -155,12 +157,14 @@ if !AXIsProcessTrustedWithOptions([promptOption: true] as CFDictionary) {
     fputs("input-tweaks: Accessibility permission granted\n", stderr)
 }
 
-let eventMask: UInt64 = (1 << UInt64(gestureEventTypeRawValue))
-    | (1 << UInt64(systemDefinedEventTypeRawValue))
-    | (1 << UInt64(CGEventType.leftMouseDown.rawValue))
-    | (1 << UInt64(CGEventType.leftMouseDragged.rawValue))
-    | (1 << UInt64(CGEventType.leftMouseUp.rawValue))
-    | (1 << UInt64(CGEventType.scrollWheel.rawValue))
+let cgEventTypes: [CGEventType] = [
+    .leftMouseDown, .leftMouseDragged, .leftMouseUp,
+    .rightMouseDown, .rightMouseDragged, .rightMouseUp,
+    .scrollWheel,
+]
+let eventTypeRawValues = cgEventTypes.map(\.rawValue)
+    + [gestureEventTypeRawValue, systemDefinedEventTypeRawValue]
+let eventMask = eventTypeRawValues.reduce(UInt64(0)) { mask, rawValue in mask | (1 << UInt64(rawValue)) }
 guard let tap = CGEvent.tapCreate(
     tap: .cgSessionEventTap,
     place: .headInsertEventTap,
