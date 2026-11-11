@@ -52,6 +52,11 @@ return {
         },
         pickers = {
           find_files = { hidden = true },
+          -- Library locations are in `~/.gradle/` jars, which the build output patterns remove.
+          lsp_definitions = { file_ignore_patterns = {} },
+          lsp_type_definitions = { file_ignore_patterns = {} },
+          lsp_implementations = { file_ignore_patterns = {} },
+          lsp_references = { file_ignore_patterns = {} },
         },
         extensions = {
           ['ui-select'] = {

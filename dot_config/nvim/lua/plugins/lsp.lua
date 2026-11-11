@@ -156,6 +156,10 @@ return {
           end
           return
         end
+        -- `jdtls` owns the Java files of a project. `java` is in `filetypes` for Java library files.
+        if vim.bo[bufnr].filetype == 'java' then
+          return
+        end
         -- Each marker searches all parents before the next, so a module `build.gradle.kts` does not
         -- win over the repo `settings.gradle.kts`. Same order as `~/.local/wrappers/kotlin-lsp`.
         local root_dir = vim.fs.root(bufnr, { 'settings.gradle.kts', 'settings.gradle', 'build.gradle.kts', 'build.gradle' })
@@ -164,7 +168,33 @@ return {
         end
       end
 
-      -- kotlin-lsp gives a library symbol as `jar:///<jar path>!/<entry path>` in a sources jar.
+      -- kotlin-lsp gives a library symbol as `jar:///<jar path>!/<entry path>`: a source file in a
+      -- sources jar, or a class file. Its `decompile` command returns no text for a source file.
+      ---@return string text
+      ---@return string? filetype
+      local function read_kotlin_lsp_jar_entry(uri)
+        local jar_path, entry_path = uri:match '^jar://(.-)!/(.+)$'
+        if entry_path:match '%.kt$' or entry_path:match '%.java$' then
+          local result = vim.system({ 'unzip', '-p', jar_path, entry_path }, { text = true }):wait()
+          if result.code ~= 0 then
+            error(('kotlin_lsp: cannot read %s from %s: %s'):format(entry_path, jar_path, result.stderr))
+          end
+          return result.stdout, vim.filetype.match { filename = entry_path }
+        end
+        local client = vim.iter(vim.lsp.get_clients { name = 'kotlin_lsp' }):find(function(candidate)
+          return candidate.root_dir == last_kotlin_lsp_root
+        end)
+        if not client then
+          error(('kotlin_lsp: no server for %s to decompile %s'):format(last_kotlin_lsp_root, uri))
+        end
+        local response = client:request_sync('workspace/executeCommand', { command = 'decompile', arguments = { uri } }, 10000)
+        local decompiled = response and response.result
+        if not decompiled then
+          error(('kotlin_lsp: cannot decompile %s: %s'):format(uri, vim.inspect(response and response.err)))
+        end
+        return decompiled.code, decompiled.language
+      end
+
       -- `vim.lsp.enable` attaches only to a buffer with no `buftype`, so `BufWriteCmd` stops writes.
       local kotlin_lsp_jar_group = vim.api.nvim_create_augroup('kotlin-lsp-jar', { clear = true })
       vim.api.nvim_create_autocmd('BufWriteCmd', {
@@ -178,16 +208,12 @@ return {
         pattern = 'jar:///*',
         group = kotlin_lsp_jar_group,
         callback = function(event)
-          local jar_path, entry_path = event.match:match '^jar://(.-)!/(.+)$'
-          local result = vim.system({ 'unzip', '-p', jar_path, entry_path }, { text = true }):wait()
-          if result.code ~= 0 then
-            error(('kotlin_lsp: cannot read %s from %s: %s'):format(entry_path, jar_path, result.stderr))
-          end
-          local text = result.stdout:gsub('\n$', '')
-          vim.api.nvim_buf_set_lines(event.buf, 0, -1, false, vim.split(text, '\n'))
+          local text, filetype = read_kotlin_lsp_jar_entry(event.match)
+          vim.bo[event.buf].swapfile = false
+          vim.api.nvim_buf_set_lines(event.buf, 0, -1, false, vim.split((text:gsub('\n$', '')), '\n'))
           vim.bo[event.buf].modified = false
           vim.bo[event.buf].modifiable = false
-          vim.bo[event.buf].filetype = vim.filetype.match { filename = entry_path } or ''
+          vim.bo[event.buf].filetype = filetype or ''
         end,
       })
 
@@ -212,9 +238,22 @@ return {
         graphql = {},
         groovyls = {},
         html = {},
-        jdtls = {},
+        jdtls = {
+          -- A library file in a jar belongs to `kotlin_lsp`. It has no file path, so `vim.fs.root`
+          -- would give the working directory.
+          root_dir = function(bufnr, on_dir)
+            if vim.startswith(vim.api.nvim_buf_get_name(bufnr), 'jar:') then
+              return
+            end
+            local root_dir = vim.fs.root(bufnr, vim.lsp.config.jdtls.root_markers)
+            if root_dir then
+              on_dir(root_dir)
+            end
+          end,
+        },
         kotlin_lsp = {
           cmd = start_kotlin_lsp,
+          filetypes = { 'kotlin', 'java' },
           root_dir = find_kotlin_lsp_root,
           handlers = { ['window/showMessage'] = shorten_kotlin_lsp_message },
         },

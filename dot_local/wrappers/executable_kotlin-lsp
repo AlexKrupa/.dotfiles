@@ -40,9 +40,13 @@ if ! nc -z "$host" "$port" 2>/dev/null; then
   # AGP 9 fails to create the Compose Preview task of a variant with no unit tests, and the import
   # creates every task. Builds outside the server keep the default, so their unit test tasks do
   # less work. `export` cannot set a name with a dot.
+  # With Isolated Projects, the import fails on a subproject of an included build:
+  # https://github.com/Kotlin/kotlin-lsp/issues/272. `ORG_GRADLE_PROJECT_` cannot set an
+  # `org.gradle.*` property, but a system property can.
   (
     cd "$root"
     env 'ORG_GRADLE_PROJECT_android.onlyEnableUnitTestForTheTestedBuildType=false' \
+      "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Dorg.gradle.isolated-projects=false" \
       nohup "$server" --socket "$host:$port" --multi-client --system-path "$system_path" \
       >>"$log_path" 2>&1 </dev/null &
   )
