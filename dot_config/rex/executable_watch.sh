@@ -3,7 +3,8 @@
 # The Rex watch pane. Follows the watch daemon `watchd` and prints an OSC 9 notification for each
 # event of its log, with the notification rules that the herdr watch plugin also uses. Rex shows
 # OSC 9 as a macOS notification. An opened event waits for its route line. The pane also prints
-# each notification as a plain line. When the daemon closes the socket, the pane connects again.
+# each notification as a plain line. When the daemon closes the socket, the pane connects again
+# and gets the log lines after the last one that it read.
 set -u
 
 notify_dir=$HOME/.config/agents/bin/watch
@@ -25,9 +26,14 @@ show() {
   printf '\e]9;%s\a' "${title//[[:cntrl:]]/ }: ${body//[[:cntrl:]]/ }"
 }
 
+last_id=''
 while :; do
+  args=(follow)
+  if [[ -n $last_id ]]; then args+=(--after "$last_id"); fi
   while IFS= read -r line; do
     case $(jq -r '.type // empty' <<<"$line" 2>/dev/null) in
+      # The newest log id when the pane connects for the first time.
+      sidebar) [[ -n $last_id ]] || last_id=$(jq -r '.last_id // empty' <<<"$line") ;;
       event)
         if [[ $(jq -r .event.kind <<<"$line") == opened ]]; then
           opened[$(jq -r '"\(.key) \(.event.iid)"' <<<"$line")]=$line
@@ -44,6 +50,8 @@ while :; do
         ;;
       stopped) show "[$line]" ;;
     esac
-  done < <("$watchd" follow 2>/dev/null)
+    id=$(jq -r '.id // empty' <<<"$line" 2>/dev/null)
+    if [[ -n $id ]]; then last_id=$id; fi
+  done < <("$watchd" "${args[@]}" 2>/dev/null)
   sleep 1
 done

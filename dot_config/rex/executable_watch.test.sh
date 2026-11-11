@@ -29,27 +29,38 @@ line() { # line <kind> <actor> <detail>: one event line of the log
   jq -nc --argjson t "$now" '{time: $t, type: "route", slug: "app", key: "app", iid: 61,
     action: "bump"}'
   echo '{"type":"stopped","title":"Hub","error":"auth failed"}'
-} >"$tmp/lines"
+} | jq -c -s 'to_entries[] | if .value.type == "sidebar" then .value else .value + {id: .key} end' \
+  >"$tmp/lines"
+# Written while the pane had no connection: only `follow --after 5` gives it.
+line comment carol 'Missed?' | jq -c '. + {id: 6}' >"$tmp/missed"
 
-# Fake watchd: prints the lines on the first `follow`, then nothing.
+# Fake watchd: logs each call. The first `follow` prints the lines and ends, as the follow of a
+# daemon that restarts. A later `follow --after 5` prints the missed line.
 cat >"$tmp/watchd" <<'EOF'
 #!/bin/sh
 [ "$1" = follow ] || exit 2
-if [ ! -e "$MOCK_DONE" ]; then cat "$MOCK_LINES"; : >"$MOCK_DONE"; fi
+echo "$*" >>"$MOCK_CALLS"
+if [ ! -e "$MOCK_DONE" ]; then cat "$MOCK_LINES"; : >"$MOCK_DONE"; exit 0; fi
+if [ "$*" = "follow --after 5" ]; then cat "$MOCK_MISSED"; fi
 exec sleep 30
 EOF
 chmod +x "$tmp/watchd"
 
-WATCHD=$tmp/watchd MOCK_LINES=$tmp/lines MOCK_DONE=$tmp/done "$here/watch.sh" >"$tmp/out" 2>&1 &
+WATCHD=$tmp/watchd MOCK_LINES=$tmp/lines MOCK_MISSED=$tmp/missed MOCK_DONE=$tmp/done \
+  MOCK_CALLS=$tmp/calls "$here/watch.sh" >"$tmp/out" 2>&1 &
 pid=$!
-for _ in $(seq 50); do [ "$(grep -c $'\a' "$tmp/out")" -ge 4 ] && break; sleep 0.1; done
+for _ in $(seq 50); do [ "$(grep -c $'\a' "$tmp/out")" -ge 5 ] && break; sleep 0.1; done
 
-check "one OSC 9 notification for each event, the route line gives the opened one" \
+check "one OSC 9 notification for each event, the route line gives the opened one, the missed line after the reconnect" \
   "$(printf '%s\n' \
     $'\e]9;Add retry banner: @bob commented: "Can we reuse?"\a' \
     $'\e]9;Add retry banner: @anna approved\a' \
     $'\e]9;Update foo: New dependency bump. Bump agent started.\a' \
-    $'\e]9;Hub: Watch stopped: auth failed\a')" \
+    $'\e]9;Hub: Watch stopped: auth failed\a' \
+    $'\e]9;Add retry banner: @carol commented: "Missed?"\a')" \
   "$(grep -o $'\e\\][^\a]*\a' "$tmp/out")"
+check "after the daemon closes the socket, the pane follows after the last id" \
+  "follow
+follow --after 5" "$(cat "$tmp/calls")"
 
 exit $fail

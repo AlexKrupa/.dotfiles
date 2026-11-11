@@ -3,7 +3,7 @@
 # Homebrew `kotlin-lsp` for all LSP clients, because ~/.local/wrappers is first on PATH.
 set -eu
 
-commit=95dfbd67b3b7fb6a32b2ba0b2a07af91529fc0cc
+commit=22e05b25c15d45fd0e82fdd7e58e84a2faa9d403
 repository="$HOME/src/kotlin-lsp-android"
 output="$HOME/.local/wrappers/kotlin-lsp"
 
