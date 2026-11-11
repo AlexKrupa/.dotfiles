@@ -98,6 +98,8 @@ When my message starts with one of these phrases, do the action. Then read the r
 - Mark each claim that has no source with 🔮. If I ask, say where you looked.
 - For definitions, references, call sites, and diagnostics, use the available LSP tools. Use Grep
   only for plain-text search, or when no LSP or IDE server is connected.
+- To read the source of a third-party Gradle dependency, use the `ksrc` MCP tools (`search`, `cat`,
+  `deps`), not files in `~/.gradle`
 - Every changed line should trace to the request. Implement only what was asked, nothing more.
   Mention unrelated issues or dead code only if important.
 - Validate only at system boundaries. Handle only errors that can actually happen.

@@ -15,6 +15,11 @@
       "name": "watchd",
       "description": "Wakes Claude Code with the events of the watchd watch of the session",
       "source": "./watchd"
+    },
+    {
+      "name": "ksrc",
+      "description": "Search and read the sources of Gradle dependencies with the ksrc MCP server",
+      "source": "./ksrc"
     }
   ]
 }
