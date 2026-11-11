@@ -45,7 +45,7 @@ opened() { # opened <time>
 }
 # notify <line>...: the output of notify.jq for one group.
 notify() {
-  printf '%s\n' "$@" | jq -sc --argjson notify_opened '["bump"]' -f ../notify.jq
+  printf '%s\n' "$@" | jq -sc --argjson notify_opened '["bump"]' -f ~/.config/agents/bin/watch/notify.jq
 }
 
 check "one comment" \
@@ -177,7 +177,7 @@ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>"%s/lockf.log"\n' "$tmp" >"$tmp/bin/lo
 printf '#!/bin/sh\ncat >>"%s/nc.log"\n' "$tmp" >"$tmp/bin/nc"
 chmod +x "$tmp/bin/herdr" "$tmp/bin/lockf" "$tmp/bin/nc"
 echo '{"notify_opened": ["bump"]}' >"$tmp/config/config.json"
-export PATH="$tmp/bin:$PATH" XDG_STATE_HOME="$tmp/state" HERDR_PLUGIN_CONFIG_DIR="$tmp/config" \
+export PATH="$tmp/bin:$PATH" XDG_STATE_HOME="$tmp/state" WATCH_NOTIFY_CONFIG="$tmp/config/config.json" \
   WATCHD_TICK=1
 watchd=$tmp/state/watchd
 plugin=$tmp/state/herdr-watch

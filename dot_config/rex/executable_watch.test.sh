@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks watch.sh with a fake watchd and the notify.jq of the herdr watch plugin.
+# Checks watch.sh with a fake watchd and the shared notification rules.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Usage: watch.sh
 # The Rex watch pane. Follows the watch daemon `watchd` and prints an OSC 9 notification for each
-# event of its log, with the title and body of the herdr watch plugin (its notify.jq). Rex shows
+# event of its log, with the notification rules that the herdr watch plugin also uses. Rex shows
 # OSC 9 as a macOS notification. An opened event waits for its route line. The pane also prints
 # each notification as a plain line. When the daemon closes the socket, the pane connects again.
 set -u
 
-plugin=$HOME/.config/herdr/plugins/watch
-config=$HOME/.config/herdr/plugins/config/local.watch/config.json
+notify_dir=$HOME/.config/agents/bin/watch
+config=${WATCH_NOTIFY_CONFIG:-$notify_dir/notify.json}
 watchd=${WATCHD:-$HOME/.local/bin/watchd}
 notify_opened=$(jq -c '.notify_opened // ["bump"]' "$config" 2>/dev/null) \
   || notify_opened='["bump"]'
@@ -15,7 +15,8 @@ declare -A opened
 
 show() {
   local note title body
-  note=$(jq -c --argjson notify_opened "$notify_opened" -f "$plugin/notify.jq" <<<"$1") || return 0
+  note=$(jq -c --argjson notify_opened "$notify_opened" -f "$notify_dir/notify.jq" <<<"$1") \
+    || return 0
   [[ -n $note ]] || return 0
   title=$(jq -r .title <<<"$note")
   body=$(jq -r .body <<<"$note")

@@ -85,6 +85,8 @@ folder in `integrations/`.
   herdr plugin `watch` and the Rex watch pane (`~/.config/rex/watch.sh`) read its event log with
   `watchd follow`.
 - `bin/watch/watch-lib.sh` - the sleep, wake, and network rules of `skills/hub/hub-retry.sh`.
+- `bin/watch/notify.jq` - the notification of a group of `watchd` log lines. The herdr plugin
+  `watch` and the Rex watch pane use it. `notify.json` has its configuration.
 - `references/` - the rules that two or more skills read by absolute path
   (`~/.config/agents/references/...`). The installers do not make symlinks for them.
 - `references/watch/` - the watch rules. `common.md` contains the shared rules. A host file

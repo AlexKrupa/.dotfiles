@@ -119,7 +119,7 @@ workspace=$(HERDR_SOCKET_PATH=$socket herdr workspace create --cwd "$tmp/app" \
 client kind review
 
 start env HERDR_SOCKET_PATH="$socket" XDG_STATE_HOME="$tmp/state" \
-  HERDR_PLUGIN_CONFIG_DIR="$tmp/watch-config" WATCHD="$watchd" "$watch_plugin/watch.sh" watch
+  WATCH_NOTIFY_CONFIG="$tmp/watch-config/config.json" WATCHD="$watchd" "$watch_plugin/watch.sh" watch
 
 check "a review with no watch is started" "R s" "$(wait_glyphs "R s")"
 

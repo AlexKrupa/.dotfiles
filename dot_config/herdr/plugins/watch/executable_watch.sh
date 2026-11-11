@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The notifications, the sidebar values, and the worktree order of the watch daemon `watchd`. This
 # file is transport only: it reads the lines of `watchd follow` and makes the herdr calls. The
-# decisions are in notify.jq, sidebar.jq, and order.jq, which are pure.
+# decisions are in sidebar.jq, order.jq, and the notify.jq that the Rex watch pane also uses. The
+# jq files are pure.
 #
 # Usage: watch.sh sweep     one pass: the lines after the last id, then exit
 #        watch.sh watch     follow the daemon, and connect again when it closes the socket
@@ -15,15 +16,17 @@
 #   reader         the id of the last event log line read
 #   pending.json   the opened events that wait for the router result of the hub
 #   tokens.json    the tokens written to each workspace
-# The configuration file config.json has notify_opened: the router results of an opened event
-# that give a notification.
+# The notification rules ~/.config/agents/bin/watch/notify.jq have their configuration in
+# notify.json in the same folder: notify_opened, the router results of an opened event that give a
+# notification.
 
 set -u
 
 root=${HERDR_PLUGIN_ROOT:-$(cd "$(dirname "$0")" && pwd)}
 state_home=${XDG_STATE_HOME:-$HOME/.local/state}
 state_dir=$state_home/herdr-watch
-config=${HERDR_PLUGIN_CONFIG_DIR:-$HOME/.config/herdr/plugins/config/local.watch}/config.json
+notify_dir=$HOME/.config/agents/bin/watch
+config=${WATCH_NOTIFY_CONFIG:-$notify_dir/notify.json}
 watchd=${WATCHD:-$HOME/.local/bin/watchd}
 
 mkdir -p "$state_dir"
@@ -61,7 +64,7 @@ notify() { # notify <log line>...
   jq -c .pending <<<"$result" >"$state_dir/pending.json"
   opened_list=$(jq -c '.notify_opened // ["bump"]' "$config" 2>/dev/null) || opened_list='["bump"]'
   jq -c '.groups[]' <<<"$result" | while IFS= read -r group; do
-    note=$(jq -c --argjson notify_opened "$opened_list" -f "$root/notify.jq" <<<"$group") \
+    note=$(jq -c --argjson notify_opened "$opened_list" -f "$notify_dir/notify.jq" <<<"$group") \
       || continue
     [ -n "$note" ] || continue
     herdr notification show "$(jq -r .title <<<"$note")" --body "$(jq -r .body <<<"$note")" \
