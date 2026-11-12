@@ -251,8 +251,8 @@ Layout:
     you give me a `! <command>` to type.
 - Dotfiles: see `~/.config/agents/machine.md`. chezmoi makes it for each machine.
 - A disabled plugin, MCP server, or similar entry in a user-level `settings.json` is not unused. I
-  enable it per project. Before you call an item unused or remove it, ask me, unless it is clearly
-  unused.
+  enable it per project. If an item is not clearly unused, ask me before you call it unused or
+  remove it.
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.
 - Run Gradle commands in quiet mode (`-q`), unless output is needed for debugging
 - Android devices, emulators, SDK, screenshots, UI inspection: use the `android` CLI (`android-cli`
