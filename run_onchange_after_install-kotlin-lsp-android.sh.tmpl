@@ -6,8 +6,12 @@ set -eu
 
 {{ if stat (joinPath $repository ".git") -}}
 # The commit of `main` changes the content of this script, so chezmoi runs it again.
-commit={{ output "git" "-C" $repository "rev-parse" "main" | trim }}
+# {{ output "git" "-C" $repository "rev-parse" "main" | trim }}
+{{ else -}}
+# .chezmoiexternal.toml clones the repository after chezmoi renders this script.
+{{ end -}}
 repository="{{ $repository }}"
+commit=$(git -C "$repository" rev-parse main)
 output="$HOME/.local/wrappers/kotlin-lsp"
 
 # Exit 1, not 0: chezmoi does not run a successful run_onchange script again, so a skip would
@@ -31,6 +35,3 @@ git -C "$repository" archive "$commit" | tar -x -C "$source_dir"
 chmod 755 "$temporary_output"
 mv "$temporary_output" "$output"
 echo "kotlin-lsp-android: built $commit"
-{{ else -}}
-echo "kotlin-lsp-android: {{ $repository }} not found, skipped"
-{{ end -}}
