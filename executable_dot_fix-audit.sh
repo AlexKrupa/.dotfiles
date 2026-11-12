@@ -123,3 +123,11 @@ while read -r tap; do
     grep -qixF "$tap" <<< "$brewfile_taps" && continue
     echo "$tap"
 done < <(brew tap | grep -v '^homebrew/')
+
+##############################################################
+# Manual steps (report only)
+##############################################################
+
+step "Manual steps"
+info "Raycast easydict: turn off the automatic query of selected text and the Chinese services, or remove it"
+info "Raycast: uninstall meme-generator and 1-click-confetti"

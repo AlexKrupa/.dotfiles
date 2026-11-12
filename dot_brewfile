@@ -173,7 +173,6 @@ cask "notunes" # disable iTunes on media button press
 # cask "obsidian" # note taking, Markdown
 cask "omnidisksweeper" # disk space visualizer and cleaner
 # cask "onyx" # system maintenance
-cask "pearcleaner" # app uninstaller/cleaner, probably better than appcleaner
 # cask "rapidapi" # API client (Postman alternative)
 cask "raycast" # productivity tool, Spotlight replacement # restart-on-upgrade: Raycast:com.raycast.macos
 cask "shortcat" # click anything on the screen, alt: homerow # restart-on-upgrade: Shortcat:com.sproutcube.Shortcat
