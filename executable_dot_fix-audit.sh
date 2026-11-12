@@ -37,7 +37,7 @@ if ! command -v kanata &>/dev/null; then
 elif cmp -s "$(realpath "$(command -v kanata)")" "$KANATA_ROOT_BIN"; then
     info "The root-owned copy matches Homebrew"
 else
-    needs_sudo "kanata: old sudoers rule, or Homebrew upgraded kanata. setup.sh asks for sudo." \
+    needs_sudo "kanata: old sudoers rule, or Homebrew upgraded kanata. The kanata setup script asks for sudo." \
         "$HOME/.config/kanata/setup.sh"
 fi
 
