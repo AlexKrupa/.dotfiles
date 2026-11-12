@@ -190,7 +190,7 @@ info "AirPlay Receiver: System Settings > General > AirDrop & Handoff. Set it to
 # LuLu blocks only outgoing connections. Stealth mode does not answer pings and port scans.
 step "Firewall"
 FIREWALL="/usr/libexec/ApplicationFirewall/socketfilterfw"
-if "$FIREWALL" --getglobalstate | grep -q enabled && "$FIREWALL" --getstealthmode | grep -q ' on'; then
+if "$FIREWALL" --getglobalstate | grep -q 'State = [12]' && "$FIREWALL" --getstealthmode | grep -q ' on$'; then
     info "Firewall and stealth mode are on"
 else
     needs_sudo "Firewall: turn it on, with stealth mode." \
