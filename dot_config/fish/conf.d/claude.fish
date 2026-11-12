@@ -229,63 +229,31 @@ function __claude_plugin_versions --description 'Print "<id> <scope> <version>" 
     command claude plugin list --json | jq -r '.[] | "\(.id) \(.scope) \(.version)"'
 end
 
-function __claude_upgrade_pins --description 'Show new upstream commits of the plugins that local-pins pins, and move the chosen pins'
-    # A marketplace update does not move a pinned commit.
+function __claude_check_pins --description 'Print the plugins that local-pins pins to an old commit'
+    # A marketplace update does not move a pinned commit. To move a pin, change its sha.
     set -l marketplace ~/.claude/local-marketplace/.claude-plugin/marketplace.json
-    set -l moved 0
     for line in (jq -r '.plugins[] | select(.source.sha?) | "\(.name) \(.source.url) \(.source.sha)"' $marketplace)
         set -l parts (string split ' ' -- $line)
         set -l name $parts[1]
         set -l pinned $parts[3]
         set -l repo (string match -rg '^https://github\.com/([^/]+/[^/]+?)(?:\.git)?$' -- $parts[2])
-        or begin
-            echo "claude-upgrade: $name: not a GitHub URL, skipping" >&2
-            continue
-        end
+        or continue
 
         # The latest release is the version that upstream recommends. With no release, the default
         # branch.
         set -l target (gh api repos/$repo/releases/latest --jq .tag_name 2>/dev/null)
         or set target HEAD
-        set -l commits (gh api "repos/$repo/compare/$pinned...$target" \
-            --jq '.commits[] | "\(.sha) \(.commit.committer.date[:10]) \(.commit.message | split("\n")[0])"')
+        set -l compare (gh api "repos/$repo/compare/$pinned...$target" --jq '"\(.ahead_by) \(.commits[-1].sha // "")"' 2>/dev/null)
         or begin
             echo "claude-upgrade: $name: GitHub request failed" >&2
             continue
         end
-        if test (count $commits) -eq 0
-            echo "$name: pin is up to date"
-            continue
-        end
+        set -l ahead (string split ' ' -- $compare)
+        test "$ahead[1]" -gt 0; or continue
 
-        set -l latest (string split --max 1 ' ' -- $commits[-1])[1]
-        set -l label $target
-        test $target = HEAD; and set label (string sub --length 7 -- $latest)
-        echo
-        set_color --bold
-        echo "$name: $label, "(count $commits)" new commits"
-        set_color normal
-        # Show the newest commits only. The compare link has all of them.
-        set -l shown 15
-        test (count $commits) -gt $shown; and echo "  ... "(math (count $commits) - $shown)" older"
-        for commit in $commits[(math -$shown)..-1]
-            echo '  '(string sub --length 7 -- $commit)(string sub --start 41 -- $commit)
-        end
-        echo "  https://github.com/$repo/compare/$pinned...$latest"
-
-        read -l --prompt-str "Move the $name pin to $label? [y/N] " answer
-        string match -qi y -- $answer
-        or continue
-
-        jq --arg name $name --arg sha $latest --arg description "$repo pinned to $label" \
-            '(.plugins[] | select(.name == $name)) |= (.source.sha = $sha | .description = $description)' \
-            $marketplace >$marketplace.new
-        and mv $marketplace.new $marketplace
-        and set moved 1
-    end
-
-    if test $moved -eq 1
-        echo "Pins moved. To keep them in the dotfiles: chezmoi re-add $marketplace"
+        echo "Pinned plugin $name: $target is out, $ahead[1] commits after the pin."
+        echo "  https://github.com/$repo/compare/$pinned...$ahead[2]"
+        echo "  To upgrade, set the sha in $marketplace to $ahead[2]"
     end
 end
 
@@ -452,8 +420,7 @@ function claude-upgrade --description 'Upgrade the cask and plugins, quit intera
             return 1
         end
         set -l plugins_before (__claude_plugin_versions)
-        # The plugin update installs the moved pins.
-        __claude_upgrade_pins
+        __claude_check_pins
         __claude_upgrade_plugins
         set -l plugins_after (__claude_plugin_versions)
         # No new cask and no new plugin: nothing to quit.
