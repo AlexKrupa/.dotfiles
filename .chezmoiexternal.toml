@@ -1,4 +1,4 @@
-# No refreshPeriod: chezmoi clones once and never pulls, because local work happens in the clone.
+# No refreshPeriod: chezmoi pulls only with `--refresh-externals`, because local work happens in the clone.
 ["src/me/kotlin-lsp-android"]
     type = "git-repo"
     url = "https://github.com/AlexKrupa/kotlin-lsp-android.git"
