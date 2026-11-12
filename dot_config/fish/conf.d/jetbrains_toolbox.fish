@@ -1,2 +1,2 @@
-fish_add_path -ga ~/Library/Application\ Support/JetBrains/Toolbox/scripts
-fish_add_path -ga ~/.jetbrains
+fish_add_path -gaP --move ~/Library/Application\ Support/JetBrains/Toolbox/scripts
+fish_add_path -gaP --move ~/.jetbrains

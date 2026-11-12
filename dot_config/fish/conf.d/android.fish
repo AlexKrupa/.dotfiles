@@ -5,9 +5,9 @@ set -gx ANDROID_SDK_ROOT $ANDROID_HOME
 set -g ANDROID_MEDIA_PATH ~/Downloads/android-
 set -g ADB_STATIC_PORT 4444
 
-fish_add_path -ga $ANDROID_HOME/cmdline-tools/latest/bin
-fish_add_path -ga $ANDROID_HOME/emulator
-fish_add_path -ga $ANDROID_HOME/platform-tools
+fish_add_path -gaP --move $ANDROID_HOME/cmdline-tools/latest/bin
+fish_add_path -gaP --move $ANDROID_HOME/emulator
+fish_add_path -gaP --move $ANDROID_HOME/platform-tools
 
 alias emu and-emu
 

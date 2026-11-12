@@ -1,2 +1,2 @@
 #!/bin/bash
-exec sudo /opt/homebrew/bin/kanata "$@"
+exec sudo /usr/local/kanata/kanata "$@"

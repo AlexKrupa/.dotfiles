@@ -97,9 +97,6 @@ require('lazy').setup({
 
   'NMAC427/guess-indent.nvim',
 
-  -- `gc` comments a visual region or a line.
-  { 'numToStr/Comment.nvim', opts = {} },
-
   {
     'lewis6991/gitsigns.nvim',
     opts = {

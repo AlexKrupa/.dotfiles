@@ -2,7 +2,7 @@
 # brew bundle --file=".brewfile"
 
 # set arguments for all 'brew cask install' commands
-cask_args appdir: '/Applications', no_quarantine: true
+cask_args appdir: '/Applications'
 
 tap "buo/cask-upgrade"  # better cask upgrading (see `cu`)
 
@@ -60,7 +60,6 @@ brew "lua-language-server"
 brew "neovim"
 brew "nono" # sandbox
 brew "openssl"
-brew "qmk/qmk/qmk" # keyboard firmware
 brew "prettier" # formatter
 brew "pngquant" # PNG optimization, e.g. in Android screenshot script
 brew "renameutils" # bulk renaming / copying
@@ -87,19 +86,22 @@ brew "zoxide" # smart cd replacement
 brew "yazi" # file manager
 brew "ffmpegthumbnailer" # video file preview in yazi
 brew "poppler" # pdf preview in yazi
+brew "resvg" # svg preview in yazi
+
+# QMK keyboard firmware
+brew "qmk/qmk/qmk"
+brew "dos2unix" # QMK prerequisite, called by util/chibios_conf_updater.sh
 
 # Java/Kotlin
-tap "mdogan/zulu"
-cask "zulu-jdk17"
-cask "zulu-jdk21"
-cask "zulu-jdk25"
+cask "zulu@17"
+cask "zulu@21"
+cask "zulu@25"
 brew "kotlin"
 brew "JetBrains/utils/kotlin-lsp"
 # brew "jadx" # Java decompiler
 
 # Android
 brew "adb-enhanced" # adb with more features
-cask "android-platform-tools" # adb, fastboot
 brew "JakeWharton/repo/diffuse" # APK diff
 brew "gradle"
 brew "gradle-completion"
@@ -161,7 +163,7 @@ cask "fluidvoice" # speech-to-text # restart-on-upgrade: FluidVoice:com.FluidApp
 # cask "imageoptim" # image compressor
 cask "jetbrains-toolbox" # JetBrains IDEs
 cask "keyboardcleantool" # disable keyboard for cleaning
-cask "latest" # update all apps
+# cask "latest" # update all apps
 cask "linearmouse" # restart-on-upgrade: LinearMouse:com.lujjjh.LinearMouse
 cask "lulu" # connection blocker
 cask "microsoft-edge" # prompt-on-upgrade: Microsoft Edge:com.microsoft.edgemac

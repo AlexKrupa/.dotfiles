@@ -212,7 +212,6 @@ return {
         'markdownlint-cli2',
         'detekt', -- Kotlin linter
         'goimports',
-        'jsonlint',
         'shfmt',
         'yamlfmt',
         'yamllint',

@@ -1,2 +1,3 @@
-# Wrappers hide the real binaries, so they go before the Homebrew paths from brew.fish.
-fish_add_path -gP ~/.local/wrappers
+# Wrappers hide the real binaries, so they go first. A parent process can pass a PATH that already
+# has the folder at a later position, so `--move` is necessary.
+fish_add_path -gP --move ~/.local/wrappers

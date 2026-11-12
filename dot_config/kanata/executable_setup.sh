@@ -23,22 +23,31 @@ ln -sf "$SCRIPT_DIR/kanata-tray.toml" "$KANATA_TRAY_CONFIG_DIR/kanata-tray.toml"
 #    this whole setup is single-user by design.
 ln -sf "$SCRIPT_DIR/com.kanata-tray-macos.plist" "$HOME/Library/LaunchAgents/com.kanata-tray-macos.plist"
 
-# 4. Set up passwordless sudo for kanata. Resolve the real binary via PATH so
-#    this works on both Apple Silicon (/opt/homebrew) and Intel (/usr/local).
+# 4. Set up passwordless sudo for kanata. kanata needs root to open the socket of the Karabiner
+#    driver. The Homebrew prefix belongs to the user, so a sudoers rule for the Homebrew binary
+#    gives root to every process of the user. The rule allows only a root-owned copy, with the
+#    exact arguments of the kanata-tray.toml presets.
 KANATA_BIN="$(command -v kanata || true)"
 if [ -z "$KANATA_BIN" ]; then
     echo "error: kanata not found on PATH. Install it first (e.g. brew install kanata)." >&2
     exit 1
 fi
+KANATA_ROOT_DIR="/usr/local/kanata"
+KANATA_ROOT_BIN="$KANATA_ROOT_DIR/kanata"
+sudo install -d -o root -g wheel -m 0755 "$KANATA_ROOT_DIR"
+sudo chown root:wheel "$KANATA_ROOT_DIR"
+sudo install -o root -g wheel -m 0755 "$(realpath "$KANATA_BIN")" "$KANATA_ROOT_BIN"
+
+# sudo skips files in sudoers.d that have a dot in the name, so the new file is inactive until the
+# check passes. Root writes it, so no user process can change it between the check and the move.
 SUDOERS_FILE="/etc/sudoers.d/kanata"
-SUDOERS_LINE="$USER ALL=(root) NOPASSWD: $KANATA_BIN"
-if [ ! -f "$SUDOERS_FILE" ] || ! sudo grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE"; then
-    echo "$SUDOERS_LINE" | sudo tee "$SUDOERS_FILE" > /dev/null
-    sudo chmod 0440 "$SUDOERS_FILE"
-    echo "Created $SUDOERS_FILE"
-else
-    echo "$SUDOERS_FILE already configured"
-fi
+SUDOERS_RULES="$USER ALL=(root) NOPASSWD: $KANATA_ROOT_BIN -c $SCRIPT_DIR/kanata.kbd --port 5829
+$USER ALL=(root) NOPASSWD: $KANATA_ROOT_BIN -c $SCRIPT_DIR/voyager.kbd --port 5830"
+printf '%s\n' "$SUDOERS_RULES" | sudo tee "$SUDOERS_FILE.new" > /dev/null
+sudo chmod 0440 "$SUDOERS_FILE.new"
+sudo visudo -cqf "$SUDOERS_FILE.new"
+sudo mv "$SUDOERS_FILE.new" "$SUDOERS_FILE"
+echo "Wrote $SUDOERS_FILE"
 
 # 5. kanata and the driver speak a versioned protocol. A mismatched pair starts
 #    with no error and gives no key output. kanata 1.13.0 and later needs driver
@@ -113,14 +122,14 @@ kanata did not start. Grant permissions in System Settings > Privacy & Security.
 Do these steps in Input Monitoring, then in Accessibility:
   1. Remove kanata and kanata-tray-macos with the - button, if they are in the list.
   2. Add these binaries with the + button. Press Cmd+Shift+G to type a path.
-     $(realpath "$KANATA_BIN")
+     $KANATA_ROOT_BIN
      $KANATA_TRAY_BIN
 EOF
     open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
     read -r -p "Press Enter when done. "
     if ! start_tray; then
         echo "error: kanata still does not start. See $TRAY_LOG" >&2
-        echo "       To see the kanata error, run: $SCRIPT_DIR/kanata-sudo -c $SCRIPT_DIR/kanata.kbd" >&2
+        echo "       To see the kanata error, run: $SCRIPT_DIR/kanata-sudo -c $SCRIPT_DIR/kanata.kbd --port 5829" >&2
         exit 1
     fi
 fi

@@ -178,9 +178,7 @@
     "jdtls-lsp@claude-plugins-official": false,
     "kotlin-lsp@claude-plugins-official": false,
     "ksrc@local-pins": true,
-    "ksrc@respawn-tools": false,
     "lua-lsp@claude-plugins-official": false,
-    "nono@nolabs-ai": false,
     "pyright-lsp@claude-plugins-official": false,
     "rust-analyzer-lsp@claude-plugins-official": false,
     "simple-english@simple-english": true,
@@ -192,12 +190,6 @@
     "watchd@local-pins": true
   },
   "extraKnownMarketplaces": {
-    "respawn-tools": {
-      "source": {
-        "source": "github",
-        "repo": "respawn-app/claude-plugin-marketplace"
-      }
-    },
     "simple-english": {
       "source": {
         "source": "github",
@@ -214,12 +206,6 @@
       "source": {
         "source": "directory",
         "path": "/Users/alexkrupa/.claude/local-marketplace"
-      }
-    },
-    "android-cli-plugin": {
-      "source": {
-        "source": "github",
-        "repo": "android/android-cli-plugin"
       }
     }
   },
