@@ -177,3 +177,6 @@ done < <(brew tap | grep -v '^homebrew/')
 step "Manual steps"
 info "Raycast easydict: turn off the automatic query of selected text and the Chinese services, or remove it"
 info "Raycast: uninstall meme-generator and 1-click-confetti"
+if /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate | grep -q disabled; then
+    info "Firewall is off: System Settings > Network > Firewall. Turn on stealth mode in Options too."
+fi
