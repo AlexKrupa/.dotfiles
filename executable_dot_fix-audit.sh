@@ -92,6 +92,58 @@ else
 fi
 
 ##############################################################
+# Claude Code plugins
+##############################################################
+
+# The removed marketplaces track a branch, so each push reached Claude Code with no review.
+# local-pins pins skins to a commit.
+step "Claude Code plugins"
+PLUGINS_DIR="$HOME/.claude/plugins"
+LOCAL_MARKETPLACE="$HOME/.claude/local-marketplace"
+
+plugin_installed() { jq -e --arg id "$1" '.plugins | has($id)' "$PLUGINS_DIR/installed_plugins.json" &>/dev/null; }
+marketplace_known() { jq -e --arg name "$1" 'has($name)' "$PLUGINS_DIR/known_marketplaces.json" &>/dev/null; }
+# Claude Code names the store file of a plugin with the first 12 characters of the SHA-256 of the
+# plugin ID.
+store_file() { echo "$PLUGINS_DIR/store/${1/@/_}-$(printf '%s' "$1" | shasum -a 256 | cut -c1-12).json"; }
+
+if ! command -v claude &>/dev/null; then
+    info "Claude Code not installed"
+elif plugin_installed skins@hellosverre-mods \
+    && ! grep -q '"name": "skins"' "$LOCAL_MARKETPLACE/.claude-plugin/marketplace.json"; then
+    info "local-pins has no skins entry. Run 'chezmoi update', then run this script again."
+else
+    if plugin_installed skins@hellosverre-mods; then
+        action "Moving skins to local-pins"
+        old_store=$(store_file skins@hellosverre-mods)
+        new_store=$(store_file skins@local-pins)
+        # The store keeps the chosen skin and its preferences.
+        if [ -f "$old_store" ] && [ ! -e "$new_store" ]; then
+            cp -p "$old_store" "$new_store"
+        fi
+        claude plugin uninstall skins@hellosverre-mods
+        if marketplace_known local-pins; then
+            claude plugin marketplace update local-pins
+        else
+            claude plugin marketplace add "$LOCAL_MARKETPLACE"
+        fi
+        claude plugin install skins@local-pins
+        rm -f "$old_store"
+    fi
+    for plugin in ksrc@respawn-tools android-cli@android-cli-plugin nono@nolabs-ai; do
+        plugin_installed "$plugin" || continue
+        action "Uninstalling $plugin"
+        claude plugin uninstall "$plugin"
+    done
+    for marketplace in hellosverre-mods respawn-tools android-cli-plugin nolabs-ai; do
+        marketplace_known "$marketplace" || continue
+        action "Removing the $marketplace marketplace"
+        claude plugin marketplace remove "$marketplace"
+    done
+    info "Plugins checked"
+fi
+
+##############################################################
 # Homebrew drift (report only)
 ##############################################################
 
