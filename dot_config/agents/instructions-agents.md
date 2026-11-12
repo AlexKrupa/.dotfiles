@@ -250,6 +250,9 @@ Layout:
   - The Bash tool and the `! <command>` prompt prefix run zsh. Use zsh syntax for them, also when
     you give me a `! <command>` to type.
 - Dotfiles: see `~/.config/agents/machine.md`. chezmoi makes it for each machine.
+- A disabled plugin, MCP server, or similar entry in a user-level `settings.json` is not unused. I
+  enable it per project. Before you call an item unused or remove it, ask me, unless it is clearly
+  unused.
 - Prefer CLI/TUI tools over GUI applications. Exception: Android Studio / IntelliJ.
 - Run Gradle commands in quiet mode (`-q`), unless output is needed for debugging
 - Android devices, emulators, SDK, screenshots, UI inspection: use the `android` CLI (`android-cli`
