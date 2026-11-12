@@ -112,6 +112,9 @@ Result:
 - Small points only, for example an unclear word: the cell of its row has the points.
 - Do not report what the MR author knows without help, for example that a rename also changes
   the callers, or that a fix also updates its tests. Report only an error of the comment.
+- A code suggestion shows only the lines of the comment. Do not report changes that it needs
+  outside these lines, for example an import, a dependency, or other call sites. Check only the
+  idea and the lines that it shows.
 
 Do not rewrite the full comment. The user edits it on the code host.
 
