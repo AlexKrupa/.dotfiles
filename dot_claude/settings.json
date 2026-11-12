@@ -183,23 +183,17 @@
     "rust-analyzer-lsp@claude-plugins-official": false,
     "simple-english@simple-english": true,
     "skill-creator@claude-plugins-official": true,
-    "skins@hellosverre-mods": true,
     "superpowers@local-pins": true,
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
-    "watchd@local-pins": true
+    "watchd@local-pins": true,
+    "skins@local-pins": true
   },
   "extraKnownMarketplaces": {
     "simple-english": {
       "source": {
         "source": "github",
         "repo": "AminBlg/SimpleEnglish"
-      }
-    },
-    "hellosverre-mods": {
-      "source": {
-        "source": "github",
-        "repo": "hellosverre/claude-skins"
       }
     },
     "local-pins": {

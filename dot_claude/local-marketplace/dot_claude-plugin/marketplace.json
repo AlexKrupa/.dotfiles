@@ -20,6 +20,15 @@
       "name": "ksrc",
       "description": "Search and read the sources of Gradle dependencies with the ksrc MCP server",
       "source": "./ksrc"
+    },
+    {
+      "name": "skins",
+      "description": "hellosverre/claude-skins pinned to v0.5.16",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/hellosverre/claude-skins.git",
+        "sha": "cf0d39f3785d5c5a4b6189ecc487b1ac479efea0"
+      }
     }
   ]
 }
