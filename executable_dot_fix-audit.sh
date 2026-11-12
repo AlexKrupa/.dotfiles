@@ -95,9 +95,9 @@ fi
 # Claude Code plugins
 ##############################################################
 
-# The removed marketplaces track a branch, so each push reached Claude Code with no review.
+# The hellosverre-mods marketplace tracks a branch, so each push reaches Claude Code with no review.
 # local-pins pins skins to a commit.
-step "Claude Code plugins"
+step "skins plugin"
 PLUGINS_DIR="$HOME/.claude/plugins"
 LOCAL_MARKETPLACE="$HOME/.claude/local-marketplace"
 
@@ -130,17 +130,11 @@ else
         claude plugin install skins@local-pins
         rm -f "$old_store"
     fi
-    for plugin in ksrc@respawn-tools android-cli@android-cli-plugin nono@nolabs-ai; do
-        plugin_installed "$plugin" || continue
-        action "Uninstalling $plugin"
-        claude plugin uninstall "$plugin"
-    done
-    for marketplace in hellosverre-mods respawn-tools android-cli-plugin nolabs-ai; do
-        marketplace_known "$marketplace" || continue
-        action "Removing the $marketplace marketplace"
-        claude plugin marketplace remove "$marketplace"
-    done
-    info "Plugins checked"
+    if marketplace_known hellosverre-mods; then
+        action "Removing the hellosverre-mods marketplace"
+        claude plugin marketplace remove hellosverre-mods
+    fi
+    info "skins checked"
 fi
 
 ##############################################################
