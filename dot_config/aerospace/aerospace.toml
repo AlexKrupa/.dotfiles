@@ -64,7 +64,7 @@ on-window-detected = [
   outer.left =       0
 
 # General binding rules:
-# - Meh key to focus (alt-ctrl-shift)
+# - CAG key to focus (alt-ctrl-cmd)
 # - Hyper key to move (alt-ctrl-shift-cmd)
 
 # Avoid conflicts if using just alt: e o a s l z x c n   f   h j k l
@@ -72,13 +72,13 @@ on-window-detected = [
 [mode.main.binding]
 
   # Layout
-  alt-ctrl-shift-e = 'layout accordion horizontal vertical'
-  alt-ctrl-shift-r = 'layout tiles horizontal vertical'
-  alt-ctrl-shift-f = 'fullscreen'
+  alt-ctrl-cmd-e = 'layout accordion horizontal vertical'
+  alt-ctrl-cmd-r = 'layout tiles horizontal vertical'
+  alt-ctrl-cmd-f = 'fullscreen'
   alt-ctrl-shift-cmd-f = 'layout floating tiling'
   alt-ctrl-shift-cmd-g = 'macos-native-minimize'
 
-  alt-ctrl-shift-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
+  alt-ctrl-cmd-tab = 'exec-and-forget aerospace focus-back-and-forth || aerospace workspace-back-and-forth'
   alt-ctrl-shift-cmd-tab = 'move-workspace-to-monitor --wrap-around next'
 
   cmd-h = [] # Disable "hide application"
@@ -86,18 +86,18 @@ on-window-detected = [
   cmd-m = [] # Disable "minimize application"
 
   # Resizing
-  alt-ctrl-shift-m = 'resize smart -200'
-  alt-ctrl-shift-comma = 'resize smart +200'
+  alt-ctrl-cmd-m = 'resize smart -200'
+  alt-ctrl-cmd-comma = 'resize smart +200'
 
   # Focus
-  alt-ctrl-shift-h = 'focus left'
-  alt-ctrl-shift-j = 'focus down'
-  alt-ctrl-shift-k = 'focus up'
-  alt-ctrl-shift-l = 'focus right'
+  alt-ctrl-cmd-h = 'focus left'
+  alt-ctrl-cmd-j = 'focus down'
+  alt-ctrl-cmd-k = 'focus up'
+  alt-ctrl-cmd-l = 'focus right'
 
   # Focus specific windows
-  alt-ctrl-shift-enter = 'exec-and-forget ~/.config/aerospace/focus-app "Android Studio"'
-  alt-ctrl-shift-space = 'exec-and-forget ~/.config/aerospace/focus-app "Ghostty"'
+  alt-ctrl-cmd-enter = 'exec-and-forget ~/.config/aerospace/focus-app "Android Studio"'
+  alt-ctrl-cmd-space = 'exec-and-forget ~/.config/aerospace/focus-app "Ghostty"'
 
   # Move window direction
   alt-ctrl-shift-cmd-h = 'move left'
@@ -106,11 +106,11 @@ on-window-detected = [
   alt-ctrl-shift-cmd-l = 'move right'
 
   # Workspace
-  alt-ctrl-shift-y = 'workspace Y'
-  alt-ctrl-shift-u = 'workspace U'
-  alt-ctrl-shift-i = 'workspace I'
-  alt-ctrl-shift-o = 'workspace O'
-  alt-ctrl-shift-p = 'workspace P'
+  alt-ctrl-cmd-y = 'workspace Y'
+  alt-ctrl-cmd-u = 'workspace U'
+  alt-ctrl-cmd-i = 'workspace I'
+  alt-ctrl-cmd-o = 'workspace O'
+  alt-ctrl-cmd-p = 'workspace P'
 
   # Move to workspace
   alt-ctrl-shift-cmd-y = 'move-node-to-workspace Y'

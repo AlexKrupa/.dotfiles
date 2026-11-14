@@ -15,8 +15,8 @@
  [{:des "Caps Lock -> Fn (hold) / Escape (tap)"
    :rules [[:caps_lock :fn nil {:alone :escape}]]}
 
-  {:des "Tab -> Meh (hold) / Tab (tap)"
-   :rules [[:tab [{:key :left_control :modi [:left_shift :left_option] :lazy true}] nil {:alone :tab}]]}
+  {:des "Tab -> CAG (hold) / Tab (tap)"
+   :rules [[:tab [{:key :left_control :modi [:left_command :left_option] :lazy true}] nil {:alone :tab}]]}
 
   {:des "Fn + Tab -> Hyper (hold) / Tab (tap)"
    :rules [[:!Ftab [{:key :left_control :modi [:left_command :left_shift :left_option] :lazy true}] nil {:alone :tab}]]}
