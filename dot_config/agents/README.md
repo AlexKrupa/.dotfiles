@@ -19,7 +19,7 @@ these statuses:
 - `installed`: the plugin is already installed.
 - `STALE`: the installed copy of a plugin differs from its source folder, also after one
   reinstall. The exit code is 1.
-- `FAILED`: the script could not add the marketplace, find the plugin folder, or install the
+- `FAILED`: the script did not add the marketplace, find the plugin folder, or install the
   plugin. The exit code is 1.
 
 After you add or rename a skill, start the script again.
@@ -49,10 +49,19 @@ instructions of an AI chat app.
 
 ## Third-party skills
 
-`install-skills.sh <agent>` installs the third-party skills for one agent with the `skills` CLI.
-The script contains the list of these skills. When the list or the set of folders in
+`install-skills.sh <agent>` installs the global third-party skills for one agent with the `skills`
+CLI. The script contains the list of these skills. When the list or the set of folders in
 `integrations/` changes, `chezmoi apply` runs it one time for each folder in `integrations/`. The
 folder name is the `skills` CLI agent name. The first apply on a new machine also runs it.
+
+Some skills are only useful in one kind of repo. The script keeps them in a set, for example
+`android`. To install a set into a repo, run `install-skills.sh <agent> android` in its main
+checkout. The skills go into `.claude/skills/`, and the script adds `.claude/skills/` and
+`skills-lock.json` to `.git/info/exclude`. The herdr worktree-links plugin links both into new
+worktrees.
+
+To move a skill between global and a set, move its line in the script. The global run removes the
+global copies of the skills of a set.
 
 ## Layout
 
@@ -120,7 +129,7 @@ scripts, the scripts have no `--help`, no prompts, and no color.
   - `skills/draft-ticket/ticket-id-rename.sh`: 2 the branches are pushed, 3 the restack failed.
   - `integrations/claude-code/start-claude`: 2 bad arguments.
   - `integrations/claude-code/agent.sh`: 2 usage error, 3 the agent has no such action.
-  - `install-skills.sh`: 2 no agent name.
+  - `install-skills.sh`: 2 no agent name, an unknown set, or not in a main checkout.
   - `daemon/integrations/claude-code/wait.sh`: 2 wake Claude (the `asyncRewake` code).
 - Before a script rewrites commits, it saves a backup ref. If a conflict or a failure occurs, the
   script resets to the backup and does not leave a partial rebase.
