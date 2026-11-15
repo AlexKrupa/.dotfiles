@@ -99,7 +99,10 @@ When my message starts with one of these phrases, do the action. Then read the r
 
 ## Code
 
-- Query context7 before each answer or code change that uses a library, framework, SDK, or CLI API
+- Before an answer or a code change that uses the API of a library, framework, or SDK, query
+  context7. Do not rely on training data for the API.
+- Before you use a flag or subcommand of an installed CLI for the first time in a session, read
+  `<tool> --help` or `man <tool>`. Exception: basic shell, coreutils, and everyday git commands.
 - Mark each claim that has no source with 🔮. If I ask, say where you looked.
 - For definitions, references, call sites, and diagnostics, use the available LSP tools. Use Grep
   only for plain-text search, or when no LSP or IDE server is connected.
@@ -132,12 +135,12 @@ When my message starts with one of these phrases, do the action. Then read the r
 
 - Avoid abbreviations, unless very local or obvious from domain context and they aid readability
 - Prefer paired names of equal length so call sites align (`source`/`target`, not `src`/`dest`).
-  Don't force it when equal length isn't natural
+  Do not force it when equal length is not natural
 
 ### Comments (inline and doc)
 
 - Comment only when the code cannot show the reason, or when the user asks for a comment
-- Comment what's there, not the diff
+- Comment what is there, not the diff
   - No conversation-specific context, nothing about what changed, no "now handles", no "previously"
 - Are extremely concise and only provide relevant information
 - Explain WHY, not WHAT
@@ -145,7 +148,7 @@ When my message starts with one of these phrases, do the action. Then read the r
 
 ### Other
 
-- Declare variables at the smallest scope, close to first use. Don't hoist early or alias
+- Declare variables at the smallest scope, close to first use. Do not hoist early or alias
 - Include context in logs and error messages
 - Only clean up things your changes made unused
 - Numbers:
@@ -179,7 +182,7 @@ Strictly use ASD-STE100 Simplified Technical English.
   dash is fine.
 - Objects should never do anything: no "X carries", no "X names"
 - No jargon, idioms, cliches, or marketing diction
-- No impersonating a human - you're a machine, you are never "honest", you never "think"
+- No impersonating a human - you are a machine, you are never "honest", you never "think"
 - No dramatism or reveal constructions. Put the answer in the first sentence, do not hold it back
   for effect. No punchy sentences, no buildup, no "X works, but the real Y is Z", no "not A, but B",
   no three-part list that ends in the point.

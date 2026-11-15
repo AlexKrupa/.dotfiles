@@ -7,14 +7,12 @@
 ## work
 
 Claude Code loads each slash command that comes after `/work` as a skill in this session. It
-removes the skill names from `$ARGUMENTS`. If this turn loaded other skills next to `/work`, write
-their names first in the prompt. Use the names from the `<command-name>` tags, in the same order,
-on one line with spaces between them, for example `/plugin:skill-a /skill-b`. Then write
-`$ARGUMENTS` on the same line. Do not run these skills in this session. They are for the new
-agent.
+removes the skill names from `$ARGUMENTS`. If this turn loaded other skills next to `/work`:
 
-One-time setup: Claude Code trusts `~/.herdr/worktrees` after you run `claude` in that folder and
-accept the prompt.
+1. Write their names first in the prompt, as in the `<command-name>` tags, in the same order. Put
+   them on one line with spaces between them, for example `/plugin:skill-a /skill-b`.
+2. Write `$ARGUMENTS` on the same line.
+3. Do not run these skills in this session. They are for the new agent.
 
 ## exec
 

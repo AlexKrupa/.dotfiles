@@ -24,6 +24,9 @@ these statuses:
 
 After you add or rename a skill, start the script again.
 
+Claude Code trusts `~/.herdr/worktrees`, the worktrees of `/work`, after you run `claude` in that
+folder one time and accept the prompt.
+
 The script makes these links:
 
 - `integrations/claude-code/CLAUDE.md` -> `~/.claude/CLAUDE.md`. This file imports
