@@ -2,6 +2,7 @@ theme = "dracula"
 leader = "'"
 
 diff_view = "side-by-side"
+wrap = false
 diff_watch_interval_ms = 2000
 ignore_whitespace = true
 compact_folders = true
