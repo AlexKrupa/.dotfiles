@@ -8,7 +8,7 @@ These rules apply to conversation replies. The written communication rules in us
 (e.g. `CLAUDE.md`) are REQUIRED and apply on top of the rules here, and also to every file you
 write:
 
-- Strict ASD-STE100 Simplified Technical English
+- Simple language (Plain mode of the simple-english rules)
 - Banned words
 - Formatting
 
@@ -36,43 +36,35 @@ final reply. When you finish, lead with the outcome: your first sentence answers
 ## Formatting
 
 - Primary 1 sentence TLDR on top if answer is more than 1 paragraph
-- Questions and answers are explicit and visible to the user
+- Questions and replies are explicit and visible to the user
   - Ask questions as inline text in the reply. Use the `AskUserQuestion` tool only for simple
     questions that the user can answer without reading the reply or other context.
-  - Put every question and every answer on its own line - not inline, not hidden in a prose
+  - Put every question and every reply on its own line - not inline, not hidden in a prose
     paragraph
-  - Each question and answer is a TLDR: 1 sentence limit
-  - Prefix numbers: Q1, Q2 etc. for questions, A1, A2, etc. for answers
+  - Each question and reply is a TLDR: 1 sentence limit
+  - Prefix numbers: Q1, Q2 etc. for questions, R1, R2 etc. for replies
   - Options: A, B, C, D, etc.
 - Changed files: if the reply created or changed files, list the paths at the bottom of the reply,
-  directly above the next action. Do this after each change, also when the path is already in an
-  earlier reply, for example when the user asks for changes to a draft. Use two separate groups, in
-  this order:
-  1. Project files: source code, configuration, skills, and other files of the project
-  2. Artifacts: spec, plan, review, translation, ticket, PR draft, or similar
-- Project files:
-  - One file: one line, `📄 <path>`, with no label
-  - Two or more files: a `📄 Project files:` line, then one Markdown list item per path
-    (`- <path>`). Do not put the 📄 marker on the list items.
-- Artifacts: one group for each kind. A skill can give the kind and the path format in a path line,
-  for example `` 📄 PR draft: `<path>` ``. Use the kind and the format of the skill.
-  - One file of a kind: one line, `📄 <kind>: <path>`, for example `📄 Report: <path>`
-  - Two or more files of a kind: one `📄 <plural kind>:` line, for example `📄 PR drafts:`, then
-    one Markdown list item per path (`- <path>`). Do not put the 📄 marker on the list items.
-  - A path line in a skill is the format for one file. For two or more files of a kind, use the
-    group format.
-  - Do not write the same path two times
-- Example of a group with two files:
+  directly above the next action. Do this after each change, also when an earlier reply has the
+  path, for example when the user asks for changes to a draft. Write each path one time.
+  - Groups, in this order: project files (source code, configuration, skills, and other files of
+    the project), then one group for each artifact kind (spec, plan, review, translation, ticket,
+    PR draft, or similar). Omit a group with no files.
+  - One file: one line. A project file has no label: `📄 <path>`. An artifact has its kind:
+    `📄 Report: <path>`. A skill can give the kind and the format in a path line - use it.
+  - Two or more files: a `📄 Project files:` or `📄 <plural kind>:` line, then one Markdown list
+    item per path. A path line of a skill is for one file only. No 📄 marker on list items.
+  - Put a blank line between groups. Markdown joins lines with no blank line between them.
+  - Example:
 
-  ```
-  📄 PR drafts:
-  - `<path 1>`
-  - `<path 2>`
-  ```
+    ```
+    📄 `skills/foo/SKILL.md`
 
-- No files in a group: omit the group
-- Put a blank line between groups. Markdown joins lines with no blank line between them into one
-  line.
+    📄 PR drafts:
+    - `<path 1>`
+    - `<path 2>`
+    ```
+
 - Never output OSC-8 or Markdown hyperlinks in replies - put the plain-text URL between parentheses
   after the text
   - BAD: `[text](https://example.com)` -> GOOD: `text (https://example.com)`
@@ -91,7 +83,7 @@ marker only for its meaning.
 | ------- | --------------------------------------------------- |
 | 📌      | TLDR                                                |
 | ❓      | Question                                            |
-| ❗️      | Answer                                              |
+| ❗️      | Reply                                               |
 | ➡️      | Next action: one concrete step                      |
 | 🛑      | Blocked: work stops until the user acts             |
 | ⚠️      | Risk: destructive, irreversible, or breaking change |

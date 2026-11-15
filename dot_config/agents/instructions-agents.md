@@ -21,9 +21,9 @@
   important steps like local reformatting or refactoring.
 - CI is the broad test. Locally, run only the tests of the changed code. After a CI failure, run
   only the failed tests, not the full suite.
-- If a step does not need my input, continue. Put status notes in the same message as the next
-  action. Stop and ask only in two cases: you cannot continue without me, or the next action is
-  destructive or outward-facing.
+- If a step does not need my input, continue. Do not stop for a status note. Stop and ask
+  only in two cases: you cannot continue without me, or the next action is destructive or
+  outward-facing.
 - When a plan item is done, tick it in the plan file. Add new items that you find.
 - Delegate to subagents only for large, parallel tracks: wide multi-file investigation, independent
   features. Not for simple work finishable in a few tool calls, never to verify your own output.
@@ -71,7 +71,8 @@ When my message starts with one of these phrases, do the action. Then read the r
 
 - Act when the conversation shows my intent. Do not assume an intent that I did not state.
 - Each commit is an atomic change that has value alone
-- Commit, amend, squash, and check out with no question. List the changes in the reply.
+- When I ask for a commit, or a plan or skill tells you to commit, commit, amend, squash, and
+  check out with no question. List the changes in the reply.
 - When possible, use `git-spice` for branch and commit work: create, check out, commit, amend,
   squash, restack, move, rename, delete. Use raw git for the rest. The command is `git-spice`: `gs`
   does not exist in the agent shell. Put `--no-prompt` after the subcommand. After a conflict, use
@@ -99,8 +100,11 @@ When my message starts with one of these phrases, do the action. Then read the r
 
 ## Code
 
-- Before an answer or a code change that uses the API of a library, framework, or SDK, query
-  context7. Do not rely on training data for the API.
+- Do not rely on training data for the API of a library, framework, or SDK. In these cases, query
+  context7 before an answer or a code change that uses the API:
+  - This session and the project code do not show the API.
+  - The version is different from your training data.
+  - A call fails or acts unexpectedly.
 - Before you use a flag or subcommand of an installed CLI for the first time in a session, read
   `<tool> --help` or `man <tool>`. Exception: basic shell, coreutils, and everyday git commands.
 - Mark each claim that has no source with 🔮. If I ask, say where you looked.
@@ -108,11 +112,11 @@ When my message starts with one of these phrases, do the action. Then read the r
   only for plain-text search, or when no LSP or IDE server is connected.
 - To read the source of a third-party Gradle dependency, use the `ksrc` MCP tools (`search`, `cat`,
   `deps`), not files in `~/.gradle`
-- Every changed line should trace to the request. Implement only what was asked, nothing more.
+- Every changed line traces to the request. Implement only what was asked, nothing more.
   Mention unrelated issues or dead code only if important.
 - Validate only at system boundaries. Handle only errors that can actually happen.
-- No abstractions for single-use code. If a senior engineer would call it overcomplicated -
-  simplify.
+- No abstractions for single-use code. If a senior engineer calls it overcomplicated, simplify
+  it.
 
 ### Design
 
@@ -187,13 +191,14 @@ These rules apply to both conversation replies and written documentation, code c
 
 #### Simple language
 
-Strictly use ASD-STE100 Simplified Technical English.
+Follow the simple-english rules in Plain mode. Do not use Strict mode.
 
 - If a simpler word exists - use it
   - Example: use "is", not "serves as", not "utilizes".
 - Short, simple sentences. Split them instead of joining with a semicolon or "X, so Y". A single
   dash is fine.
-- Objects should never do anything: no "X carries", no "X names"
+- No metaphor verbs for objects: no "X names", no "X owns". Use a verb for a real action: "the
+  script deletes".
 - No jargon, idioms, cliches, or marketing diction
 - No impersonating a human - you are a machine, you are never "honest", you never "think"
 - No dramatism or reveal constructions. Put the answer in the first sentence, do not hold it back
@@ -203,8 +208,7 @@ Strictly use ASD-STE100 Simplified Technical English.
   "Importantly", "Truth is", no -ing tails ("...highlighting its importance"), no pedagogical asides
   ("let's unpack this"), no signposted summaries ("In conclusion").
 - When updating prose, replace obsolete text with accurate text rather than preserving the obsolete
-  text and adding a correction. The final document should read as if it were written correctly from
-  the beginning.
+  text and adding a correction. Write the final document as if it was correct from the beginning.
 - Match document length to the task - substance, no padding, no redundant summaries, no boilerplate
   sections. Applies to plans, specs, reviews, and any file written to disk.
 
@@ -237,7 +241,7 @@ delve, leverage, streamline, land, carry, overstep, ship,
 - These rules override the simple-english reply rules "prose only", "no headers", "no bullet
   lists", and "no tables". All other simple-english rules apply.
 - Prefer ASCII over Unicode for punctuation and stylistic symbols: single dashes, not en- or
-  em-dashes. No smart quotes or decorative icons.
+  em-dashes. No smart quotes.
   - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,
     diagrams, and code.
 - Code: backticks for inline (`Class.method()`), fences for multi-line. Including in commit message
