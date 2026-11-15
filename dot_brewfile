@@ -73,10 +73,11 @@ brew "starship" # shell prompt
 # brew "tailscale"
 brew "tlrc" # tldr - docs, manpages alternative
 # brew "tmux"
+brew "tokei" # project metric counter (e.g. LOC, complexity)
 # brew "tpm" # tmux plugin manager
 brew "tree-sitter"
 brew "tree-sitter-cli" # used by NeoVim
-brew "tokei" # project metric counter (e.g. LOC, complexity)
+brew "tuicr" # TUI code review
 brew "universal-ctags" # code tag generator
 # brew "xdg-ninja" # XDG convention helper
 # brew "yt-dlp" # YouTube downloader
