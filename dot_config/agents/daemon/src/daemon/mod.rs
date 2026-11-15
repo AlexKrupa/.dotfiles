@@ -127,10 +127,12 @@ impl Memory {
         }
     }
 
+    /// `pokes` keeps the poke for a loop that is not in a nap. A stored wake-up would stay after the
+    /// round that answers the poke, and give one more round.
     pub fn poke(&mut self, key: &str, slug: &str) {
         self.pokes.insert(key.to_string(), slug.to_string());
         for task in self.managed.values().filter(|task| task.slug == slug) {
-            task.wake.notify_one();
+            task.wake.notify_waiters();
         }
     }
 
@@ -361,6 +363,23 @@ impl Daemon {
 
     async fn interrupted(&self, slug: &str) -> bool {
         self.stopping() || self.lock().await.pokes.values().any(|poked| poked == slug)
+    }
+
+    /// Returns true for a poke, a wake-up, or a stop before the end of `step`.
+    async fn nap_step(&self, wake: &Notify, slug: &str, step: Duration) -> bool {
+        let woken = wake.notified();
+        let stop = self.stop.notified();
+        tokio::pin!(woken, stop);
+        stop.as_mut().enable();
+        // `woken` exists before the read of `pokes`: a poke after the read wakes it.
+        if self.interrupted(slug).await {
+            return true;
+        }
+        tokio::select! {
+            _ = tokio::time::sleep(step) => false,
+            _ = woken => true,
+            _ = stop => true,
+        }
     }
 
     async fn live_subs(&self, slug: &str) -> Vec<Agent> {
@@ -687,26 +706,9 @@ async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Ar
             .await
             .next_round
             .insert(slug.clone(), now_seconds() + interval.as_secs() as i64);
-        let sleep = |step: Duration| {
-            let (daemon, wake, slug) = (daemon.clone(), wake.clone(), slug.clone());
-            async move {
-                let woken = wake.notified();
-                let stop = daemon.stop.notified();
-                tokio::pin!(woken, stop);
-                stop.as_mut().enable();
-                if daemon.interrupted(&slug).await {
-                    return true;
-                }
-                tokio::select! {
-                    _ = tokio::time::sleep(step) => false,
-                    _ = woken => true,
-                    _ = stop => true,
-                }
-            }
-        };
         let end = nap(interval, NAP_STEP, now_seconds, |step| {
-            let sleep = sleep(step);
-            async move { (sleep.await, full_wake().await) }
+            let (daemon, wake, slug) = (daemon.clone(), wake.clone(), slug.clone());
+            async move { (daemon.nap_step(&wake, &slug, step).await, full_wake().await) }
         })
         .await;
         if end == NapEnd::Asleep && !daemon.wait_network(&repo, host.as_deref()).await {
@@ -949,5 +951,59 @@ mod tests {
         // SAFETY: fcntl on an open descriptor.
         let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
         assert_eq!(flags & libc::FD_CLOEXEC, libc::FD_CLOEXEC);
+    }
+
+    /// A daemon with a managed loop task of the slug `app`, and the wake-up of that task.
+    fn napping_daemon(name: &str) -> (PathBuf, Arc<Daemon>, Arc<Notify>) {
+        let base = std::env::temp_dir().join(format!("watchd-nap-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let fake = base.join("fake");
+        std::fs::create_dir_all(&fake).unwrap();
+        let dirs = StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        };
+        let engine = crate::engine::fake::FakeEngine {
+            dir: fake.clone(),
+            engine_dir: dirs.engine.clone(),
+        };
+        let workspaces = crate::workspaces::FakeWorkspaces { dir: fake };
+        let daemon = Arc::new(Daemon::new(Store::new(dirs), Box::new(engine), Box::new(workspaces)));
+        let wake = Arc::new(Notify::new());
+        let task = ManagedTask {
+            handle: tokio::spawn(async {}),
+            wake: wake.clone(),
+            slug: "app".to_string(),
+        };
+        daemon.memory.try_lock().unwrap().managed.insert(base.join("app"), task);
+        (base, daemon, wake)
+    }
+
+    #[tokio::test]
+    async fn a_poke_that_a_round_answers_leaves_no_wake_up_for_the_next_nap_step() {
+        let (base, daemon, wake) = napping_daemon("answered");
+        daemon.lock().await.poke("app-review-5", "app");
+        daemon.lock().await.pokes.clear();
+
+        let woken = daemon.nap_step(&wake, "app", Duration::from_millis(50)).await;
+
+        assert!(!woken, "the nap step ends early: a wake-up of an answered poke is left");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn a_poke_during_a_nap_step_ends_it() {
+        let (base, daemon, wake) = napping_daemon("during");
+        let napping = {
+            let daemon = daemon.clone();
+            tokio::spawn(async move { daemon.nap_step(&wake, "app", Duration::from_secs(10)).await })
+        };
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        daemon.lock().await.poke("app-review-5", "app");
+
+        let woken = tokio::time::timeout(Duration::from_secs(2), napping).await;
+        assert!(woken.is_ok_and(|woken| woken.unwrap()));
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
