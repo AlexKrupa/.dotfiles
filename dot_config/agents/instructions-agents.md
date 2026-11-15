@@ -114,6 +114,17 @@ When my message starts with one of these phrases, do the action. Then read the r
 - No abstractions for single-use code. If a senior engineer would call it overcomplicated -
   simplify.
 
+### Design
+
+- Prefer deep modules: a small interface that hides much functionality. A shallow module, with an
+  interface as complex as its body, adds cost and no value.
+- Hide each design decision in one module. If a change to one decision needs edits in several
+  modules, the decision leaks.
+- No pass-through methods and no wrappers that only forward calls with the same signature.
+- Define errors out of existence: design the API so that the error case cannot occur. For
+  example, a delete of a missing key does nothing.
+- Each layer has a different abstraction from the layers above and below it.
+
 ### Style
 
 - Match existing code style, not your preference
@@ -140,6 +151,8 @@ When my message starts with one of these phrases, do the action. Then read the r
 ### Comments (inline and doc)
 
 - Comment only when the code cannot show the reason, or when the user asks for a comment
+  - Exception: if a doc comment on an interface says something that the signature does not, the
+    comment is fine
 - Comment what is there, not the diff
   - No conversation-specific context, nothing about what changed, no "now handles", no "previously"
 - Are extremely concise and only provide relevant information
