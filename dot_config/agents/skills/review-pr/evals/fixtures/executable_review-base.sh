@@ -31,7 +31,7 @@ report=$(~/.config/agents/bin/review-report-path.sh origin/main mr-11)
 cat >"$report" <<EOF
 # Review: tags-model (vs origin/main)
 
-**TL;DR:** Fix then merge. \`Tag.label()\` depends on the default locale (\`M1\`).
+**TLDR:** Fix then merge. \`Tag.label()\` depends on the default locale (\`M1\`).
 
 **Counts:** 0 critical, 0 high, 1 medium, 0 low
 

@@ -445,7 +445,7 @@ the main-repo grouping convention.
 ```markdown
 # Review: <tip> (vs <parent>)
 
-**TL;DR:** <1-2 sentence verdict - merge / fix-then-merge / major rework, plus the single biggest
+**TLDR:** <1-2 sentence verdict - merge / fix-then-merge / major rework, plus the single biggest
 risk, naming that risk's finding id, e.g. `C1`.>
 
 **Counts:** <N> critical, <N> high, <N> medium, <N> low
@@ -524,7 +524,7 @@ add a snippet.
 A caller that invoked this skill writes its own reply with the same rules.
 
 ```markdown
-<the report's TL;DR>
+<the report's TLDR>
 
 High-impact changes:
 1. `<file>:<line>` - <what changes>
@@ -569,7 +569,7 @@ Review guide:
   reaches outside the diff. Everything else belongs in "Out of scope".
 - An `(adjacent)` finding above `medium`, or one without its count as evidence.
 - Reading past one hop, or widening to the module on a branch that only edits function bodies.
-- Long code blocks in the report. Keep it scannable - TL;DR + Counts come first.
+- Long code blocks in the report. Keep it scannable - TLDR + Counts come first.
 - Filling buckets with manufactured findings.
 - A finding whose only claim is that an intended change is hard to undo or affects many places.
   That is a high-impact item.

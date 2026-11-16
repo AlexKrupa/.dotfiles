@@ -66,7 +66,7 @@ report="$("$bin/review-report-path.sh" main)"
 put "$report" <<EOF
 # Review: feat/csv-import (vs origin/main)
 
-**TL;DR:** Fix then merge. A malformed CSV row crashes the whole import (\`H1\`).
+**TLDR:** Fix then merge. A malformed CSV row crashes the whole import (\`H1\`).
 
 **Counts:** 0 critical, 1 high, 1 medium, 1 low
 

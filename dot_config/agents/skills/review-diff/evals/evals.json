@@ -3,7 +3,7 @@
   "notes": "run.py builds a repo per run from `fixture`, runs `prompt` with `claude -p`, and grade.py applies `common_checks` plus each eval's `checks`. `{key}` in a prompt is a `key=value` line from the fixture's stdout. Check types are in grade.py. `file` and `any`/`all`/`none` values are case-insensitive regexes. A finding matches when it matches `any` and `all`, and no `none` pattern. `lines` is an inclusive range that must overlap the finding's `file:line`.",
   "common_checks": [
     {"id": "one-report", "type": "report_count", "equals": 1, "text": "Exactly one report under ~/.ai/<repo>/reviews/"},
-    {"id": "title", "type": "report_regex", "patterns": ["^# Review: \\S+ \\(vs \\S+\\)$", "^\\*\\*TL;DR:\\*\\* ", "^\\*\\*Counts:\\*\\* \\d+ critical, \\d+ high, \\d+ medium, \\d+ low$"], "text": "Report starts with title, TL;DR, and Counts lines"},
+    {"id": "title", "type": "report_regex", "patterns": ["^# Review: \\S+ \\(vs \\S+\\)$", "^\\*\\*TLDR:\\*\\* ", "^\\*\\*Counts:\\*\\* \\d+ critical, \\d+ high, \\d+ medium, \\d+ low$"], "text": "Report starts with title, TLDR, and Counts lines"},
     {"id": "header", "type": "report_regex", "patterns": ["^- Author: ", "^- Base: ", "^- Commits: \\d+ Files: \\d+ ", "^- Uncommitted: ", "^- Generated: ", "^- Convention docs consulted: ", "^## Review guide$", "^## Findings$"], "text": "Report has all header lines and the Review guide and Findings sections"},
     {"id": "ids", "type": "ids_valid", "contiguous": true, "text": "Each finding id has its section letter, ids are unique, ordinals run 1..n per section"},
     {"id": "counts", "type": "counts_match", "text": "Counts line matches the number of findings per section"},
