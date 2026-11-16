@@ -676,7 +676,8 @@ from a design spec that the user approved.
   glyph with no cause.
 - W19.11 The `done` stage shows when all MRs are merged or closed, and it stays while the workspace
   is open.
-- W19.12 A stack in which only some branches are merged is not `done`.
+- W19.12 A stack in which only some branches are merged is not `done`, also when the open branches
+  have no MR.
 - W19.13 A merged worktree shows `done` and no conflict glyph.
 - W19.14 A watch that stopped with MRs still open, after an error or a session end, shows the
   `stopped` stage.

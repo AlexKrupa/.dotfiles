@@ -13,7 +13,7 @@ use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, st
 use crate::core::filter::needs;
 use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
 use crate::core::subs::{Agent, Mode, Session, SessionKey, add_ended};
-use crate::core::worktrees::{Kind, Repos, ReviewLink, Reviews, Stage, Target, WorktreeState};
+use crate::core::worktrees::{Kind, Repos, ReviewLink, Reviews, Stage, Target, WorktreeState, stack_ended};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::router::Routing;
 use crate::engine::state::Need;
@@ -634,12 +634,12 @@ impl Store {
         }
         remove(&self.dirs.sub(&sub.key));
         self.log(&sub.slug, &sub.key, &format!("subscription removed: {reason}"));
-        let stage = if reason == ALL_ENDED {
-            Stage::Done
-        } else {
-            Stage::Stopped
-        };
-        self.update_worktree(&sub.repo, |state| state.stage = Some(stage));
+        self.update_worktree(&sub.repo, |state| {
+            state.stage = match reason == ALL_ENDED {
+                true => stack_ended(state).then_some(Stage::Done),
+                false => Some(Stage::Stopped),
+            }
+        });
     }
 
     fn needs_of(&self, key: &str, mode: Mode) -> Vec<Need> {

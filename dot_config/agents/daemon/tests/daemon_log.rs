@@ -42,6 +42,12 @@ fn write_work(w: &Watchd, work: Value) {
     w.write_state(&format!("worktrees/{}.json", support::hash12(repo)), &state.to_string());
 }
 
+/// Branch `b` has the MR of the `ev` events, and branch `c` above it has no MR.
+const STACK: &str = r#"{"name":"main","ups":[{"name":"b"}]}
+{"name":"b","down":{"name":"main"},"ups":[{"name":"c"}],"change":{"id":"!5","url":"u"}}
+{"name":"c","current":true,"down":{"name":"b"}}
+"#;
+
 fn log_and_worktrees() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
@@ -74,6 +80,25 @@ fn log_and_worktrees() -> &'static Checks {
         c.check(
             "all MRs merged: worktree stage done",
             "done",
+            support::raw(&work_of(&w)["stage"]),
+        );
+        herdr |= w.herdr_called();
+        drop(w);
+
+        let w = Watchd::new();
+        let author = w.author_key();
+        w.env.commit(&w.env.repo, "one");
+        w.env.git(&w.env.repo, &["update-ref", "refs/spice/data", "HEAD"]);
+        w.env.fake_spice(&w.env.repo, STACK);
+        w.events(&author, &[ev("pipeline", 5)]);
+        w.watch_wait(&["--interval", "600", "--mr", "5"]);
+        assert!(wait_for(5, || w.worktree_state(&w.env.repo)["stack"] == json!(["b", "c"])));
+        w.events(&author, &[ev("merged", 5)]);
+        w.watch(&["--interval", "600", "--mr", "5"]);
+        wait_for(5, || !w.has_sub(&author));
+        c.check(
+            "all MRs merged with an open branch above: no stage",
+            "null",
             support::raw(&work_of(&w)["stage"]),
         );
         herdr |= w.herdr_called();
@@ -386,6 +411,11 @@ fn reaction_sound_none() {
 #[test]
 fn all_mrs_merged_worktree_stage_done() {
     log_and_worktrees().assert("all MRs merged: worktree stage done");
+}
+
+#[test]
+fn all_mrs_merged_with_an_open_branch_above_no_stage() {
+    log_and_worktrees().assert("all MRs merged with an open branch above: no stage");
 }
 
 #[test]

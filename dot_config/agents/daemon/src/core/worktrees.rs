@@ -230,6 +230,11 @@ pub fn set_kind(state: &mut WorktreeState, kind: Kind, live_watch: bool) {
     }
 }
 
+/// A branch with no MR keeps the stack open: a watch does not see it.
+pub fn stack_ended(state: &WorktreeState) -> bool {
+    state.stack.iter().all(|branch| state.ended_branches.contains(branch))
+}
+
 /// `down` is the branch below, none for the trunk.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SpiceBranch {
