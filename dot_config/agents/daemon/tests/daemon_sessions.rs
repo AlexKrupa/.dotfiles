@@ -480,7 +480,16 @@ fn watches_prints_the_watches_of_the_session_only() {
     assert_eq!(w.watch(&[]).code, 0);
     assert_eq!(w.watch(&["--review", "--mr", "5"]).code, 0);
     let mut other = w.command();
-    other.args(["watch", "--session", "session-other", "--repo", repo, "--review", "--mr", "6"]);
+    other.args([
+        "watch",
+        "--session",
+        "session-other",
+        "--repo",
+        repo,
+        "--review",
+        "--mr",
+        "6",
+    ]);
     assert_eq!(w.run(other).code, 0);
 
     let run = w.client(&["watches", "--session", &w.session_id()]);

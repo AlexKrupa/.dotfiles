@@ -235,7 +235,10 @@ mod tests {
         std::fs::write(&script, "#!/bin/sh\nenv >\"$(dirname \"$0\")/../env\"\n").unwrap();
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
 
-        let result = ScriptWorkspaces { scripts: folder.clone() }.open_board(&folder, &[]);
+        let result = ScriptWorkspaces {
+            scripts: folder.clone(),
+        }
+        .open_board(&folder, &[]);
         let env = std::fs::read_to_string(folder.join("env")).unwrap_or_default();
         let _ = std::fs::remove_dir_all(&folder);
 
