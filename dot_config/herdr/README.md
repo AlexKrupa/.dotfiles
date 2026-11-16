@@ -23,6 +23,13 @@ The split and close keys run `bin/balance-panes.sh` instead of the built-in acti
 the group the pane joined or left. `bin/balance.jq` has the functions that walk the layout tree.
 `bin/tests/test.sh` tests them.
 
+`prefix+alt+q` runs `bin/remove-worktree.sh`. After it removes the worktree,
+`bin/delete-merged-branch.sh` deletes the branch if the default branch of origin has its changes.
+It also finds squash and rebase merges, from patch IDs. If git-spice tracks the branch, git-spice
+deletes it, and the branches above it get its parent as their base. `prefix+alt+shift+q` also
+deletes a branch that is not merged, but not if a branch is above it.
+`bin/tests/delete-merged-branch-test.sh` tests it.
+
 `herdr-pluck` runs from a fork (https://github.com/AlexKrupa/herdr-pluck). If a clone exists at
 `~/src/me/herdr-pluck`, `setup.sh` links it. If not, `setup.sh` installs the fork from GitHub.
 `herdr-forks-sync` rebases only the clone. Uppercase hints open the match with `bin/pluck-open`

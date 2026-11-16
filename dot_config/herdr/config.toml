@@ -168,13 +168,13 @@ description = "lazygit in a new tab, or focus the one for this directory"
 key = "prefix+alt+q"
 type = "shell"
 command = "~/.config/herdr/bin/remove-worktree.sh"
-description = "remove worktree in the background"
+description = "remove worktree in the background, and its branch if merged"
 
 [[keys.command]]
 key = "prefix+alt+shift+q"
 type = "shell"
 command = "~/.config/herdr/bin/remove-worktree.sh --force"
-description = "remove worktree in the background, with its changes"
+description = "remove worktree in the background, with its changes and its branch"
 
 # --- Custom commands: panes ---
 
