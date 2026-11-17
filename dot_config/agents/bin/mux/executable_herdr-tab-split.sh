@@ -1,8 +1,10 @@
 #!/bin/bash
-# Usage: herdr-tab-split.sh <pane> <cwd> [--focus]
+# Usage: herdr-tab-split.sh <pane> <cwd> [--focus] [--run <command>]
 # The tab-split operation of mux/herdr.sh. Opens a new pane on the right edge of the tab of <pane>,
 # at the full height of the tab, and prints its id. The other panes keep their ids, layout, ratios
 # and processes. Focus goes to the new pane with --focus, else back to the pane that had it.
+# With --run, the new pane is a pane of the plugin local.mux: it runs <command> with sh, and has no
+# interactive shell.
 #
 # herdr 0.9.5 can split only one pane. A pane move inside the same tab changes nothing, and
 # layout.apply makes new panes, which stops their processes. A move to another tab keeps the pane
@@ -41,7 +43,16 @@ broken() {
   die "$1"
 }
 
-pane=$1 cwd=$2 focus=${3:-}
+pane=$1 cwd=$2 focus= command=
+shift 2
+while (($#)); do
+  case $1 in
+    --focus) focus=$1 ;;
+    --run) command=$2 && shift ;;
+    *) die "tab-split: unknown argument '$1'" ;;
+  esac
+  shift
+done
 
 out=$(run pane get "$pane") || die "$out"
 tab=$(jq -r '.result.pane.tab_id' <<<"$out") || exit 1
@@ -76,9 +87,19 @@ while read -r id; do
 done < <(jq -r '.parked[]' <<<"$plan")
 
 read -r anchor ratio < <(jq -r '"\(.anchor) \(.ratio)"' <<<"$plan")
-out=$(run pane split --pane "$anchor" --direction right --ratio "$ratio" --cwd "$cwd" --no-focus) ||
-  broken "$out"
-new=$(jq -r '.result.pane.pane_id' <<<"$out")
+if [[ -n $command ]]; then
+  out=$(run plugin pane open --plugin local.mux --entrypoint run --placement split \
+    --target-pane "$anchor" --direction right --cwd "$cwd" --env "MUX_COMMAND=$command" \
+    --no-focus) || broken "$out"
+  new=$(jq -r '.result.plugin_pane.pane.pane_id' <<<"$out")
+  # A plugin pane opens with no --ratio. The tab is only the anchor and the new pane now.
+  params=$(jq -nc --arg tab "$tab" --argjson ratio "$ratio" '{tab_id: $tab, path: [], ratio: $ratio}')
+  (rpc layout.set_split_ratio "$params" >/dev/null) || broken "layout.set_split_ratio failed"
+else
+  out=$(run pane split --pane "$anchor" --direction right --ratio "$ratio" --cwd "$cwd" \
+    --no-focus) || broken "$out"
+  new=$(jq -r '.result.pane.pane_id' <<<"$out")
+fi
 
 while IFS=$'\t' read -r id target direction ratio; do
   out=$(run pane move "$id" --tab "$tab" --split "$direction" --target-pane "$target" \

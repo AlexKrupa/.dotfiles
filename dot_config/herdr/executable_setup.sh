@@ -20,6 +20,7 @@ local_plugins=(
   "$PWD/plugins/caffeinate"
   "$PWD/plugins/watch"
   "$PWD/plugins/nvim-sidebar"
+  "$PWD/plugins/mux"
 )
 
 # A local clone of the herdr-pluck fork is for plugin development and for

@@ -8,9 +8,6 @@
 # Each tab has one headless nvim server, and the sidebar pane runs only a UI client of it. So the
 # pane can close, and the nvim stays, with its buffers, undo history and language servers.
 #
-# A new sidebar pane gets the focus only after pane-run. Keys typed before that go to the old pane,
-# not into the command line of the new shell.
-#
 # POSIX sh, not fish: this is key-bound.
 
 # A plugin command can have no agents/bin on its PATH. It goes last: a mux.sh earlier on the PATH,
@@ -93,10 +90,9 @@ show() {
     done
   fi
 
-  pane=$(mux.sh tab-split "$active" "$cwd") || exit 1
+  client="exec nvim --remote-ui --server '$sock'"
+  pane=$(mux.sh tab-split "$active" "$cwd" --focus --run "$client") || exit 1
   printf '%s\n' "$pane" >"$pane_file"
-  mux.sh pane-run "$pane" "exec nvim --remote-ui --server '$sock'" || exit 1
-  focus "$pane"
 }
 
 toggle() {

@@ -129,8 +129,7 @@ case $1 in
       cmd="exec tuicr"
     fi
     cwd=$("$mux" pane-cwd "$active")
-    split=$("$mux" tab-split "$active" "${cwd:-$PWD}" --focus) || exit 1
-    "$mux" pane-run "$split" "$cmd" || exit 1
+    split=$("$mux" tab-split "$active" "${cwd:-$PWD}" --focus --run "$cmd") || exit 1
     [ "$1" = branch ] || exit 0
     exec "$mux" pane-zoom "$split" on
     ;;

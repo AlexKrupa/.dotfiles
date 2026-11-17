@@ -12,6 +12,7 @@
 | `plugins/caffeinate/`     | Keep the Mac awake while an agent works                            |
 | `plugins/watch/`          | Watch notifications and sidebar watch values                       |
 | `plugins/nvim-sidebar/`   | Toggle a full-height nvim on the right edge, one nvim for each tab |
+| `plugins/mux/`            | Run a command in a pane with no shell, for `mux.sh tab-split`      |
 | `plugins/config/`         | Configuration for installed plugins                                |
 | `projects.local`          | Machine-local project paths, not in the dotfiles                   |
 | `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`          |

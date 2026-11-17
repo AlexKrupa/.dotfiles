@@ -107,10 +107,23 @@ case $operation in
     exit 1
     ;;
   pane-cwd) pane_cwd "$1" ;;
-  pane-split | tab-split)
+  pane-split)
     focus=false
     if [[ ${3:-} == --focus ]]; then focus=true; fi
     query '.block_ids[0]' split -b "$1" --split right --cwd "$2" "--focus=$focus" --json
+    ;;
+  tab-split)
+    focus=false command=
+    for ((i = 3; i <= $#; i++)); do
+      case ${!i} in
+        --focus) focus=true ;;
+        --run) i=$((i + 1)) && command=${!i} ;;
+        *) die "tab-split: unknown argument '${!i}'" ;;
+      esac
+    done
+    block=$(query '.block_ids[0]' split -b "$1" --split right --cwd "$2" "--focus=$focus" --json)
+    if [[ -n $command ]]; then "$0" pane-run "$block" "$command" >/dev/null || exit 1; fi
+    printf '%s\n' "$block"
     ;;
   pane-run)
     wait_shell "$1"

@@ -63,8 +63,7 @@ branch_pane() {
 "$script" branch A; code=$?
 check "branch opens a zoomed tuicr pane next to the active pane" "0
 pane-cwd A
-tab-split A /cwd --focus
-pane-run S exec '$script' pane 'A'
+tab-split A /cwd --focus --run exec '$script' pane 'A'
 pane-zoom S on" "$code
 $(cat "$MOCK_LOG")"
 
@@ -72,8 +71,7 @@ $(cat "$MOCK_LOG")"
 "$script" mr A; code=$?
 check "mr opens the target selector, not zoomed" "0
 pane-cwd A
-tab-split A /cwd --focus
-pane-run S exec tuicr" "$code
+tab-split A /cwd --focus --run exec tuicr" "$code
 $(cat "$MOCK_LOG")"
 
 mkdir -p "$TMPDIR/tuicr-panes/other"
