@@ -95,7 +95,6 @@ show() {
 
   client="exec nvim --remote-ui --server '$sock'"
   pane=$(mux.sh tab-split "$active" "$cwd" --focus --run "$client") || exit 1
-  mux.sh pane-rename "$pane" nvim
   printf '%s\n' "$pane" >"$pane_file"
 }
 

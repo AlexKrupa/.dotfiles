@@ -223,6 +223,7 @@ $export_call
 herdr pane move w1:p2 --new-tab --label tab-split --no-focus
 herdr pane move w1:p3 --tab w1:t5 --split right --no-focus
 herdr plugin pane open --plugin local.mux --entrypoint run --placement split --target-pane w1:p1 --direction right --cwd /r --env MUX_COMMAND=exec nvim 'a b' --no-focus
+herdr pane rename w1:p8 nvim
 nc {\"id\":\"rpc\",\"method\":\"layout.set_split_ratio\",\"params\":{\"tab_id\":\"w1:t1\",\"path\":[],\"ratio\":0.6666666666666666}}
 herdr pane move w1:p2 --tab w1:t1 --split right --target-pane w1:p1 --ratio 0.3 --no-focus
 herdr pane move w1:p3 --tab w1:t1 --split down --target-pane w1:p2 --ratio 0.6 --no-focus

@@ -4,7 +4,8 @@
 # at the full height of the tab, and prints its id. The other panes keep their ids, layout, ratios
 # and processes. Focus goes to the new pane with --focus, else back to the pane that had it.
 # With --run, the new pane is a pane of the plugin local.mux: it runs <command> with sh, and has no
-# interactive shell.
+# interactive shell. Its label is the program name of <command>, for example nvim for
+# "exec nvim --remote-ui", or tuicr for "exec '/bin/tuicr.sh' pane".
 #
 # herdr 0.9.5 can split only one pane. A pane move inside the same tab changes nothing, and
 # layout.apply makes new panes, which stops their processes. A move to another tab keeps the pane
@@ -92,6 +93,8 @@ if [[ -n $command ]]; then
     --target-pane "$anchor" --direction right --cwd "$cwd" --env "MUX_COMMAND=$command" \
     --no-focus) || broken "$out"
   new=$(jq -r '.result.plugin_pane.pane.pane_id' <<<"$out")
+  label=${command#exec } label=${label%% *} label=${label//[\'\"]/} label=${label##*/}
+  run pane rename "$new" "${label%.sh}" >/dev/null
   # A plugin pane opens with no --ratio. The tab is only the anchor and the new pane now.
   params=$(jq -nc --arg tab "$tab" --argjson ratio "$ratio" '{tab_id: $tab, path: [], ratio: $ratio}')
   (rpc layout.set_split_ratio "$params" >/dev/null) || broken "layout.set_split_ratio failed"
