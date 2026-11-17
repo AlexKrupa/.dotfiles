@@ -78,7 +78,10 @@ show() {
     esac
   fi
   if [ ! -e "$sock" ]; then
-    (cd "$cwd" && exec nohup nvim --headless --listen "$sock") >/dev/null 2>&1 &
+    # A new session: a close of the tab of the caller, for example the pluck picker, stops its
+    # process group. macOS has no setsid command.
+    (cd "$cwd" && exec perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV or die' \
+      nvim --headless --listen "$sock") </dev/null >/dev/null 2>&1 &
     tries=0
     until answers "$sock"; do
       tries=$((tries + 1))
