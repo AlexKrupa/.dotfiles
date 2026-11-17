@@ -1,0 +1,14 @@
+id = "local.mux"
+name = "mux"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Panes that run a command with no interactive shell, for agents/bin/mux.sh"
+platforms = ["macos"]
+
+# mux/herdr-tab-split.sh opens this pane with the command in MUX_COMMAND. With no interactive shell,
+# the pane shows no prompt and no echo of the command.
+[[panes]]
+id = "run"
+title = "run"
+placement = "split"
+command = ["sh", "-c", "eval \"$MUX_COMMAND\""]
