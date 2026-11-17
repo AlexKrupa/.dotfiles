@@ -13,7 +13,8 @@
 #
 # POSIX sh, not fish: this is key-bound.
 
-# A plugin command can have no agents/bin on its PATH. At the end, a fake mux.sh of a test wins.
+# A plugin command can have no agents/bin on its PATH. It goes last: a mux.sh earlier on the PATH,
+# for example a test fake, runs first.
 PATH=$PATH:$HOME/.config/agents/bin
 state=${TMPDIR:-/tmp}/nvim-sidebar
 
@@ -46,7 +47,7 @@ pane_in_tab() { # pane_in_tab <pane> <tab>
   herdr pane get "$1" 2>/dev/null | jq -e --arg tab "$2" '.result.pane.tab_id == $tab' >/dev/null
 }
 
-# The server does not close the connection after it replies. Without -w 3, nc waits for ever.
+# The server does not close the connection after it replies. Without -w 3, nc waits forever.
 focus() {
   printf '{"id":"rpc","method":"pane.focus","params":{"pane_id":"%s"}}\n' "$1" |
     nc -U -w 3 "$HERDR_SOCKET_PATH" >/dev/null

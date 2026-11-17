@@ -25,7 +25,7 @@ run() {
   return 1
 }
 
-# The CLI has no layout tree and no focus without a tab switch, so these go to the socket.
+# The CLI has no layout tree and no focus without a tab switch. These calls use the socket.
 rpc() {
   local response
   response=$(printf '{"id":"rpc","method":"%s","params":%s}\n' "$1" "$2" |
@@ -48,14 +48,14 @@ tab=$(jq -r '.result.pane.tab_id' <<<"$out") || exit 1
 
 lock=${TMPDIR:-/tmp}/tab-split/${tab//:/_}.lock
 mkdir -p "${lock%/*}" || exit 1
-if ! mkdir "$lock" 2>/dev/null; then
-  pid=$(cat "$lock/pid" 2>/dev/null)
-  if [[ -n $pid ]] && kill -0 "$pid" 2>/dev/null; then die "tab-split already runs in this tab"; fi
-  rm -rf "$lock"
-  mkdir "$lock" 2>/dev/null || die "tab-split already runs in this tab"
+# A symlink to the PID: the lock and its PID come in one atomic step.
+if ! ln -s "$$" "$lock" 2>/dev/null; then
+  pid=$(readlink "$lock")
+  if kill -0 "$pid" 2>/dev/null; then die "tab-split already runs in this tab"; fi
+  rm -f "$lock"
+  ln -s "$$" "$lock" 2>/dev/null || die "tab-split already runs in this tab"
 fi
-trap 'rm -rf "$lock"' EXIT
-echo $$ >"$lock/pid"
+trap 'rm -f "$lock"' EXIT
 
 layout=$(rpc layout.export "$(jq -nc --arg tab "$tab" '{tab_id: $tab}')") || exit 1
 if jq -e '.result.layout.zoomed' <<<"$layout" >/dev/null; then
@@ -68,7 +68,7 @@ plan=$(jq -c -L "${BASH_SOURCE[0]%/*}" 'include "tab-split"; tab_split_plan' <<<
 parking=
 while read -r id; do
   if [[ -z $parking ]]; then
-    out=$(run pane move "$id" --new-tab --label tab-split --no-focus) || broken "$out"
+    out=$(run pane move "$id" --new-tab --label tab-split --no-focus) || die "$out"
     parking=$(jq -r '.result.move_result.pane.tab_id' <<<"$out")
   else
     out=$(run pane move "$id" --tab "$parking" --split right --no-focus) || broken "$out"

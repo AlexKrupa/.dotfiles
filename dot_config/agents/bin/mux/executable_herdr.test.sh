@@ -224,35 +224,46 @@ herdr pane zoom w1:p1 --off
 herdr pane split --pane w1:p1 --direction right --ratio 0.5 --cwd /r --no-focus
 $(focus_call w1:p1)" "w1:p9" '{}' -- tab-split w1:p1 /r
 
-mkdir -p "$lock" && echo $$ >"$lock/pid"
+mkdir -p "${lock%/*}" && ln -s $$ "$lock"
 : >"$MOCK_LOG"
 err=$(MOCK_NC_OUT=$alone "$script" tab-split w1:p1 /r 2>&1 >/dev/null); code=$?
 check "tab-split while another run holds the lock: exit 1 and the message" \
   "1 mux/herdr: tab-split already runs in this tab" "$code $err"
 check "tab-split while another run holds the lock: no change" "herdr pane get w1:p1" \
   "$(cat "$MOCK_LOG")"
-check "tab-split while another run holds the lock: the lock stays" "$$" "$(cat "$lock/pid")"
-rm -rf "$lock"
+check "tab-split while another run holds the lock: the lock stays" "$$" "$(readlink "$lock")"
+rm -f "$lock"
 
-mkdir -p "$lock" && echo 999999 >"$lock/pid"
+ln -s 999999 "$lock"
 MOCK_NC_OUT=$alone operation "tab-split with the lock of a dead run" "herdr pane get w1:p1
 $export_call
 herdr pane split --pane w1:p1 --direction right --ratio 0.5 --cwd /r --no-focus
 $(focus_call w1:p1)" "w1:p9" '{}' -- tab-split w1:p1 /r
 check "tab-split with the lock of a dead run: no lock after the run" "no lock" \
-  "$([ -e "$lock" ] && echo lock || echo no lock)"
+  "$([ -L "$lock" ] && echo lock || echo no lock)"
 
 : >"$MOCK_LOG"
 err=$(MOCK_NC_OUT=$mixed MOCK_FAIL_pane_move=1 "$script" tab-split w1:p1 /r 2>&1 >/dev/null)
 code=$?
-check "tab-split with a failed move: exit 1 and the herdr message" \
+check "tab-split with a failed first move: exit 1 and the herdr message" \
   "1 mux/herdr: pane w1:p2 not found" "$code $err"
-check "tab-split with a failed move: a notification and no other call" "herdr pane get w1:p1
+check "tab-split with a failed first move: no notification, no other call" "herdr pane get w1:p1
+$export_call
+herdr pane move w1:p2 --new-tab --label tab-split --no-focus" "$(cat "$MOCK_LOG")"
+
+: >"$MOCK_LOG"
+err=$(MOCK_NC_OUT=$mixed MOCK_FAIL_pane_split=1 "$script" tab-split w1:p1 /r 2>&1 >/dev/null)
+code=$?
+check "tab-split with a failed split after the park: exit 1" 1 "$code"
+check "tab-split with a failed split after the park: a notification and no other call" \
+  "herdr pane get w1:p1
 $export_call
 herdr pane move w1:p2 --new-tab --label tab-split --no-focus
-herdr notification show tab-split failed --body pane w1:p2 not found. The other panes are in the tab-split tab. --sound request" \
+herdr pane move w1:p3 --tab w1:t5 --split right --no-focus
+herdr pane split --pane w1:p1 --direction right --ratio 0.6666666666666666 --cwd /r --no-focus
+herdr notification show tab-split failed --body pane --pane not found. The other panes are in the tab-split tab. --sound request" \
   "$(cat "$MOCK_LOG")"
-check "tab-split with a failed move: no lock after the run" "no lock" \
-  "$([ -e "$lock" ] && echo lock || echo no lock)"
+check "tab-split with a failed split after the park: no lock after the run" "no lock" \
+  "$([ -L "$lock" ] && echo lock || echo no lock)"
 
 exit $fail

@@ -11,7 +11,7 @@
 # - pane-current: the pane id of this process
 # - pane-cwd <pane>: the cwd of the foreground program, else of the pane
 # - pane-split <pane> <cwd> [--focus]: the id of a new pane to the right
-# - tab-split <pane> <cwd> [--focus]: the id of a new pane on the right edge of the tab, at full height
+# - tab-split <pane> <cwd> [--focus]: the id of a new full-height pane on the right edge of the tab
 # - pane-run <pane> <command>
 # - pane-rename <pane> <label>
 # - repo-pane <folder>: the id of a pane in <folder> or below it. Exit 1 if there is none.
