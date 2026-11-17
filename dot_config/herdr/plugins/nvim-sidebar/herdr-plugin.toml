@@ -1,0 +1,24 @@
+id = "local.nvim-sidebar"
+name = "nvim sidebar"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "A full-height nvim on the right edge of the tab, one nvim for each tab"
+platforms = ["macos"]
+
+[[actions]]
+id = "toggle"
+title = "nvim sidebar: toggle"
+contexts = ["pane", "workspace"]
+command = ["../../bin/nvim-sidebar.sh", "toggle"]
+
+[[events]]
+on = "tab.closed"
+command = ["../../bin/nvim-sidebar.sh", "on-event"]
+
+[[events]]
+on = "workspace.closed"
+command = ["../../bin/nvim-sidebar.sh", "on-event"]
+
+# After a herdr restart, the nvim of each tab that did not come back stops.
+[[startup]]
+command = ["../../bin/nvim-sidebar.sh", "gc"]
