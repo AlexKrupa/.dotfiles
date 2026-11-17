@@ -20,7 +20,7 @@
     "commands": true,
     "shell": true,
     "highlight": true,
-    "hints": false,
+    "hints": true,
     "links": true,
     "copy": true,
     "fold": false,
