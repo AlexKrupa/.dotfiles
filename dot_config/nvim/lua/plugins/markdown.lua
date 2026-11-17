@@ -16,7 +16,7 @@ return {
         MkdnUnfoldSection = { 'n', '<leader>zo' },
         -- The default <leader>p collides with the vimrc paste mappings.
         MkdnCreateLinkFromClipboard = { { 'n', 'v' }, '<leader>pp' },
-        -- The default <leader>a* collides with the herdr-nvim comment prefix.
+        -- <leader>m holds the markdown keys.
         MkdnTableAlignLeft = { 'n', '<leader>mal' },
         MkdnTableAlignRight = { 'n', '<leader>mar' },
         MkdnTableAlignCenter = { 'n', '<leader>mac' },

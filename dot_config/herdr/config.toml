@@ -287,7 +287,7 @@ description = "toggle review pane"
 [[keys.command]]
 key = "alt+d"
 type = "plugin_action"
-command = "chmarax.herdr-nvim.toggle"
+command = "local.nvim-sidebar.toggle"
 description = "nvim sidebar"
 
 # --- Custom commands: tuicr ---

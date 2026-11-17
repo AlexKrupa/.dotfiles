@@ -1,5 +1,6 @@
 #!/bin/sh
-# tuicr in a split next to an agent pane, and its comments sent back to it.
+# tuicr in a full-height pane on the right edge of the tab of an agent pane, and
+# its comments sent back to that agent.
 #
 #   tuicr.sh branch <pane>   review the branch against its stack parent in a
 #                            zoomed pane, or refresh the open `branch` pane
@@ -9,10 +10,10 @@
 #                            agent and unzoom the pane
 #
 # <pane> is the active pane of the multiplexer key binding. `branch` and `mr`
-# split it. A `branch` split runs `tuicr.sh pane`, which keeps the agent pane
-# ID, the repo and its own PID in a state dir named by its own pane ID. `send`
-# finds that dir from <pane>. It ignores `mr` panes and each tuicr that this
-# script did not open.
+# open a full-height pane on the right edge of its tab. A `branch` pane runs
+# `tuicr.sh pane`, which keeps the agent pane ID, the repo and its own PID in a
+# state dir named by its own pane ID. `send` finds that dir from <pane>. It
+# ignores `mr` panes and each tuicr that this script did not open.
 #
 # tuicr resolves `-r` to commit IDs at startup, and neither `:e` nor
 # `diff_watch_interval_ms` resolves it again. So `branch` from a `branch` pane,
@@ -128,7 +129,7 @@ case $1 in
       cmd="exec tuicr"
     fi
     cwd=$("$mux" pane-cwd "$active")
-    split=$("$mux" pane-split "$active" "${cwd:-$PWD}" --focus) || exit 1
+    split=$("$mux" tab-split "$active" "${cwd:-$PWD}" --focus) || exit 1
     "$mux" pane-run "$split" "$cmd" || exit 1
     [ "$1" = branch ] || exit 0
     exec "$mux" pane-zoom "$split" on

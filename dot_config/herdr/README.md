@@ -2,19 +2,20 @@
 
 ## What is here
 
-| Path                      | Purpose                                                         |
-| ------------------------- | --------------------------------------------------------------- |
-| `config.toml`             | All settings and keybindings                                    |
-| `bin/`                    | Scripts run by keybindings and plugins                          |
-| `plugins/balance-panes/`  | If a pane's process ends on its own, even out its tab           |
-| `plugins/worktree-links/` | Symlink gitignored files into new worktrees                     |
-| `plugins/labels/`         | Name tabs, number rows, group agents by repo, show watch glyphs |
-| `plugins/caffeinate/`     | Keep the Mac awake while an agent works                         |
-| `plugins/watch/`          | Watch notifications and sidebar watch values                    |
-| `plugins/config/`         | Configuration for installed plugins                             |
-| `projects.local`          | Machine-local project paths, not in the dotfiles                |
-| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`       |
-| `setup.sh`                | Installs and links every plugin                                 |
+| Path                      | Purpose                                                            |
+| ------------------------- | ------------------------------------------------------------------ |
+| `config.toml`             | All settings and keybindings                                       |
+| `bin/`                    | Scripts run by keybindings and plugins                             |
+| `plugins/balance-panes/`  | If a pane's process ends on its own, even out its tab              |
+| `plugins/worktree-links/` | Symlink gitignored files into new worktrees                        |
+| `plugins/labels/`         | Name tabs, number rows, group agents by repo, show watch glyphs    |
+| `plugins/caffeinate/`     | Keep the Mac awake while an agent works                            |
+| `plugins/watch/`          | Watch notifications and sidebar watch values                       |
+| `plugins/nvim-sidebar/`   | Toggle a full-height nvim on the right edge, one nvim for each tab |
+| `plugins/config/`         | Configuration for installed plugins                                |
+| `projects.local`          | Machine-local project paths, not in the dotfiles                   |
+| `forks.conf`              | Forks of installed plugins, rebased by `herdr-forks-sync`          |
+| `setup.sh`                | Installs and links every plugin                                    |
 
 herdr owns `plugins/github/`, `plugins.json`, `session.json` and the `.log` and `.sock` files. Leave
 those alone.
@@ -35,9 +36,9 @@ deletes a branch that is not merged, but not if a branch is above it.
 `herdr-forks-sync` rebases only the clone. Uppercase hints open the match with `bin/pluck-open`
 instead of copying it.
 
-`~/.config/agents/bin/tuicr.sh` opens tuicr (https://tuicr.dev) in a zoomed split next to an
-agent pane and sends its comments to that agent while tuicr stays open. `alt+shift+a` sends the
-comments and unzooms the tuicr pane. It finds the stack parent with
+`~/.config/agents/bin/tuicr.sh` opens tuicr (https://tuicr.dev) in a zoomed full-height pane on
+the right edge of the tab of an agent pane and sends its comments to that agent while tuicr stays
+open. `alt+shift+a` sends the comments and unzooms the tuicr pane. It finds the stack parent with
 `~/.config/agents/bin/git-diff-context.sh`. After new commits or an amend, press `alt+a` again in
 the tuicr pane or its agent pane to refresh it. The refresh sends the unsent comments first.
 

@@ -58,6 +58,7 @@ case $operation in
     query '.result.pane.pane_id' \
       pane split --pane "$1" --direction right --cwd "$2" ${focus[@]+"${focus[@]}"}
     ;;
+  tab-split) exec "${BASH_SOURCE[0]%/*}/herdr-tab-split.sh" "$@" ;;
   pane-run) call pane run "$1" "$2" ;;
   pane-rename) call pane rename "$1" "$2" ;;
   pane-read) run agent read "$1" --source recent --lines "$2" ;;

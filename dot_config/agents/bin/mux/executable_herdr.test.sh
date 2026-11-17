@@ -14,16 +14,30 @@ check() {
 
 # Fake herdr: logs each call on one line, with "|" for newlines in the arguments. Prints
 # $MOCK_OUT, default {}. MOCK_FAIL=1 prints an error to stderr and exits 1. MOCK_ERROR prints its
-# value to stderr and exits 1.
+# value to stderr and exits 1. For the subcommand "pane get", MOCK_OUT_pane_get replaces MOCK_OUT
+# and MOCK_FAIL_pane_get=1 prints a JSON error and exits 1.
 mkdir -p "$tmp/bin"
 cat >"$tmp/bin/herdr" <<'EOF'
 #!/bin/sh
 printf 'herdr %s' "$*" | tr '\n' '|' >>"$MOCK_LOG"; echo >>"$MOCK_LOG"
 if [ -n "${MOCK_FAIL:-}" ]; then echo 'herdr: pane w1:p9 not found' >&2; exit 1; fi
 if [ -n "${MOCK_ERROR:-}" ]; then printf '%s\n' "$MOCK_ERROR" >&2; exit 1; fi
-printf '%s\n' "${MOCK_OUT:-{\}}"
+command=$(printf '%s_%s' "$1" "${2:-}" | tr -c 'A-Za-z0-9_' _)
+eval "failed=\${MOCK_FAIL_$command:-} out=\${MOCK_OUT_$command:-}"
+if [ -n "$failed" ]; then
+  printf '{"error":{"code":"pane_not_found","message":"pane %s not found"}}\n' "$3" >&2; exit 1
+fi
+if [ -n "$out" ]; then printf '%s\n' "$out"; else printf '%s\n' "${MOCK_OUT:-{\}}"; fi
 EOF
 chmod +x "$tmp/bin/herdr"
+
+# Fake nc: logs its stdin as "nc <stdin>" and prints $MOCK_NC_OUT, default {}.
+cat >"$tmp/bin/nc" <<'EOF'
+#!/bin/sh
+printf 'nc %s\n' "$(cat)" >>"$MOCK_LOG"
+printf '%s\n' "${MOCK_NC_OUT:-{\}}"
+EOF
+chmod +x "$tmp/bin/nc"
 export PATH="$tmp/bin:$PATH" MOCK_LOG="$tmp/calls.log"
 
 # Usage: operation NAME CALLS OUTPUT MOCK_OUT -- ARGUMENTS. Runs the script with ARGUMENTS and
@@ -168,5 +182,77 @@ err=$(MOCK_ERROR='{"error":{"code":"agent_not_ready"}}' \
   "$script" agent-start w1:p1 feat claude -- 2>&1 >/dev/null); code=$?
 check "agent-start with an agent that is not ready: exit 6 and the code" "6 agent_not_ready" \
   "$code $err"
+
+export TMPDIR=$tmp HERDR_SOCKET_PATH=$tmp/herdr.sock \
+  MOCK_OUT_pane_get='{"result":{"pane":{"tab_id":"w1:t1"}}}' \
+  MOCK_OUT_pane_split='{"result":{"pane":{"pane_id":"w1:p9"}}}' \
+  MOCK_OUT_pane_move='{"result":{"move_result":{"pane":{"tab_id":"w1:t5"}}}}'
+lock=$tmp/tab-split/w1_t1.lock
+
+leaf() { printf '{"type":"pane","pane_id":"%s"}' "$1"; }
+node() { printf '{"type":"split","direction":"%s","ratio":%s,"first":%s,"second":%s}' "$@"; }
+# Usage: layout ZOOMED ROOT. The pane w1:p1 has focus.
+layout() {
+  printf '{"id":"rpc","result":{"type":"layout_export","layout":{"tab_id":"w1:t1","zoomed":%s,"focused_pane_id":"w1:p1","root":%s}}}' \
+    "$1" "$2"
+}
+alone=$(layout false "$(leaf w1:p1)")
+# w1:p1 | (w1:p2 / w1:p3)
+mixed=$(layout false "$(node right 0.3 "$(leaf w1:p1)" "$(node down 0.6 "$(leaf w1:p2)" "$(leaf w1:p3)")")")
+export_call='nc {"id":"rpc","method":"layout.export","params":{"tab_id":"w1:t1"}}'
+focus_call() { printf 'nc {"id":"rpc","method":"pane.focus","params":{"pane_id":"%s"}}' "$1"; }
+mixed_moves="herdr pane move w1:p2 --new-tab --label tab-split --no-focus
+herdr pane move w1:p3 --tab w1:t5 --split right --no-focus
+herdr pane split --pane w1:p1 --direction right --ratio 0.6666666666666666 --cwd /r --no-focus
+herdr pane move w1:p2 --tab w1:t1 --split right --target-pane w1:p1 --ratio 0.3 --no-focus
+herdr pane move w1:p3 --tab w1:t1 --split down --target-pane w1:p2 --ratio 0.6 --no-focus"
+
+MOCK_NC_OUT=$alone operation "tab-split with one pane" "herdr pane get w1:p1
+$export_call
+herdr pane split --pane w1:p1 --direction right --ratio 0.5 --cwd /my repo --no-focus
+$(focus_call w1:p1)" "w1:p9" '{}' -- tab-split w1:p1 "/my repo"
+
+MOCK_NC_OUT=$mixed operation "tab-split with a | (b / c) and --focus" "herdr pane get w1:p1
+$export_call
+$mixed_moves
+$(focus_call w1:p9)" "w1:p9" '{}' -- tab-split w1:p1 /r --focus
+
+MOCK_NC_OUT=$(layout true "$(leaf w1:p1)") operation "tab-split in a zoomed tab" \
+  "herdr pane get w1:p1
+$export_call
+herdr pane zoom w1:p1 --off
+herdr pane split --pane w1:p1 --direction right --ratio 0.5 --cwd /r --no-focus
+$(focus_call w1:p1)" "w1:p9" '{}' -- tab-split w1:p1 /r
+
+mkdir -p "$lock" && echo $$ >"$lock/pid"
+: >"$MOCK_LOG"
+err=$(MOCK_NC_OUT=$alone "$script" tab-split w1:p1 /r 2>&1 >/dev/null); code=$?
+check "tab-split while another run holds the lock: exit 1 and the message" \
+  "1 mux/herdr: tab-split already runs in this tab" "$code $err"
+check "tab-split while another run holds the lock: no change" "herdr pane get w1:p1" \
+  "$(cat "$MOCK_LOG")"
+check "tab-split while another run holds the lock: the lock stays" "$$" "$(cat "$lock/pid")"
+rm -rf "$lock"
+
+mkdir -p "$lock" && echo 999999 >"$lock/pid"
+MOCK_NC_OUT=$alone operation "tab-split with the lock of a dead run" "herdr pane get w1:p1
+$export_call
+herdr pane split --pane w1:p1 --direction right --ratio 0.5 --cwd /r --no-focus
+$(focus_call w1:p1)" "w1:p9" '{}' -- tab-split w1:p1 /r
+check "tab-split with the lock of a dead run: no lock after the run" "no lock" \
+  "$([ -e "$lock" ] && echo lock || echo no lock)"
+
+: >"$MOCK_LOG"
+err=$(MOCK_NC_OUT=$mixed MOCK_FAIL_pane_move=1 "$script" tab-split w1:p1 /r 2>&1 >/dev/null)
+code=$?
+check "tab-split with a failed move: exit 1 and the herdr message" \
+  "1 mux/herdr: pane w1:p2 not found" "$code $err"
+check "tab-split with a failed move: a notification and no other call" "herdr pane get w1:p1
+$export_call
+herdr pane move w1:p2 --new-tab --label tab-split --no-focus
+herdr notification show tab-split failed --body pane w1:p2 not found. The other panes are in the tab-split tab. --sound request" \
+  "$(cat "$MOCK_LOG")"
+check "tab-split with a failed move: no lock after the run" "no lock" \
+  "$([ -e "$lock" ] && echo lock || echo no lock)"
 
 exit $fail

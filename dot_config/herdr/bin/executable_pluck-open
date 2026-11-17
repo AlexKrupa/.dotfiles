@@ -38,13 +38,11 @@ if [ -f "$match" ]; then
   enc=$(file -b --mime-encoding -- "$match" 2>/dev/null || echo binary)
   # `file` reports an empty file as binary.
   [ "$enc" != "binary" ] || [ ! -s "$match" ] || exec open "$match"
-  # open-link is the Ctrl+click handler. It takes its input from these env vars and
-  # rejects a bare filename, hence the absolute path.
+  # The nvim of the sidebar has its own cwd, hence the absolute path. The picker tab is still
+  # focused here, so the sidebar gets the source tab and pane from the environment.
   match="$(cd "$(dirname "$match")" && pwd)/$(basename "$match")"
-  nvim_plugin=$(ls -d "$HOME"/.config/herdr/plugins/github/chmarax.herdr-nvim-*/ | head -1)
-  HERDR_PLUGIN_CLICKED_URL="$match" HERDR_PANE_ID="$HERDR_PLUCK_PANE_ID" \
-    HERDR_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_WORKSPACE_ID="${HERDR_PLUCK_TAB_ID%%:*}" \
-    exec "$nvim_plugin/bin/herdr-nvim" open-link
+  HERDR_TAB_ID="$HERDR_PLUCK_TAB_ID" HERDR_PANE_ID="$HERDR_PLUCK_PANE_ID" \
+    exec "$bin/nvim-sidebar.sh" open "$match"
 fi
 
 if [ -d "$match" ]; then

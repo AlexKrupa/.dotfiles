@@ -11,7 +11,6 @@ github_plugins=(
   thanhdat77/herdr-navigator
   iurysza/termscope
   persiyanov/herdr-reviewr
-  ChmaraX/herdr-nvim
 )
 
 local_plugins=(
@@ -20,6 +19,7 @@ local_plugins=(
   "$PWD/plugins/labels"
   "$PWD/plugins/caffeinate"
   "$PWD/plugins/watch"
+  "$PWD/plugins/nvim-sidebar"
 )
 
 # A local clone of the herdr-pluck fork is for plugin development and for

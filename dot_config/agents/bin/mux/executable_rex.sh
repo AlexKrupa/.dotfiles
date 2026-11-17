@@ -107,7 +107,7 @@ case $operation in
     exit 1
     ;;
   pane-cwd) pane_cwd "$1" ;;
-  pane-split)
+  pane-split | tab-split)
     focus=false
     if [[ ${3:-} == --focus ]]; then focus=true; fi
     query '.block_ids[0]' split -b "$1" --split right --cwd "$2" "--focus=$focus" --json

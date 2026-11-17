@@ -12,7 +12,7 @@ check() {
 }
 
 # The script runs the mux.sh in its own folder, so the copy gets a fake beside it. The fake logs
-# each call on one line. pane-split gives the pane S. agent-prompt writes the text to
+# each call on one line. tab-split gives the pane S. agent-prompt writes the text to
 # $MOCK_PROMPT, or with MOCK_PROMPT_FAIL prints it to stderr and exits 1. pane-current gives
 # $MOCK_PANE, and fails when it is empty.
 mkdir -p "$tmp/script" "$tmp/bin" "$tmp/tuicr-bin"
@@ -23,7 +23,7 @@ cat >"$tmp/script/mux.sh" <<'EOF'
 printf '%s\n' "$*" >>"$MOCK_LOG"
 case $1 in
   pane-cwd) echo /cwd ;;
-  pane-split) echo S ;;
+  tab-split) echo S ;;
   pane-current) [ -n "${MOCK_PANE:-}" ] || { echo "mux: not in herdr or Rex" >&2; exit 4; }
     echo "$MOCK_PANE" ;;
   agent-prompt)
@@ -63,7 +63,7 @@ branch_pane() {
 "$script" branch A; code=$?
 check "branch opens a zoomed tuicr pane next to the active pane" "0
 pane-cwd A
-pane-split A /cwd --focus
+tab-split A /cwd --focus
 pane-run S exec '$script' pane 'A'
 pane-zoom S on" "$code
 $(cat "$MOCK_LOG")"
@@ -72,7 +72,7 @@ $(cat "$MOCK_LOG")"
 "$script" mr A; code=$?
 check "mr opens the target selector, not zoomed" "0
 pane-cwd A
-pane-split A /cwd --focus
+tab-split A /cwd --focus
 pane-run S exec tuicr" "$code
 $(cat "$MOCK_LOG")"
 

@@ -54,6 +54,9 @@ operation pane-split "rex split -b b1 --split right --cwd /my repo --focus=false
 operation "pane-split --focus" "rex split -b b1 --split right --cwd /r --focus=true --json" "b2" \
   '{"anchor_id":"b1","block_ids":["b2"]}' -- pane-split b1 /r --focus
 
+operation "tab-split is pane-split" "rex split -b b1 --split right --cwd /r --focus=true --json" \
+  "b2" '{"anchor_id":"b1","block_ids":["b2"]}' -- tab-split b1 /r --focus
+
 operation pane-run "rex block call -b b1 pwd
 rex send -b b1 echo 'a b'
 rex send-key -b b1 enter" "" '{"pwd":"file://host/repo"}' -- pane-run b1 "echo 'a b'"
