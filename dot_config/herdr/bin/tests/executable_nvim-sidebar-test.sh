@@ -86,7 +86,8 @@ reset() {
 calls() { grep -v -- '--remote-expr 1$' "$MOCK_LOG"; }
 files() { (cd "$state" && ls | tr '\n' ' '); }
 
-opened="mux.sh tab-split w1:p1 $tmp/work --focus --run exec nvim --remote-ui --server '$sock'"
+opened="mux.sh tab-split w1:p1 $tmp/work --focus --run exec nvim --remote-ui --server '$sock'
+mux.sh pane-rename w1:p9 nvim"
 
 reset
 "$script" toggle
