@@ -107,7 +107,9 @@ folder in `integrations/`.
 - `evals/` - the shared eval code: `harness.py` (run, isolation, timing, common checks),
   `compare.py`, `snapshot.sh`, `fixture-lib.sh`. An eval run loads `instructions-agents.md` and
   only the skills in the `skills` list of `evals.json`. The default list is `skill_name`. The run
-  does not load auto memory, MCP servers, or plugins.
+  does not load auto memory, MCP servers, or plugins. No job starts at 80% 5-hour or 50% 7-day
+  subscription usage (`--max-5h`, `--max-7d`). A second call with the same iteration dir runs only
+  the runs that are missing or ended in an error.
 
 ## Scripts
 

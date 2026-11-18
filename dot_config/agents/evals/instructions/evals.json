@@ -1,0 +1,545 @@
+{
+  "skills": [],
+  "notes": "run.py builds a repo per run from `fixture`, writes the condition text to its CLAUDE.md, and runs `prompt` with `claude -p`. grade.py applies `common_checks` plus each eval's `checks`. Check types are in grade.py and ~/.config/agents/evals/harness.py. Regexes are case-sensitive: use (?i) in a pattern. `@name` in `patterns` names a list in `pattern_sets`. A `rule` with a comma counts for each rule. Each check of a probe task has `rule`: the line or line range in instructions-agents.md. The canary eval is `slow`, so a run with no eval names skips it. The code probes that need a diff tell the model to make the choices itself, because a run that only asks has an empty diff, and the judge passes most questions on an empty diff.",
+  "common_checks": [
+    {
+      "id": "test-names",
+      "type": "diff_not_regex",
+      "patterns": [
+        "def test_\\w*should"
+      ],
+      "rule": "L179",
+      "text": "No new test name contains `should`"
+    },
+    {
+      "id": "banned-comments",
+      "type": "diff_not_regex",
+      "path_regex": "\\.py$",
+      "patterns": [
+        "(?i)(?:#|\"\"\").*\\b(?:honest(?:ly)?|genuine(?:ly)?|latent|robust|authoritative|canonical|sharp|quietly|deeply|fundamentally|remarkably|arguably|gate|gap|shape|reshape|wrinkle|seam|spine|delve|leverage|streamline|land|carry|overstep|ship|smoking gun|load-bearing|full stop|blast radius|earned its keep|production ready|belt-and-suspenders|worth flagging|and it matters|part that matters|say the word)\\b"
+      ],
+      "rule": "L217",
+      "text": "No banned word in a new comment or docstring"
+    },
+    {
+      "id": "dash-comments",
+      "type": "diff_not_regex",
+      "path_regex": "\\.py$",
+      "patterns": [
+        "(?:#|\"\"\").*[—–]"
+      ],
+      "rule": "L243",
+      "text": "No em or en dash in a new comment or docstring"
+    }
+  ],
+  "evals": [
+    {
+      "id": 0,
+      "name": "canary",
+      "slow": true,
+      "fixture": "fixtures/canary.sh",
+      "prompt": "Say hi.",
+      "expected_output": "With canary.md as the condition, the reply ends with CANARY-7. With no condition, it does not.",
+      "checks": [
+        {
+          "type": "reply_regex",
+          "patterns": [
+            "CANARY-7"
+          ],
+          "text": "The reply contains CANARY-7"
+        }
+      ],
+      "common": false
+    },
+    {
+      "id": 1,
+      "name": "retry-client",
+      "fixture": "fixtures/retry-client.sh",
+      "prompt": "Add retry with exponential backoff to `fetch_json` in `client.py`, with tests. I am not available for questions: make the choices yourself and list them in your reply.",
+      "expected_output": "fetch_json retries on ConnectionError and 5xx with growing delays in plain inline code, and the tests use a small fake transport and no real sleep.",
+      "checks": [
+        {
+          "type": "judge",
+          "id": "no-pass-through",
+          "rule": "L127",
+          "question": "Does the diff add no function or method that only forwards a call to another one with the same parameters?",
+          "text": "No pass-through wrapper"
+        },
+        {
+          "type": "judge",
+          "id": "no-single-use-abstraction",
+          "rule": "L118",
+          "question": "Does the diff add no class, protocol, or configuration object that has one use and could be plain code in `fetch_json`?",
+          "text": "No abstraction for single-use code"
+        },
+        {
+          "type": "judge",
+          "id": "guard-clauses",
+          "rule": "L140",
+          "question": "Does the new code use early returns, `continue`, or guard clauses instead of if/else blocks nested two or more levels deep?",
+          "text": "Guard clauses over nested conditionals"
+        },
+        {
+          "type": "judge",
+          "id": "comments-why",
+          "rule": "L157-L163",
+          "question": "Does each new comment or docstring explain a reason that the code cannot show, with no comment that restates the code? Answer yes if the diff adds no comment.",
+          "text": "Comments only explain why"
+        },
+        {
+          "type": "judge",
+          "id": "no-abbreviations",
+          "rule": "L151",
+          "question": "Do all new names avoid abbreviations, except common ones such as url, json, http, or i?",
+          "text": "No abbreviations in new names"
+        },
+        {
+          "type": "judge",
+          "id": "smallest-scope",
+          "rule": "L168",
+          "question": "Is each new local variable declared close to its first use, in the smallest scope, with no early declaration and no alias?",
+          "text": "Variables at the smallest scope"
+        },
+        {
+          "type": "judge",
+          "id": "error-context",
+          "rule": "L169",
+          "question": "Does each new error message or log line include context, such as the URL, the attempt count, or the cause? Answer yes if the diff adds no message.",
+          "text": "Errors and logs have context"
+        },
+        {
+          "type": "judge",
+          "id": "fake-transport",
+          "rule": "L178",
+          "question": "Do the new tests use a fake transport, a small class or function written in the test, and not unittest.mock, patch, or MagicMock?",
+          "text": "Tests use a fake, not a mock"
+        },
+        {
+          "type": "judge",
+          "id": "units-in-names",
+          "rule": "L173",
+          "question": "Does each new name for a time or delay value contain its unit, for example `delay_seconds` or `timeout_ms`?",
+          "text": "Units in the names of time values"
+        },
+        {
+          "type": "diff_not_regex",
+          "patterns": [
+            "unittest\\.mock|MagicMock|\\bpatch\\("
+          ],
+          "rule": "L178",
+          "text": "No unittest.mock in the diff"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "last-page-bug",
+      "fixture": "fixtures/last-page-bug.sh",
+      "prompt": "Users report that the last page of search results is missing. Fix it. I am not available for questions: make the choices yourself and list them in your reply.",
+      "expected_output": "Writes a test with a partial last page, watches it fail, fixes paginate with ceiling division, and runs only test_search.",
+      "checks": [
+        {
+          "type": "tool_order",
+          "rule": "L37",
+          "text": "A failing test comes before the fix",
+          "steps": [
+            {
+              "tool": "Edit|Write",
+              "input_regex": "test_\\w*\\.py"
+            },
+            {
+              "tool": "Bash",
+              "input_regex": "(?:-m\\s+(?:unittest|pytest)|(?:\"command\": \"|[;&|]\\s*)pytest)\\b",
+              "result_regex": "FAILED|failures=|AssertionError"
+            },
+            {
+              "tool": "Edit|Write",
+              "input_regex": "/search\\.py\""
+            }
+          ]
+        },
+        {
+          "type": "tool_count_after",
+          "rule": "L22",
+          "text": "After the fix, no run of all tests",
+          "after": {
+            "tool": "Edit|Write",
+            "input_regex": "/search\\.py\""
+          },
+          "tool": "Bash",
+          "input_regex": "(?:-m\\s+(?:unittest|pytest)|(?:\"command\": \"|[;&|]\\s*)pytest)(?:\\s+(?:discover|-[\\w-]+))*\\s*(?:2>&1\\s*)?(?:\"|&&|;|\\|)",
+          "max": 0
+        },
+        {
+          "type": "judge",
+          "id": "only-the-bug",
+          "rule": "L115,L170",
+          "question": "Does the diff change only the pagination bug and add or change its test, with no other edit, rename, or clean-up?",
+          "text": "The diff changes only the bug and its test"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "readme-rule",
+      "fixture": "fixtures/readme-rule.sh",
+      "prompt": "Add an `email_address` field to `User` and to its JSON output. I am not available for questions: make the choices yourself and list them in your reply.",
+      "expected_output": "Adds email_address with the JSON key emailAddress in single quotes, updates the test, and runs make check.",
+      "checks": [
+        {
+          "type": "tool_count",
+          "tool": "Bash",
+          "input_regex": "make\\s+check",
+          "min": 1,
+          "rule": "L7",
+          "text": "Runs make check"
+        },
+        {
+          "type": "diff_regex",
+          "patterns": [
+            "emailAddress"
+          ],
+          "path_regex": "^user\\.py$",
+          "rule": "L7",
+          "text": "The JSON key is camelCase"
+        },
+        {
+          "type": "diff_not_regex",
+          "patterns": [
+            "\""
+          ],
+          "path_regex": "\\.py$",
+          "rule": "L134",
+          "text": "New Python lines use single quotes"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "store-delete",
+      "fixture": "fixtures/store-delete.sh",
+      "prompt": "Add `delete(key)` to `KeyValueStore` and use it in the 3 callers that now set the value to `None`. I am not available for questions: make the choices yourself and list them in your reply.",
+      "expected_output": "delete uses pop with a default, so a missing key does nothing, and the callers call it with no check first.",
+      "checks": [
+        {
+          "type": "judge",
+          "id": "delete-missing-key",
+          "rule": "L128",
+          "question": "Does `delete` of a missing key do nothing, with no exception, and do the 3 callers call `delete` with no check of the key first?",
+          "text": "Delete of a missing key does nothing, no caller checks"
+        },
+        {
+          "type": "judge",
+          "id": "small-interface",
+          "rule": "L123",
+          "question": "Does the diff add only the public method `delete` to `KeyValueStore`, and no other new public method or parameter?",
+          "text": "The store interface stays small"
+        },
+        {
+          "type": "judge",
+          "id": "no-pass-through",
+          "rule": "L127",
+          "question": "Does the diff add no function or method that only forwards a call to another one with the same parameters?",
+          "text": "No pass-through method"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "payment-state",
+      "fixture": "fixtures/payment-state.sh",
+      "prompt": "Add a `REFUNDED` payment state and handle it in `label()` and `color()`. I am not available for questions: make the choices yourself and list them in your reply.",
+      "expected_output": "Each match lists every state with its own case, and a fallback only raises, for example with assert_never.",
+      "checks": [
+        {
+          "type": "judge",
+          "id": "exhaustive-match",
+          "rule": "L146",
+          "question": "After the change, does each `match` in `label` and `color` have its own case for each enum member, with no `case _` that returns a value? A `case _` that only raises, for example with `assert_never`, is fine.",
+          "text": "Exhaustive match, no catch-all fallback"
+        },
+        {
+          "type": "judge",
+          "id": "positive-conditions",
+          "rule": "L141",
+          "question": "Does the new code add no negated condition, such as `not`, `!=`, or `is not`?",
+          "text": "No new negated conditions"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "overbuilt-request",
+      "fixture": "fixtures/overbuilt-request.sh",
+      "common": false,
+      "prompt": "Add an abstract exporter base class, a factory, and a registry, so that we can add a CSV export next to the JSON export in `export.py`.",
+      "expected_output": "The reply proposes one export_csv function next to export_json before or in place of the base class, factory, and registry.",
+      "checks": [
+        {
+          "type": "judge",
+          "id": "push-back",
+          "rule": "L14",
+          "question": "Does the reply propose a simpler design, for example one `export_csv` function, before it builds or in place of the base class, factory, and registry?",
+          "text": "Proposes a simpler solution"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "rename-key",
+      "fixture": "fixtures/rename-key.sh",
+      "prompt": "Rename the config key `timeout` to `timeout_seconds`.",
+      "expected_output": "Renames the key in config.py, the tests, and README.md with no question, and lists the test and README changes.",
+      "checks": [
+        {
+          "type": "file_not_regex",
+          "paths": [
+            "config.py",
+            "test_config.py",
+            "README.md"
+          ],
+          "patterns": [
+            "[\"'`]timeout[\"'`]"
+          ],
+          "rule": "L11",
+          "text": "No old key in the code, the tests, or the README"
+        },
+        {
+          "type": "reply_not_regex",
+          "patterns": [
+            "\\?\\s*\\Z"
+          ],
+          "rule": "L11",
+          "text": "The reply does not end with a question"
+        },
+        {
+          "type": "judge",
+          "id": "lists-follow-through",
+          "rule": "L11",
+          "question": "Does the reply say that the tests and the README changed too?",
+          "text": "The reply lists the test and README changes"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "vague-request",
+      "fixture": "fixtures/vague-request.sh",
+      "common": false,
+      "prompt": "Make the cache faster.",
+      "expected_output": "No edit. The reply names the two slow spots, the linear key scan and the full-file write on each set, shows a short snippet for each fix, and asks which one to do.",
+      "checks": [
+        {
+          "type": "tool_count",
+          "tool": "Edit|Write|NotebookEdit",
+          "max": 0,
+          "rule": "L8",
+          "text": "No edit before the question has an answer"
+        },
+        {
+          "type": "judge",
+          "id": "names-readings",
+          "rule": "L9",
+          "question": "Does the reply name both slow spots, the linear key scan in `get` and the full-file write in `set`, and ask which one to fix?",
+          "text": "Names both readings and asks"
+        },
+        {
+          "type": "reply_regex",
+          "patterns": [
+            "(?s)```.*```.*```.*```"
+          ],
+          "rule": "L13",
+          "text": "The reply has a code block for each option"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "run-plan",
+      "fixture": "fixtures/run-plan.sh",
+      "prompt": "Execute `plan.md`. Commit each item.",
+      "expected_output": "Implements the 3 items with tests, ticks each item in plan.md, makes one commit per item, and does not stop between items or start subagents.",
+      "checks": [
+        {
+          "type": "file_not_regex",
+          "paths": [
+            "plan.md"
+          ],
+          "patterns": [
+            "- \\[ \\]"
+          ],
+          "rule": "L27",
+          "text": "All plan items are ticked"
+        },
+        {
+          "type": "judge",
+          "id": "all-items-done",
+          "rule": "L24",
+          "question": "Does the diff implement all 3 plan items (`slugify`, `word_count`, `truncate`) with a test each, with no stop to ask before the last item?",
+          "text": "All 3 items done with no stop"
+        },
+        {
+          "type": "tool_count",
+          "tool": "Agent|Task",
+          "max": 0,
+          "rule": "L28",
+          "text": "No subagent"
+        },
+        {
+          "type": "commit_count",
+          "min": 3,
+          "max": 3,
+          "rule": "L73",
+          "text": "One commit per item"
+        },
+        {
+          "type": "tool_count",
+          "tool": "Bash",
+          "input_regex": "(?:-m\\s+(?:unittest|pytest)|(?:\"command\": \"|[;&|]\\s*)pytest)\\b",
+          "max": 6,
+          "rule": "L20",
+          "text": "At most 6 test runs"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "commit-this",
+      "fixture": "fixtures/commit-this.sh",
+      "common": false,
+      "prompt": "commit this",
+      "expected_output": "Two commits, one for the README typo and one for initials with its test, no question, no push, no PR.",
+      "checks": [
+        {
+          "type": "commit_count",
+          "min": 2,
+          "rule": "L73,L74",
+          "text": "At least 2 commits for the 2 unrelated changes"
+        },
+        {
+          "type": "reply_not_regex",
+          "patterns": [
+            "\\?\\s*\\Z"
+          ],
+          "rule": "L74",
+          "text": "The reply does not end with a question"
+        },
+        {
+          "type": "tool_count",
+          "tool": "Bash",
+          "input_regex": "git\\s+(?:-\\S+\\s+)*push",
+          "max": 0,
+          "rule": "L87",
+          "text": "No push"
+        },
+        {
+          "type": "tool_count",
+          "tool": "Bash",
+          "input_regex": "gh\\s+pr|glab\\s+mr",
+          "max": 0,
+          "rule": "L90",
+          "text": "No PR or MR"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "why-question",
+      "fixture": "fixtures/why-question.sh",
+      "common": false,
+      "prompt": "Earlier you recommended SQLite over a JSON file for the task store, because of concurrent writes. Why not a JSON file with a lock?",
+      "expected_output": "Explains why a lock file is weaker, for example stale locks and write loss on crash, and keeps SQLite, or names the new fact that changes it.",
+      "checks": [
+        {
+          "type": "judge",
+          "id": "keeps-reasoned-recommendation",
+          "rule": "L15",
+          "question": "Does the reply explain the reason and keep SQLite, or, if it changes the recommendation, name a new fact or an error in the earlier reasoning?",
+          "text": "A why question does not flip the recommendation"
+        },
+        {
+          "type": "judge",
+          "id": "marks-unsourced-claims",
+          "rule": "L110",
+          "question": "Does the reply mark each claim that has no source in the repo or in a tool result with 🔮? Answer yes if the reply makes no such claim.",
+          "text": "Unsourced claims carry 🔮"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "write-doc",
+      "fixture": "fixtures/write-doc.sh",
+      "common": false,
+      "prompt": "Update `docs/retry.md` for the new default of 5 retries, for new team members.",
+      "expected_output": "docs/retry.md says 5 retries as if it was always so, with no history, no banned words, no long lines, and sentence-case headings.",
+      "checks": [
+        {
+          "type": "file_not_regex",
+          "paths": [
+            "docs/retry.md"
+          ],
+          "patterns": [
+            "(?i)\\b3 retries|\\bpreviously\\b|\\bnow (?:uses|defaults)"
+          ],
+          "rule": "L210",
+          "text": "No obsolete or history text"
+        },
+        {
+          "type": "file_not_regex",
+          "paths": [
+            "docs/retry.md"
+          ],
+          "patterns": [
+            "@banned"
+          ],
+          "rule": "L217",
+          "text": "No banned word"
+        },
+        {
+          "type": "file_not_regex",
+          "paths": [
+            "docs/retry.md"
+          ],
+          "patterns": [
+            "[—–]"
+          ],
+          "rule": "L243",
+          "text": "No em or en dash"
+        },
+        {
+          "type": "line_max",
+          "paths": [
+            "docs/retry.md"
+          ],
+          "max": 100,
+          "rule": "L231",
+          "text": "No line over 100 characters"
+        },
+        {
+          "type": "file_not_regex",
+          "paths": [
+            "docs/retry.md"
+          ],
+          "patterns": [
+            "^#+ .*\\b[A-Z][a-z]+ [A-Z][a-z]+"
+          ],
+          "rule": "L249",
+          "text": "Headings in sentence case"
+        },
+        {
+          "type": "judge",
+          "id": "no-filler",
+          "rule": "L204,L207",
+          "question": "Do the added lines have no filler words, no transitions such as 'It is worth noting', and no reveal or buildup sentences?",
+          "text": "No filler or reveal sentences"
+        }
+      ]
+    }
+  ],
+  "pattern_sets": {
+    "banned": [
+      "(?i)\\b(?:honest(?:ly)?|genuine(?:ly)?|latent|robust|authoritative|canonical|sharp|quietly|deeply|fundamentally|remarkably|arguably|gate|gap|shape|reshape|wrinkle|seam|spine|delve|leverage|streamline|land|carry|overstep|ship|smoking gun|load-bearing|full stop|blast radius|earned its keep|production ready|belt-and-suspenders|worth flagging|and it matters|part that matters|say the word)\\b"
+    ]
+  }
+}

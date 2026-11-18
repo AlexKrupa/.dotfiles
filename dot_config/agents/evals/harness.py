@@ -103,9 +103,10 @@ def read_init(cmd, cwd):
     sys.exit(f"{cmd[0]} gave no system/init event before model output")
 
 
-def isolation_settings(keep):
+def isolation_settings(keep, extra=None):
     """Return the --settings JSON that turns off auto memory, plugins, and every skill except
-    `keep`. The skill and plugin lists come from the init event of a run in an empty dir."""
+    `keep`, merged with `extra`. The skill and plugin lists come from the init event of a run in
+    an empty dir."""
     with tempfile.TemporaryDirectory(prefix="eval-init-") as cwd:
         init = read_init(["claude", "-p", "init only", "--output-format", "stream-json",
                           "--verbose", "--no-session-persistence"], cwd)
@@ -118,6 +119,7 @@ def isolation_settings(keep):
         "autoMemoryEnabled": False,
         "enabledPlugins": {p: False for p in plugins},
         "skillOverrides": {s: "off" for s in init["skills"] if s not in keep},
+        **(extra or {}),
     })
 
 
@@ -149,11 +151,13 @@ def instructions_sha():
     return digest.hexdigest()[:12]
 
 
-def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, effort, settings):
+def run_claude(prompt, cwd, run_dir, allowed_tools, add_dirs, model, timeout, effort, settings,
+               extra_args=()):
     cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
            "--permission-mode", "dontAsk", "--allowedTools", allowed_tools,
            "--add-dir", *map(str, add_dirs), "--no-session-persistence",
-           "--settings", settings, "--strict-mcp-config", "--model", model, "--effort", effort]
+           "--settings", settings, "--strict-mcp-config", "--model", model, "--effort", effort,
+           *extra_args]
     env = claude_env()
     start = time.time()
     with open(run_dir / "transcript.jsonl", "w") as out, open(run_dir / "stderr.txt", "w") as err:
@@ -211,6 +215,37 @@ def load_transcript(run_dir):
             except json.JSONDecodeError:
                 pass
     return events
+
+
+def rate_limits(paths):
+    """Return the subscription usage of the newest `rate_limit_event` over the transcripts, or
+    None. The newest event is the last one of the newest file that has one. Usage is in percent."""
+    for path in sorted((p for p in paths if p.exists()), key=lambda p: p.stat().st_mtime, reverse=True):
+        windows = None
+        for line in path.read_text().splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") == "rate_limit_event":
+                windows = event.get("rate_limit_info", {}).get("unifiedWindows") or windows
+        if windows:
+            return {"five_hour": windows["five_hour"]["utilization"] * 100,
+                    "seven_day": windows["seven_day"]["utilization"] * 100,
+                    "five_hour_resets": windows["five_hour"]["resetsAt"],
+                    "seven_day_resets": windows["seven_day"]["resetsAt"]}
+    return None
+
+
+def guard_reason(limits, max_five_hour, max_seven_day):
+    """Return why no new job may start, or None if one may."""
+    if limits is None:
+        return None
+    for label, key, maximum in (("5h", "five_hour", max_five_hour), ("7d", "seven_day", max_seven_day)):
+        if limits[key] >= maximum:
+            resets = time.strftime("%a %H:%M", time.localtime(limits[f"{key}_resets"]))
+            return f"{label} usage {limits[key]:.0f}% >= {maximum:g}%, resets {resets}"
+    return None
 
 
 def tool_uses(transcript):
@@ -352,15 +387,38 @@ def grade_main(doc, evals_path, load_run, run_check):
                   + "".join(f"\n  FAIL {t}" for t in failed))
 
 
-def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, load_run, run_check):
+def is_done(run_dir):
+    """True if the run finished with no error. A resume skips it."""
+    timing = run_dir / "timing.json"
+    return timing.exists() and json.loads(timing.read_text()).get("is_error") is False
+
+
+def preflight(iteration):
+    """Run one short `claude -p` call to read the usage before the first job. Return its path."""
+    path = iteration / "preflight.jsonl"
+    with open(path, "w") as out:
+        subprocess.run(["claude", "-p", "ok", "--model", "claude-sonnet-5-5", "--tools", "",
+                        "--output-format", "stream-json", "--verbose", "--no-session-persistence"],
+                       env=claude_env(), stdout=out, stderr=subprocess.DEVNULL)
+    return path
+
+
+def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, load_run, run_check,
+             extra_settings=None, condition_args=None, config=CONFIG):
     """CLI for a skill's run.py.
 
     Usage: run.py <iteration-dir> [-n RUNS] [-j JOBS] [--model MODEL] [--effort LEVEL]
-                  [--timeout SEC] [--baseline] [EVAL ...]
+                  [--timeout SEC] [--max-5h PERCENT] [--max-7d PERCENT] [--baseline] [EVAL ...]
 
     `setup(ev, k, repos, run_dir)` builds the fixture and returns a dict with `repo` (the
     cwd for claude) and `prompt`. `collect(ev, ctx, run_dir)` saves the skill-specific outputs.
-    See `grade_run` for `load_run` and `run_check`.
+    See `grade_run` for `load_run` and `run_check`. `extra_settings` goes into the --settings
+    JSON. `condition_args(ev, ctx)` returns extra `claude` flags for a run. `config` is the name of
+    the config dir between the eval dir and the run dirs.
+
+    Usage guard: no job starts while the 5-hour or 7-day subscription usage is at or above the
+    limit. A later call with the same iteration dir runs again each run that has no
+    `timing.json` with `"is_error": false`.
     """
     p = argparse.ArgumentParser(description=doc, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("iteration_dir", type=Path)
@@ -370,6 +428,10 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
     p.add_argument("--model", default="opus")
     p.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], default="medium")
     p.add_argument("--timeout", type=int, default=900)
+    p.add_argument("--max-5h", type=float, default=80,
+                   help="start no job at this 5-hour usage percent or above")
+    p.add_argument("--max-7d", type=float, default=50,
+                   help="start no job at this 7-day usage percent or above")
     p.add_argument("--baseline", action="store_true",
                    help="run the evals that have a baseline_prompt, with all skills off")
     args = p.parse_args()
@@ -380,17 +442,27 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
     if unknown:
         sys.exit(f"unknown eval(s): {unknown}. Known: {list(by_name)}")
     selected = [by_name[n] for n in args.evals] or [ev for ev in spec["evals"] if not ev.get("slow")]
-    config, keep = CONFIG, spec.get("skills", [spec["skill_name"]])
+    keep = spec.get("skills", [spec.get("skill_name")])
     if args.baseline:
         selected = [baseline_eval(ev) for ev in selected if "baseline_prompt" in ev]
         if not selected:
             sys.exit("no selected eval has a baseline_prompt")
         config, keep = BASELINE_CONFIG, []
-    settings = isolation_settings(keep)
 
     iteration = args.iteration_dir.resolve()
+    iteration.mkdir(parents=True, exist_ok=True)
+    preflight_path = preflight(iteration)
+    limits = rate_limits([preflight_path])
+    print("usage: " + (f"5h {limits['five_hour']:.0f}%, 7d {limits['seven_day']:.0f}%" if limits
+                       else "unknown, no rate_limit_event in preflight.jsonl"), flush=True)
+    reason = guard_reason(limits, args.max_5h, args.max_7d)
+    if reason:
+        sys.exit(f"guard: {reason}")
+    settings = isolation_settings(keep, extra_settings)
+
     repos = Path(tempfile.mkdtemp(prefix=prefix))
     jobs = []
+    done = 0
     for ev in selected:
         eval_dir = iteration / f"eval-{ev['name']}"
         eval_dir.mkdir(parents=True, exist_ok=True)
@@ -400,19 +472,31 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
         }, indent=2))
         for k in range(1, args.runs + 1):
             run_dir = eval_dir / config / f"run-{k}"
-            if run_dir.exists():
-                sys.exit(f"{run_dir} exists. Use a new iteration dir.")
+            if is_done(run_dir):
+                done += 1
+                continue
+            shutil.rmtree(run_dir, ignore_errors=True)
             print(f"setup {ev['name']} run-{k}", flush=True)
             (run_dir / "outputs").mkdir(parents=True)
             ctx = setup(ev, k, repos, run_dir)
             snapshot(ctx["repo"], run_dir, "before.txt")
             jobs.append((ev, k, run_dir, ctx))
-    print(f"{len(jobs)} run(s), repos in {repos}", flush=True)
+    print(f"{len(jobs)} run(s), {done} done before, repos in {repos}", flush=True)
+
+    skipped = []
 
     def work(job):
         ev, k, run_dir, ctx = job
+        transcripts = [preflight_path, *iteration.glob("eval-*/*/run-*/transcript.jsonl")]
+        reason = guard_reason(rate_limits(transcripts), args.max_5h, args.max_7d)
+        if reason:
+            shutil.rmtree(run_dir)
+            skipped.append(run_dir)
+            print(f"guard: skipped {ev['name']} run-{k}: {reason}", flush=True)
+            return
+        extra_args = condition_args(ev, ctx) if condition_args else []
         seconds = run_claude(ctx["prompt"], ctx["repo"], run_dir, allowed_tools, add_dirs,
-                             args.model, args.timeout, args.effort, settings)
+                             args.model, args.timeout, args.effort, settings, extra_args)
         collect_result(run_dir, seconds, args.effort, keep)
         collect(ev, ctx, run_dir)
         snapshot(ctx["repo"], run_dir, "after.txt")
@@ -429,5 +513,7 @@ def run_main(doc, evals_dir, prefix, allowed_tools, add_dirs, setup, collect, lo
 
     with ThreadPoolExecutor(args.jobs) as pool:
         list(pool.map(work, jobs))
+    if skipped:
+        print(f"\nguard: skipped {len(skipped)} run(s). Run the same command again after the reset.")
     print(f"\nGrade again: {evals_dir / 'grade.py'} {iteration}")
     print(f"Compare:     {HERE / 'compare.py'} <previous-iteration-dir> {iteration}")

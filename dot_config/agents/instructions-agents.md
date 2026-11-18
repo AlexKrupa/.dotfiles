@@ -5,15 +5,16 @@
 ### Before coding
 
 - Follow the instructions in `README.md` files, including subdirectories
+- Follow the documentation in any `docs/` or similar directories
 - Do not start edits until the user's questions and concerns have answers.
 - Ask, not assume. If you have to pick between interpretations, name them and ask. If uncertain,
   interview me about requirements, edge cases, and trade-offs.
-  - Do not ask about the obvious follow-through of a decided change: the tests, docs, and README
-    of the changed code. Do it, and list it in the reply.
+  - Do not ask about the obvious follow-through of a decided change: the tests, docs, and README of
+    the changed code. Do it, and list it in the reply.
 - If the options of a question differ in code or UI, show a short snippet or mockup for each.
 - Push back when a simpler solution exists
-- A "why" question is not disagreement. Explain the reason. Change a recommendation only for a
-  new fact or an error in your reasoning, and name it.
+- A "why" question is not disagreement. Explain the reason. Change a recommendation only for a new
+  fact or an error in your reasoning, and name it.
 
 ### Plans
 
@@ -21,10 +22,8 @@
   important steps like local reformatting or refactoring.
 - CI is the broad test. Locally, run only the tests of the changed code. After a CI failure, run
   only the failed tests, not the full suite.
-- If a step does not need my input, continue. Do not stop for a status note. Stop and ask
-  only in two cases: you cannot continue without me, or the next action is destructive or
-  outward-facing.
-- When a plan item is done, tick it in the plan file. Add new items that you find.
+- If a step does not need my input, continue. Do not stop for a status note. Stop and ask only in
+  two cases: you cannot continue without me, or the next action is destructive or outward-facing.
 - Delegate to subagents only for large, parallel tracks: wide multi-file investigation, independent
   features. Not for simple work finishable in a few tool calls, never to verify your own output.
 - For large audits or migrations, give each independent unit to its own subagent. Before you accept
@@ -39,8 +38,8 @@
 #### Superpowers
 
 - Use `superpowers:brainstorming` in these cases only: I ask to brainstorm, I ask for a design, or
-  the work is larger than one session. For a change to a few files, implement it directly. This
-  rule overrides the `superpowers:using-superpowers` and `superpowers:brainstorming` skills.
+  the work is larger than one session. For a change to a few files, implement it directly. This rule
+  overrides the `superpowers:using-superpowers` and `superpowers:brainstorming` skills.
 - Spec-to-draft pipeline: after I approve a spec, run these steps with no stop, unless I say
   otherwise
   1. `superpowers:writing-plans`. Do not ask for a plan review or an execution mode.
@@ -64,15 +63,16 @@ When my message starts with one of these phrases, do the action. Then read the r
 - `fix nits`, `fix minors`, `fix majors`, `fix criticals` - fix the findings of the last review at
   one level: nit is `low`, minor is `medium`, major is `high`, critical is `critical`.
 - `squash fixups`, `squash branch` - find the repair commits of the branch in the same way that
-  `review-me` does. Then run `~/.config/agents/bin/git-squash-fixups.sh <parent>
-  <repair>:<target>...`. It also squashes the `fixup!` and `amend!` commits.
+  `review-me` does. Then run
+  `~/.config/agents/bin/git-squash-fixups.sh <parent> <repair>:<target>...`. It also squashes the
+  `fixup!` and `amend!` commits.
 
 ### Git
 
 - Act when the conversation shows my intent. Do not assume an intent that I did not state.
 - Each commit is an atomic change that has value alone
-- When I ask for a commit, or a plan or skill tells you to commit, commit, amend, squash, and
-  check out with no question. List the changes in the reply.
+- When I ask for a commit, or a plan or skill tells you to commit, commit, amend, squash, and check
+  out with no question. List the changes in the reply.
 - When possible, use `git-spice` for branch and commit work: create, check out, commit, amend,
   squash, restack, move, rename, delete. Use raw git for the rest. The command is `git-spice`: `gs`
   does not exist in the agent shell. Put `--no-prompt` after the subcommand. After a conflict, use
@@ -112,11 +112,10 @@ When my message starts with one of these phrases, do the action. Then read the r
   only for plain-text search, or when no LSP or IDE server is connected.
 - To read the source of a third-party Gradle dependency, use the `ksrc` MCP tools (`search`, `cat`,
   `deps`), not files in `~/.gradle`
-- Every changed line traces to the request. Implement only what was asked, nothing more.
-  Mention unrelated issues or dead code only if important.
+- Every changed line traces to the request. Implement only what was asked, nothing more. Mention
+  unrelated issues or dead code only if important.
 - Validate only at system boundaries. Handle only errors that can actually happen.
-- No abstractions for single-use code. If a senior engineer calls it overcomplicated, simplify
-  it.
+- No abstractions for single-use code. If a senior engineer calls it overcomplicated, simplify it.
 
 ### Design
 
@@ -125,8 +124,8 @@ When my message starts with one of these phrases, do the action. Then read the r
 - Hide each design decision in one module. If a change to one decision needs edits in several
   modules, the decision leaks.
 - No pass-through methods and no wrappers that only forward calls with the same signature.
-- Define errors out of existence: design the API so that the error case cannot occur. For
-  example, a delete of a missing key does nothing.
+- Define errors out of existence: design the API so that the error case cannot occur. For example, a
+  delete of a missing key does nothing.
 - Each layer has a different abstraction from the layers above and below it.
 
 ### Style
@@ -149,8 +148,8 @@ When my message starts with one of these phrases, do the action. Then read the r
 ### Naming
 
 - Avoid abbreviations, unless very local or obvious from domain context and they aid readability
-- Prefer paired names of equal length so call sites align (`source`/`target`, not `src`/`dest`).
-  Do not force it when equal length is not natural
+- Prefer paired names of equal length so call sites align (`source`/`target`, not `src`/`dest`). Do
+  not force it when equal length is not natural
 
 ### Comments (inline and doc)
 
@@ -229,17 +228,17 @@ delve, leverage, streamline, land, carry, overstep, ship,
 #### Formatting
 
 - Markdown files: wrap prose lines at 100 characters. Do not wrap tables, code blocks, or URLs.
-- Markdown renderers join lines with a single line break into one line. For a new line, put a
-  blank line between the lines, or make each line a list item. Use a list for items of the same
-  kind, for example links or findings.
+- Markdown renderers join lines with a single line break into one line. For a new line, put a blank
+  line between the lines, or make each line a list item. Use a list for items of the same kind, for
+  example links or findings.
 - Structure over prose, in replies and in files. Pick the format from the content:
-  - Table: 3 or more items that share 2 or more attributes, for example options, scenarios,
-    or before and after
+  - Table: 3 or more items that share 2 or more attributes, for example options, scenarios, or
+    before and after
   - Headings: 2 or more topics, or a reply longer than one screen
   - List: 3 or more parallel items or steps. Each item is at most 2 short sentences.
   - Prose: one fact, one decision, or one reason. At most 3 sentences per paragraph.
-- These rules override the simple-english reply rules "prose only", "no headers", "no bullet
-  lists", and "no tables". All other simple-english rules apply.
+- These rules override the simple-english reply rules "prose only", "no headers", "no bullet lists",
+  and "no tables". All other simple-english rules apply.
 - Prefer ASCII over Unicode for punctuation and stylistic symbols: single dashes, not en- or
   em-dashes. No smart quotes.
   - Exceptions: diacritics (e.g. Polish ąęóśżźćłń), linguistic scripts, technical notation, tables,
