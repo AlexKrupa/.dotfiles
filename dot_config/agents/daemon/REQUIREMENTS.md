@@ -538,9 +538,9 @@ from a design spec that the user approved.
 - W13.10 (spec) The band has a dim rounded border and 1 column of padding. A stack heading shows the
   ticket key and `stack of N`, or `Stack of N` with no shared key. Each branch shows its title in
   bold, then dim ` · !iid · ` and the status parts, then its rows and artifacts.
-- W13.11 (spec) A row shows a red `●` for Needs you or a dim `·` for the others, the kind, the text,
-  and a yellow `→ result`. An artifact shows a dim `↗`, the kind, and the full target. A file under
-  `HOME` shows as `~/...`.
+- W13.11 (spec) A row shows a `●` in the theme color `permission` for Needs you or a dim `·` for the
+  others, the kind, the text, and a yellow `→ result`. A red bullet looks like an error. An artifact
+  shows a dim `↗`, the kind, and the full target. A file under `HOME` shows as `~/...`.
 - W13.12 (spec) The kinds of rows and artifacts are in one label column: as wide as the longest kind
   on the band, plus 3 spaces.
 - W13.13 (spec) A long text or target wraps and is never cut. A target that does not fit beside its

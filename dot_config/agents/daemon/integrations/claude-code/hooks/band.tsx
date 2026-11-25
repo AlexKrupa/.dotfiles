@@ -216,7 +216,7 @@ export const register: Register = on => {
     const rowLine = (key: string, row: ViewRow) =>
       line(
         key,
-        row.section === 'NeedsYou' ? <Text color="error">●</Text> : <Text color="subtle">·</Text>,
+        row.section === 'NeedsYou' ? <Text color="permission">●</Text> : <Text color="subtle">·</Text>,
         row.kind,
         <Text wrap="wrap">
           {row.what}
