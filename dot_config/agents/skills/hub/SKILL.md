@@ -24,8 +24,7 @@ the checkout, the watch gives a `pull-blocked` item with the reason, for example
 files. The user fixes the cause.
 
 At the start, run `watchd kind hub`. It sets the kind of work of the current worktree for the herdr
-sidebar. It also opens the board pane next to the hub. The board shows the newest report. Outside a
-git repo, it does nothing.
+sidebar. Outside a git repo, it does nothing.
 
 ## Role
 
@@ -57,5 +56,5 @@ Give the status when `/hub` starts, and each time the user asks for it.
 After the first status report, start the watch. Read
 `~/.config/agents/references/watch/common.md` and follow it, with the role file `hub.md`. The
 watch finds new MRs, review requests, comments, and failed default-branch pipelines, and starts
-the review, bump, and debug agents. The watch gives only the events that need the model. The board
-shows the others.
+the review, bump, and debug agents. The watch gives only the events that need the model. The view
+of the watch shows the others.
