@@ -17,7 +17,6 @@ pub struct View {
     pub path: PathBuf,
     pub hub: bool,
     pub heading: Option<String>,
-    pub branch_count: usize,
     pub artifacts: Vec<Artifact>,
     pub branches: Vec<Branch>,
 }
@@ -56,13 +55,21 @@ pub struct StoredArtifact {
     pub branch: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactBranch {
+    CheckedOut,
+    Named(String),
+    Common,
+}
+
 const SHOWN_APPROVERS: usize = 3;
 
 /// The view as text: the heading, the common artifacts, then each branch with its rows and
 /// artifacts. A row has its id, which the report takes.
 pub fn view_text(view: &View) -> String {
     let artifact_line = |artifact: &Artifact| format!("  {}  {}", artifact.kind, artifact.target);
-    let mut lines: Vec<String> = heading_line(view).into_iter().collect();
+    let mut lines: Vec<String> = view.heading.iter().cloned().collect();
     lines.extend(view.artifacts.iter().map(artifact_line));
     for branch in &view.branches {
         let iid = branch.iid.map(|iid| format!("!{iid}"));
@@ -86,16 +93,6 @@ pub fn view_text(view: &View) -> String {
     lines.iter().map(|line| format!("{line}\n")).collect()
 }
 
-/// A stack has its ticket key and its size. One branch has its ticket key only. The hub has none.
-fn heading_line(view: &View) -> Option<String> {
-    match (view.hub, view.branch_count, &view.heading) {
-        (true, _, _) => None,
-        (false, 0 | 1, heading) => heading.clone(),
-        (false, count, Some(heading)) => Some(format!("{heading} · stack of {count}")),
-        (false, count, None) => Some(format!("Stack of {count}")),
-    }
-}
-
 /// The branches come in stack order. With no stack, the checked-out branch has the first MR. An MR
 /// or a row of an MR that no branch has gets a branch with no name. A row with no MR goes to the
 /// checked-out branch.
@@ -104,36 +101,22 @@ pub fn compose(
     worktree: &WorktreeState,
     engine: &MrsState,
     rows: &[Row],
-    stored: &[StoredArtifact],
     drafts: &BTreeMap<String, String>,
     ticket_url: Option<&str>,
 ) -> View {
     let mut branches: Vec<Branch> = worktree
         .stack
         .iter()
-        .map(|name| Branch {
-            name: Some(name.clone()),
-            title: String::new(),
-            iid: worktree.branch_mrs.get(name).copied(),
-            status: Vec::new(),
-            rows: Vec::new(),
-            artifacts: Vec::new(),
-        })
+        .map(|name| empty_branch(Some(name.clone()), worktree.branch_mrs.get(name).copied()))
         .collect();
     if branches.is_empty() {
-        branches.push(Branch {
-            name: worktree.branch.clone(),
-            title: String::new(),
-            iid: worktree
-                .mrs
-                .iter()
-                .copied()
-                .chain(rows.iter().filter_map(|row| row.iid))
-                .next(),
-            status: Vec::new(),
-            rows: Vec::new(),
-            artifacts: Vec::new(),
-        });
+        let iid = worktree
+            .mrs
+            .iter()
+            .copied()
+            .chain(rows.iter().filter_map(|row| row.iid))
+            .next();
+        branches.push(empty_branch(worktree.branch.clone(), iid));
     }
     let extra_iids = worktree
         .mrs
@@ -142,14 +125,7 @@ pub fn compose(
         .chain(rows.iter().filter_map(|row| row.iid));
     for iid in extra_iids {
         if branches.iter().all(|branch| branch.iid != Some(iid)) {
-            branches.push(Branch {
-                name: None,
-                title: String::new(),
-                iid: Some(iid),
-                status: Vec::new(),
-                rows: Vec::new(),
-                artifacts: Vec::new(),
-            });
+            branches.push(empty_branch(None, Some(iid)));
         }
     }
     let checked_out = branches
@@ -185,14 +161,13 @@ pub fn compose(
         branch.status = status_parts(mr.unwrap_or(&MrState::default()), top == Some(index));
         branch.rows.sort_by_key(|row| urgency(row.section));
         let ticket = ticket_url.zip(name.and_then(ticket_key));
-        branch.artifacts.extend(ticket.map(|(url, key)| Artifact {
-            kind: "ticket".into(),
-            target: url.replace("{key}", &key),
-        }));
+        branch
+            .artifacts
+            .extend(ticket.map(|(url, key)| artifact("ticket", &url.replace("{key}", &key))));
         branch.artifacts.extend(mr.map(mr_artifacts).unwrap_or_default());
     }
-    for artifact in stored {
-        let place = artifact
+    for stored in &worktree.artifacts {
+        let place = stored
             .branch
             .as_ref()
             .and_then(|name| branches.iter_mut().find(|branch| branch.name.as_ref() == Some(name)));
@@ -200,11 +175,8 @@ pub fn compose(
             Some(branch) => &mut branch.artifacts,
             None => &mut common,
         };
-        list.retain(|other| (&other.kind, &other.target) != (&artifact.kind, &artifact.target));
-        list.push(Artifact {
-            kind: artifact.kind.clone(),
-            target: artifact.target.clone(),
-        });
+        list.retain(|other| (&other.kind, &other.target) != (&stored.kind, &stored.target));
+        list.push(artifact(&stored.kind, &stored.target));
     }
     if branches.len() > 1 {
         let shared: Vec<Artifact> = branches[0]
@@ -224,13 +196,17 @@ pub fn compose(
         .iter()
         .map(|branch| branch.name.as_deref().and_then(ticket_key))
         .collect();
-    let heading = keys[0].clone().filter(|_| keys.iter().all(|key| *key == keys[0]));
+    let key_of_all = keys[0].clone().filter(|_| keys.iter().all(|key| *key == keys[0]));
+    let heading = match (branches.len(), key_of_all) {
+        (0 | 1, key_of_all) => key_of_all,
+        (count, Some(key_of_all)) => Some(format!("{key_of_all} · stack of {count}")),
+        (count, None) => Some(format!("Stack of {count}")),
+    };
     View {
         key: key.to_string(),
         path: worktree.path.clone(),
         hub: false,
         heading,
-        branch_count: branches.len(),
         artifacts: common,
         branches,
     }
@@ -288,7 +264,6 @@ pub fn compose_hub(key: &str, path: &Path, rows: &[Row], own: &MrsState) -> View
         path: path.to_path_buf(),
         hub: true,
         heading: None,
-        branch_count: branches.len(),
         artifacts: Vec::new(),
         branches,
     }
@@ -298,7 +273,7 @@ pub fn compose_hub(key: &str, path: &Path, rows: &[Row], own: &MrsState) -> View
 const OTHER: &str = "Other";
 
 /// The parts of the status of an MR. A merged or closed MR has only that part.
-pub fn status_parts(mr: &MrState, local_conflict: bool) -> Vec<String> {
+fn status_parts(mr: &MrState, local_conflict: bool) -> Vec<String> {
     if let Some(state) = mr
         .state
         .as_deref()
@@ -333,7 +308,7 @@ pub fn status_parts(mr: &MrState, local_conflict: bool) -> Vec<String> {
 }
 
 /// The first match of `[A-Z][A-Z0-9]+-[0-9]+`.
-pub fn ticket_key(branch: &str) -> Option<String> {
+fn ticket_key(branch: &str) -> Option<String> {
     let bytes = branch.as_bytes();
     let in_class = |index: usize| {
         bytes
@@ -355,6 +330,17 @@ fn artifact(kind: &str, target: &str) -> Artifact {
     Artifact {
         kind: kind.to_string(),
         target: target.to_string(),
+    }
+}
+
+fn empty_branch(name: Option<String>, iid: Option<u64>) -> Branch {
+    Branch {
+        name,
+        title: String::new(),
+        iid,
+        status: Vec::new(),
+        rows: Vec::new(),
+        artifacts: Vec::new(),
     }
 }
 
@@ -481,13 +467,6 @@ mod tests {
         }
     }
 
-    fn artifact(kind: &str, target: &str) -> Artifact {
-        Artifact {
-            kind: kind.into(),
-            target: target.into(),
-        }
-    }
-
     fn event(kind: EventKind, iid: Option<u64>) -> Event {
         Event::new(kind, iid, None, "https://g/a/b/-/pipelines/9", "bob", "fix it", "main")
     }
@@ -516,25 +495,18 @@ mod tests {
 
     #[test]
     fn stack_view_has_common_and_branch_artifacts() {
-        let worktree = worktree(&["a/APP-1-x", "a/APP-1-y"], &[("a/APP-1-x", 410)]);
+        let worktree = WorktreeState {
+            artifacts: vec![
+                stored("spec", "/s/spec.md", None),
+                stored("review", "/s/review.md", Some("a/APP-1-y")),
+            ],
+            ..worktree(&["a/APP-1-x", "a/APP-1-y"], &[("a/APP-1-x", 410)])
+        };
         let engine = engine(410, open_mr(Some((7, "running"))));
-        let stored = [
-            stored("spec", "/s/spec.md", None),
-            stored("review", "/s/review.md", Some("a/APP-1-y")),
-        ];
 
-        let view = compose(
-            "app",
-            &worktree,
-            &engine,
-            &[],
-            &stored,
-            &no_drafts(),
-            Some("https://t/{key}"),
-        );
+        let view = compose("app", &worktree, &engine, &[], &no_drafts(), Some("https://t/{key}"));
 
-        assert_eq!(view.heading.as_deref(), Some("APP-1"));
-        assert_eq!(view.branch_count, 2);
+        assert_eq!(view.heading.as_deref(), Some("APP-1 · stack of 2"));
         assert_eq!(
             view.artifacts,
             [artifact("ticket", "https://t/APP-1"), artifact("spec", "/s/spec.md")]
@@ -559,12 +531,11 @@ mod tests {
             &worktree,
             &MrsState::default(),
             &[],
-            &[],
             &no_drafts(),
             Some("https://t/{key}"),
         );
 
-        assert_eq!(view.heading, None);
+        assert_eq!(view.heading.as_deref(), Some("Stack of 2"));
         assert!(view.artifacts.is_empty());
         assert_eq!(view.branches[0].artifacts, [artifact("ticket", "https://t/APP-1")]);
         assert_eq!(view.branches[1].artifacts, [artifact("ticket", "https://t/APP-2")]);
@@ -574,9 +545,9 @@ mod tests {
     fn branch_with_no_mr_uses_the_branch_name() {
         let worktree = worktree(&["a/sync"], &[]);
 
-        let plain = compose("app", &worktree, &MrsState::default(), &[], &[], &no_drafts(), None);
+        let plain = compose("app", &worktree, &MrsState::default(), &[], &no_drafts(), None);
         let drafts = BTreeMap::from([("a/sync".to_string(), "Show sync".to_string())]);
-        let drafted = compose("app", &worktree, &MrsState::default(), &[], &[], &drafts, None);
+        let drafted = compose("app", &worktree, &MrsState::default(), &[], &drafts, None);
 
         let branch = &plain.branches[0];
         assert_eq!((branch.title.as_str(), branch.iid), ("a/sync", None));
@@ -598,7 +569,7 @@ mod tests {
             Some(event(EventKind::Comment, Some(5))),
         )];
 
-        let view = compose("app", &worktree, &MrsState::default(), &rows, &[], &no_drafts(), None);
+        let view = compose("app", &worktree, &MrsState::default(), &rows, &no_drafts(), None);
 
         assert_eq!(view.branches.len(), 1);
         let branch = &view.branches[0];
@@ -616,7 +587,6 @@ mod tests {
             &worktree,
             &engine(410, open_mr(Some((7, "success")))),
             &[],
-            &[],
             &no_drafts(),
             None,
         );
@@ -624,7 +594,6 @@ mod tests {
             "app",
             &worktree,
             &engine(410, open_mr(Some((7, "failed")))),
-            &[],
             &[],
             &no_drafts(),
             None,
@@ -657,7 +626,7 @@ mod tests {
             model,
         ];
 
-        let view = compose("app", &worktree, &MrsState::default(), &rows, &[], &no_drafts(), None);
+        let view = compose("app", &worktree, &MrsState::default(), &rows, &no_drafts(), None);
 
         let first: Vec<(u64, RowSection, &str)> = view.branches[0]
             .rows

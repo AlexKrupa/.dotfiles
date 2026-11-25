@@ -23,7 +23,7 @@ use crate::persist::{FORMAT_FILE, FORMAT_VERSION, Load, LoadError, load, save, w
 use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
 use crate::protocol::{DebugState, SubStatus, WatchRequest};
 use crate::report::{ReportInput, Row, build_report, render};
-use crate::view::{StoredArtifact, View, compose, compose_hub};
+use crate::view::{ArtifactBranch, StoredArtifact, View, compose, compose_hub};
 
 pub const ALL_ENDED: &str = "all MRs merged or closed";
 
@@ -539,9 +539,13 @@ impl Store {
     }
 
     pub fn take_inbox(&self, key: &str) -> Vec<RoutedEvent> {
-        let path = self.dirs.inbox(key);
-        let text = std::fs::read_to_string(&path).unwrap_or_default();
-        remove(&path);
+        let events = self.inbox(key);
+        remove(&self.dirs.inbox(key));
+        events
+    }
+
+    fn inbox(&self, key: &str) -> Vec<RoutedEvent> {
+        let text = std::fs::read_to_string(self.dirs.inbox(key)).unwrap_or_default();
         let mut events = Vec::new();
         for line in text.lines().filter(|line| !line.trim().is_empty()) {
             match serde_json::from_str(line) {
@@ -613,18 +617,18 @@ impl Store {
         self.write_worktree(&state);
     }
 
-    /// With `common`, the artifact has no branch. Else its branch is the given one, or the
-    /// checked-out branch of the worktree. The same kind and target again replaces the old entry.
-    pub fn add_artifact(&self, folder: &Path, artifact: StoredArtifact, common: bool) {
+    /// The same kind and target again replaces the old entry.
+    pub fn add_artifact(&self, folder: &Path, kind: String, target: String, branch: ArtifactBranch) {
         self.update_worktree(folder, |state| {
-            let branch = match common {
-                true => None,
-                false => artifact.branch.clone().or_else(|| state.branch.clone()),
+            let branch = match branch {
+                ArtifactBranch::CheckedOut => state.branch.clone(),
+                ArtifactBranch::Named(name) => Some(name),
+                ArtifactBranch::Common => None,
             };
             state
                 .artifacts
-                .retain(|old| (&old.kind, &old.target) != (&artifact.kind, &artifact.target));
-            state.artifacts.push(StoredArtifact { branch, ..artifact });
+                .retain(|old| (&old.kind, &old.target) != (&kind, &target));
+            state.artifacts.push(StoredArtifact { kind, target, branch });
         });
     }
 
@@ -824,14 +828,22 @@ impl Store {
                     }
                 }
                 false => {
-                    self.append_lines(&self.dirs.inbox(&key), &events);
-                    // A pending item keeps its row: a row that an earlier round handled can wake now.
+                    let mut saved = self.routing(&key);
+                    // A pending item keeps its row: a row that an earlier round handled can wake now,
+                    // and a row with a waking event in the inbox stays waking.
+                    let waiting: Vec<u64> = self
+                        .inbox(&key)
+                        .into_iter()
+                        .map(|event| event.row)
+                        .filter(|row| !saved.handled.contains(row))
+                        .collect();
                     let waking: Vec<u64> = events
                         .iter()
                         .map(|event| event.row)
                         .filter(|row| !routing.handled.contains(row))
+                        .chain(waiting)
                         .collect();
-                    let mut saved = self.routing(&key);
+                    self.append_lines(&self.dirs.inbox(&key), &events);
                     let stale = saved.handled.iter().any(|row| waking.contains(row));
                     if stale || !routing.handled.is_empty() {
                         saved.add(routing.clone());
@@ -1239,7 +1251,7 @@ impl Store {
         let mut urls = self.ticket_urls.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         urls.entry(repo.to_path_buf())
             .or_insert_with(|| {
-                git(repo, &["config", "watchd.ticketUrl"])
+                tokio::task::block_in_place(|| git(repo, &["config", "watchd.ticketUrl"]))
                     .ok()
                     .map(|url| url.trim().to_string())
                     .filter(|url| !url.is_empty())
@@ -1253,7 +1265,6 @@ impl Store {
             worktree,
             &self.engine_state(key),
             &self.rows(key),
-            &worktree.artifacts,
             &draft_titles(&worktree.artifacts),
             self.ticket_url(&worktree.repo).as_deref(),
         )
@@ -1679,12 +1690,16 @@ mod tests {
         }
     }
 
+    fn add(store: &Store, path: &Path, kind: &str, target: &str, branch: ArtifactBranch) {
+        store.add_artifact(path, kind.to_string(), target.to_string(), branch);
+    }
+
     #[test]
     fn artifact_gets_the_checked_out_branch() {
         let (store, path) = artifact_store("artifact-branch");
 
-        store.add_artifact(&path, stored("spec", "/s.md", None), false);
-        store.add_artifact(&path, stored("plan", "/p.md", Some("a/y")), false);
+        add(&store, &path, "spec", "/s.md", ArtifactBranch::CheckedOut);
+        add(&store, &path, "plan", "/p.md", ArtifactBranch::Named("a/y".to_string()));
 
         let artifacts = store.worktree(&path).unwrap().artifacts;
         assert_eq!(
@@ -1700,7 +1715,7 @@ mod tests {
     fn artifact_with_common_has_no_branch() {
         let (store, path) = artifact_store("artifact-common");
 
-        store.add_artifact(&path, stored("spec", "/s.md", None), true);
+        add(&store, &path, "spec", "/s.md", ArtifactBranch::Common);
 
         assert_eq!(
             store.worktree(&path).unwrap().artifacts,
@@ -1712,9 +1727,9 @@ mod tests {
     fn same_artifact_again_replaces_it() {
         let (store, path) = artifact_store("artifact-again");
 
-        store.add_artifact(&path, stored("spec", "/s.md", None), false);
-        store.add_artifact(&path, stored("review", "/r.md", None), false);
-        store.add_artifact(&path, stored("spec", "/s.md", None), true);
+        add(&store, &path, "spec", "/s.md", ArtifactBranch::CheckedOut);
+        add(&store, &path, "review", "/r.md", ArtifactBranch::CheckedOut);
+        add(&store, &path, "spec", "/s.md", ArtifactBranch::Common);
 
         assert_eq!(
             store.worktree(&path).unwrap().artifacts,

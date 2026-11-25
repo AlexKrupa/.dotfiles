@@ -2,7 +2,8 @@
 
 `sample` moves a test daemon and a generated sample repo through fixed scenarios, one step at a
 time. You see the `watchd` states live in the herdr sidebar, the output of `watchd rows`, and the
-agent panes, with no GitLab and no Claude. The test daemon runs next to your real daemon and does not change it.
+agent panes, with no GitLab and no Claude. The test daemon runs next to your real daemon and does
+not change it.
 
 ## How it works
 

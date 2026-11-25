@@ -25,8 +25,7 @@ function stack(): View {
     key: 'app-1',
     path: '/r-wt',
     hub: false,
-    heading: 'APP-1',
-    branch_count: 2,
+    heading: 'APP-1 · stack of 2',
     artifacts: [{ kind: 'ticket', target: 'https://t/APP-1' }],
     branches: [
       {
@@ -193,7 +192,7 @@ test('picks_the_view_of_the_session_folder', async ($, on) => {
 
 const HOME = '/home/u'
 
-/** The argument vectors of `$.process.run`; `fails` makes each call reject. */
+/** The argument vectors of `$.process.run`. With `fails`, each call rejects. */
 function runs(on: On, fails = false): (readonly string[])[] {
   const calls: (readonly string[])[] = []
   mock.env(on, { HOME })
@@ -254,6 +253,19 @@ test('forgets_the_views_of_an_ended_stream_at_the_first_new_line', async ($, on)
   await clock.advance(2000)
 
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await texts(ui)).toEqual([])
+  await ui.unmount()
+})
+
+test('clears_a_removed_view', async ($, on) => {
+  const clock = mock.clock(on)
+  const removed = JSON.stringify({ type: 'view', key: 'app-1', removed: true }) + '\n'
+  follow(on, [line(stack()) + removed])
+  await start($, '/r-wt')
+  await clock.settle()
+
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+
   expect(await texts(ui)).toEqual([])
   await ui.unmount()
 })

@@ -4,7 +4,6 @@ export type View = {
   path: string
   hub: boolean
   heading: string | null
-  branch_count: number
   artifacts: Artifact[]
   branches: Branch[]
 }

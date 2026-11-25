@@ -15,7 +15,7 @@ use crate::core::worktrees::Kind;
 use crate::core::worktrees::WorktreeState;
 use crate::engine::event::EventKind;
 use crate::report::ReportInput;
-use crate::view::View;
+use crate::view::{ArtifactBranch, View};
 
 /// A line of an older client has no folder.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -64,16 +64,14 @@ pub enum Request {
     Follow {
         after: Option<u64>,
     },
-    /// The view of the key.
     View {
         key: String,
     },
-    /// An artifact of the worktree of the folder. `common` gives it no branch.
+    /// An artifact of the worktree of the folder.
     Artifact {
         kind: String,
         target: String,
-        branch: Option<String>,
-        common: bool,
+        branch: ArtifactBranch,
     },
 }
 

@@ -1,7 +1,7 @@
 mod support;
 
 use serde_json::Value;
-use support::daemon::{Watchd, sleep, wait_for};
+use support::daemon::{Watchd, ev, sleep, wait_for};
 
 fn comment(iid: u64) -> String {
     serde_json::json!({"kind": "comment", "iid": iid, "title": "Add foo", "url": "u", "actor": "anna",
@@ -9,7 +9,6 @@ fn comment(iid: u64) -> String {
     .to_string()
 }
 
-/// The view lines of `key` in the output of a `follow` client.
 fn views(output: &std::path::Path, key: &str) -> Vec<Value> {
     std::fs::read_to_string(output)
         .unwrap_or_default()
@@ -81,7 +80,6 @@ fn wait_limited(w: &Watchd, seconds: u64) -> support::Run {
     support::daemon::run_limited(w.wait_command(), &w.env.dir, seconds)
 }
 
-/// Waits for a view of `key` whose rows have all `kinds`.
 fn view_with(output: &std::path::Path, key: &str, kinds: &[&str]) -> bool {
     wait_for(10, || {
         views(output, key)
@@ -248,6 +246,63 @@ fn a_comment_wakes_after_a_round_that_handled_its_thread_row() {
     let wait = w.wait();
 
     assert!(support::each(&wait.out, "kind").contains("comment"), "{}", wait.out);
+}
+
+#[test]
+fn a_handled_thread_row_keeps_its_comment_that_waits_in_the_inbox() {
+    let w = Watchd::new();
+    let author = reported_comment(&w);
+    let other = serde_json::json!({"kind": "comment", "iid": 5, "title": "Add foo", "url": "u", "actor": "bob",
+        "detail": "And this?", "branch": "b", "item": "thread:d2"})
+    .to_string();
+
+    w.events(&author, &[comment(5)]);
+    w.managed_rounds(2);
+    w.events(&author, &[unaddressed(5), other]);
+    w.managed_rounds(2);
+    let wait = w.wait();
+
+    assert!(wait.out.contains("Why?"), "{}", wait.out);
+    assert!(wait.out.contains("And this?"), "{}", wait.out);
+}
+
+#[test]
+fn a_review_watch_has_a_review_view_in_place_of_the_author_view() {
+    let w = Watchd::new();
+    let review = format!("{}-review-5", w.author_key());
+    w.fake(&review, "state", r#"{"version": 4, "present": []}"#);
+    assert_eq!(w.watch(&["--review", "--mr", "5"]).code, 0);
+
+    let (_follower, output) = w.spawn_logged(follower(&w), "follow.out");
+    let found = wait_for(10, || !views(&output, &review).is_empty());
+
+    assert!(found, "{}", std::fs::read_to_string(&output).unwrap_or_default());
+    assert!(views(&output, &w.author_key()).is_empty());
+}
+
+#[test]
+fn a_hub_watch_has_a_hub_view() {
+    let w = Watchd::new();
+    assert_eq!(w.watch(&[]).code, 0);
+
+    let (_follower, output) = w.spawn_logged(follower(&w), "follow.out");
+    let found = wait_for(10, || !views(&output, "app").is_empty());
+
+    assert!(found, "{}", std::fs::read_to_string(&output).unwrap_or_default());
+    assert_eq!(views(&output, "app")[0]["hub"], true);
+}
+
+#[test]
+fn a_bump_worktree_wakes_for_a_passed_pipeline() {
+    let w = Watchd::new();
+    let review = format!("{}-review-5", w.author_key());
+    w.fake(&review, "state", r#"{"version": 4, "present": []}"#);
+    assert_eq!(w.client_in(&w.env.repo, &["kind", "bump"]).code, 0);
+    w.events(&review, &[ev("pipeline", 5)]);
+
+    let wait = w.watch_wait(&["--review", "--mr", "5"]);
+
+    assert_eq!(support::each(&wait.out, "kind"), "pipeline", "{}", wait.out);
 }
 
 fn follower(w: &Watchd) -> std::process::Command {

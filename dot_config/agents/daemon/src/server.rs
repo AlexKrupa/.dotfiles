@@ -28,7 +28,7 @@ use crate::platform::{now_seconds, process_alive};
 use crate::protocol::{
     DebugState, Envelope, KeyedEvent, RepoPoll, RepoTimes, Request, Response, StatusReport, WatchRequest, receive, send,
 };
-use crate::view::{StoredArtifact, View};
+use crate::view::View;
 
 const OLD_CLIENT: &str = "watchd: this watch client is older than the daemon. Start the watch again.\n";
 
@@ -153,26 +153,20 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
         Request::View { key } => Response::View {
             view: daemon.lock().await.store.views().remove(&key),
         },
-        Request::Artifact {
-            kind,
-            target,
-            branch,
-            common,
-        } => match folder.as_deref().map(|folder| block_in_place(|| worktree_top(folder))) {
-            Some(Ok(top)) => {
-                let top = top.canonicalize().unwrap_or(top);
-                let artifact = StoredArtifact { kind, target, branch };
-                daemon.lock().await.store.add_artifact(&top, artifact, common);
-                daemon.changed.notify_waiters();
-                Response::Ok
+        Request::Artifact { kind, target, branch } => {
+            match folder.as_deref().map(|folder| block_in_place(|| worktree_top(folder))) {
+                Some(Ok(top)) => {
+                    let top = top.canonicalize().unwrap_or(top);
+                    daemon.lock().await.store.add_artifact(&top, kind, target, branch);
+                    daemon.changed.notify_waiters();
+                    Response::Ok
+                }
+                Some(Err(text)) => Response::Error { text },
+                None => Response::Error {
+                    text: "artifact needs the folder of the client".to_string(),
+                },
             }
-            Some(Err(text)) => Response::Error {
-                text: format!("watchd: {text}\n"),
-            },
-            None => Response::Error {
-                text: "watchd: artifact needs the folder of the client\n".to_string(),
-            },
-        },
+        }
         Request::Route { key, iid, action } => {
             daemon
                 .lock()
@@ -483,8 +477,8 @@ impl Drop for Follower<'_> {
 }
 
 /// A `follow` client gets the sidebar state with the newest log id, the log lines after `after`,
-/// then each new log line, each sidebar change, and each new, changed, or removed view. The lines come from the file: `changed` only
-/// wakes the client up.
+/// then each new log line, each sidebar change, and each new, changed, or removed view. The lines
+/// come from the file: `changed` only wakes the client up.
 async fn follow(
     daemon: Arc<Daemon>,
     after: Option<u64>,
@@ -556,6 +550,26 @@ fn view_lines(sent: &BTreeMap<String, View>, now: &BTreeMap<String, View>) -> Ve
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn view_lines_sends_a_changed_view_and_a_removed_key() {
+        let view = |key: &str, heading: &str| View {
+            key: key.to_string(),
+            path: std::path::PathBuf::from("/r"),
+            hub: false,
+            heading: Some(heading.to_string()),
+            artifacts: Vec::new(),
+            branches: Vec::new(),
+        };
+        let sent = BTreeMap::from([("a".to_string(), view("a", "A-1")), ("b".to_string(), view("b", "B-1"))]);
+        let now = BTreeMap::from([("a".to_string(), view("a", "A-2"))]);
+
+        let lines = view_lines(&sent, &now);
+
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert_eq!((&lines[0]["key"], &lines[0]["heading"]), (&json!("a"), &json!("A-2")));
+        assert_eq!(lines[1], json!({"type": "view", "key": "b", "removed": true}));
+    }
 
     #[test]
     fn new_lines_skips_a_partial_line_and_reads_a_new_file_from_the_top() {

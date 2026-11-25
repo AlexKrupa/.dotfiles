@@ -371,8 +371,8 @@ from a design spec that the user approved.
   with only such events writes the rows of the key and puts nothing in the inbox. The agent report
   of a later round shows them too.
 - W8.56 (spec) A comment and the `unaddressed` line of its thread are one row: the row wakes the
-  agent if one of its events does. A row that wakes is no longer handled, also if an earlier round
-  in the inbox handled it.
+  agent if one of its events does. A row that wakes is not handled, also if an earlier round
+  handled it. A row with a waking event in the inbox stays waking.
 - W8.57 (spec) The wake set of each role is in core, next to the router.
 
 ## W9 Pending items
@@ -402,7 +402,7 @@ from a design spec that the user approved.
 - W9.16 (spec) The pending items of a watch go away with its other results by the cleanup rules, but
   items that go to the hub stay.
 - W9.17 (spec) The row number is the id of the row. A pending item keeps it for its life, and an
-  Agent or Info row lives one round, so the id is stable for the life of the row.
+  Agent or Info row lives one round. Thus the id is stable for the life of the row.
 - W9.18 (spec) The client adds the row id to each JSON event line, and the model knows the key of
   each cell. The user never sees the id.
 - W9.19 (spec) Each pending item keeps the time of its first event, and a report shows `Since
@@ -513,12 +513,12 @@ from a design spec that the user approved.
 ## W13 Band
 
 - W13.1 (spec) A hooks module of the Claude Code plugin draws the view of the watch in a band above
-  the prompt. The band replaces the board pane.
+  the prompt.
 - W13.2 (spec) `watchd follow` sends a view line for each worktree and for the hub after each change
   of that view, and `{"type": "view", "key": K, "removed": true}` for a removed view. Two ticks with
   no change send no line.
-- W13.3 (spec) A view has the key, the worktree path, the heading (the ticket key if all branches
-  share it), the branch count, the common artifacts, and the branches in stack order.
+- W13.3 (spec) A view has the key, the worktree path, the heading (W13.10), the common artifacts,
+  and the branches in stack order.
 - W13.4 (spec) A branch has its name, its title (the MR title, else the MR draft title, else the
   branch name), the MR iid or null, the status parts, the rows with Needs you first, and the
   artifacts. A stack branch with no MR shows no MR and no pipeline artifact.

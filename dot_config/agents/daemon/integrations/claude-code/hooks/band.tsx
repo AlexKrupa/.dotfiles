@@ -6,6 +6,8 @@ import type { Artifact, Branch, View, ViewRow } from '../types'
 const shownView = atom({ plugin: 'watchd', key: 'view' } as const, null, { shape: 'view-1' })
 
 const RESTART_MS = 2000
+/** A slow daemon start must not hold the tool call. */
+const ARTIFACT_TIMEOUT_MS = 2000
 const LABEL_GAP = 3
 /** The border and the padding on both sides of the band. */
 const FRAME_COLUMNS = 4
@@ -31,17 +33,6 @@ function isEmpty(view: View): boolean {
   )
 }
 
-function headingOf(view: View): string | null {
-  if (view.hub) {
-    return null
-  }
-  if (view.branch_count > 1) {
-    return view.heading === null ? `Stack of ${view.branch_count}` : `${view.heading} · stack of ${view.branch_count}`
-  }
-  return view.heading
-}
-
-/** The views of `watchd follow` by key, the folder of the session, and `HOME`. */
 const views = new Map<string, View>()
 let folder = ''
 let home = ''
@@ -140,7 +131,7 @@ function artifactKind(home: string, path: string, tool: 'Write' | 'Read'): strin
   return tool === 'Write' || kind === 'handoff' ? kind : null
 }
 
-/** A failed call goes to the debug log: the tool call does not wait for watchd. */
+/** A failed call goes to the debug log. */
 async function record($: EngineInterface, tool: 'Write' | 'Read', path: string) {
   const home = await $.env.get('HOME')
   const kind = home === undefined ? null : artifactKind(home, path, tool)
@@ -148,7 +139,7 @@ async function record($: EngineInterface, tool: 'Write' | 'Read', path: string) 
     return
   }
   try {
-    const run = await $.process.run(['watchd', 'artifact', kind, path])
+    const run = await $.process.run(['watchd', 'artifact', kind, path], { timeoutMs: ARTIFACT_TIMEOUT_MS })
     if (run.exitCode !== 0) {
       $.ui.log(`watchd artifact ${kind} ${path}: ${run.stderr}`, { to: 'debug' })
     }
@@ -198,7 +189,7 @@ export const register: Register = on => {
       ...view.branches.flatMap(branch => [...branch.rows, ...branch.artifacts]),
     ].map(item => item.kind.length)
     const labelColumns = Math.max(...kinds) + LABEL_GAP
-    const heading = headingOf(view)
+    const heading = view.heading
 
     // A target that does not fit beside its label goes under it, so that it wraps less.
     const line = (key: string, bullet: JSX.Element, kind: string, body: JSX.Element, isBeside = true) => (

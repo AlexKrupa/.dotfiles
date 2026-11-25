@@ -30,8 +30,8 @@ flowchart LR
 One binary has three roles:
 
 - Client: each `watchd watch`, `wait`, `status`, `kind`, `route`, `report`, `rows`, `artifact`, or
-  `follow` call is a process that sends one JSON line to the daemon on `daemon.sock` and prints the answer
-  (`src/protocol.rs`). `watchd watches` reads the state files and does not connect.
+  `follow` call is a process that sends one JSON line to the daemon on `daemon.sock` and prints the
+  answer (`src/protocol.rs`). `watchd watches` reads the state files and does not connect.
 - Daemon: `watchd daemon` is one process for each user. It reads git and git-spice, polls GitLab,
   creates its state folder and log, writes all state files, and answers the clients. If no daemon
   runs, the first client starts it.
@@ -47,8 +47,8 @@ Two types of client stay connected:
   exits. An agent record selects events. The polling of the MRs of a managed repo continues with
   no agent. The project-wide check needs a hub agent (see "Targets").
 - Follower: `watchd follow` gets the sidebar state, then each new event log line, each sidebar
-  change, and each new, changed, or removed view (`src/view.rs`). The herdr plugin `watch.sh` and the
-  band of the Claude Code plugin are followers.
+  change, and each new, changed, or removed view (`src/view.rs`). The herdr plugin `watch.sh` and
+  the band of the Claude Code plugin are followers.
 
 Callers:
 

@@ -19,7 +19,7 @@ use crate::local::{git, repo_of, shared_refs};
 use crate::paths::{ClientDirs, StateDirs, session_id};
 use crate::platform::{local_time, process_alive, spawn_detached};
 use crate::protocol::{Envelope, Request, Response, StatusReport, WatchRequest, receive, send};
-use crate::view::view_text;
+use crate::view::{ArtifactBranch, view_text};
 
 fn die(message: &str) -> i32 {
     eprintln!("watchd: {message}");
@@ -408,36 +408,23 @@ pub async fn artifact(args: Vec<String>) -> i32 {
     let (Some(kind), Some(target)) = (args.next(), args.next()) else {
         return die("artifact needs a kind and a target");
     };
-    let mut branch = None;
-    let mut common = false;
+    let mut branch = ArtifactBranch::CheckedOut;
     while let Some(arg) = args.next() {
-        match arg.as_str() {
+        let next = match arg.as_str() {
             "--branch" => match args.next() {
-                Some(name) => branch = Some(name),
+                Some(name) => ArtifactBranch::Named(name),
                 None => return die("--branch needs a branch name"),
             },
-            "--common" => common = true,
+            "--common" => ArtifactBranch::Common,
             other => return die(&format!("unexpected argument: {other}")),
+        };
+        if branch != ArtifactBranch::CheckedOut {
+            return die("give one --branch or one --common");
         }
+        branch = next;
     }
-    if common && branch.is_some() {
-        return die("--branch and --common do not go together");
-    }
-    let request = Request::Artifact {
-        kind,
-        target,
-        branch,
-        common,
-    };
-    match ask(&current_client(), &request, true).await {
-        Ok(Response::Ok) => 0,
-        Ok(Response::Error { text }) => {
-            eprint!("{text}");
-            1
-        }
-        Ok(_) => die("unexpected answer of the daemon"),
-        Err(message) => die(&message),
-    }
+    let request = Request::Artifact { kind, target, branch };
+    ask_ok(&current_client(), &request).await
 }
 
 pub async fn route(args: Vec<String>) -> i32 {
