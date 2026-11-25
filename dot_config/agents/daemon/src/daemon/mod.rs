@@ -239,7 +239,12 @@ impl Daemon {
         };
         let result = match self.engine.check(args, cache).await {
             Ok(events) => Ok(self.mark_pushes(&target, events).await),
-            error => error,
+            Err(EngineError::Network(text)) => Err(EngineError::Network(text)),
+            // Some errors of an outage have no network text, for example a failed `glab auth status`.
+            Err(error) => match online(host(&target.repo).as_deref()).await {
+                true => Err(error),
+                false => Err(EngineError::Network(error.message().to_string())),
+            },
         };
         let mut memory = self.lock().await;
         let (slug, key) = (target.slug.as_str(), target.key.as_str());
@@ -649,12 +654,16 @@ impl Daemon {
     }
 }
 
-async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Arc<Notify>) {
-    daemon.log(&slug, "", &format!("managed loop start: {}", repo.display()));
-    let host = block_in_place(|| remote_url(&repo))
+fn host(repo: &Path) -> Option<String> {
+    block_in_place(|| remote_url(repo))
         .as_deref()
         .and_then(split_remote)
-        .map(|(host, _)| host.to_string());
+        .map(|(host, _)| host.to_string())
+}
+
+async fn managed_loop(daemon: Arc<Daemon>, repo: PathBuf, slug: String, wake: Arc<Notify>) {
+    daemon.log(&slug, "", &format!("managed loop start: {}", repo.display()));
+    let host = host(&repo);
     let mut no_default_logged = false;
     loop {
         if daemon.stopping() || !daemon.is_managed(&repo).await {

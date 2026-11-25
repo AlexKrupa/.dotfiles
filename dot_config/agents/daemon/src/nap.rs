@@ -13,6 +13,13 @@ const NETWORK_ERRORS: &[&str] = &[
     "timed out",
     "Network is unreachable",
     "network is unreachable",
+    "network is down",
+    "no route to host",
+    "context deadline exceeded",
+    "unexpected EOF",
+    "broken pipe",
+    "protocol wrong type for socket",
+    "PROTOCOL_ERROR",
     "Internal server error",
     "HTTP 500",
     "HTTP 502",
@@ -118,6 +125,17 @@ mod tests {
     fn network_error_matches_the_bash_patterns() {
         assert!(is_network_error("dial tcp: i/o timeout"));
         assert!(is_network_error("HTTP 503"));
+        assert!(is_network_error(
+            "stream error: stream ID 3; PROTOCOL_ERROR; received from peer"
+        ));
+        assert!(is_network_error(
+            "write tcp 10.0.0.2:51234->1.2.3.4:443: write: protocol wrong type for socket"
+        ));
+        assert!(is_network_error("dial: connect: no route to host"));
+        assert!(is_network_error("read: network is down"));
+        assert!(is_network_error("Get \"https://g/api\": context deadline exceeded"));
+        assert!(is_network_error("Post \"https://g/api/graphql\": unexpected EOF"));
+        assert!(is_network_error("write: broken pipe"));
         assert!(!is_network_error("HTTP 404 Not Found"));
     }
 }

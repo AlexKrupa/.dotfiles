@@ -192,7 +192,9 @@ flowchart TB
   - Needs: the worktree state and the sidebar get the needs list of the mode, in its order. Both
     modes write `reply` for a thread that waits for the user.
   - Errors: after a permanent error, or after 5 other errors in a row, the check ends the agent
-    record of its key.
+    record of its key. A network error does not count. Two cases make a network error: the
+    text matches a pattern in `src/nap.rs`, or `nc` cannot reach port 443 of the GitLab host. For
+    example, `glab auth status` fails with no network text during an outage.
 - Events: the events of a key with an agent record go to its inbox, also while its session is
   away. The events of a key with no agent record go to the hub as pending items.
 - Errors: the error text of an ended agent record is `watchd: MODE watch KEY: TEXT`, because a

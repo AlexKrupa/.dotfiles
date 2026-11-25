@@ -355,6 +355,25 @@ fn six_network_errors_then_a_success_give_the_event() {
 }
 
 #[test]
+fn permanent_error_with_the_host_unreachable_is_a_network_error() {
+    let w = Watchd::new();
+    std::fs::write(w.env.dir.join("bin/nc"), "#!/bin/sh\nexit 1\n").unwrap();
+    w.fake("app", "exit", "5\n");
+    w.fake(
+        "app",
+        "err",
+        "watchd: glab is not authenticated, run: glab auth login\n",
+    );
+
+    let watch = w.watch(&[]);
+
+    assert_eq!(watch.code, 0, "{}", watch.err);
+    assert!(wait_for(10, || w.log_count("network error") == 1), "{}", w.log());
+    assert!(w.has_sub("app"), "{}", w.log());
+    assert_eq!(w.log_count("permanent error"), 0, "{}", w.log());
+}
+
+#[test]
 fn idle_stop_daemon_gone() {
     idle_stop().assert("idle stop: daemon gone");
 }

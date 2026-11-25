@@ -139,6 +139,8 @@ from a design spec that the user approved.
 - W4.14 (spec) The sleep and network rules apply to all polling: the MR watches, the hub check, the
   fetch, and the job retry.
 - W4.15 A watch has no deadline.
+- W4.16 An error while the GitLab host is unreachable is a network error, also with no network text,
+  for example a failed auth check. It ends no watch.
 
 ## W5 Events
 
