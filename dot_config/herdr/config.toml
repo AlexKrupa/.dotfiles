@@ -309,6 +309,6 @@ description = "tuicr: send comments to the agent"
 key = "ctrl+alt+a"
 type = "shell"
 command = "HERDR_ENV=1 ~/.config/agents/bin/tuicr.sh mr \"$HERDR_ACTIVE_PANE_ID\""
-description = "tuicr: target selector, for MRs"
+description = "tuicr: review the MR of the current branch"
 
 # Avoid alt+f/alt+b: some terminals send Opt+Right->ESC-f, Opt+Left->ESC-b for readline word-jump

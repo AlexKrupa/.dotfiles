@@ -4,13 +4,15 @@
 #
 #   tuicr.sh branch <pane>   review the branch against its stack parent in a
 #                            zoomed pane, or refresh the open `branch` pane
-#   tuicr.sh mr <pane>       open the tuicr target selector, for MRs and
+#   tuicr.sh mr <pane>       review the MR of the current branch, for
 #                            `:submit`
 #   tuicr.sh send <pane>     from a `branch` pane: send its comments to the
 #                            agent and unzoom the pane
 #
 # <pane> is the active pane of the multiplexer key binding. `branch` and `mr`
-# open a full-height pane on the right edge of its tab. A `branch` pane runs
+# open a full-height pane on the right edge of its tab. An `mr` pane runs
+# `tuicr.sh mr-pane`, which keeps the error of `tuicr mr` on screen, for example
+# when the branch has no MR. A `branch` pane runs
 # `tuicr.sh pane`, which keeps the agent pane ID, the repo and its own PID in a
 # state dir named by its own pane ID. `send` finds that dir from <pane>. It
 # ignores `mr` panes and each tuicr that this script did not open.
@@ -126,7 +128,7 @@ case $1 in
       fi
       cmd="exec '$0' pane '$active'"
     else
-      cmd="exec tuicr"
+      cmd="exec '$0' mr-pane"
     fi
     cwd=$("$mux" pane-cwd "$active")
     split=$("$mux" tab-split "$active" "${cwd:-$PWD}" --focus --run "$cmd") || exit 1
@@ -156,6 +158,12 @@ case $1 in
       tuicr -r "$parent...HEAD" 2>"$dir/stderr" && break
       [ -f "$dir/refresh" ] || fail "$(cat "$dir/stderr")"
     done
+    ;;
+
+  mr-pane)
+    err=$(mktemp) || fail "Cannot create a temp file"
+    trap 'rm -f "$err"' EXIT
+    tuicr mr 2>"$err" || fail "$(cat "$err")"
     ;;
 
   send)

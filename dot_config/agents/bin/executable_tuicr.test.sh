@@ -33,10 +33,12 @@ esac
 EOF
 chmod +x "$tmp/script/mux.sh"
 
-# `tuicr review comments` prints $MOCK_COMMENTS. The tuicr of a pane is a symlink to sleep with
+# `tuicr review comments` prints $MOCK_COMMENTS. With MOCK_MR_FAIL, `tuicr mr` prints it to
+# stderr and exits 1. The tuicr of a pane is a symlink to sleep with
 # the name tuicr, because `send` finds it with `pgrep -x tuicr`. macOS kills a copy of sleep.
 cat >"$tmp/bin/tuicr" <<'EOF'
 #!/bin/sh
+if [ "$1" = mr ] && [ -n "${MOCK_MR_FAIL:-}" ]; then echo "$MOCK_MR_FAIL" >&2; exit 1; fi
 printf '%s\n' "$MOCK_COMMENTS"
 EOF
 chmod +x "$tmp/bin/tuicr"
@@ -69,10 +71,16 @@ $(cat "$MOCK_LOG")"
 
 : >"$MOCK_LOG"
 "$script" mr A; code=$?
-check "mr opens the target selector, not zoomed" "0
+check "mr opens a tuicr pane for the MR of the branch, not zoomed" "0
 pane-cwd A
-tab-split A /cwd --focus --run exec tuicr" "$code
+tab-split A /cwd --focus --run exec '$script' mr-pane" "$code
 $(cat "$MOCK_LOG")"
+
+err=$(MOCK_MR_FAIL="no MR for branch x" "$script" mr-pane </dev/null 2>&1); code=$?
+check "mr-pane with no MR: exit 1 and the error stays on screen" \
+  "1 no MR for branch x
+
+Press Enter to close." "$code $err"
 
 mkdir -p "$TMPDIR/tuicr-panes/other"
 : >"$MOCK_LOG"

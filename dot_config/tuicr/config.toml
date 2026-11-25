@@ -2,11 +2,13 @@ theme = "dracula"
 leader = "'"
 
 diff_view = "side-by-side"
+minimal_ui = true
 wrap = false
 diff_watch_interval_ms = 2000
 ignore_whitespace = true
 compact_folders = true
 scroll_offset = 5
+hunk_jump_align = "top"
 relative_line_numbers = true
 comment_vim = true
 pr_comments_visibility = "all"
