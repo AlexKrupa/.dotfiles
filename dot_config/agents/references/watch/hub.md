@@ -60,11 +60,11 @@ for each new MR or to-do item of a bot: an MR author whose username has `renovat
 `dependabot`. A review agent starts for each review request of a person, unless a review report
 `~/.ai/<repo>/reviews/*-mr-<iid>-*.md` exists. The review agent starts at the next check after the
 review request, while the MR is not a draft. A draft MR waits until it is ready. Each agent works
-in its own herdr worktree
-workspace. After a bump agent starts, the board shows `The bump agent of <old branch> is stale`
-for each older bump agent of the same dependency. Its workspace stays, because it can contain
-changes. The `opened` event of an MR of a person goes away with no row. If the start fails, the
-board shows the error text, and the row stays a pending item. The user fixes the cause.
+in its own herdr worktree workspace. After a bump agent starts, the board shows
+`The bump agent of <old branch> is stale` for each older bump agent of the same dependency. Its
+workspace stays, because it can contain changes. The `opened` event of an MR of a person goes away
+with no row. If the start fails, the board shows the error text, and the row stays a pending item.
+The user fixes the cause.
 
 ## Auto-debug
 

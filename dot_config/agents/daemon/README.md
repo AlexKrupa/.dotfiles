@@ -198,8 +198,8 @@ flowchart TB
 - Errors: the error text of an ended agent record is `watchd: MODE watch KEY: TEXT`, because a
   session can have more than one watch. The next `wait` of the session gets it.
 - Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
-  event, and starts the review and bump agents. The router holds a review request for one check,
-  and longer while the MR is a draft. The lock is free during the agent starts. An agent
+  event, and starts the review and bump agents. The hub check holds a review request for one
+  check, and longer while the MR is a draft. The lock is free during the agent starts. An agent
   start runs `work/work-start.sh <title> --branch <branch> --no-track --skill <skill> <MR URL>` in
   the skill folder `$WATCHD_SCRIPTS`, else `~/.config/agents/skills/`. The agent integration gives
   the kind and the prompt that runs the skill. Exit code 5 is a branch that is open in a workspace
