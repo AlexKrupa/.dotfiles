@@ -83,7 +83,7 @@
           "type": "judge",
           "id": "comments-why",
           "rule": "L157-L163",
-          "question": "Does each new comment or docstring explain a reason that the code cannot show, with no comment that restates the code? Answer yes if the diff adds no comment.",
+          "question": "Does each new inline comment explain a reason that the code cannot show? A docstring on a function or class is fine if it says something that the signature does not show, for example which errors cause a retry. Answer no only for a comment or docstring that repeats the line below it or the name. Answer yes if the diff adds no comment.",
           "text": "Comments only explain why"
         },
         {
@@ -118,7 +118,7 @@
           "type": "judge",
           "id": "units-in-names",
           "rule": "L173",
-          "question": "Does each new name for a time or delay value contain its unit, for example `delay_seconds` or `timeout_ms`?",
+          "question": "In `client.py`, does each new parameter or variable for a time or delay value contain its unit, for example `delay_seconds` or `timeout_ms`? Ignore names in the tests.",
           "text": "Units in the names of time values"
         },
         {
@@ -458,11 +458,12 @@
           "text": "A why question does not flip the recommendation"
         },
         {
-          "type": "judge",
-          "id": "marks-unsourced-claims",
+          "type": "reply_regex",
+          "patterns": [
+            "🔮"
+          ],
           "rule": "L110",
-          "question": "Does the reply mark each claim that has no source in the repo or in a tool result with 🔮? Answer yes if the reply makes no such claim.",
-          "text": "Unsourced claims carry 🔮"
+          "text": "The reply marks unsourced claims with 🔮"
         }
       ]
     },

@@ -10,6 +10,7 @@ QUESTIONS = [{"type": "judge", "id": "q1", "question": "Is it fine?", "rule": "L
              {"type": "judge", "id": "q2", "question": "Is it small?", "rule": "L2", "text": "small"}]
 FAKE_CLAUDE = """#!/bin/sh
 echo call >> "$(dirname "$0")/calls.txt"
+printf '%s' "$2" > "$(dirname "$0")/prompt.txt"
 printf '%s' "$FAKE_CLAUDE_OUTPUT"
 """
 
@@ -63,6 +64,17 @@ class JudgeTest(unittest.TestCase):
 
         self.assertEqual(len(self.calls()), 1)
         self.assertEqual(answers["q2"], {"pass": True, "evidence": "e2"})
+
+    def test_judge_asks_only_the_missing_questions(self):
+        (self.run_dir / "judge.json").write_text(json.dumps({"q1": {"pass": False, "evidence": "old"}}))
+        os.environ["FAKE_CLAUDE_OUTPUT"] = json.dumps({"is_error": False, "structured_output": {
+            "q2": {"pass": True, "evidence": "e2"}}})
+
+        answers = grade.judge_answers(self.run_dir, QUESTIONS)
+
+        self.assertEqual(answers, {"q1": {"pass": False, "evidence": "old"}, "q2": {"pass": True, "evidence": "e2"}})
+        self.assertEqual(json.loads((self.run_dir / "judge.json").read_text()), answers)
+        self.assertNotIn("Is it fine?", (self.bin / "prompt.txt").read_text())
 
     def test_judge_fails_with_no_answer(self):
         os.environ["FAKE_CLAUDE_OUTPUT"] = json.dumps({"is_error": False, "structured_output": {

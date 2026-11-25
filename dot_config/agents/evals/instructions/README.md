@@ -86,9 +86,9 @@ A run dir has these files:
 A `judge` check asks a yes or no question about the run. Yes means that the rule holds. One
 `claude-sonnet-5-5` call per run answers all judge questions of the eval. It reads the prompt,
 `changes.diff`, and the final reply. The call runs with `--safe-mode`, so no `CLAUDE.md` or plugin
-changes the answers. `judge.json` caches the answers, so `grade.py` does not call the judge again.
-Delete `judge.json` after a change of a question. A failed call gives the evidence "no judge
-answer", and the next grade calls the judge again.
+changes the answers. `judge.json` caches the answers. A grade asks the judge only the questions
+with no answer in `judge.json`. After a change of a question, delete its answer in `judge.json`. A
+failed call gives the evidence "no judge answer", and the next grade asks again.
 
 ## Phase 1
 

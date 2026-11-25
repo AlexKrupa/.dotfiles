@@ -20,7 +20,7 @@ Check types on top of the common ones of harness.py:
   `after`.
 - `judge`: `question`, a yes or no question where yes means the rule holds. One Sonnet call per run
   answers all judge questions of the eval from the prompt, changes.diff, and the final reply. The
-  answers are cached in judge.json. Delete it after a change of a question.
+  answers are cached in judge.json. After a change of a question, delete its answer there.
 """
 import json
 import re
@@ -78,13 +78,13 @@ def file_texts(tree, globs):
 def judge_answers(run_dir, questions):
     """Return {question id: {"pass": bool, "evidence": str}} for the judge questions of a run.
 
-    Reads judge.json if it has all ids. Else calls the judge and writes judge.json. A failed call
-    returns {} and writes nothing, so a regrade calls it again."""
+    Reads the answers in judge.json, asks the judge only the questions with no answer there, and
+    adds the new answers to judge.json. A failed call adds nothing, so a regrade asks again."""
     cache = run_dir / "judge.json"
-    if cache.exists():
-        cached = json.loads(cache.read_text())
-        if all(q["id"] in cached for q in questions):
-            return cached
+    cached = json.loads(cache.read_text()) if cache.exists() else {}
+    questions = [q for q in questions if q["id"] not in cached]
+    if not questions:
+        return cached
     ctx = json.loads((run_dir / "ctx.json").read_text())
     outputs = run_dir / "outputs"
     prompt = JUDGE_PROMPT.format(
@@ -107,7 +107,8 @@ def judge_answers(run_dir, questions):
             raise TypeError(f"structured_output is {answers!r}")
     except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, TypeError) as e:
         print(f"judge: no answer for {run_dir}: {e!r}", file=sys.stderr)
-        return {}
+        return cached
+    answers = {**cached, **answers}
     cache.write_text(json.dumps(answers, indent=2))
     return answers
 
