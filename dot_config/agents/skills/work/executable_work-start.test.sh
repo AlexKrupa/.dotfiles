@@ -281,8 +281,16 @@ fresh
 run p ABC-8 'Implement the new payment provider integration for checkout'
 check "long: slug cut at a word end" "ABC-8/implement-the-new-payment-provider" \
   "$(jq -r .branch <<<"$out")"
-check "long: agent name cut at a word end" "abc-8-implement-the-new-payment" \
+check "long: agent name keeps the last word" "abc-8-implement-the-new-provider" \
   "$(jq -r .agent <<<"$out")"
+
+# Long branch whose last word is the unique part.
+fresh
+run p ABC-0 'debug main pipeline 3113423142'
+check "long suffix: agent name keeps the last word" \
+  "herdr agent start abc-0-debug-main-3113423142 --kind fake --pane wT:p1 -- --fake-name \
+[ABC-0] debug main pipeline 3113423142" \
+  "$(grep '^herdr agent start' "$MOCK_LOG")"
 
 # Bad input.
 fresh

@@ -361,8 +361,15 @@ else
   (cd "$worktree" && "$watch_client" kind mine) >/dev/null 2>&1 || true
 fi
 
-# herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max.
-name=$(short_slug "$branch" 32)
+# herdr agent names: a lowercase letter first, then [a-z0-9_-], 32 characters max, unique among
+# live agents. Branches often differ only in the last word, so a long name loses middle words.
+name=$(slugify "$branch")
+last=${name##*-}
+if ((${#name} <= 32 || ${#last} > 16)); then
+  name=$(short_slug "$name" 32)
+else
+  name="$(short_slug "${name%-*}" $((31 - ${#last})))-$last"
+fi
 
 if [[ -n ${NONO_CAP_FILE:-} ]]; then
   # nono denies `herdr agent start` in the sandbox, and finds this mediated command by name on PATH.
