@@ -67,6 +67,10 @@ pub struct Event {
     pub author: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed: Option<Vec<FailedJob>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub draft: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waited: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -117,6 +121,8 @@ impl Event {
             jobs: None,
             author: None,
             failed: None,
+            draft: None,
+            waited: None,
         }
     }
 }

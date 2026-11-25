@@ -23,6 +23,8 @@
 //! opened: actor is the MR author. todo and opened: author is the MR author, absent if GitLab does
 //! not give it. default-failed: iid and title are null, previous is the status of the saved
 //! default-branch pipeline or null, and jobs are the names of the failed jobs.
+//! A review_requested to-do item gives draft, the draft state of the MR. Later, the first check
+//! that sees the MR as not a draft gives a second todo event with waited: true.
 //!
 //! Author mode (--mr, one for each MR, `!` prefix allowed) watches the MRs of a worktree.
 //! Review mode (--review and one --mr) watches one MR for its reviewer. The two modes give the same

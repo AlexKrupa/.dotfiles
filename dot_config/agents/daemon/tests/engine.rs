@@ -187,9 +187,12 @@ fn hub_basics() -> &'static Checks {
             "target": {"iid": 5, "title": "Add foo", "source_branch": "ABC-1/foo"},
             "target_url": format!("{URL}/5")}]).to_string());
         c.check("new to-do item",
-            u(r#"{"kind":"todo","iid":5,"title":"Add foo","url":"$url/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11"}"#),
+            u(r#"{"kind":"todo","iid":5,"title":"Add foo","url":"$url/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11","draft":false}"#),
             env.run(&[]).out);
-        c.check("same to-do item: no events", "", env.run(&[]).out);
+        c.check("same to-do item: release event",
+            u(r#"{"kind":"todo","iid":5,"title":"Add foo","url":"$url/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11","draft":false,"waited":true}"#),
+            env.run(&[]).out);
+        c.check("released to-do item: no events", "", env.run(&[]).out);
         env.fixture("todos", &json!([{"id": 12, "action_name": "assigned", "author": {"username": "me"},
             "target": {"iid": 6, "title": "Add baz", "source_branch": "ABC-3/baz", "author": {"username": "me"}},
             "target_url": format!("{URL}/6")}]).to_string());
@@ -431,7 +434,7 @@ fn skip_mr() -> &'static Checks {
         env.fixture("commented", &json!([mr(9, "Fix bar", "opened", "t2", "bob", "ABC-2/bar")]).to_string());
         env.fixture("notes_9", r#"[{"id": 301, "system": false, "body": "Odd", "author": {"username": "anna"}}]"#);
         c.check("--skip-mr: only the review request and opened",
-            u(r#"{"kind":"todo","iid":9,"title":"Fix bar","url":"$url/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar","item":"todo:22","author":"bob"}"#),
+            u(r#"{"kind":"todo","iid":9,"title":"Fix bar","url":"$url/9","actor":"anna","detail":"review_requested","branch":"ABC-2/bar","item":"todo:22","author":"bob","draft":false}"#),
             env.run(&["--skip-mr", "9"]).out);
         c
     })
@@ -1362,8 +1365,13 @@ fn new_to_do_item() {
 }
 
 #[test]
-fn same_to_do_item_no_events() {
-    hub_basics().assert("same to-do item: no events");
+fn same_to_do_item_release_event() {
+    hub_basics().assert("same to-do item: release event");
+}
+
+#[test]
+fn released_to_do_item_no_events() {
+    hub_basics().assert("released to-do item: no events");
 }
 
 #[test]

@@ -72,7 +72,7 @@ fn hub_todo() -> &'static Checks {
             "target_url": format!("{URL}/5")}]).to_string());
         let run = w.watch_wait(&[]);
         c.check("e2e: real engine and fake glab give a todo event",
-            format!(r#"0 {{"kind":"todo","iid":5,"title":"Add foo","url":"{URL}/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11"}}"#),
+            format!(r#"0 {{"kind":"todo","iid":5,"title":"Add foo","url":"{URL}/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11","draft":false}}"#),
             format!("{} {}", run.code, norow(&run.out)));
         c
     })

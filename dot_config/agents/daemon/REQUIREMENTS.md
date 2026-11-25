@@ -297,7 +297,9 @@ from a design spec that the user approved.
   or `dependabot/` prefix and no version suffix.
 - W8.20 For a review request from a different person, the daemon starts a review agent that runs
   the `review-pr` skill on the MR URL, in a new worktree of the MR source branch.
-- W8.21 (spec) Auto-review starts on a `todo` event with the detail `review_requested`.
+- W8.21 (spec) Auto-review starts on a `todo` event with the detail `review_requested`. It starts
+  at the first hub check after the check that saw the request, and only while the MR is not a
+  draft.
 - W8.22 If a review report for the MR exists, the router starts no agent, the row shows `Already
   reviewed: <path>`, and the to-do item stays pending, also after new commits.
 - W8.23 A new MR that is not a bump and requests no review of the user gets no row, no output, and
@@ -354,6 +356,11 @@ from a design spec that the user approved.
   for its own events.
 - W8.50 (spec) Each router action of an MR logs the result `bump`, `review`, or `none` for the
   notification.
+- W8.51 A review request of a draft MR starts no agent, no worktree, and no workspace. The review
+  starts at the first check that sees the MR as not a draft.
+- W8.52 (spec) While a review request waits, its board row shows the cell `Review waits: starts at
+  the next check if the MR is not a draft`.
+- W8.53 (spec) The wait uses the draft state of the to-do response and makes no extra GitLab call.
 
 ## W9 Pending items
 

@@ -153,8 +153,15 @@ fn is_bot(author: &str) -> bool {
     author.contains("renovate") || author.contains("dependabot")
 }
 
+const WAIT_CELL: &str = "Review waits: starts at the next check if the MR is not a draft";
+
 fn is_review_request(event: &Event) -> bool {
     event.kind == EventKind::Todo && event.detail == "review_requested"
+}
+
+/// The hub gives a review request a second event, its release, after the wait.
+fn is_released(event: &Event) -> bool {
+    event.waited == Some(true)
 }
 
 fn mr_round(events: &[&RoutedEvent], facts: &Facts) -> MrRound {
@@ -164,11 +171,11 @@ fn mr_round(events: &[&RoutedEvent], facts: &Facts) -> MrRound {
         Some(author) if is_bot(author) => events
             .iter()
             .find(|routed| routed.event.kind == EventKind::Opened)
-            .or(events.first())
+            .or(events.iter().find(|routed| !is_released(&routed.event)))
             .map(|routed| start_of(routed, StartKind::Bump)),
         Some(_) => events
             .iter()
-            .find(|routed| is_review_request(&routed.event))
+            .find(|routed| is_review_request(&routed.event) && is_released(&routed.event))
             .filter(|routed| routed.event.iid.is_some_and(|iid| !facts.reviewed.contains_key(&iid)))
             .map(|routed| start_of(routed, StartKind::Review)),
     };
@@ -248,18 +255,29 @@ fn todo_action(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Action {
     if let Some(start) = start_on(routed, mr) {
         return start;
     }
-    if mr.author.is_none() {
-        return Action::AskModel;
-    }
+    let event = &routed.event;
+    let Some(author) = &mr.author else {
+        // The model got the first event of a released request.
+        return match is_released(event) {
+            true => Action::ReportOnly { cell: None },
+            false => Action::AskModel,
+        };
+    };
     if mr.start.is_some() {
         return Action::Dismiss;
     }
-    let reviewed = routed.event.iid.and_then(|iid| facts.reviewed.get(&iid));
-    match reviewed.filter(|_| is_review_request(&routed.event)) {
-        Some(path) => Action::ReportOnly {
+    if !is_review_request(event) {
+        return Action::ReportOnly { cell: None };
+    }
+    let reviewed = event.iid.and_then(|iid| facts.reviewed.get(&iid));
+    match (reviewed, is_released(event) || is_bot(author)) {
+        (Some(path), _) => Action::ReportOnly {
             cell: Some(format!("Already reviewed: {}", path.display())),
         },
-        None => Action::ReportOnly { cell: None },
+        (None, false) => Action::ReportOnly {
+            cell: Some(WAIT_CELL.to_string()),
+        },
+        (None, true) => Action::ReportOnly { cell: None },
     }
 }
 
@@ -422,6 +440,22 @@ mod tests {
         }
     }
 
+    fn released(routed: RoutedEvent) -> RoutedEvent {
+        RoutedEvent {
+            event: Event {
+                waited: Some(true),
+                ..routed.event
+            },
+            ..routed
+        }
+    }
+
+    fn wait_cell() -> Action {
+        Action::ReportOnly {
+            cell: Some(WAIT_CELL.to_string()),
+        }
+    }
+
     fn actions(events: &[RoutedEvent], facts: &Facts) -> Vec<(u64, Action)> {
         decide(events, facts)
             .into_iter()
@@ -467,10 +501,61 @@ mod tests {
     }
 
     #[test]
-    fn review_request_of_a_person_starts_a_review() {
+    fn review_request_of_a_person_waits() {
         let events = [mr_event(EventKind::Todo, "review_requested", Some("bob"), 1)];
 
+        assert_eq!(actions(&events, &Facts::default()), [(1, wait_cell())]);
+    }
+
+    #[test]
+    fn released_review_request_of_a_person_starts_a_review() {
+        let events = [released(mr_event(EventKind::Todo, "review_requested", Some("bob"), 1))];
+
         assert_eq!(actions(&events, &Facts::default()), [(1, start_review())]);
+    }
+
+    #[test]
+    fn released_review_request_of_a_reviewed_mr_is_report_only_with_the_report() {
+        let facts = Facts {
+            reviewed: BTreeMap::from([(5, PathBuf::from("/r/2026-10-01-mr-5-x.md"))]),
+            ..Facts::default()
+        };
+        let events = [released(mr_event(EventKind::Todo, "review_requested", Some("bob"), 1))];
+
+        assert_eq!(
+            actions(&events, &facts),
+            [(
+                1,
+                Action::ReportOnly {
+                    cell: Some("Already reviewed: /r/2026-10-01-mr-5-x.md".to_string())
+                }
+            )]
+        );
+    }
+
+    #[test]
+    fn released_review_request_of_a_bot_mr_starts_no_bump() {
+        let events = [released(mr_event(
+            EventKind::Todo,
+            "review_requested",
+            Some("renovate"),
+            1,
+        ))];
+
+        assert_eq!(
+            actions(&events, &Facts::default()),
+            [(1, Action::ReportOnly { cell: None })]
+        );
+    }
+
+    #[test]
+    fn released_review_request_with_no_author_is_report_only() {
+        let events = [released(mr_event(EventKind::Todo, "review_requested", None, 1))];
+
+        assert_eq!(
+            actions(&events, &Facts::default()),
+            [(1, Action::ReportOnly { cell: None })]
+        );
     }
 
     #[test]
@@ -525,7 +610,7 @@ mod tests {
     }
 
     #[test]
-    fn opened_and_todo_of_one_mr_start_one_agent() {
+    fn opened_and_todo_of_one_mr_give_one_action() {
         let review = [
             mr_event(EventKind::Opened, "opened", Some("bob"), 1),
             mr_event(EventKind::Todo, "review_requested", Some("bob"), 2),
@@ -537,7 +622,7 @@ mod tests {
 
         assert_eq!(
             actions(&review, &Facts::default()),
-            [(1, Action::Dismiss), (2, start_review())]
+            [(1, Action::Dismiss), (2, wait_cell())]
         );
         assert_eq!(
             actions(&bump, &Facts::default()),

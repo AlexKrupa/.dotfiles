@@ -49,6 +49,9 @@ pub struct HubState {
     /// The open MRs of the user, for the polling of an MR with no worktree.
     #[serde(default)]
     pub own_mrs: Vec<OwnMr>,
+    /// The to-do ids of the review requests that wait for their release event.
+    #[serde(default)]
+    pub waiting: Vec<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

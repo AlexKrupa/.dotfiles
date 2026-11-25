@@ -58,7 +58,9 @@ The user starts work on it with `/work`.
 The daemon starts the review and bump agents, and the board shows the result. A bump agent starts
 for each new MR or to-do item of a bot: an MR author whose username has `renovate` or
 `dependabot`. A review agent starts for each review request of a person, unless a review report
-`~/.ai/<repo>/reviews/*-mr-<iid>-*.md` exists. Each agent works in its own herdr worktree
+`~/.ai/<repo>/reviews/*-mr-<iid>-*.md` exists. The review agent starts at the next check after the
+review request, while the MR is not a draft. A draft MR waits until it is ready. Each agent works
+in its own herdr worktree
 workspace. After a bump agent starts, the board shows `The bump agent of <old branch> is stale`
 for each older bump agent of the same dependency. Its workspace stays, because it can contain
 changes. The `opened` event of an MR of a person goes away with no row. If the start fails, the

@@ -24,6 +24,8 @@ pub struct TodoTarget {
     pub title: String,
     pub source_branch: String,
     pub author: Option<Username>,
+    #[serde(default)]
+    pub draft: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -95,6 +97,10 @@ impl RestNote {
 impl Todo {
     fn on_own_mr(&self, me: &str) -> bool {
         self.target.author.as_ref().is_some_and(|author| author.username == me)
+    }
+
+    fn is_review_request(&self) -> bool {
+        self.action_name == "review_requested"
     }
 }
 
@@ -384,6 +390,17 @@ pub fn hub_compare(input: &HubInput, old: Option<&HubState>, reviewed: &[u64]) -
     if default_failed {
         present.push(format!("main-failed:{}", input.default_branch));
     }
+    let waiting = match old {
+        Some(old) => others_todos
+            .iter()
+            .filter(|todo| match old.waiting.contains(&todo.id) {
+                true => todo.target.draft,
+                false => todo.is_review_request() && !old.todos.contains(&todo.id),
+            })
+            .map(|todo| todo.id)
+            .collect(),
+        None => Vec::new(),
+    };
     let state = HubState {
         todos: input.todos.iter().map(|todo| todo.id).collect(),
         opened: Some(opened.iter().map(|mr| mr.iid).collect()),
@@ -392,6 +409,7 @@ pub fn hub_compare(input: &HubInput, old: Option<&HubState>, reviewed: &[u64]) -
         needs,
         present,
         own_mrs: input.own.iter().map(|mr| OwnMr { iid: mr.iid }).collect(),
+        waiting,
     };
     let events = match old {
         Some(old) => hub_events(input, old, &by, &notes_by, &reactions_by, &opened)
@@ -417,23 +435,15 @@ fn hub_events(
 ) -> Vec<Event> {
     let me = input.me.as_str();
     let mut events = Vec::new();
-    for todo in &input.todos {
-        if old.todos.contains(&todo.id) || todo.on_own_mr(me) {
-            continue;
+    for todo in input.todos.iter().filter(|todo| !todo.on_own_mr(me)) {
+        if !old.todos.contains(&todo.id) {
+            events.push(todo_event(todo));
+        } else if old.waiting.contains(&todo.id) && !todo.target.draft {
+            events.push(Event {
+                waited: Some(true),
+                ..todo_event(todo)
+            });
         }
-        events.push(Event {
-            item: Some(format!("todo:{}", todo.id)),
-            author: todo.target.author.as_ref().map(|author| author.username.clone()),
-            ..Event::new(
-                EventKind::Todo,
-                Some(todo.target.iid),
-                Some(&todo.target.title),
-                &todo.target_url,
-                &todo.author.username,
-                &todo.action_name,
-                &todo.target.source_branch,
-            )
-        });
     }
     if let Some(old_opened) = &old.opened {
         for mr in opened.iter().filter(|mr| !old_opened.contains(&mr.iid)) {
@@ -513,6 +523,23 @@ fn hub_events(
     events
 }
 
+fn todo_event(todo: &Todo) -> Event {
+    Event {
+        item: Some(format!("todo:{}", todo.id)),
+        author: todo.target.author.as_ref().map(|author| author.username.clone()),
+        draft: todo.is_review_request().then_some(todo.target.draft),
+        ..Event::new(
+            EventKind::Todo,
+            Some(todo.target.iid),
+            Some(&todo.target.title),
+            &todo.target_url,
+            &todo.author.username,
+            &todo.action_name,
+            &todo.target.source_branch,
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -525,6 +552,12 @@ mod tests {
                "target": {"iid": iid, "title": "Add foo", "source_branch": "ABC-1/foo",
                           "author": {"username": "bob"}},
                "target_url": format!("{URL}/{iid}")})
+    }
+
+    fn review_todo(id: u64, iid: u64, draft: bool) -> serde_json::Value {
+        let mut todo = todo(id, "review_requested", iid);
+        todo["target"]["draft"] = json!(draft);
+        todo
     }
 
     fn input(todos: serde_json::Value) -> HubInput {
@@ -558,9 +591,81 @@ mod tests {
         assert_eq!(
             lines(&events),
             vec![format!(
-                r#"{{"kind":"todo","iid":5,"title":"Add foo","url":"{URL}/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11","author":"bob"}}"#
+                r#"{{"kind":"todo","iid":5,"title":"Add foo","url":"{URL}/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11","author":"bob","draft":false}}"#
             )]
         );
+    }
+
+    #[test]
+    fn hub_new_review_request_is_held_with_its_draft_state() {
+        let old = HubState::default();
+        let (state, events) = hub_compare(&input(json!([review_todo(11, 5, true)])), Some(&old), &[]);
+        assert_eq!(state.waiting, vec![11]);
+        assert_eq!(events.len(), 1);
+        assert_eq!((events[0].draft, events[0].waited), (Some(true), None));
+    }
+
+    #[test]
+    fn hub_held_request_of_a_draft_mr_stays_held() {
+        let old = HubState {
+            todos: vec![11],
+            waiting: vec![11],
+            ..HubState::default()
+        };
+        let (state, events) = hub_compare(&input(json!([review_todo(11, 5, true)])), Some(&old), &[]);
+        assert!(events.is_empty());
+        assert_eq!(state.waiting, vec![11]);
+    }
+
+    #[test]
+    fn hub_held_request_of_a_ready_mr_is_released() {
+        let old = HubState {
+            todos: vec![11],
+            waiting: vec![11],
+            ..HubState::default()
+        };
+        let (state, events) = hub_compare(&input(json!([review_todo(11, 5, false)])), Some(&old), &[]);
+        assert!(state.waiting.is_empty());
+        assert_eq!(
+            lines(&events),
+            vec![format!(
+                r#"{{"kind":"todo","iid":5,"title":"Add foo","url":"{URL}/5","actor":"anna","detail":"review_requested","branch":"ABC-1/foo","item":"todo:11","author":"bob","draft":false,"waited":true}}"#
+            )]
+        );
+    }
+
+    #[test]
+    fn hub_held_request_that_is_no_longer_pending_is_dropped() {
+        let old = HubState {
+            todos: vec![11],
+            waiting: vec![11],
+            ..HubState::default()
+        };
+        let (state, events) = hub_compare(&input(json!([])), Some(&old), &[]);
+        assert!(events.is_empty());
+        assert!(state.waiting.is_empty());
+    }
+
+    #[test]
+    fn hub_first_check_holds_no_request() {
+        let (state, _) = hub_compare(&input(json!([review_todo(11, 5, false)])), None, &[]);
+        assert!(state.waiting.is_empty());
+    }
+
+    #[test]
+    fn hub_review_request_on_an_own_mr_is_not_held() {
+        let mut todo = review_todo(11, 5, false);
+        todo["target"]["author"]["username"] = json!("me");
+        let old = HubState::default();
+        let (state, events) = hub_compare(&input(json!([todo])), Some(&old), &[]);
+        assert!(events.is_empty());
+        assert!(state.waiting.is_empty());
+    }
+
+    #[test]
+    fn hub_state_with_no_waiting_field_loads() {
+        let state: HubState = serde_json::from_value(json!({"todos": [11]})).unwrap();
+        assert!(state.waiting.is_empty());
     }
 
     #[test]
