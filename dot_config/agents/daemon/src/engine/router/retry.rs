@@ -199,7 +199,6 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::board::Board;
     use crate::core::subs::{Agent, Mode};
     use crate::daemon::store::Store;
     use crate::engine::fake::FakeEngine;
@@ -302,9 +301,9 @@ mod tests {
             ]
         );
         assert_eq!(setup.daemon.lock().await.store.retry_count("app", "7:build"), 1);
-        let file = std::fs::read_to_string(setup.daemon.lock().await.store.dirs.board("app")).unwrap();
-        let board: Board = serde_json::from_str(&file).unwrap();
-        let urls: Vec<Option<&str>> = board.rows.iter().map(|row| row.url.as_deref()).collect();
+        let file = std::fs::read_to_string(setup.daemon.lock().await.store.dirs.rows("app")).unwrap();
+        let rows: Vec<crate::report::Row> = serde_json::from_str(&file).unwrap();
+        let urls: Vec<Option<&str>> = rows.iter().map(|row| row.url.as_deref()).collect();
         assert_eq!(urls, [Some("https://g/-/pipelines/7")]);
     }
 

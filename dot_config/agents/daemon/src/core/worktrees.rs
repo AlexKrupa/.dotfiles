@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::core::subs::{Agent, Mode};
 use crate::engine::state::{Need, OwnMr};
 use crate::key::review_key;
+use crate::view::StoredArtifact;
 
 /// The main worktree of each repo that a client used, with no symlinks in the path.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -25,6 +26,9 @@ pub struct WorktreeState {
     pub key: String,
     pub stack: Vec<String>,
     pub mrs: Vec<u64>,
+    /// The MR of each branch of `stack` that has one.
+    #[serde(default)]
+    pub branch_mrs: BTreeMap<String, u64>,
     #[serde(default)]
     pub conflict: Vec<String>,
     #[serde(default)]
@@ -43,6 +47,9 @@ pub struct WorktreeState {
     /// live agent.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub needs: BTreeMap<String, Vec<Need>>,
+    /// The files and URLs of the work that clients recorded.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artifacts: Vec<StoredArtifact>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -195,7 +202,10 @@ impl WorktreeState {
             branch,
             key,
             stack: stack.clone().map(|branch| branch.name.clone()).collect(),
-            mrs: stack.filter_map(|branch| branch.mr).collect(),
+            mrs: stack.clone().filter_map(|branch| branch.mr).collect(),
+            branch_mrs: stack
+                .filter_map(|branch| Some((branch.name.clone(), branch.mr?)))
+                .collect(),
             conflict: Vec::new(),
             ended: Vec::new(),
             ended_branches: Vec::new(),
@@ -203,7 +213,14 @@ impl WorktreeState {
             kind: None,
             stage: None,
             needs: BTreeMap::new(),
+            artifacts: Vec::new(),
         }
+    }
+
+    /// The local state of `key` is read. A state from before `branch_mrs` has MRs and no
+    /// `branch_mrs`, and it is read again.
+    pub fn is_read_with(&self, key: &str) -> bool {
+        self.key == key && (self.mrs.is_empty() || !self.branch_mrs.is_empty())
     }
 
     /// The other fields have other writers. `read.ended_branches` has the ended branches of the
@@ -218,6 +235,7 @@ impl WorktreeState {
         };
         self.stack = read.stack;
         self.mrs = read.mrs;
+        self.branch_mrs = read.branch_mrs;
         self.conflict = read.conflict;
     }
 }
@@ -695,6 +713,42 @@ mod tests {
         );
 
         assert_eq!((state.stack, state.mrs), (Vec::<String>::new(), Vec::<u64>::new()));
+    }
+
+    #[test]
+    fn worktree_on_a_stack_has_the_mr_of_each_branch() {
+        let state = WorktreeState::new(
+            "/r".into(),
+            "/r".into(),
+            Some("b".into()),
+            "k".into(),
+            &current_stack(&parse_spice_log(STACK)),
+        );
+
+        assert_eq!(
+            (state.stack, state.mrs),
+            (vec!["a".to_string(), "b".to_string()], vec![12])
+        );
+        assert_eq!(state.branch_mrs, BTreeMap::from([("a".to_string(), 12)]));
+    }
+
+    #[test]
+    fn state_with_mrs_and_no_branch_mrs_is_read_again() {
+        let read = WorktreeState::new(
+            "/r".into(),
+            "/r".into(),
+            Some("b".into()),
+            "k".into(),
+            &current_stack(&parse_spice_log(STACK)),
+        );
+        let old = WorktreeState {
+            branch_mrs: BTreeMap::new(),
+            ..read.clone()
+        };
+
+        assert!(read.is_read_with("k"));
+        assert!(!read.is_read_with("other"));
+        assert!(!old.is_read_with("k"));
     }
 
     #[test]

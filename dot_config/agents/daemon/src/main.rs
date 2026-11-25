@@ -51,6 +51,12 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Record a file or URL of the work of the worktree of the current folder: KIND TARGET [--branch NAME | --common].
+    #[command(disable_help_flag = true)]
+    Artifact {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// The router result of an opened event of the hub: --iid IID --action bump|review|none [--repo PATH].
     #[command(disable_help_flag = true)]
     Route {
@@ -68,13 +74,13 @@ enum Commands {
         #[arg(long)]
         after: Option<u64>,
     },
-    /// The newest hub report of the repo, drawn again after each change: [--repo PATH].
+    /// The view of the watch as text, one row a line with its id: [--repo PATH] [--review] [--mr IID]...
     #[command(disable_help_flag = true)]
-    Board {
+    Rows {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    /// The Markdown report of the last delivery: [--repo PATH] [--review] [--mr IID]... <JSON.
+    /// Save the report of the last delivery, and print it with --print: [--repo PATH] [--review] [--mr IID]... [--print] <JSON.
     #[command(disable_help_flag = true)]
     Report {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -100,8 +106,9 @@ async fn main() {
         Commands::Watches { args } => client::watches(args),
         Commands::Kind { args } => client::kind(args).await,
         Commands::Route { args } => client::route(args).await,
+        Commands::Artifact { args } => client::artifact(args).await,
         Commands::Report { args } => client::report(args).await,
-        Commands::Board { args } => client::board(args).await,
+        Commands::Rows { args } => client::rows(args).await,
         Commands::Debug {
             command: DebugCommand::State,
         } => client::debug_state().await,

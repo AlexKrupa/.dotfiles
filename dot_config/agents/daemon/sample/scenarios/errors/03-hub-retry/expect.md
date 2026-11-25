@@ -1,3 +1,3 @@
-- Board (`watchd board` in the repo): an Agent row "main: job unit-tests passed after retry".
+- `watchd rows` in the repo: an `agent` row "main: job unit-tests passed after retry".
 - Fake engine `args` file: the lines `retry 601` and `retry 602`.
 - No notification of an agent start.

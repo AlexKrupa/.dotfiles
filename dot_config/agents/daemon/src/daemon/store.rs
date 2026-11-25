@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::board::Board;
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
 use crate::core::filter::needs;
 use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
@@ -16,14 +15,15 @@ use crate::core::subs::{Agent, Mode, Session, SessionKey, add_ended};
 use crate::core::worktrees::{Kind, Repos, ReviewLink, Reviews, Stage, Target, WorktreeState, stack_ended};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::router::Routing;
-use crate::engine::state::Need;
-use crate::key::is_worktree_key;
-use crate::local::repo_of;
+use crate::engine::state::{MrsState, Need};
+use crate::key::{author_key, is_worktree_key, review_key};
+use crate::local::{git, repo_of};
 use crate::paths::{StateDirs, session_id};
 use crate::persist::{FORMAT_FILE, FORMAT_VERSION, Load, LoadError, load, save, write_atomic, write_json};
 use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
 use crate::protocol::{DebugState, SubStatus, WatchRequest};
-use crate::report::{ReportInput, build_report, render};
+use crate::report::{ReportInput, Row, build_report, render};
+use crate::view::{StoredArtifact, View, compose, compose_hub};
 
 pub const ALL_ENDED: &str = "all MRs merged or closed";
 
@@ -40,10 +40,26 @@ fn unreadable() -> String {
 pub struct Store {
     pub dirs: StateDirs,
     last_id: std::sync::Mutex<Option<u64>>,
+    /// The `watchd.ticketUrl` of each repo, read once.
+    ticket_urls: std::sync::Mutex<BTreeMap<PathBuf, Option<String>>>,
 }
 
 fn remove(path: &Path) {
     let _ = std::fs::remove_file(path);
+}
+
+/// The branch of each `MR draft` artifact, and the first `# ` line of its file. A file that is
+/// missing or has no such line gives no title.
+fn draft_titles(artifacts: &[StoredArtifact]) -> BTreeMap<String, String> {
+    artifacts
+        .iter()
+        .filter(|artifact| artifact.kind == "MR draft")
+        .filter_map(|artifact| {
+            let text = std::fs::read_to_string(&artifact.target).ok()?;
+            let title = text.lines().find_map(|line| line.strip_prefix("# "))?;
+            Some((artifact.branch.clone()?, title.trim().to_string()))
+        })
+        .collect()
 }
 
 pub fn first_line(text: &str) -> &str {
@@ -91,6 +107,7 @@ impl Store {
         Store {
             dirs,
             last_id: std::sync::Mutex::new(None),
+            ticket_urls: std::sync::Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -596,6 +613,21 @@ impl Store {
         self.write_worktree(&state);
     }
 
+    /// With `common`, the artifact has no branch. Else its branch is the given one, or the
+    /// checked-out branch of the worktree. The same kind and target again replaces the old entry.
+    pub fn add_artifact(&self, folder: &Path, artifact: StoredArtifact, common: bool) {
+        self.update_worktree(folder, |state| {
+            let branch = match common {
+                true => None,
+                false => artifact.branch.clone().or_else(|| state.branch.clone()),
+            };
+            state
+                .artifacts
+                .retain(|old| (&old.kind, &old.target) != (&artifact.kind, &artifact.target));
+            state.artifacts.push(StoredArtifact { branch, ..artifact });
+        });
+    }
+
     pub fn engine_value(&self, key: &str) -> Option<serde_json::Value> {
         self.read(&self.dirs.engine_state(key))
     }
@@ -679,10 +711,7 @@ impl Store {
     /// An ended key keeps its results until the next wait of its session.
     pub fn sweep(&self) {
         let mut keys = Vec::new();
-        for (dir, suffixes) in [
-            ("inbox", &[".jsonl", ".error"][..]),
-            ("items", &[".json", ".board"][..]),
-        ] {
+        for (dir, suffixes) in [("inbox", &[".jsonl", ".error"][..]), ("items", &[".json", ".rows"][..])] {
             let Ok(entries) = std::fs::read_dir(self.dirs.watchd.join(dir)) else {
                 continue;
             };
@@ -716,7 +745,7 @@ impl Store {
             }
             if is_worktree_key(&key) {
                 remove(&self.dirs.items(&key));
-                remove(&self.dirs.board(&key));
+                remove(&self.dirs.rows(&key));
             }
             self.log("", &key, "results of an ended subscription removed");
         }
@@ -777,29 +806,39 @@ impl Store {
         }
     }
 
-    /// With only handled rows, the board gets the report and the hub inbox gets nothing. Else the
+    /// With only handled rows, the rows file gets the report and the inbox gets nothing. Else the
     /// inbox gets all events, and the `.routing` file keeps the fields of the handled rows.
     pub fn deliver(&self, target: &Target, routed: &[RoutedEvent], routing: &Routing) {
         if let Some((key, events)) = self.recipient(target, routed)
             && !events.is_empty()
         {
             let all_handled = events.iter().all(|event| routing.handled.contains(&event.row));
-            // A router of the hub does not apply to the inbox of another agent.
-            match (key == target.slug, all_handled) {
-                (true, true) => {
-                    if let Err(error) = self.build(&key, Mode::Hub, &[], &routing.input, &events) {
-                        self.log(&target.slug, &key, &format!("board: {error}"));
+            match all_handled {
+                true => {
+                    let (mode, mrs) = match key == target.slug {
+                        true => (Mode::Hub, &[][..]),
+                        false => (target.mode, target.mrs.as_slice()),
+                    };
+                    if let Err(error) = self.build(&key, mode, mrs, &routing.input, &events) {
+                        self.log(&target.slug, &key, &format!("rows: {error}"));
                     }
                 }
-                (true, false) => {
+                false => {
                     self.append_lines(&self.dirs.inbox(&key), &events);
-                    if !routing.handled.is_empty() {
-                        let mut saved = self.routing(&key);
+                    // A pending item keeps its row: a row that an earlier round handled can wake now.
+                    let waking: Vec<u64> = events
+                        .iter()
+                        .map(|event| event.row)
+                        .filter(|row| !routing.handled.contains(row))
+                        .collect();
+                    let mut saved = self.routing(&key);
+                    let stale = saved.handled.iter().any(|row| waking.contains(row));
+                    if stale || !routing.handled.is_empty() {
                         saved.add(routing.clone());
+                        saved.handled.retain(|row| !waking.contains(row));
                         self.write_routing(&key, &saved);
                     }
                 }
-                (false, _) => self.append_lines(&self.dirs.inbox(&key), &events),
             }
         }
         self.log(&target.slug, &target.key, &format!("routed {} event(s)", routed.len()));
@@ -811,7 +850,7 @@ impl Store {
             self.log(&target.slug, &target.key, &format!("row: {text}"));
         }
         if let Err(error) = self.build(&target.slug, Mode::Hub, &[], input, &[]) {
-            self.log(&target.slug, &target.key, &format!("board: {error}"));
+            self.log(&target.slug, &target.key, &format!("rows: {error}"));
         }
     }
 
@@ -1178,14 +1217,99 @@ impl Store {
         let (hour, minute, _) = local_time(now_seconds());
         let time = format!("{hour:02}:{minute:02}");
         let text = render(mode, &time, mrs, &data);
-        self.write_board(key, &Board::of(&time, &data));
+        if let Err(error) = write_json(&self.dirs.rows(key), &data.rows) {
+            self.log("", key, &format!("rows not written: {error}"));
+        }
         Ok(text)
     }
 
-    fn write_board(&self, key: &str, board: &Board) {
-        if let Err(error) = write_json(&self.dirs.board(key), board) {
-            self.log("", key, &format!("board not written: {error}"));
+    /// A missing or broken file gives no rows.
+    fn rows(&self, key: &str) -> Vec<Row> {
+        let text = std::fs::read_to_string(self.dirs.rows(key)).unwrap_or_default();
+        serde_json::from_str(&text).unwrap_or_default()
+    }
+
+    fn engine_state(&self, key: &str) -> MrsState {
+        self.engine_value(key)
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default()
+    }
+
+    fn ticket_url(&self, repo: &Path) -> Option<String> {
+        let mut urls = self.ticket_urls.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        urls.entry(repo.to_path_buf())
+            .or_insert_with(|| {
+                git(repo, &["config", "watchd.ticketUrl"])
+                    .ok()
+                    .map(|url| url.trim().to_string())
+                    .filter(|url| !url.is_empty())
+            })
+            .clone()
+    }
+
+    fn worktree_view(&self, key: &str, worktree: &WorktreeState) -> View {
+        compose(
+            key,
+            worktree,
+            &self.engine_state(key),
+            &self.rows(key),
+            &worktree.artifacts,
+            &draft_titles(&worktree.artifacts),
+            self.ticket_url(&worktree.repo).as_deref(),
+        )
+    }
+
+    /// One view for each worktree of a repo with a watch, for each review watch, and for each hub
+    /// watch. The view of a review watch takes the place of the author view of its worktree.
+    pub fn views(&self) -> BTreeMap<String, View> {
+        let subs = self.subs();
+        let worktrees = self.worktrees();
+        let state_of = |path: &Path| worktrees.iter().find(|state| state.path == path);
+        let slugs: BTreeMap<PathBuf, String> = subs
+            .iter()
+            .map(|sub| {
+                let repo = state_of(&sub.repo).map_or_else(|| sub.repo.clone(), |state| state.repo.clone());
+                (repo, sub.slug.clone())
+            })
+            .collect();
+        let mut views = BTreeMap::new();
+        for state in &worktrees {
+            if let Some(slug) = slugs.get(&state.repo) {
+                let key = author_key(slug, &state.path);
+                views.insert(key.clone(), self.worktree_view(&key, state));
+            }
         }
+        let links = self.reviews().into_iter().map(|link| (link.worktree, link.iid));
+        let review_subs = subs
+            .iter()
+            .filter(|sub| sub.mode == Mode::Review)
+            .filter_map(|sub| Some((sub.repo.clone(), *sub.mrs.first()?)));
+        for (worktree, iid) in links.chain(review_subs) {
+            let Some(state) = state_of(&worktree) else {
+                continue;
+            };
+            let Some(slug) = slugs.get(&state.repo) else {
+                continue;
+            };
+            let author = author_key(slug, &worktree);
+            views.remove(&author);
+            let reviewed = WorktreeState {
+                stack: Vec::new(),
+                mrs: vec![iid],
+                branch_mrs: BTreeMap::new(),
+                ..state.clone()
+            };
+            let key = review_key(&author, iid);
+            views.insert(key.clone(), self.worktree_view(&key, &reviewed));
+        }
+        for sub in subs.iter().filter(|sub| sub.mode == Mode::Hub) {
+            let own = self.engine_state(&format!("{}-own", sub.slug));
+            views.insert(
+                sub.key.clone(),
+                compose_hub(&sub.key, &sub.repo, &self.rows(&sub.key), &own),
+            );
+        }
+        views
     }
 
     fn json_files<T: DeserializeOwned>(&self, dir: &Path, suffix: &str) -> BTreeMap<String, T> {
@@ -1283,6 +1407,8 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::report::{Add, AddSection, Row};
+    use crate::view::StoredArtifact;
 
     #[test]
     fn record_of_an_unknown_format_is_removed_with_a_log_line() {
@@ -1474,8 +1600,8 @@ mod tests {
     }
 
     #[test]
-    fn sweep_removes_the_board_file_of_an_ended_worktree_key() {
-        let base = std::env::temp_dir().join(format!("watchd-store-{}-sweep-board", std::process::id()));
+    fn sweep_removes_the_rows_file_of_an_ended_worktree_key() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-sweep-rows", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let store = Store::new(StateDirs {
             watchd: base.join("watchd"),
@@ -1488,33 +1614,111 @@ mod tests {
 
         store.sweep();
 
-        assert!(!store.dirs.board(key).exists(), "the board file of {key} stays");
-        assert!(store.dirs.board("app").exists(), "the hub board file is gone");
+        assert!(!store.dirs.rows(key).exists(), "the rows file of {key} stays");
+        assert!(store.dirs.rows("app").exists(), "the hub rows file is gone");
     }
 
     #[test]
-    fn report_writes_the_board_file() {
-        let base = std::env::temp_dir().join(format!("watchd-store-{}-board", std::process::id()));
+    fn report_writes_the_rows_file() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-rows", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let store = Store::new(StateDirs {
             watchd: base.join("watchd"),
             engine: base.join("watch-gitlab"),
         });
         store.ensure_dirs().unwrap();
+        let input = ReportInput {
+            add: vec![Add {
+                section: AddSection::Info,
+                iid: None,
+                what: Some("Fixed lint".to_string()),
+                result: None,
+                url: None,
+            }],
+            ..ReportInput::default()
+        };
 
-        let text = store.report("app", Mode::Hub, &[], &ReportInput::default()).unwrap();
-        store
-            .report("app-a", Mode::Author, &[], &ReportInput::default())
-            .unwrap();
+        store.report("app", Mode::Hub, &[], &input).unwrap();
         store
             .report("app-r-review-7", Mode::Review, &[7], &ReportInput::default())
             .unwrap();
 
-        let board: Board = serde_json::from_str(&std::fs::read_to_string(store.dirs.board("app")).unwrap()).unwrap();
-        assert_eq!(board.time, text);
-        assert_eq!(board.rows, []);
-        for key in ["app-a", "app-r-review-7"] {
-            assert!(store.dirs.board(key).exists(), "no board file of {key}");
+        let rows: Vec<Row> = serde_json::from_str(&std::fs::read_to_string(store.dirs.rows("app")).unwrap()).unwrap();
+        let texts: Vec<Option<&str>> = rows.iter().map(|row| row.what.as_deref()).collect();
+        assert_eq!(texts, [Some("Fixed lint")]);
+        assert!(
+            store.dirs.rows("app-r-review-7").exists(),
+            "no rows file of app-r-review-7"
+        );
+    }
+
+    fn artifact_store(name: &str) -> (Store, PathBuf) {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
+        store.ensure_dirs().unwrap();
+        let path = base.join("wt");
+        store.write_worktree(&WorktreeState::new(
+            path.clone(),
+            base.join("repo"),
+            Some("a/x".to_string()),
+            String::new(),
+            &[],
+        ));
+        (store, path)
+    }
+
+    fn stored(kind: &str, target: &str, branch: Option<&str>) -> StoredArtifact {
+        StoredArtifact {
+            kind: kind.to_string(),
+            target: target.to_string(),
+            branch: branch.map(str::to_string),
         }
+    }
+
+    #[test]
+    fn artifact_gets_the_checked_out_branch() {
+        let (store, path) = artifact_store("artifact-branch");
+
+        store.add_artifact(&path, stored("spec", "/s.md", None), false);
+        store.add_artifact(&path, stored("plan", "/p.md", Some("a/y")), false);
+
+        let artifacts = store.worktree(&path).unwrap().artifacts;
+        assert_eq!(
+            artifacts,
+            [
+                stored("spec", "/s.md", Some("a/x")),
+                stored("plan", "/p.md", Some("a/y"))
+            ]
+        );
+    }
+
+    #[test]
+    fn artifact_with_common_has_no_branch() {
+        let (store, path) = artifact_store("artifact-common");
+
+        store.add_artifact(&path, stored("spec", "/s.md", None), true);
+
+        assert_eq!(
+            store.worktree(&path).unwrap().artifacts,
+            [stored("spec", "/s.md", None)]
+        );
+    }
+
+    #[test]
+    fn same_artifact_again_replaces_it() {
+        let (store, path) = artifact_store("artifact-again");
+
+        store.add_artifact(&path, stored("spec", "/s.md", None), false);
+        store.add_artifact(&path, stored("review", "/r.md", None), false);
+        store.add_artifact(&path, stored("spec", "/s.md", None), true);
+
+        assert_eq!(
+            store.worktree(&path).unwrap().artifacts,
+            [stored("review", "/r.md", Some("a/x")), stored("spec", "/s.md", None)]
+        );
     }
 }

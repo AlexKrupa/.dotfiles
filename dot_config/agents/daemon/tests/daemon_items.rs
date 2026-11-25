@@ -206,7 +206,7 @@ fn author_rows() -> &'static Checks {
             &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")],
         );
         let first = rows(&w.watch_wait(&["--mr", "5"]).out);
-        w.events(&author, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
+        w.events(&author, &[ev("pushed", 5), iev("comment", 5, "thread:d1")]);
         let second = w.watch_wait(&["--mr", "5"]);
         c.check(
             "pending item keeps its row in a second delivery",
@@ -239,7 +239,7 @@ fn hub_report() -> &'static Checks {
                 "detail": ":tada: on your comment", "branch": "b"}).to_string(),
         ]);
         w.watch_wait(&[]);
-        let run = w.report(r#"{"cells": {"2": "Retried, 1 of 2"}, "agent": ["2"]}"#, &[]);
+        let run = w.report(r#"{"cells": {"2": "Retried, 1 of 2"}, "agent": ["2"]}"#, &["--print"]);
         c.check("report: hub table", format!("0
 | #   | Section   | MR      | What happened                       | Proposal or result |
 | --- | --------- | ------- | ----------------------------------- | ------------------ |
@@ -252,25 +252,25 @@ fn hub_report() -> &'static Checks {
         let items = || item_keys(&w.items_of("app"));
         c.check("report: agent removes the item", r#"["todo:11"]"#, items());
         w.report(r#"{"cells": {"1": "Review agent started"}}"#, &[]);
-        let out = w.report("{}", &[]).out;
+        let out = w.report("{}", &["--print"]).out;
         c.check("report: cell of a pending item stays",
             "| 1   | Needs you | Add foo | @anna requested your review         | Review agent started |",
             rows_of(&out, "| 1 ").join("\n"));
-        let out = w.report(r#"{"cells": {"1": "a|b"}}"#, &[]).out;
+        let out = w.report(r#"{"cells": {"1": "a|b"}}"#, &["--print"]).out;
         c.check("report: a pipe in a cell is escaped", r"a\|b", if out.contains(r"a\|b") { r"a\|b" } else { "" });
-        let out = w.report(&format!(r#"{{"cells": {{"1": "{}"}}}}"#, "x".repeat(300)), &[]).out;
+        let out = w.report(&format!(r#"{{"cells": {{"1": "{}"}}}}"#, "x".repeat(300)), &["--print"]).out;
         let cell: String = rows_of(&out, "| 1 ")
             .iter()
             .filter_map(|row| row.split(" | ").nth(4).map(|cell| cell.replace([' ', '|'], "")))
             .collect();
         c.check("report: a long cell is cut at 200 characters", format!("{}...", "x".repeat(197)), cell);
-        let out = w.report(r#"{"dismiss": ["1"]}"#, &[]).out;
+        let out = w.report(r#"{"dismiss": ["1"]}"#, &["--print"]).out;
         c.check("report: dismiss", "0 []", format!("{} {}", out.matches("Needs you").count(), w.items_of("app")["items"]));
-        let out = w.report(r#"{"dismiss": ["3"]}"#, &[]).out;
+        let out = w.report(r#"{"dismiss": ["3"]}"#, &["--print"]).out;
         c.check("report: dismiss of a row with no pending item hides it", "0 1",
             format!("{} {}", rows_of(&out, "| 3 ").len(), rows_of(&out, "| 1 ").len()));
         let out = w.report(r#"{"add": [{"section": "needs", "iid": 5, "what": "Fix waits, session not idle",
-            "result": "Ask the agent"}]}"#, &[]).out;
+            "result": "Ask the agent"}]}"#, &["--print"]).out;
         let model: Vec<Value> = w.items_of("app")["items"]
             .as_array()
             .cloned()
@@ -305,7 +305,7 @@ fn empty_report() -> &'static Checks {
     CHECKS.get_or_init(|| {
         let w = Watchd::new();
         let mut c = Checks::default();
-        let run = w.report("{}", &[]);
+        let run = w.report("{}", &["--print"]);
         let only_time = run.out.lines().count() == 1 && is_time(&run.out);
         c.check(
             "report: no events, no items",
@@ -364,7 +364,7 @@ fn work_report() -> &'static Checks {
         ]);
         w.watch_wait(&mrs);
         let run = w.report(r#"{"cells": {"2": "Valid. Fix: replace the SavedStateHandle field",
-            "3": "Formatted and pushed"}, "agent": ["3"]}"#, &mrs);
+            "3": "Formatted and pushed"}, "agent": ["3"]}"#, &[&mrs[..], &["--print"]].concat());
         let items = w.items_of(&author)["items"].as_array().cloned().unwrap_or_default();
         let since = items.iter().find(|item| item["n"] == 1).and_then(|item| item["since"].as_i64()).map_or(String::new(), local_time);
         c.check("report: work table, 2 MRs", format!("0
@@ -397,17 +397,17 @@ fn mr_with_no_rows() -> &'static Checks {
             "state",
             r#"{"version": 4, "mrs": {"5": {"title": "Add foo"}, "6": {"title": "Add bar"}}, "present": []}"#,
         );
-        w.events(&author, &[ev("approved", 5)]);
+        w.events(&author, &[ev("pushed", 5)]);
         w.watch_wait(&["--mr", "5", "--mr", "6"]);
-        let run = w.report("{}", &["--mr", "5", "--mr", "6"]);
+        let run = w.report("{}", &["--mr", "5", "--mr", "6", "--print"]);
         c.check(
             "report: MR with no rows has no table",
             "0
 Add foo (!5) u
 
-| #   | Section | What happened  | Proposal or result |
-| --- | ------- | -------------- | ------------------ |
-| 1   | Info    | @anna approved |                    |
+| #   | Section | What happened | Proposal or result |
+| --- | ------- | ------------- | ------------------ |
+| 1   | Info    | New commits   |                    |
 
 Add bar (!6)",
             with_body(&run),
@@ -456,9 +456,9 @@ fn old_thread_since() -> &'static Checks {
             &[iev("comment", 5, "thread:d1"), iev("unaddressed", 5, "thread:d1")],
         );
         w.watch_wait(&["--mr", "5"]);
-        w.events(&author, &[ev("approved", 5), iev("unaddressed", 5, "thread:d1")]);
+        w.events(&author, &[ev("pushed", 5), iev("unaddressed", 5, "thread:d1")]);
         w.watch_wait(&["--mr", "5"]);
-        let out = w.report("{}", &["--mr", "5"]).out;
+        let out = w.report("{}", &["--mr", "5", "--print"]).out;
         let since = out
             .split("| Since ")
             .skip(1)

@@ -7,22 +7,19 @@ use std::time::Duration;
 use tokio::io::BufReader;
 use tokio::net::UnixStream;
 
-use crate::board::{Board, MrStatus, Status, status_line};
 use crate::core::eventlog::RouteAction;
 use crate::core::filter::kinds;
 use crate::core::subs::Mode;
-use crate::core::worktrees::{Kind, WorktreeState};
+use crate::core::worktrees::Kind;
 use crate::daemon::store::Store;
 use crate::engine::event::EventKind;
 use crate::engine::mr_number;
-use crate::engine::state::MrsState;
 use crate::key::{KeyMode, digits, repo_slug, watch_key, worktree_top};
 use crate::local::{git, repo_of, shared_refs};
 use crate::paths::{ClientDirs, StateDirs, session_id};
-use crate::persist::{self, Load};
-use crate::platform::{local_time, process_alive, spawn_detached, terminal_columns};
+use crate::platform::{local_time, process_alive, spawn_detached};
 use crate::protocol::{Envelope, Request, Response, StatusReport, WatchRequest, receive, send};
-use crate::workspaces::workspaces_of;
+use crate::view::view_text;
 
 fn die(message: &str) -> i32 {
     eprintln!("watchd: {message}");
@@ -241,12 +238,6 @@ pub async fn watch(args: Vec<String>) -> i32 {
         Err(message) => return die(&message),
     };
     let client = StateDirs::for_client(&target.top);
-    let board_args = board_args(target.mode, &args.mrs);
-    let opens_board = match target.mode {
-        Mode::Author | Mode::Review => true,
-        Mode::Hub => false,
-    };
-    let top = target.top.clone();
     let request = Request::Watch(WatchRequest {
         key: target.key,
         slug: target.slug,
@@ -258,22 +249,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
         fresh: args.fresh,
         events,
     });
-    let code = ask_ok(&client, &request).await;
-    if code == 0 && opens_board {
-        // The board is display only: its error does not fail the command.
-        if let Err(text) = workspaces_of().open_board(&top, &board_args) {
-            eprintln!("watchd: board pane: {text}");
-        }
-    }
-    code
-}
-
-/// A review watch has exactly one MR.
-fn board_args(mode: Mode, mrs: &[u64]) -> Vec<String> {
-    match mode {
-        Mode::Author | Mode::Hub => Vec::new(),
-        Mode::Review => vec!["--review".to_string(), "--mr".to_string(), mrs[0].to_string()],
-    }
+    ask_ok(&client, &request).await
 }
 
 pub async fn wait(args: Vec<String>) -> i32 {
@@ -376,7 +352,7 @@ fn deliver(response: Response) -> i32 {
             1
         }
         Response::Replaced => 0,
-        Response::Status(_) | Response::Ok | Response::Report { .. } | Response::State(_) => {
+        Response::Status(_) | Response::Ok | Response::Report { .. } | Response::State(_) | Response::View { .. } => {
             die("unexpected answer of the daemon")
         }
     }
@@ -424,18 +400,44 @@ pub async fn kind(args: Vec<String>) -> i32 {
     let Some(kind) = Kind::parse(&kind) else {
         return die(&format!("unknown kind: {kind}"));
     };
-    let code = ask_ok(&current_client(), &Request::Kind { kind }).await;
-    if code == 0 && kind == Kind::Hub {
-        // The board is display only: its error does not fail the command.
-        let opened = std::env::current_dir()
-            .map_err(|error| error.to_string())
-            .and_then(|folder| worktree_top(&folder))
-            .and_then(|top| workspaces_of().open_board(&top, &[]));
-        if let Err(text) = opened {
-            eprintln!("watchd: board pane: {text}");
+    ask_ok(&current_client(), &Request::Kind { kind }).await
+}
+
+pub async fn artifact(args: Vec<String>) -> i32 {
+    let mut args = args.into_iter();
+    let (Some(kind), Some(target)) = (args.next(), args.next()) else {
+        return die("artifact needs a kind and a target");
+    };
+    let mut branch = None;
+    let mut common = false;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--branch" => match args.next() {
+                Some(name) => branch = Some(name),
+                None => return die("--branch needs a branch name"),
+            },
+            "--common" => common = true,
+            other => return die(&format!("unexpected argument: {other}")),
         }
     }
-    code
+    if common && branch.is_some() {
+        return die("--branch and --common do not go together");
+    }
+    let request = Request::Artifact {
+        kind,
+        target,
+        branch,
+        common,
+    };
+    match ask(&current_client(), &request, true).await {
+        Ok(Response::Ok) => 0,
+        Ok(Response::Error { text }) => {
+            eprint!("{text}");
+            1
+        }
+        Ok(_) => die("unexpected answer of the daemon"),
+        Err(message) => die(&message),
+    }
 }
 
 pub async fn route(args: Vec<String>) -> i32 {
@@ -489,7 +491,34 @@ pub async fn route(args: Vec<String>) -> i32 {
     ask_ok(&client, &request).await
 }
 
+/// The view of the target as text, for the agent. With no view, nothing.
+pub async fn rows(args: Vec<String>) -> i32 {
+    let args = match WatchArgs::parse(args) {
+        Ok(args) => args,
+        Err(message) => return die(&message),
+    };
+    let target = match target(&args) {
+        Ok(target) => target,
+        Err(message) => return die(&message),
+    };
+    let request = Request::View { key: target.key };
+    match ask(&StateDirs::for_client(&target.top), &request, true).await {
+        Ok(Response::View { view }) => {
+            if let Some(view) = view {
+                print!("{}", view_text(&view));
+            }
+            0
+        }
+        Ok(Response::Error { text }) => die(&text),
+        Ok(_) => die("unexpected answer of the daemon"),
+        Err(message) => die(&message),
+    }
+}
+
+/// With `--print`, the Markdown report goes to stdout. Else only errors print.
 pub async fn report(args: Vec<String>) -> i32 {
+    let print = args.iter().any(|arg| arg == "--print");
+    let args = args.into_iter().filter(|arg| arg != "--print").collect();
     let args = match WatchArgs::parse(args) {
         Ok(args) => args,
         Err(message) => return die(&message),
@@ -519,106 +548,14 @@ pub async fn report(args: Vec<String>) -> i32 {
     };
     match ask(&StateDirs::for_client(&target.top), &request, true).await {
         Ok(Response::Report { text }) => {
-            println!("{text}");
+            if print {
+                println!("{text}");
+            }
             0
         }
         Ok(Response::Error { text }) => die(&text),
         Ok(_) => die("unexpected answer of the daemon"),
         Err(message) => die(&message),
-    }
-}
-
-pub async fn board(args: Vec<String>) -> i32 {
-    let args = match WatchArgs::parse(args) {
-        Ok(args) => args,
-        Err(message) => return die(&message),
-    };
-    let target = match target(&args) {
-        Ok(target) => target,
-        Err(message) => return die(&message),
-    };
-    let client = StateDirs::for_client(&target.top);
-    let mut shown = None;
-    loop {
-        let stream = match connect(&client, true).await {
-            Ok(stream) => stream,
-            Err(message) => return die(&message),
-        };
-        let (read, mut write) = stream.into_split();
-        if send(&mut write, &envelope(Request::Follow { after: None }))
-            .await
-            .is_ok()
-        {
-            let mut reader = BufReader::new(read);
-            let mut line = String::new();
-            loop {
-                draw_board(&client.dirs, &target, &mut shown);
-                line.clear();
-                // The board also reads its files and the pane width each second: a report writes no
-                // log line, and a resize sends no line.
-                tokio::select! {
-                    read = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line) => match read {
-                        Ok(0) | Err(_) => break,
-                        Ok(_) => {}
-                    },
-                    _ = tokio::time::sleep(Duration::from_secs(1)) => {}
-                }
-            }
-        }
-        // The daemon closed the socket, for example for a restart.
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
-}
-
-/// It compares the text, so that a change of a state file also draws again.
-fn draw_board(dirs: &StateDirs, target: &Target, shown: &mut Option<String>) {
-    let file = std::fs::read_to_string(dirs.board(&target.key)).unwrap_or_default();
-    let board = serde_json::from_str::<Board>(&file).unwrap_or_default();
-    let text = board.draw(terminal_columns().unwrap_or(80), &board_status(dirs, target));
-    if shown.as_ref() == Some(&text) {
-        return;
-    }
-    use std::io::Write;
-    let mut stdout = std::io::stdout().lock();
-    let _ = writeln!(stdout, "\x1b[H\x1b[2J{text}").and_then(|()| stdout.flush());
-    *shown = Some(text);
-}
-
-/// A missing or unreadable file gives no entries.
-fn board_status(dirs: &StateDirs, target: &Target) -> Status {
-    let (mrs, conflict, engine_key) = match target.mode {
-        Mode::Author | Mode::Review => {
-            let (mrs, conflict) = current::<WorktreeState>(&dirs.worktree(&target.top))
-                .map_or((Vec::new(), false), |worktree| {
-                    (worktree.mrs, !worktree.conflict.is_empty())
-                });
-            (mrs, conflict, target.key.clone())
-        }
-        Mode::Hub => (Vec::new(), false, format!("{}-own", target.slug)),
-    };
-    let engine: MrsState = current(&dirs.engine_state(&engine_key)).unwrap_or_default();
-    // The local conflict test is of the top branch of the stack.
-    let conflict_iid = mrs.last().copied().filter(|_| conflict);
-    let known = engine
-        .mrs
-        .iter()
-        .filter_map(|(iid, mr)| {
-            let iid: u64 = iid.parse().ok()?;
-            let status = MrStatus {
-                title: mr.title.clone(),
-                url: mr.url.clone(),
-                line: status_line(mr, conflict_iid == Some(iid)),
-            };
-            Some((iid, status))
-        })
-        .collect();
-    Status { mrs, known }
-}
-
-fn current<T: serde::de::DeserializeOwned>(path: &Path) -> Option<T> {
-    match persist::load(path) {
-        Ok(Some(Load::Current(data))) => Some(data),
-        Ok(Some(Load::Dropped(_)) | None) | Err(_) => None,
     }
 }
 
@@ -730,77 +667,6 @@ pub async fn follow(after: Option<u64>) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::state::MrState;
-
-    fn state_dirs(name: &str) -> StateDirs {
-        let base = std::env::temp_dir().join(format!("watchd-client-{}-{name}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&base);
-        let dirs = StateDirs {
-            watchd: base.join("watchd"),
-            engine: base.join("watch-gitlab"),
-        };
-        std::fs::create_dir_all(dirs.watchd.join("worktrees")).unwrap();
-        std::fs::create_dir_all(&dirs.engine).unwrap();
-        dirs
-    }
-
-    fn engine_state(dirs: &StateDirs, key: &str, iids: &[u64]) {
-        let mrs = iids
-            .iter()
-            .map(|iid| {
-                let mr = MrState {
-                    title: Some(format!("MR {iid}")),
-                    ..MrState::default()
-                };
-                (iid.to_string(), mr)
-            })
-            .collect();
-        let state = MrsState {
-            mrs,
-            ..MrsState::default()
-        };
-        persist::save(&dirs.engine_state(key), &state).unwrap();
-    }
-
-    #[test]
-    fn work_pane_status_has_the_worktree_mrs_and_the_conflict_on_the_top_mr() {
-        let dirs = state_dirs("work");
-        let target = Target {
-            top: PathBuf::from("/w/app"),
-            slug: "app".to_string(),
-            key: "app-a".to_string(),
-            mode: Mode::Author,
-        };
-        let mut worktree = WorktreeState::new(target.top.clone(), target.top.clone(), None, target.key.clone(), &[]);
-        worktree.mrs = vec![12, 14];
-        worktree.conflict = vec!["b".to_string()];
-        persist::save(&dirs.worktree(&target.top), &worktree).unwrap();
-        engine_state(&dirs, "app-a", &[12, 14]);
-
-        let status = board_status(&dirs, &target);
-
-        assert_eq!(status.mrs, [12, 14]);
-        assert_eq!(status.known[&12].title.as_deref(), Some("MR 12"));
-        assert_eq!(status.known[&12].line, None);
-        assert_eq!(status.known[&14].line.as_deref(), Some("local conflict"));
-    }
-
-    #[test]
-    fn hub_status_reads_the_own_mrs() {
-        let dirs = state_dirs("hub");
-        let target = Target {
-            top: PathBuf::from("/w/app"),
-            slug: "app".to_string(),
-            key: "app".to_string(),
-            mode: Mode::Hub,
-        };
-        engine_state(&dirs, "app-own", &[58]);
-
-        let status = board_status(&dirs, &target);
-
-        assert!(status.mrs.is_empty());
-        assert_eq!(status.known[&58].title.as_deref(), Some("MR 58"));
-    }
 
     #[test]
     fn mr_flag_takes_one_bang_prefix() {

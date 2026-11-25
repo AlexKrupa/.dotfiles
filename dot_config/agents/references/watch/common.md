@@ -65,8 +65,8 @@ This part is for the roles that watch MRs: `author.md`, `reviewer.md`, and `bump
   line also has `path` and `line`.
 - A `merged` or `closed` event that the user did has `own: true`.
 - The watch gives no events for the other actions of the user, except `own-comment`.
-- Each event has `row`: the number of its row in the report. A `comment` and an `unaddressed`
-  line of one thread have the same `row`: they are one item.
+- Each event has `row`: the id of its row. The report JSON takes it. The user does not see it. A
+  `comment` and an `unaddressed` line of one thread have the same `row`: they are one item.
 - A `pushed` event is a change of the head, with `old_base`, `old_head`, `new_base`, and
   `new_head`. Before the event, the daemon tries to fetch the commits of `new_head` into the local
   repo. If the fetch fails, the commits can be missing.
@@ -80,18 +80,12 @@ Each mode gets only the kinds of its list. The lists are in
 | Author | All MR kinds except `resolved` | `pushed` only if the local branch of the MR and its reflog have no `new_head` |
 | Review | All MR kinds                   | `unaddressed` only for the threads with a comment of the user                 |
 
-These event kinds have the same action in each role, unless the role file has a row for the
-kind. The watch gives no event for a change of the user. The full event list with the exceptions
-is in the doc comment of `~/.config/agents/daemon/src/engine/mod.rs`.
-
-| `kind`             | Action                        | Report section    |
-| ------------------ | ----------------------------- | ----------------- |
-| `own-comment`      | See "Own comments"            | Info or Needs you |
-| `unaddressed`      | The thread waits for the user | Needs you         |
-| `title`, `labels`  | None                          | Info              |
-| `description`      | None                          | Info              |
-| `merged`, `closed` | See "Result"                  | Info              |
-| all other kinds    | None                          | Info              |
+The watch wakes you only for the kinds of the event table of the role file, and in the author and
+review roles also for `own-comment` (see "Own comments"). The daemon handles the other events. They
+are Info rows of the view of the watch, and you do not see them. The wake set of each role is in
+`~/.config/agents/daemon/src/core/filter.rs`. The watch gives no event for a change of the user.
+The full event list with the exceptions is in the doc comment of
+`~/.config/agents/daemon/src/engine/mod.rs`.
 
 The user does these actions, never you: reply to a comment, resolve a thread, react, approve,
 merge, close, mark an MR ready, or change its title, description, or labels.
@@ -120,12 +114,11 @@ Do not rewrite the full comment. The user edits it on the code host.
 
 ### Report
 
-Run the host command "Report" with the JSON of your actions. Output its stdout word for word. It
-prints one table for each MR, in the order of the `--mr` flags. With no `--mr` flags, it prints one
-table for each MR of the watch, in the order of the MR numbers. The JSON fields, all optional:
+Run the host command "Report" with the JSON of your actions. It prints nothing on success. The view
+of the watch shows the rows to the user. The JSON fields, all optional:
 
-- `cells`: your text for each row, for example `{"2": "Valid. Fix: replace the field"}`. A pending
-  item keeps its text for the next reports.
+- `cells`: your text for each row id, for example `{"2": "Valid. Fix: replace the field"}`. A
+  pending item keeps its text for the next reports.
 - `agent`: the rows of the events that you handled. A pending item in it goes away.
 - `dismiss`: the rows that need nothing more. A pending item in it goes away. A thread that is still
   in `unaddressed` opens again at the next round with events.
@@ -137,9 +130,14 @@ The sections:
 
 - Needs you shows all pending items, also the items from earlier reports. The watch removes an item
   when GitLab shows that its cause is gone. Examples: the thread is not in `unaddressed`, or a new
-  pipeline passed. An item keeps its number, so the user can say "fix 1".
+  pipeline passed. An item keeps its id for its life.
 - Agent shows the actions that you did for the events of this result.
-- Info shows the other events of this result.
+- Info shows the other events of this result, also the events that did not wake you.
 
-A watch reply has no next action, except two cases: an item under Needs you, or a merge that the
-role file suggests.
+After the report, write one short line in the chat, or nothing. For example: `Fixed lint in !412,
+pushed.` If a row needs a decision or a conversation, add it to Needs you, and write to the user.
+
+If the user names a row in a prompt with no id, for example "fix the lint one", run the host
+command "Rows" and match the text. It prints each row with its id.
+
+A watch reply has no next action, except for an item under Needs you.

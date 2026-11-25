@@ -1,4 +1,5 @@
 {
   "name": "watchd",
-  "description": "Wakes Claude Code with the events of the watchd watch of the session"
+  "description": "Wakes Claude Code with the events of the watchd watch of the session, and draws the watch view above the prompt",
+  "types": "./types/index.d.ts"
 }

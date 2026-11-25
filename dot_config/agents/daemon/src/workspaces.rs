@@ -5,10 +5,6 @@ use std::path::{Path, PathBuf};
 use crate::paths::home;
 
 pub trait Workspaces: Send + Sync {
-    /// Opens the board pane next to the current pane, if none is open. The pane runs
-    /// `watchd board --repo <repo>` with the board args.
-    fn open_board(&self, repo: &Path, board_args: &[String]) -> Result<(), String>;
-
     /// Starts an agent on the existing branch, in its own worktree workspace.
     fn start_agent(&self, repo: &Path, start: &AgentStart) -> Result<(), StartError>;
 
@@ -76,17 +72,6 @@ impl ScriptWorkspaces {
 }
 
 impl Workspaces for ScriptWorkspaces {
-    fn open_board(&self, repo: &Path, board_args: &[String]) -> Result<(), String> {
-        let mut args: Vec<&std::ffi::OsStr> = vec!["--repo".as_ref(), repo.as_os_str()];
-        if !board_args.is_empty() {
-            args.push("--".as_ref());
-            args.extend(board_args.iter().map(std::ffi::OsStr::new));
-        }
-        self.run_skill_script("work/board-pane.sh", &args, repo)
-            .map(|_| ())
-            .map_err(|(_, text)| text)
-    }
-
     fn start_agent(&self, repo: &Path, start: &AgentStart) -> Result<(), StartError> {
         let args = [
             start.title.as_ref(),
@@ -139,12 +124,6 @@ impl FakeWorkspaces {
 
 #[cfg(feature = "test-support")]
 impl Workspaces for FakeWorkspaces {
-    fn open_board(&self, repo: &Path, board_args: &[String]) -> Result<(), String> {
-        let args: String = board_args.iter().map(|arg| format!(" {arg}")).collect();
-        self.call(&format!("open_board {}{args}", repo.display()));
-        Ok(())
-    }
-
     /// The file `<dir>/start` gives the result: `ok` (also with no file), `busy`, or an error text.
     fn start_agent(&self, _repo: &Path, start: &AgentStart) -> Result<(), StartError> {
         self.call(&format!("start_agent {} {} {}", start.branch, start.skill, start.url));
@@ -230,19 +209,19 @@ mod tests {
     fn a_script_gets_the_repo_and_no_multiplexer_variables_of_the_daemon() {
         let folder = std::env::temp_dir().join(format!("watchd-workspaces-{}-env", std::process::id()));
         let _ = std::fs::remove_dir_all(&folder);
-        std::fs::create_dir_all(folder.join("work")).unwrap();
-        let script = folder.join("work/board-pane.sh");
+        std::fs::create_dir_all(folder.join("hub")).unwrap();
+        let script = folder.join("hub/hub-status.sh");
         std::fs::write(&script, "#!/bin/sh\nenv >\"$(dirname \"$0\")/../env\"\n").unwrap();
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
 
         let result = ScriptWorkspaces {
             scripts: folder.clone(),
         }
-        .open_board(&folder, &[]);
+        .agent_branches(&folder);
         let env = std::fs::read_to_string(folder.join("env")).unwrap_or_default();
         let _ = std::fs::remove_dir_all(&folder);
 
-        assert_eq!(result, Ok(()));
+        assert_eq!(result, Ok(Vec::new()));
         assert!(env.lines().any(|line| line == format!("MUX_REPO={}", folder.display())));
         let leaked: Vec<&str> = env
             .lines()

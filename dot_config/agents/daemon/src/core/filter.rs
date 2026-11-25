@@ -1,6 +1,8 @@
 //! The engine sends one event set for each MR, and this table gives the part of it for each mode.
 
+use crate::core::items::RoutedEvent;
 use crate::core::subs::Mode;
+use crate::core::worktrees::Kind;
 use crate::engine::event::{Event, EventKind};
 use crate::engine::state::Need;
 
@@ -55,6 +57,74 @@ const AUTHOR_NEEDS: &[Need] = &[
 ];
 
 const REVIEW_NEEDS: &[Need] = &[Need::ReplyToYou, Need::Commits];
+
+/// The role of a watch, which gives the events that wake its agent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Role {
+    Author,
+    Review,
+    Bump,
+    Hub,
+}
+
+pub fn role(mode: Mode, kind: Option<Kind>) -> Role {
+    match (mode, kind) {
+        (Mode::Hub, _) => Role::Hub,
+        (Mode::Author, _) => Role::Author,
+        (Mode::Review, Some(Kind::Bump)) => Role::Bump,
+        (Mode::Review, _) => Role::Review,
+    }
+}
+
+/// The events with an action in the role file of the watch. The others are Info rows of the view.
+/// The hub router decides for the hub. Only a failed pipeline has jobs.
+pub fn wakes(role: Role, event: &Event) -> bool {
+    let failed = event.jobs.is_some();
+    match event.kind {
+        EventKind::Comment | EventKind::Pushed => true,
+        EventKind::OwnComment => matches!(role, Role::Author | Role::Review | Role::Hub),
+        EventKind::Pipeline => match role {
+            Role::Author => failed,
+            Role::Bump | Role::Hub => true,
+            Role::Review => false,
+        },
+        EventKind::Conflict | EventKind::Merged => matches!(role, Role::Author | Role::Hub),
+        EventKind::Resolved | EventKind::Description => matches!(role, Role::Review | Role::Hub),
+        EventKind::Todo
+        | EventKind::Opened
+        | EventKind::Note
+        | EventKind::Reaction
+        | EventKind::DefaultFailed
+        | EventKind::Approved
+        | EventKind::Unapproved
+        | EventKind::Draft
+        | EventKind::Ready
+        | EventKind::Title
+        | EventKind::Labels
+        | EventKind::Mergeable
+        | EventKind::Closed
+        | EventKind::Unaddressed
+        | EventKind::PullBlocked => role == Role::Hub,
+    }
+}
+
+/// The rows of `events` with no event that wakes the agent. A comment and the unaddressed line of
+/// its thread share a row.
+pub fn handled_rows(role: Role, events: &[RoutedEvent]) -> Vec<u64> {
+    let waking: Vec<u64> = events
+        .iter()
+        .filter(|routed| wakes(role, &routed.event))
+        .map(|routed| routed.row)
+        .collect();
+    let mut rows: Vec<u64> = events
+        .iter()
+        .map(|routed| routed.row)
+        .filter(|row| !waking.contains(row))
+        .collect();
+    rows.sort();
+    rows.dedup();
+    rows
+}
 
 pub fn kinds(mode: Mode) -> &'static [EventKind] {
     match mode {
@@ -245,5 +315,63 @@ mod tests {
             kinds_of(&filter(Mode::Hub, &[], vec![event(EventKind::Todo)])),
             vec![EventKind::Todo]
         );
+    }
+
+    fn pipeline(failed: bool) -> Event {
+        Event {
+            jobs: failed.then(|| vec!["build".to_string()]),
+            ..event(EventKind::Pipeline)
+        }
+    }
+
+    #[test]
+    fn role_of_a_review_watch_of_a_bump_is_bump() {
+        assert_eq!(role(Mode::Review, Some(Kind::Bump)), Role::Bump);
+        assert_eq!(role(Mode::Review, Some(Kind::Review)), Role::Review);
+        assert_eq!(role(Mode::Author, None), Role::Author);
+        assert_eq!(role(Mode::Hub, Some(Kind::Hub)), Role::Hub);
+    }
+
+    #[test]
+    fn author_wakes_for_a_failed_pipeline_only() {
+        assert!(wakes(Role::Author, &pipeline(true)));
+        assert!(!wakes(Role::Author, &pipeline(false)));
+        assert!(wakes(Role::Author, &event(EventKind::Comment)));
+        assert!(!wakes(Role::Author, &event(EventKind::Approved)));
+    }
+
+    #[test]
+    fn review_does_not_wake_for_an_approval() {
+        assert!(!wakes(Role::Review, &event(EventKind::Approved)));
+        assert!(wakes(Role::Review, &event(EventKind::Description)));
+        assert!(!wakes(Role::Review, &pipeline(true)));
+    }
+
+    #[test]
+    fn bump_wakes_for_a_passed_pipeline() {
+        assert!(wakes(Role::Bump, &pipeline(false)));
+        assert!(wakes(Role::Bump, &pipeline(true)));
+        assert!(!wakes(Role::Bump, &event(EventKind::OwnComment)));
+    }
+
+    #[test]
+    fn hub_always_wakes() {
+        assert!(wakes(Role::Hub, &event(EventKind::Approved)));
+    }
+
+    fn routed(row: u64, event: Event) -> RoutedEvent {
+        RoutedEvent { event, row }
+    }
+
+    #[test]
+    fn a_row_with_one_waking_event_is_not_handled() {
+        let events = [
+            routed(1, event(EventKind::Comment)),
+            routed(1, unaddressed(false)),
+            routed(2, event(EventKind::Approved)),
+            routed(3, event(EventKind::Unapproved)),
+        ];
+
+        assert_eq!(handled_rows(Role::Author, &events), [2, 3]);
     }
 }

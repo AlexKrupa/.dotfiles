@@ -70,15 +70,15 @@ rex send-key -b b1 enter" "" '{"pwd":"file://host/repo"}' -- pane-run b1 "echo '
 
 operation pane-read "rex capture -b b1 --trim --unwrap" $'c\nd' $'a\nb\nc\nd' -- pane-read b1 2
 
-operation pane-rename "rex block rename b1 watchd board" "" '{}' -- pane-rename b1 "watchd board"
+operation pane-rename "rex block rename b1 notes" "" '{}' -- pane-rename b1 "notes"
 
 operation "pane-zoom on" "rex zoom -b b1 --on" "" '{}' -- pane-zoom b1 on
 
 operation "pane-zoom off" "rex zoom -b b1 --off" "" '{}' -- pane-zoom b1 off
 
-labeled_mock='{"session_id":"s2","blocks":[{"block_id":"b1","label":"shell"},{"block_id":"b2","label":"watchd board"}]}'
+labeled_mock='{"session_id":"s2","blocks":[{"block_id":"b1","label":"shell"},{"block_id":"b2","label":"notes"}]}'
 : >"$MOCK_LOG"
-MOCK_OUT=$labeled_mock "$script" pane-labeled b1 "watchd board"; code=$?
+MOCK_OUT=$labeled_mock "$script" pane-labeled b1 "notes"; code=$?
 check "pane-labeled with the label: exit 0" 0 "$code"
 check "pane-labeled with the label: rex calls" \
   "rex block inspect b1 --json

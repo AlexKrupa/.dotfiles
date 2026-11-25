@@ -353,7 +353,7 @@ fn worktree_item_action(facts: &Facts) -> Action {
     }
 }
 
-/// A handled row keeps all jobs, for the board.
+/// A handled row keeps all jobs, for the view.
 pub fn narrow(events: &mut [RoutedEvent], handled: &[u64]) {
     let to_model =
         |routed: &&mut RoutedEvent| routed.event.kind == EventKind::DefaultFailed && !handled.contains(&routed.row);

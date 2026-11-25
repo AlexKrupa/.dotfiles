@@ -219,7 +219,7 @@ from a design spec that the user approved.
   it does not go to the hub.
 - W6.18 The engine has no mode, and the daemon applies the mode filter right after each check,
   before the inbox, the items, and the hub.
-- W6.19 A review watch puts no threads of other people on the hub board.
+- W6.19 A review watch puts no threads of other people on the hub view.
 - W6.20 Each watch keeps its own engine state, not one shared state for each MR.
 - W6.21 (spec) A new watch of a key with saved state first gets the events since the last check.
 - W6.22 (spec) The `draft-pr`, `review-pr`, and `bump` watches work with no hub session and continue
@@ -360,9 +360,20 @@ from a design spec that the user approved.
   notification.
 - W8.51 A review request of a draft MR starts no agent, no worktree, and no workspace. The review
   starts at the first check that sees the MR as not a draft.
-- W8.52 (spec) While a review request waits, its board row shows the cell `Review waits: starts at
-  the next check if the MR is not a draft`.
+- W8.52 (spec) While a review request waits, its row shows the cell `Review waits: starts at the
+  next check if the MR is not a draft`.
 - W8.53 (spec) The wait uses the draft state of the to-do response and makes no extra GitLab call.
+- W8.54 (spec) The daemon wakes the agent of an author, review, or bump watch only for the events of
+  its role. Author: `comment`, `own-comment`, a failed `pipeline`, `conflict`, `merged`, and
+  `pushed`. Review: `comment`, `own-comment`, `pushed`, `resolved`, and `description`. Bump:
+  `comment`, `pushed`, and a failed or passed `pipeline`. The hub router decides for the hub.
+- W8.55 (spec) The other events are Info rows of the view, and the agent does not see them. A round
+  with only such events writes the rows of the key and puts nothing in the inbox. The agent report
+  of a later round shows them too.
+- W8.56 (spec) A comment and the `unaddressed` line of its thread are one row: the row wakes the
+  agent if one of its events does. A row that wakes is no longer handled, also if an earlier round
+  in the inbox handled it.
+- W8.57 (spec) The wake set of each role is in core, next to the router.
 
 ## W9 Pending items
 
@@ -390,10 +401,10 @@ from a design spec that the user approved.
 - W9.15 When a session ends or unsubscribes with pending items, these items go to the hub.
 - W9.16 (spec) The pending items of a watch go away with its other results by the cleanup rules, but
   items that go to the hub stay.
-- W9.17 (spec) A pending item keeps its row number in all rounds, and Agent and Info rows get new
-  numbers in each round.
-- W9.18 (spec) The client adds the row number to each JSON event line, and the model knows the key
-  of each cell.
+- W9.17 (spec) The row number is the id of the row. A pending item keeps it for its life, and an
+  Agent or Info row lives one round, so the id is stable for the life of the row.
+- W9.18 (spec) The client adds the row id to each JSON event line, and the model knows the key of
+  each cell. The user never sees the id.
 - W9.19 (spec) Each pending item keeps the time of its first event, and a report shows `Since
   <HH:MM>:` for an item from an earlier round.
 - W9.20 (spec) The session can add its assessment to a pending item through `watchd report`, and the
@@ -448,7 +459,7 @@ from a design spec that the user approved.
 ## W11 Client commands
 
 - W11.1 The CLI has the subcommands `watch`, `wait`, `unsubscribe`, `status`, `watches`, `kind`,
-  `route`, `report`, `follow`, and `board`.
+  `route`, `report`, `rows`, `artifact`, and `follow`.
 - W11.2 `watchd status` prints the daemon PID, the last poll time of each repo, and one line for
   each watch with its key, role, MRs, `live` or `away`, and inbox line count.
 - W11.3 `live` in `watchd status` and in the sidebar JSON means that the session is not away.
@@ -470,8 +481,9 @@ from a design spec that the user approved.
 ## W12 Reports
 
 - W12.1 The agent writes reports as Markdown tables, not as a code block.
-- W12.2 `watchd report` prints the report table from the JSON cells of the model, and the model
-  outputs the table word for word.
+- W12.2 (spec) `watchd report` saves the report from the JSON cells of the model and prints
+  nothing on success. `--print` prints the Markdown report, for debugging. The agent does not print
+  the report.
 - W12.3 The daemon keeps only report data and no text layout.
 - W12.4 Reports have the sections "Needs you", "Agent", and "Info".
 - W12.5 (spec) The report columns are `#`, Section, MR (in the hub only), What happened, and
@@ -492,36 +504,50 @@ from a design spec that the user approved.
   numbers, and each id is a URL or a name, for example a commit title with a link.
 - W12.15 Reports show no Nerd Font glyphs.
 - W12.16 Reports show a merged MR but do not suggest to remove the worktree.
+- W12.17 (spec) After a report, the agent writes one short line in the chat, or nothing. A row that
+  needs a decision or a conversation goes to Needs you, and the agent writes to the user.
+- W12.18 (spec) `watchd rows` prints the view of the watch as text: the heading, then each branch
+  with its rows and artifacts. A row has its id, kind, text, result, and URL. With no view, it
+  prints nothing. The agent reads it to find a row that the user names in a prompt.
 
-## W13 Board
+## W13 Band
 
-- W13.1 `watchd board` shows the current hub report and draws it again after each event, and router
-  events stay visible after the notification.
-- W13.2 The board is a persistent pane to the right of the agent pane in the hub workspace and in
-  each workspace with an author or review watch. It opens by itself at hub start and at the first
-  watch.
-- W13.3 (spec) `watchd kind hub` and the `watchd watch` of an author or review watch open the board
-  pane. If the workspace has a board pane, they open no second pane.
-- W13.4 (spec) If the board pane cannot open, `watchd kind hub` or `watchd watch` prints the error
-  and exits 0.
-- W13.5 The daemon writes the board rows as JSON for `watchd board`, and `watchd report` and the
-  agents keep the Markdown text.
-- W13.6 The board shows text formatted for the terminal, not a raw Markdown table.
-- W13.7 (spec) The board draws one group for each MR: the title, the status line, and the MR URL,
-  then the rows of the MR under a heading for each section. Each row has the number, what happened,
-  and the proposal.
-- W13.8 The board wraps the text to the pane width and draws again when the pane size changes.
-- W13.9 The board shows the "Needs you" heading in red and the "Agent" heading in yellow.
-- W13.10 Each MR header has a clickable terminal link to the MR, and each row has a link directly to
-  its comment, pipeline, or job. The board has no URL list.
-- W13.11 (spec) The status line of an MR shows `merged` or `closed`. Else it shows the draft state,
-  `ready to merge`, the approvers, and a local conflict, joined with ` - `.
-- W13.12 (spec) The board shows no rows for approval, draft, ready, merged, closed, mergeable, and
-  passed pipeline events, because the status line shows them. The other rows keep their numbers.
-- W13.13 (spec) The MR header shows the MR URL in dim. A row with the MR URL shows no URL line.
-- W13.14 (spec) The board pane stays until the user closes the workspace.
-- W13.15 (spec) The board pane of a review watch runs `watchd board --review --mr IID`, and it shows
-  the report of the review key.
+- W13.1 (spec) A hooks module of the Claude Code plugin draws the view of the watch in a band above
+  the prompt. The band replaces the board pane.
+- W13.2 (spec) `watchd follow` sends a view line for each worktree and for the hub after each change
+  of that view, and `{"type": "view", "key": K, "removed": true}` for a removed view. Two ticks with
+  no change send no line.
+- W13.3 (spec) A view has the key, the worktree path, the heading (the ticket key if all branches
+  share it), the branch count, the common artifacts, and the branches in stack order.
+- W13.4 (spec) A branch has its name, its title (the MR title, else the MR draft title, else the
+  branch name), the MR iid or null, the status parts, the rows with Needs you first, and the
+  artifacts. A stack branch with no MR shows no MR and no pipeline artifact.
+- W13.5 (spec) The hub view has one entry for each MR or default-branch pipeline, and no common
+  artifacts. Only an MR of the user has status parts.
+- W13.6 (spec) A row has its id, section, kind, text, result, and URL. The kind comes from the event:
+  `comment`, `pipeline`, `review`, `thread`, `commits`, `conflict`, `MR`, `reaction`, `pull`, or
+  `status`, and `agent` for a row with no event.
+- W13.7 (spec) The status parts of an MR are `merged` or `closed`. Else they are the draft state,
+  `ready to merge`, the approvers (3 names, then `+N`), a local conflict, and `pipeline running`.
+- W13.8 (spec) At session start, the mod runs `watchd follow` and keeps the view of the session
+  folder: the view with the longest path that contains it, and the hub view at the same path. If
+  the stream ends, the mod starts it again after 2 seconds and keeps the last view until the first
+  new line. The first lines of a new stream replace all views.
+- W13.9 (spec) The band draws nothing for a folder with no view, for a view with no rows and no
+  artifacts, and while a survey holds the band.
+- W13.10 (spec) The band has a dim rounded border and 1 column of padding. A stack heading shows the
+  ticket key and `stack of N`, or `Stack of N` with no shared key. Each branch shows its title in
+  bold, then dim ` · !iid · ` and the status parts, then its rows and artifacts.
+- W13.11 (spec) A row shows a red `●` for Needs you or a dim `·` for the others, the kind, the text,
+  and a yellow `→ result`. An artifact shows a dim `↗`, the kind, and the full target. A file under
+  `HOME` shows as `~/...`.
+- W13.12 (spec) The kinds of rows and artifacts are in one label column: as wide as the longest kind
+  on the band, plus 3 spaces.
+- W13.13 (spec) A long text or target wraps and is never cut. A target that does not fit beside its
+  label goes on its own line under the label, so that `herdr-pluck` sees more of it on one line.
+- W13.14 (spec) The band says `MR`, never `PR`, and shows no row ids.
+- W13.15 (spec) With no `watchd` binary, or a `follow` that fails or exits with a code other than 0,
+  the band draws nothing, and the mod writes the error to the debug log.
 
 ## W14 Notifications
 
@@ -820,6 +846,8 @@ from a design spec that the user approved.
 - W23.12 After a compaction, the plugin gives Claude the watches of the session, the path of the
   runner file, and the rule to not start a watch again after a `watchd error:` text. The upgrade
   error is not in this rule. A session with no watch gets no text.
+- W23.13 (spec) The plugin has a hooks module next to its command hooks: it draws the band (W13)
+  and records artifacts (W27).
 
 ## W24 Sample repo
 
@@ -861,7 +889,7 @@ from a design spec that the user approved.
 - W24.22 (spec) `sample start` starts a second `watch` plugin watcher for the test daemon, with its
   own plugin state.
 - W24.23 (spec) Each step has a change script and an `expect.md` list of what the sidebar, the
-  board, and the agent panes show.
+  output of `watchd rows`, and the agent panes show.
 - W24.24 (spec) After each step, `sample` waits until the daemon takes all fake events, and after 15
   s it fails with the keys that have events.
 - W24.25 (spec) A step stops at its first failed command, prints the step and the path of
@@ -941,7 +969,7 @@ from a design spec that the user approved.
   needs order, and the `--events` filter, and a client test shows exit 1 for a kind outside the mode
   list.
 - W26.21 (spec) The router tests cover each decision rule with no fakes, the agent starts and the 6
-  retry results with fakes, and a read-only board render.
+  retry results with fakes.
 - W26.22 (spec) The tests cover the `watchd.stateHome` client, followers that do not touch unknown
   workspaces, and a sort that skips groups with no tokens.
 - W26.23 A herdr-agnostic end-to-end test runs the watch in a test repo with a worktree, the real
@@ -962,3 +990,26 @@ from a design spec that the user approved.
   "fix waits" and no fix.
 - W26.30 (spec) The reviewer evals cover a small amend, a rebase with no content change, a reply and
   a comment from a different reviewer, a resolve with no fix, and no retry or reply on a failed job.
+
+## W27 Artifacts
+
+- W27.1 (spec) An artifact is a file or a URL of the work in a worktree or on one branch, with a
+  kind and a target.
+- W27.2 (spec) watchd adds the MR while it is open, and its pipeline while it runs and after it
+  fails. A passed pipeline has no artifact.
+- W27.3 (spec) watchd adds a ticket for the ticket key of each branch name: the first match of
+  `[A-Z][A-Z0-9]+-[0-9]+`. The URL comes from the git config `watchd.ticketUrl` of the repo, a URL
+  with `{key}`. With no value, there is no ticket artifact, and the heading still shows the key. The
+  daemon reads the value once for each repo.
+- W27.4 (spec) `watchd artifact <kind> <target> [--branch <name> | --common]` records an artifact
+  for the worktree of the current folder. Its branch is the checked-out branch, the `--branch`
+  value, or none with `--common`. The same kind and target again replaces the old entry. Outside a
+  git worktree, the command exits 1 with the folder in the error.
+- W27.5 (spec) An artifact that all branches of a stack share shows in the common list. One branch
+  keeps its artifacts.
+- W27.6 (spec) The artifacts stay with the worktree state and go away with it.
+- W27.7 (spec) The title of a branch with no MR is the first `# ` line of the file of its `MR draft`
+  artifact.
+- W27.8 (spec) The mod records a `Write` of a file under `~/.ai/<repo>/<folder>/`: `specs` spec,
+  `plans` plan, `reviews` review, `handoffs` handoff, `prs` MR draft, and `tickets` ticket draft. A
+  `Read` records only a handoff. A failed call does not block the tool call.

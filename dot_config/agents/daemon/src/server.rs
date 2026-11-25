@@ -1,6 +1,7 @@
 //! The socket server of the daemon: a `wait` client keeps its connection until its delivery or an
 //! error.
 
+use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
@@ -27,6 +28,7 @@ use crate::platform::{now_seconds, process_alive};
 use crate::protocol::{
     DebugState, Envelope, KeyedEvent, RepoPoll, RepoTimes, Request, Response, StatusReport, WatchRequest, receive, send,
 };
+use crate::view::{StoredArtifact, View};
 
 const OLD_CLIENT: &str = "watchd: this watch client is older than the daemon. Start the watch again.\n";
 
@@ -148,6 +150,29 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
             }
             Response::Ok
         }
+        Request::View { key } => Response::View {
+            view: daemon.lock().await.store.views().remove(&key),
+        },
+        Request::Artifact {
+            kind,
+            target,
+            branch,
+            common,
+        } => match folder.as_deref().map(|folder| block_in_place(|| worktree_top(folder))) {
+            Some(Ok(top)) => {
+                let top = top.canonicalize().unwrap_or(top);
+                let artifact = StoredArtifact { kind, target, branch };
+                daemon.lock().await.store.add_artifact(&top, artifact, common);
+                daemon.changed.notify_waiters();
+                Response::Ok
+            }
+            Some(Err(text)) => Response::Error {
+                text: format!("watchd: {text}\n"),
+            },
+            None => Response::Error {
+                text: "watchd: artifact needs the folder of the client\n".to_string(),
+            },
+        },
         Request::Route { key, iid, action } => {
             daemon
                 .lock()
@@ -190,6 +215,8 @@ fn session_of(request: &Request) -> Option<&str> {
         | Request::Status
         | Request::Kind { .. }
         | Request::Route { .. }
+        | Request::Artifact { .. }
+        | Request::View { .. }
         | Request::Report { .. }
         | Request::DebugState
         | Request::Follow { .. } => None,
@@ -456,7 +483,7 @@ impl Drop for Follower<'_> {
 }
 
 /// A `follow` client gets the sidebar state with the newest log id, the log lines after `after`,
-/// then each new log line and each sidebar change. The lines come from the file: `changed` only
+/// then each new log line, each sidebar change, and each new, changed, or removed view. The lines come from the file: `changed` only
 /// wakes the client up.
 async fn follow(
     daemon: Arc<Daemon>,
@@ -469,6 +496,7 @@ async fn follow(
         let memory = daemon.lock().await;
         (memory.store.sidebar(), memory.store.last_id())
     };
+    let mut views = BTreeMap::new();
     let mut first = sidebar.clone();
     first["last_id"] = json!(newest);
     let mut last = after.unwrap_or(newest);
@@ -493,6 +521,11 @@ async fn follow(
             sidebar = now;
             ok = ok && write_line(&mut write, &sidebar.to_string()).await.is_ok();
         }
+        let now = daemon.lock().await.store.views();
+        for line in view_lines(&views, &now) {
+            ok = ok && write_line(&mut write, &line.to_string()).await.is_ok();
+        }
+        views = now;
         if !ok {
             break;
         }
@@ -502,6 +535,22 @@ async fn follow(
             _ = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut closed) => break,
         }
     }
+}
+
+fn view_lines(sent: &BTreeMap<String, View>, now: &BTreeMap<String, View>) -> Vec<serde_json::Value> {
+    let changed = now
+        .iter()
+        .filter(|(key, view)| sent.get(*key) != Some(view))
+        .map(|(_, view)| {
+            let mut line = json!(view);
+            line["type"] = json!("view");
+            line
+        });
+    let removed = sent
+        .keys()
+        .filter(|key| !now.contains_key(*key))
+        .map(|key| json!({"type": "view", "key": key, "removed": true}));
+    changed.chain(removed).collect()
 }
 
 #[cfg(test)]

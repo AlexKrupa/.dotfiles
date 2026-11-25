@@ -1,8 +1,8 @@
 # watchd sample
 
 `sample` moves a test daemon and a generated sample repo through fixed scenarios, one step at a
-time. You see the `watchd` states live in the herdr sidebar, the board, and the agent panes, with
-no GitLab and no Claude. The test daemon runs next to your real daemon and does not change it.
+time. You see the `watchd` states live in the herdr sidebar, the output of `watchd rows`, and the
+agent panes, with no GitLab and no Claude. The test daemon runs next to your real daemon and does not change it.
 
 ## How it works
 
@@ -43,7 +43,7 @@ deletes its state and the sample repo, makes the repo again, and starts the daem
 Each step is a folder `scenarios/<scenario>/NN-<step>/`:
 
 - `step.sh`: the change from the step before, with the helpers of `lib.sh`.
-- `expect.md`: what you see in the sidebar, the board, and the agent panes.
+- `expect.md`: what you see in the sidebar, the output of `watchd rows`, and the agent panes.
 - `errors` (optional): the patterns of the error lines that `sample check` expects.
 
 | Scenario | Steps |

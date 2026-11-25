@@ -14,7 +14,7 @@ use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
 use tokio::task::{JoinHandle, JoinSet, block_in_place};
 
 use self::store::{Store, first_line};
-use crate::core::filter::filter;
+use crate::core::filter::{filter, handled_rows, role};
 use crate::core::items::RoutedEvent;
 use crate::core::subs::{Agent, Mode};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, conflict_tests, lookup_branch, targets};
@@ -332,6 +332,7 @@ impl Daemon {
     ) -> (MutexGuard<'a, Memory>, Vec<RoutedEvent>) {
         let mut routed = memory.store.assign(target, events, now_seconds());
         let recipient = memory.store.recipient(target, &routed);
+        let kind = memory.store.worktree(&target.repo).and_then(|state| state.kind);
         drop(memory);
         let (routing, lines) = match recipient {
             Some((key, events)) if key == target.slug => {
@@ -357,7 +358,15 @@ impl Daemon {
                 };
                 execute(router::decide(&events, &facts), &events, &ctx).await
             }
-            _ => (Routing::default(), Vec::new()),
+            // An event that does not wake the agent is an Info row, which needs no cell.
+            Some((_, events)) => {
+                let routing = Routing {
+                    handled: handled_rows(role(target.mode, kind), &events),
+                    ..Routing::default()
+                };
+                (routing, Vec::new())
+            }
+            None => (Routing::default(), Vec::new()),
         };
         router::narrow(&mut routed, &routing.handled);
         let memory = self.lock().await;
@@ -445,7 +454,7 @@ impl Daemon {
             for worktree in worktrees {
                 seen.insert(worktree.path.clone());
                 let key = worktree_key(&worktree, &refs);
-                if known.get(&worktree.path).is_some_and(|state| state.key == key) {
+                if known.get(&worktree.path).is_some_and(|state| state.is_read_with(&key)) {
                     continue;
                 }
                 let branches = match refs.spice {

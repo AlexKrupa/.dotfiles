@@ -69,16 +69,16 @@ operation "pane-split --focus" "herdr pane split --pane w1:p1 --direction right 
 
 operation pane-run "herdr pane run w1:p1 echo 'a b'" "" '{}' -- pane-run w1:p1 "echo 'a b'"
 
-operation pane-rename "herdr pane rename w1:p1 watchd board" "" '{}' \
-  -- pane-rename w1:p1 "watchd board"
+operation pane-rename "herdr pane rename w1:p1 notes" "" '{}' \
+  -- pane-rename w1:p1 "notes"
 
 operation "pane-zoom on" "herdr pane zoom w1:p1 --on" "" '{}' -- pane-zoom w1:p1 on
 
 operation "pane-zoom off" "herdr pane zoom w1:p1 --off" "" '{}' -- pane-zoom w1:p1 off
 
-labeled_mock='{"result":{"pane":{"workspace_id":"w1"},"panes":[{"label":"a"},{"label":"watchd board"}]}}'
+labeled_mock='{"result":{"pane":{"workspace_id":"w1"},"panes":[{"label":"a"},{"label":"notes"}]}}'
 : >"$MOCK_LOG"
-MOCK_OUT=$labeled_mock "$script" pane-labeled w1:p1 "watchd board"; code=$?
+MOCK_OUT=$labeled_mock "$script" pane-labeled w1:p1 "notes"; code=$?
 check "pane-labeled with the label: exit 0" 0 "$code"
 check "pane-labeled with the label: herdr calls" \
   "herdr pane current --pane w1:p1

@@ -15,6 +15,8 @@ the turn starts the wait.
 - The events come as a system reminder from the `Stop` hook ("Stop hook feedback"): one JSON line
   for each event. Do the exit `0` action of `common.md`. The watch continues. Do not start it
   again.
+- The band above the prompt shows the view of the watch: the rows of the report and the artifacts
+  of the work. Do not repeat the rows in the chat.
 - A `replaced` event: a different session watches the key now. Do not start the watch again.
 - A text with the prefix `watchd error:`: do the exit `1` action of `common.md`.
 - A rule tells you not to start the watch again, for example all MRs are merged: run the

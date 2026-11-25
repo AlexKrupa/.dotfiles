@@ -39,7 +39,8 @@ The script installs the plugins that have the value `true` in `enabledPlugins` o
 `~/.claude/settings.json`. Before that, it adds each marketplace of `extraKnownMarketplaces`. It
 does not install other plugins. The `local-pins` marketplace is in `~/.claude/local-marketplace/`.
 Its `watchd` plugin is a symlink to `daemon/integrations/claude-code/`. The plugin has no `version`,
-and its hooks run the live `wait.sh` and `context.sh`. If the installed plugin is a copy that
+and its command hooks run the live `wait.sh` and `context.sh`. Its hooks module `hooks/band.tsx`
+draws the watch view in a band above the prompt. If the installed plugin is a copy that
 differs from the source, the script uninstalls it and installs it again, one time. It removes no
 other plugin. A change to these scripts applies at the next session start. A change to a different plugin file applies
 at the next session start after the next run of the script.

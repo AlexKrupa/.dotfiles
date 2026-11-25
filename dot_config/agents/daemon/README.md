@@ -21,13 +21,16 @@ flowchart LR
   glab -->|"HTTPS"| gitlab[("GitLab")]
   daemon -->|"only writer"| files[("State files<br/>~/.local/state/watchd")]
   herdr["herdr plugin<br/>watch.sh"] -->|"runs"| follow["watchd follow<br/>(follower)"]
+  band["Claude Code band<br/>(band.tsx)"] -->|"runs"| follow
+  band -->|"runs"| artifact["watchd artifact"]
   follow <-->|"Unix socket"| daemon
+  artifact <-->|"Unix socket"| daemon
 ```
 
 One binary has three roles:
 
-- Client: each `watchd watch`, `wait`, `status`, `kind`, `route`, `report`, or `follow` call is a
-  process that sends one JSON line to the daemon on `daemon.sock` and prints the answer
+- Client: each `watchd watch`, `wait`, `status`, `kind`, `route`, `report`, `rows`, `artifact`, or
+  `follow` call is a process that sends one JSON line to the daemon on `daemon.sock` and prints the answer
   (`src/protocol.rs`). `watchd watches` reads the state files and does not connect.
 - Daemon: `watchd daemon` is one process for each user. It reads git and git-spice, polls GitLab,
   creates its state folder and log, writes all state files, and answers the clients. If no daemon
@@ -43,20 +46,20 @@ Two types of client stay connected:
   short: it writes an agent record for the key of its folder and mode, with the session ID, and
   exits. An agent record selects events. The polling of the MRs of a managed repo continues with
   no agent. The project-wide check needs a hub agent (see "Targets").
-- Follower: `watchd follow` gets the sidebar state, then each new event log line and each sidebar
-  change. The herdr plugin `watch.sh` is a follower.
+- Follower: `watchd follow` gets the sidebar state, then each new event log line, each sidebar
+  change, and each new, changed, or removed view (`src/view.rs`). The herdr plugin `watch.sh` and the
+  band of the Claude Code plugin are followers.
 
 Callers:
 
-- The skills run `watchd watch`, `unsubscribe`, `status`, `route`, and `report`, as
+- The skills run `watchd watch`, `unsubscribe`, `status`, `route`, `report`, and `rows`, as
   `references/watch/gitlab.md` tells them.
 - The Claude Code plugin (`integrations/claude-code/`) runs `watchd wait` and `watchd watches` in
-  its hooks (see "Claude Code plugin").
+  its command hooks, and `watchd follow` and `watchd artifact` in its hooks module (see "Claude Code
+  plugin").
 - `bump`, `hub`, `review-pr`, `debug-gitlab`, and `skills/work/work-start.sh` run `watchd kind`. It
   sets the kind of work of the worktree of the current folder.
 - The herdr plugin `watch.sh` reads the stdout of `watchd follow`. It does not read the state files.
-- `watchd kind hub` and the `watchd watch` of an author or review watch run
-  `skills/work/board-pane.sh`. The script opens the board pane, which runs `watchd board`.
 
 ## Managed repos
 
@@ -207,9 +210,13 @@ flowchart TB
   the kind and the prompt that runs the skill. Exit code 5 is a branch that is open in a workspace
   already. A failed default-branch job with a runner failure gets 2 retries at most, in a task of
   its own. A handled event does not go to the hub inbox. If a round has only handled events, the
-  daemon writes the hub report to the board file, and `watchd board` shows it. Else all events go to
-  the inbox, and the client gets only the events that the router did not handle. The next hub report
+  daemon writes the rows of the hub report, and the view shows them. Else all events go to the
+  inbox, and the client gets only the events that the router did not handle. The next hub report
   also shows the handled rows.
+- Wake sets: for the events that go to a live author or review agent, `src/core/filter.rs` gives the
+  wake set of the role (author, review, or bump). The rows with no waking event are handled rows,
+  with the same rules as the hub: they become Info rows of the view, and the agent does not see
+  them.
 
 Each task takes the `memory` lock before it reads or changes the state in memory or the state
 files: the `Store` of the state files is in the locked `Memory`. After each change, the task sends
@@ -226,12 +233,12 @@ the `changed` signal, and the waiting connections read the files again.
 | `src/daemon/` | The main loop, the local round, the managed loops, the checks, the lock, the restart. `store.rs` writes the state files. |
 | `src/local/` | The `git` and `git-spice` calls: worktree list, shared refs, stack, conflict test, fetch, fast-forward |
 | `src/report.rs` | The Markdown text of `watchd report` |
-| `src/board.rs` | The text of `watchd board`: one group for each MR with the status line and the MR URL, then the rows, with the URL of the comment or the pipeline |
-| `src/core/` | Logic with no input or output: agent records, pending items, event log lines, worktree state and targets, the event kinds and needs of each mode (`filter.rs`) |
+| `src/view.rs` | The view of a watch key for `watchd follow` and `watchd rows`: the branches in stack order, their status, rows, and artifacts, and the common artifacts |
+| `src/core/` | Logic with no input or output: agent records, pending items, event log lines, worktree state and targets, the event kinds, needs, and wake sets of each mode (`filter.rs`) |
 | `src/engine/` | The GitLab checks. `hub.rs` watches the project. `mrs.rs` watches the MRs of a worktree or a review. `lookup.rs` finds the open MR of a branch. The module doc of `mod.rs` has the table of events. `router/` selects the action of each hub event. |
-| `src/workspaces.rs` | The skill scripts of the board pane (`work/board-pane.sh`), the agent starts, and the agent list |
+| `src/workspaces.rs` | The skill scripts of the agent starts and the agent list |
 | `src/glab.rs`, `nap.rs`, `key.rs`, `paths.rs`, `persist.rs`, `platform.rs` | Helpers: `glab` calls, the wait between rounds, keys, paths, JSON files, macOS calls |
-| `integrations/claude-code/` | The Claude Code plugin: hooks, `wait.sh`, `context.sh`, and the runner file |
+| `integrations/claude-code/` | The Claude Code plugin: command hooks, the band module, `wait.sh`, `context.sh`, and the runner file |
 | `tests/` | The engine against a fake `glab`, and real test daemons with the fake engine (`src/engine/fake.rs`), real git repos, and a fake `git-spice` |
 
 ## State files
@@ -248,14 +255,14 @@ the worktree. A review key also has `-review-IID` at the end.
 | `watchd/format` | The format version of the state (see "Migration") |
 | `watchd/events.jsonl` | The event log, which `follow` reads |
 | `watchd/repos.json` | The managed set |
-| `watchd/worktrees/HASH.json` | The state of one worktree: branch, key, stack, MRs, conflict, kind, stage. `HASH` is the first 12 characters of the SHA-1 of the path. |
+| `watchd/worktrees/HASH.json` | The state of one worktree: branch, key, stack, MRs and the MR of each stack branch, conflict, kind, stage, artifacts. `HASH` is the first 12 characters of the SHA-1 of the path. |
 | `watchd/reviews.json` | The review links: a worktree and the MR that it reviews |
 | `watchd/subs/KEY.json` | One agent record, with the ID of its session |
 | `watchd/sessions/ID.json` | One session: the owner PID and `owner_gone_at`. `replaced` has the keys that a different session took. `ended` has the keys whose record ended while the session had them. `upgraded` is true from a format change that deleted a record of the session to the next wait. |
 | `watchd/inbox/KEY.jsonl` | Events that no waiter took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The pending items of the key |
-| `watchd/items/KEY.board` | The newest report of the key as JSON, for each mode. `watchd board` draws it at the width of its pane, with the MR state of `watch-gitlab/KEY.json`, or of `watch-gitlab/SLUG-own.json` for the hub. |
+| `watchd/items/KEY.rows` | The rows of the newest report of the key as JSON, for each mode. The view of the key reads them, with the MR state of `watch-gitlab/KEY.json`, or of `watch-gitlab/SLUG-own.json` for the hub. |
 | `watchd/items/KEY.retries` | The retry count of each failed job of the hub, as `<pipeline id>:<job name>` |
 | `watch-gitlab/KEY.json` | The engine state: what GitLab showed at the last check |
 
@@ -275,12 +282,15 @@ The folder `integrations/claude-code/` is a Claude Code plugin. It has all Claud
 
 | File | Content |
 | --- | --- |
-| `.claude-plugin/plugin.json` | The name `watchd`. The plugin has no `version`, so Claude Code never pins it. |
-| `hooks/hooks.json` | The `SessionStart`, `Stop`, and `StopFailure` hooks run the live `~/.config/agents/daemon/integrations/claude-code/wait.sh` with `asyncRewake` and a timeout of one week. `StopFailure` starts the next waiter after a turn that ends with an API error. The `SessionStart` hook with the matcher `compact` also runs the live `context.sh`, with no `asyncRewake`. |
+| `.claude-plugin/plugin.json` | The name `watchd`, and the type contract `types/index.d.ts`. The plugin has no `version`, so Claude Code never pins it. |
+| `hooks/hooks.json` | The hooks module `band.tsx` in `modules`. The `SessionStart`, `Stop`, and `StopFailure` hooks run the live `~/.config/agents/daemon/integrations/claude-code/wait.sh` with `asyncRewake` and a timeout of one week. `StopFailure` starts the next waiter after a turn that ends with an API error. The `SessionStart` hook with the matcher `compact` also runs the live `context.sh`, with no `asyncRewake`. |
 | `wait.sh` | Runs `watchd wait` with `CLAUDE_CODE_SESSION_ID` and `CLAUDE_PID`. For the `SessionStart` source `clear`, it adds `--rename-owner-session`. Exit 2 wakes Claude with the events or `watchd error: <text>` on stderr. |
 | `wait.test.sh` | The test of `wait.sh`, with a fake `watchd` in `WATCHD` |
 | `context.sh` | Runs `watchd watches` with `CLAUDE_CODE_SESSION_ID`. If the session has watches, it prints the `SessionStart` JSON with `additionalContext`: the watches, the path of `watch-runner.md`, and the rule for `watchd error:`. Else it prints nothing. |
 | `context.test.sh` | The test of `context.sh`, with a fake `watchd` in `WATCHD` |
+| `hooks/band.tsx` | The hooks module. At session start, it runs `watchd follow` and keeps the view of the session folder, and starts the stream again 2 seconds after an end. After a failure, it draws nothing until a new stream sends lines. It draws the view in the band above the prompt. After a `Write` under `~/.ai/<repo>/<folder>/`, or a `Read` of a handoff, it runs `watchd artifact`. |
+| `hooks/band.test.tsx` | The tests of `band.tsx`, for `claude plugin test` |
+| `types/index.d.ts`, `tsconfig.json` | The `View` type of the view lines and the `$.state` contract, and the type check config. The engine writes `.claude-plugin/types/` when it loads the plugin. |
 | `watch-runner.md` | The runner file: how the agent starts the watch and reads the results |
 
 Claude Code installs this local plugin from its folder, through the symlink

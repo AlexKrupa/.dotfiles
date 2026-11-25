@@ -15,6 +15,7 @@ use crate::core::worktrees::Kind;
 use crate::core::worktrees::WorktreeState;
 use crate::engine::event::EventKind;
 use crate::report::ReportInput;
+use crate::view::View;
 
 /// A line of an older client has no folder.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -63,6 +64,17 @@ pub enum Request {
     Follow {
         after: Option<u64>,
     },
+    /// The view of the key.
+    View {
+        key: String,
+    },
+    /// An artifact of the worktree of the folder. `common` gives it no branch.
+    Artifact {
+        kind: String,
+        target: String,
+        branch: Option<String>,
+        common: bool,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -109,6 +121,9 @@ pub enum Response {
         text: String,
     },
     State(Box<DebugState>),
+    View {
+        view: Option<View>,
+    },
 }
 
 /// The memory fields are `None` when no daemon runs.

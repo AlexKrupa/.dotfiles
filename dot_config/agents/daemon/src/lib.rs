@@ -1,4 +1,3 @@
-mod board;
 pub mod client;
 mod core;
 pub mod daemon;
@@ -13,4 +12,5 @@ mod platform;
 mod protocol;
 mod report;
 mod server;
+pub mod view;
 mod workspaces;

@@ -16,14 +16,14 @@ MR, the watch gives only the review request and the `opened` event. That agent r
 events.
 
 The watch gives only the events that need the model. The daemon handles the other events, and the
-board pane next to the hub shows them: `pull-blocked`, `note`, `reaction`, and the items of own
-worktrees. The next report also shows their rows.
+view of the watch shows them: `pull-blocked`, `note`, `reaction`, and the items of own worktrees.
+The next report also has their rows.
 
 A `default-failed` event is a failed pipeline of the default branch. Its `iid` and `title` are
 null. Its `previous` is the status of the earlier default-branch pipeline. All other events are MR
 events. The `actor` of an `opened` event is the MR author.
 
-Each event has `row`: the number of its row in the report. An event that waits for the user
+Each event has `row`: the id of its row. The user does not see it. An event that waits for the user
 is a pending item, for example a to-do item or a failed pipeline. The watch keeps the pending
 items and removes them when GitLab shows that their cause is gone.
 
@@ -33,8 +33,10 @@ For each result with exit `0`, do these steps:
    event. The daemon starts the review and bump agents (see "Review and bump agents"). Such an
    event comes if the daemon cannot read the MR author. A new hub session also gets the pending
    items of the hub. Each action gives a cell: the Proposal or result text of a row.
-2. Run the host command "Report" with the JSON of your actions, and output its stdout word for
-   word. The JSON fields:
+2. Run the host command "Report" with the JSON of your actions. It prints nothing on success. The
+   view of the watch shows the rows. Then write one short line in the chat, or nothing. If a row
+   needs a decision or a conversation, add it to Needs you, and write to the user. The JSON
+   fields:
    - `cells`: the text for each row, for example `{"2": "Review agent started"}`.
    - `agent`: the rows of the events that an agent handles now. A pending item in it goes away.
    - `dismiss`: the rows that need nothing more.
@@ -44,32 +46,32 @@ For each result with exit `0`, do these steps:
 The watch continues: do not start it again.
 
 A result of an action that comes after the report, for example of a background task, is an `add`
-row of the section `agent`. Run the report command with it, and output its stdout word for word.
+row of the section `agent`. Run the report command with it.
 
 ## Items of own worktrees
 
 The watch daemon polls the MRs of each own worktree, also when no agent runs in the worktree, and
 the open MRs of the user that have no worktree. If no agent waits for an event of these MRs, its
-pending item comes to the hub. The board shows it as one row, for example `!12: @anna commented`.
+pending item comes to the hub. The view shows it as one row, for example `!12: @anna commented`.
 The user starts work on it with `/work`.
 
 ## Review and bump agents
 
-The daemon starts the review and bump agents, and the board shows the result. A bump agent starts
+The daemon starts the review and bump agents, and the view shows the result. A bump agent starts
 for each new MR or to-do item of a bot: an MR author whose username has `renovate` or
 `dependabot`. A review agent starts for each review request of a person, unless a review report
 `~/.ai/<repo>/reviews/*-mr-<iid>-*.md` exists. The review agent starts at the next check after the
 review request, while the MR is not a draft. A draft MR waits until it is ready. Each agent works
-in its own herdr worktree workspace. After a bump agent starts, the board shows
+in its own herdr worktree workspace. After a bump agent starts, the view shows
 `The bump agent of <old branch> is stale` for each older bump agent of the same dependency. Its
 workspace stays, because it can contain changes. The `opened` event of an MR of a person goes away
-with no row. If the start fails, the board shows the error text, and the row stays a pending item.
+with no row. If the start fails, the view shows the error text, and the row stays a pending item.
 The user fixes the cause.
 
 ## Auto-debug
 
 The daemon retries each failed job of a default-branch pipeline with a runner failure, 2 times at
-most, and the board shows the results. The runner reasons are `runner_system_failure`,
+most, and the view shows the results. The runner reasons are `runner_system_failure`,
 `stuck_or_timeout_failure`, `scheduler_failure`, and `api_failure`. A `default-failed` event has
 only the other jobs, in `jobs` and `failed`. A retried job that fails for another reason comes as
 a new `default-failed` event with only that job. For the jobs of the event, the hub starts a debug

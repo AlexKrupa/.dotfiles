@@ -69,7 +69,7 @@ pub struct Known {
     pub url: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, serde::Serialize)]
 pub struct Row {
     pub n: u64,
     pub section: RowSection,

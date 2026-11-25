@@ -91,7 +91,7 @@ fn errors() -> &'static Checks {
             "no daemon",
             w.client(&["status"]).out.lines().next().unwrap_or_default().to_string(),
         );
-        w.events(&w.author_key(), &[ev("pipeline", 5)]);
+        w.events(&w.author_key(), &[ev("pushed", 5)]);
         let other = "session-other";
         let owner = session();
         let one = w.start(w.watch_command(&[]));
@@ -107,7 +107,7 @@ fn errors() -> &'static Checks {
         let combined = |run: &support::Run| norow(&[run.out.as_str(), run.err.as_str()].concat());
         c.check(
             "two clients at once: both get events",
-            format!("{} {}", ev("todo", 5), ev("pipeline", 5)),
+            format!("{} {}", ev("todo", 5), ev("pushed", 5)),
             format!("{} {}", combined(&one), combined(&two)),
         );
         c.check("two clients at once: one daemon", 1, w.log_count("daemon start"));
@@ -392,8 +392,8 @@ fn live_hub(w: &Watchd) {
     assert_eq!(w.watch_wait(&[]).code, 0);
 }
 
-fn board(w: &Watchd) -> String {
-    std::fs::read_to_string(w.watchd.join("items/app.board")).unwrap_or_default()
+fn rows(w: &Watchd) -> String {
+    std::fs::read_to_string(w.watchd.join("items/app.rows")).unwrap_or_default()
 }
 
 #[test]
@@ -402,9 +402,9 @@ fn handled_round_wakes_no_hub() {
     live_hub(&w);
 
     w.events("app", &[PULL_BLOCKED.to_string()]);
-    let drawn = wait_for(10, || board(&w).contains("Pull blocked: changes in tracked files"));
+    let written = wait_for(10, || rows(&w).contains("changes in tracked files"));
 
-    assert!(drawn, "{}", board(&w));
+    assert!(written, "{}", rows(&w));
     assert_eq!(w.inbox_of("app"), "");
     assert_eq!(w.watch(&[]).code, 0);
     w.managed_rounds(2);
@@ -420,7 +420,7 @@ fn mixed_round_gives_the_model_only_its_events() {
 
     w.events("app", &[PULL_BLOCKED.to_string(), DEFAULT_FAILED.to_string()]);
     let run = hub.wait(10).expect("the hub client gets the events");
-    let report = w.report("{}", &[]);
+    let report = w.report("{}", &["--print"]);
 
     assert_eq!(support::each(&run.out, "kind"), "default-failed");
     assert!(
@@ -429,33 +429,6 @@ fn mixed_round_gives_the_model_only_its_events() {
         report.out
     );
     assert!(report.out.contains("Pipeline failed"), "{}", report.out);
-}
-
-#[test]
-fn board_draws_the_board_file_again_after_a_change() {
-    let w = Watchd::new();
-    let file = w.watchd.join("items/app.board");
-    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-    let writer = std::thread::spawn(move || {
-        support::daemon::sleep(2);
-        let row = r#"{"n": 1, "section": "Info", "iid": null, "title": null, "url": null, "what": "first row", "result": ""}"#;
-        std::fs::write(file, format!(r#"{{"time": "10:00", "rows": [{row}]}}"#)).unwrap();
-    });
-    let mut command = w.command();
-    command.arg("board");
-
-    let run = support::daemon::run_limited(command, &w.env.dir, 4);
-    writer.join().unwrap();
-
-    assert_eq!(run.code, 124, "{}", run.err);
-    let drawn: Vec<&str> = run.out.split("\x1b[H\x1b[2J").filter(|text| !text.is_empty()).collect();
-    assert_eq!(
-        drawn,
-        [
-            "No report yet.\n",
-            "\x1b[2m10:00\x1b[0m\n\n\n\x1b[1mProject\x1b[0m\n\n  \x1b[1m\x1b[90mINFO\x1b[0m\n\n  \x1b[1m1 \x1b[0m first row"
-        ]
-    );
 }
 
 #[test]

@@ -606,12 +606,12 @@ fn hub_items() -> &'static Checks {
         let hub = w.start(w.wait_command());
         wait_for(5, || w.waiting(&w.session_id()));
         w.events(&key, &[comment(12, "comment:2")]);
-        let board = || std::fs::read_to_string(w.watchd.join("items/app.board")).unwrap_or_default();
-        let drawn = wait_for(10, || board().contains(r#"@anna: \"d\""#));
+        let rows = || std::fs::read_to_string(w.watchd.join("items/app.rows")).unwrap_or_default();
+        let written = wait_for(10, || rows().contains(r#""item": "comment:2""#));
         c.check(
-            "live hub: the item of a worktree with no agent goes to the board, not to the hub",
+            "live hub: the item of a worktree with no agent goes to the hub rows, not to the hub",
             "true true",
-            format!("{drawn} {}", hub.running()),
+            format!("{written} {}", hub.running()),
         );
 
         w.events(&key, &[support::daemon::ev("approved", 12)]);
@@ -619,7 +619,7 @@ fn hub_items() -> &'static Checks {
         c.check(
             "live hub: an event of a worktree with no agent and no item goes nowhere",
             "true false",
-            format!("{} {}", hub.running(), board().contains("approved")),
+            format!("{} {}", hub.running(), rows().contains(r#""kind": "approved""#)),
         );
         w.events("app", &[support::daemon::ev("todo", 12)]);
         hub.wait(10);
@@ -649,8 +649,8 @@ fn live_hub_gets_no_event_of_a_worktree_without_agent_and_item() {
 }
 
 #[test]
-fn board_gets_the_items_of_a_worktree_without_agent() {
-    hub_items().assert("live hub: the item of a worktree with no agent goes to the board, not to the hub");
+fn hub_rows_get_the_items_of_a_worktree_without_agent() {
+    hub_items().assert("live hub: the item of a worktree with no agent goes to the hub rows, not to the hub");
 }
 
 #[test]
@@ -664,7 +664,7 @@ fn no_live_hub_no_routing() {
     wait_for(10, || items(&w, "app") == "comment:1");
 
     assert_eq!(items(&w, "app"), "comment:1");
-    assert!(!w.watchd.join("items/app.board").exists());
+    assert!(!w.watchd.join("items/app.rows").exists());
     end(follow);
 }
 
@@ -673,8 +673,8 @@ const TWO_MRS: &str = r#"{"name":"main","ups":[{"name":"a"}]}
 {"name":"b","current":true,"down":{"name":"a"},"change":{"id":"!13","url":"u"}}
 "#;
 
-fn pipeline(iid: u64) -> String {
-    support::daemon::ev("pipeline", iid)
+fn pushed(iid: u64) -> String {
+    support::daemon::ev("pushed", iid)
 }
 
 fn worktree_agents() -> &'static Checks {
@@ -706,17 +706,17 @@ fn worktree_agents() -> &'static Checks {
         c.check(
             "linked worktree: a watch with no --mr gets the events of all its MRs",
             "0 12 13",
-            after_record(&[], &[pipeline(12), pipeline(13)]),
+            after_record(&[], &[pushed(12), pushed(13)]),
         );
         c.check(
             "linked worktree: --mr is a filter on the events",
             "0 13",
-            after_record(&["--mr", "13"], &[pipeline(12), pipeline(13)]),
+            after_record(&["--mr", "13"], &[pushed(12), pushed(13)]),
         );
         c.check(
             "old watch command: --interval 1 --mr 12 gets the MR 12 event",
             "0 12",
-            after_record(&["--mr", "12"], &[pipeline(12)]),
+            after_record(&["--mr", "12"], &[pushed(12)]),
         );
         end(follow);
         c
@@ -897,77 +897,6 @@ fn kind_is_kept_by_worktree_path() {
     assert_eq!(last["worktrees"][wt.to_str().unwrap()]["kind"], "review");
     assert!(last.get("workspaces").is_none(), "{last}");
     end(follow);
-}
-
-#[test]
-fn kind_hub_opens_the_board() {
-    let w = Watchd::new();
-    let calls = || std::fs::read_to_string(w.workspaces().join("calls")).unwrap_or_default();
-
-    let mine = w.client_in(&w.env.repo, &["kind", "mine"]);
-    let after_mine = calls();
-    let hub = w.client_in(&w.env.repo, &["kind", "hub"]);
-
-    assert_eq!((mine.code, hub.code), (0, 0), "{}{}", mine.err, hub.err);
-    assert_eq!(after_mine, "");
-    let repo = w.env.repo.canonicalize().unwrap();
-    assert_eq!(calls(), format!("open_board {}\n", repo.display()));
-}
-
-#[test]
-fn author_watch_opens_the_board() {
-    let w = Watchd::new();
-    let wt = stacked_worktree(&w);
-    let calls = || std::fs::read_to_string(w.workspaces().join("calls")).unwrap_or_default();
-
-    let mut watch = w.watch_command(&[]);
-    watch.current_dir(&wt);
-    let run = w.run(watch);
-
-    assert_eq!(run.code, 0, "{}", run.err);
-    let wt = wt.canonicalize().unwrap();
-    assert_eq!(calls(), format!("open_board {}\n", wt.display()));
-}
-
-#[test]
-fn review_watch_opens_the_board_with_review_flags() {
-    let w = Watchd::new();
-    let wr = review_worktree(&w, "r");
-    let calls = || std::fs::read_to_string(w.workspaces().join("calls")).unwrap_or_default();
-
-    let mut watch = w.watch_command(&["--review", "--mr", "7"]);
-    watch.current_dir(&wr);
-    let run = w.run(watch);
-
-    assert_eq!(run.code, 0, "{}", run.err);
-    let wr = wr.canonicalize().unwrap();
-    assert_eq!(calls(), format!("open_board {} --review --mr 7\n", wr.display()));
-}
-
-#[test]
-fn kind_hub_runs_the_board_script_of_the_scripts_folder() {
-    use std::os::unix::fs::PermissionsExt;
-    let w = Watchd::new();
-    let scripts = w.env.dir.join("scripts");
-    std::fs::create_dir_all(scripts.join("work")).unwrap();
-    let script = scripts.join("work/board-pane.sh");
-    std::fs::write(&script, "#!/bin/sh\necho \"$@\" >\"$(dirname \"$0\")/../args\"\n").unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-
-    let mut command = w.command();
-    command
-        .current_dir(&w.env.repo)
-        .env_remove("WATCHD_FAKE_WORKSPACES")
-        .env("WATCHD_SCRIPTS", &scripts)
-        .args(["kind", "hub"]);
-    let run = w.run(command);
-
-    assert_eq!(run.code, 0, "{}", run.err);
-    let repo = w.env.repo.canonicalize().unwrap();
-    assert_eq!(
-        std::fs::read_to_string(scripts.join("args")).unwrap_or_default(),
-        format!("--repo {}\n", repo.display())
-    );
 }
 
 #[test]

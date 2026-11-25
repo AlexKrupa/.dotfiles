@@ -17,7 +17,6 @@ Handle a `pushed` event first. Then the other events read the new code.
 | `pipeline`, failed | See "Pipeline failures"                      | Agent or Needs you |
 | `pipeline`, passed | Update the verdict                           | Info              |
 | `comment`          | See "Comments"                               | Needs you         |
-| `description`      | None. The bot rewrites the description often | No report         |
 
 Do not wait for CI with `bump-host.sh ci --wait` during the watch. The next `pipeline` event gives
 the result.
