@@ -999,8 +999,8 @@ from a design spec that the user approved.
   fails. A passed pipeline has no artifact.
 - W27.3 (spec) watchd adds a ticket for the ticket key of each branch name: the first match of
   `[A-Z][A-Z0-9]+-[0-9]+`. The URL comes from the git config `watchd.ticketUrl` of the repo, a URL
-  with `{key}`. With no value, there is no ticket artifact, and the heading still shows the key. The
-  daemon reads the value once for each repo.
+  with `{key}`. With no value, there is no ticket artifact, and the heading still shows the key. Each
+  build of the views reads the value again.
 - W27.4 (spec) `watchd artifact <kind> <target> [--branch <name> | --common]` records an artifact
   for the worktree of the current folder. Its branch is the checked-out branch, the `--branch`
   value, or none with `--common`. The same kind and target again replaces the old entry. Outside a

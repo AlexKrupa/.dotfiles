@@ -61,31 +61,11 @@ operation "pane-cwd with a foreground cwd" "herdr pane get w1:p1" "/repo/wt" \
 operation "pane-cwd with no foreground cwd" "herdr pane get w1:p1" "/repo" \
   '{"result":{"pane":{"cwd":"/repo"}}}' -- pane-cwd w1:p1
 
-operation pane-split "herdr pane split --pane w1:p1 --direction right --cwd /my repo" "w1:p2" \
-  '{"result":{"pane":{"pane_id":"w1:p2"}}}' -- pane-split w1:p1 "/my repo"
-
-operation "pane-split --focus" "herdr pane split --pane w1:p1 --direction right --cwd /r --focus" \
-  "w1:p2" '{"result":{"pane":{"pane_id":"w1:p2"}}}' -- pane-split w1:p1 /r --focus
-
 operation pane-run "herdr pane run w1:p1 echo 'a b'" "" '{}' -- pane-run w1:p1 "echo 'a b'"
-
-operation pane-rename "herdr pane rename w1:p1 notes" "" '{}' \
-  -- pane-rename w1:p1 "notes"
 
 operation "pane-zoom on" "herdr pane zoom w1:p1 --on" "" '{}' -- pane-zoom w1:p1 on
 
 operation "pane-zoom off" "herdr pane zoom w1:p1 --off" "" '{}' -- pane-zoom w1:p1 off
-
-labeled_mock='{"result":{"pane":{"workspace_id":"w1"},"panes":[{"label":"a"},{"label":"notes"}]}}'
-: >"$MOCK_LOG"
-MOCK_OUT=$labeled_mock "$script" pane-labeled w1:p1 "notes"; code=$?
-check "pane-labeled with the label: exit 0" 0 "$code"
-check "pane-labeled with the label: herdr calls" \
-  "herdr pane current --pane w1:p1
-herdr pane list --workspace w1" "$(cat "$MOCK_LOG")"
-
-MOCK_OUT=$labeled_mock "$script" pane-labeled w1:p1 "other"; code=$?
-check "pane-labeled with no such label: exit 1" 1 "$code"
 
 operation workspace-first-pane "herdr pane list --workspace w1" "w1:p1" \
   '{"result":{"panes":[{"pane_id":"w1:p1"},{"pane_id":"w1:p2"}]}}' -- workspace-first-pane w1
@@ -164,10 +144,6 @@ check "an unknown operation: no herdr call" "" "$(cat "$MOCK_LOG")"
 err=$(MOCK_FAIL=1 "$script" pane-current 2>&1 >/dev/null); code=$?
 check "a failed herdr call: exit 1" 1 "$code"
 check "a failed herdr call: herdr stderr" "herdr: pane w1:p9 not found" "$err"
-
-err=$(MOCK_FAIL=1 "$script" pane-labeled w1:p1 x 2>&1 >/dev/null); code=$?
-check "a failed herdr call in pane-labeled: exit 1" 1 "$code"
-check "a failed herdr call in pane-labeled: herdr stderr" "herdr: pane w1:p9 not found" "$err"
 
 err=$(MOCK_ERROR='{"error":{"code":"pane_not_found","message":"pane nope not found"}}' \
   "$script" pane-current 2>&1 >/dev/null); code=$?

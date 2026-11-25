@@ -8,7 +8,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tokio::sync::{Mutex, MutexGuard, Notify, RwLock};
 use tokio::task::{JoinHandle, JoinSet, block_in_place};
@@ -32,6 +32,7 @@ use crate::local::{
 use crate::nap::{NapEnd, nap};
 use crate::paths::{StateDirs, home};
 use crate::platform::{full_wake, now_seconds, online, redirect_output};
+use crate::view::View;
 use crate::workspaces::{Workspaces, workspaces_of};
 
 const LOCK_FD: &str = "WATCHD_LOCK_FD";
@@ -63,6 +64,8 @@ fn engine_of(dirs: &StateDirs) -> Box<dyn Engine> {
     Box::new(GitlabEngine { dirs: dirs.clone() })
 }
 
+type Views = Arc<BTreeMap<String, View>>;
+
 pub struct Daemon {
     /// Each read and change of the state files holds this lock: `Memory` has the `Store`.
     memory: Mutex<Memory>,
@@ -90,6 +93,8 @@ pub struct Daemon {
     pub retry_interval: Duration,
     /// The longest wait for a retried job, with no sleep time and no network outages.
     pub retry_timeout: Duration,
+    /// The last views and the start of their build. The `follow` clients share it.
+    views: Mutex<Option<(Instant, Views)>>,
 }
 
 pub struct Memory {
@@ -162,6 +167,7 @@ impl Daemon {
             workspaces,
             retry_interval: Duration::from_secs(env_seconds("WATCHD_RETRY_INTERVAL", 30)),
             retry_timeout: Duration::from_secs(3600),
+            views: Mutex::new(None),
         }
     }
 
@@ -171,6 +177,22 @@ impl Daemon {
 
     pub async fn lock(&self) -> MutexGuard<'_, Memory> {
         self.memory.lock().await
+    }
+
+    /// The views of a build that started at `since` or later. A build of the views reads many
+    /// files, so the clients that wake together share one build.
+    pub async fn views_since(&self, since: Instant) -> Views {
+        let mut last = self.views.lock().await;
+        if let Some((started, views)) = last.as_ref()
+            && *started >= since
+        {
+            return views.clone();
+        }
+        let started = Instant::now();
+        let memory = self.lock().await;
+        let views = Arc::new(block_in_place(|| memory.store.views()));
+        *last = Some((started, views.clone()));
+        views
     }
 
     pub fn log(&self, slug: &str, key: &str, message: &str) {

@@ -127,6 +127,17 @@ fn artifact(w: &Watchd, args: &[&str]) -> support::Run {
 }
 
 #[test]
+fn artifact_before_the_first_scan_gets_the_checked_out_branch() {
+    let w = Watchd::new();
+
+    let run = artifact(&w, &["spec", "/x/spec.md"]);
+
+    assert_eq!(run.code, 0, "{}", run.err);
+    let state = w.worktree_state(&w.env.repo);
+    assert_eq!(state["artifacts"][0]["branch"], "main", "{state}");
+}
+
+#[test]
 fn artifact_shows_in_the_view() {
     let w = Watchd::new();
     let author = reported_comment(&w);

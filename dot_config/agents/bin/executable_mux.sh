@@ -10,15 +10,12 @@
 # Output: one value on each line, or TSV lines. Tab, CR and LF in a TSV field become a space.
 # - pane-current: the pane id of this process
 # - pane-cwd <pane>: the cwd of the foreground program, else of the pane
-# - pane-split <pane> <cwd> [--focus]: the id of a new pane to the right
 # - tab-split <pane> <cwd> [--focus] [--run <command>]: the id of a new full-height pane on the
 #   right edge of the tab. herdr runs <command> with no interactive shell.
 # - pane-run <pane> <command>
-# - pane-rename <pane> <label>
 # - repo-pane <folder>: the id of a pane in <folder> or below it. Exit 1 if there is none.
 # - pane-read <pane> <lines>: the last <lines> lines of the screen and scrollback, as text
 # - pane-zoom <pane> on|off
-# - pane-labeled <pane> <label>: exit 0 if the workspace of <pane> has a pane with <label>, else 1
 # - workspace-first-pane <workspace>: the first pane id
 # - workspace-label <workspace>: the label
 # - workspace-rename <workspace> <label>

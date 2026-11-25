@@ -40,8 +40,6 @@ fn unreadable() -> String {
 pub struct Store {
     pub dirs: StateDirs,
     last_id: std::sync::Mutex<Option<u64>>,
-    /// The `watchd.ticketUrl` of each repo, read once.
-    ticket_urls: std::sync::Mutex<BTreeMap<PathBuf, Option<String>>>,
 }
 
 fn remove(path: &Path) {
@@ -107,7 +105,6 @@ impl Store {
         Store {
             dirs,
             last_id: std::sync::Mutex::new(None),
-            ticket_urls: std::sync::Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -617,11 +614,17 @@ impl Store {
         self.write_worktree(&state);
     }
 
-    /// The same kind and target again replaces the old entry.
+    /// The same kind and target again replaces the old entry. Before the first local round, git
+    /// gives the checked-out branch.
     pub fn add_artifact(&self, folder: &Path, kind: String, target: String, branch: ArtifactBranch) {
         self.update_worktree(folder, |state| {
             let branch = match branch {
-                ArtifactBranch::CheckedOut => state.branch.clone(),
+                ArtifactBranch::CheckedOut => state.branch.clone().or_else(|| {
+                    let name = tokio::task::block_in_place(|| git(folder, &["branch", "--show-current"]));
+                    name.ok()
+                        .map(|name| name.trim().to_string())
+                        .filter(|name| !name.is_empty())
+                }),
                 ArtifactBranch::Named(name) => Some(name),
                 ArtifactBranch::Common => None,
             };
@@ -1247,16 +1250,11 @@ impl Store {
             .unwrap_or_default()
     }
 
-    fn ticket_url(&self, repo: &Path) -> Option<String> {
-        let mut urls = self.ticket_urls.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        urls.entry(repo.to_path_buf())
-            .or_insert_with(|| {
-                tokio::task::block_in_place(|| git(repo, &["config", "watchd.ticketUrl"]))
-                    .ok()
-                    .map(|url| url.trim().to_string())
-                    .filter(|url| !url.is_empty())
-            })
-            .clone()
+    fn ticket_url(repo: &Path) -> Option<String> {
+        git(repo, &["config", "watchd.ticketUrl"])
+            .ok()
+            .map(|url| url.trim().to_string())
+            .filter(|url| !url.is_empty())
     }
 
     fn worktree_view(&self, key: &str, worktree: &WorktreeState) -> View {
@@ -1266,7 +1264,7 @@ impl Store {
             &self.engine_state(key),
             &self.rows(key),
             &draft_titles(&worktree.artifacts),
-            self.ticket_url(&worktree.repo).as_deref(),
+            Self::ticket_url(&worktree.repo).as_deref(),
         )
     }
 

@@ -107,11 +107,6 @@ case $operation in
     exit 1
     ;;
   pane-cwd) pane_cwd "$1" ;;
-  pane-split)
-    focus=false
-    if [[ ${3:-} == --focus ]]; then focus=true; fi
-    query '.block_ids[0]' split -b "$1" --split right --cwd "$2" "--focus=$focus" --json
-    ;;
   tab-split)
     focus=false command=
     for ((i = 3; i <= $#; i++)); do
@@ -130,19 +125,12 @@ case $operation in
     call send -b "$1" "$2"
     call send-key -b "$1" enter
     ;;
-  pane-rename) call block rename "$1" "$2" ;;
   pane-read) "$rex_cli" capture -b "$1" --trim --unwrap | tail -n "$2" ;;
   pane-zoom)
     case $2 in
       on | off) call zoom -b "$1" "--$2" ;;
       *) die "pane-zoom needs on or off, not '$2'" ;;
     esac
-    ;;
-  pane-labeled)
-    session=$(query '.session_id' block inspect "$1" --json) || exit 1
-    blocks=$("$rex_cli" block ls -s "$session" --json) || exit 1
-    # jq -e exits 4 or 5 for bad input, and 4 means no multiplexer.
-    jq -e --arg label "$2" 'any(.blocks[]; .label == $label)' <<<"$blocks" >/dev/null || exit 1
     ;;
   workspace-first-pane)
     query '[.windows[].layers[].blocks[].block_id][0] // empty' session inspect "$1" --json

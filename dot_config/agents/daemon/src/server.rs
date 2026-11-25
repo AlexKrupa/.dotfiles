@@ -7,7 +7,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::json;
 use tokio::io::AsyncWriteExt;
@@ -151,7 +151,10 @@ async fn handle(daemon: Arc<Daemon>, stream: UnixStream) {
             Response::Ok
         }
         Request::View { key } => Response::View {
-            view: daemon.lock().await.store.views().remove(&key),
+            view: {
+                let memory = daemon.lock().await;
+                block_in_place(|| memory.store.views()).remove(&key)
+            },
         },
         Request::Artifact { kind, target, branch } => {
             match folder.as_deref().map(|folder| block_in_place(|| worktree_top(folder))) {
@@ -490,7 +493,9 @@ async fn follow(
         let memory = daemon.lock().await;
         (memory.store.sidebar(), memory.store.last_id())
     };
-    let mut views = BTreeMap::new();
+    let mut views = Arc::new(BTreeMap::new());
+    // After a tick, a build from the last tick is new enough, because each change also wakes the client.
+    let mut since = Instant::now();
     let mut first = sidebar.clone();
     first["last_id"] = json!(newest);
     let mut last = after.unwrap_or(newest);
@@ -515,7 +520,7 @@ async fn follow(
             sidebar = now;
             ok = ok && write_line(&mut write, &sidebar.to_string()).await.is_ok();
         }
-        let now = daemon.lock().await.store.views();
+        let now = daemon.views_since(since).await;
         for line in view_lines(&views, &now) {
             ok = ok && write_line(&mut write, &line.to_string()).await.is_ok();
         }
@@ -524,8 +529,10 @@ async fn follow(
             break;
         }
         tokio::select! {
-            _ = &mut changed => {}
-            _ = tokio::time::sleep(daemon.tick) => {}
+            _ = &mut changed => since = Instant::now(),
+            _ = tokio::time::sleep(daemon.tick) => {
+                since = Instant::now().checked_sub(daemon.tick).unwrap_or_else(Instant::now);
+            }
             _ = tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut closed) => break,
         }
     }

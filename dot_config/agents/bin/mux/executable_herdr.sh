@@ -52,27 +52,14 @@ case $operation in
     printf '%s\n' "$pane"
     ;;
   pane-cwd) query '.result.pane | .foreground_cwd // .cwd' pane get "$1" ;;
-  pane-split)
-    focus=()
-    if [[ ${3:-} == --focus ]]; then focus=(--focus); fi
-    query '.result.pane.pane_id' \
-      pane split --pane "$1" --direction right --cwd "$2" ${focus[@]+"${focus[@]}"}
-    ;;
   tab-split) exec "${BASH_SOURCE[0]%/*}/herdr-tab-split.sh" "$@" ;;
   pane-run) call pane run "$1" "$2" ;;
-  pane-rename) call pane rename "$1" "$2" ;;
   pane-read) run agent read "$1" --source recent --lines "$2" ;;
   pane-zoom)
     case $2 in
       on | off) call pane zoom "$1" "--$2" ;;
       *) die "pane-zoom needs on or off, not '$2'" ;;
     esac
-    ;;
-  pane-labeled)
-    workspace=$(query '.result.pane.workspace_id' pane current --pane "$1") || exit $?
-    panes=$(run pane list --workspace "$workspace") || exit $?
-    # jq -e exits 4 or 5 for bad input, and 4 means no multiplexer.
-    jq -e --arg label "$2" 'any(.result.panes[]; .label == $label)' <<<"$panes" >/dev/null || exit 1
     ;;
   workspace-first-pane) query '.result.panes[0].pane_id' pane list --workspace "$1" ;;
   workspace-label) query '.result.workspace.label' workspace get "$1" ;;

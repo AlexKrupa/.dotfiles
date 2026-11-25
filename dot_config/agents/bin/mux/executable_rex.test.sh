@@ -48,13 +48,7 @@ operation "pane-cwd with no foreground cwd decodes the reported directory" \
 rex block call -b b1 pwd" "/my repo/50%" \
   '{"foreground":null,"pwd":"file://host.local/my%20repo/50%25"}' -- pane-cwd b1
 
-operation pane-split "rex split -b b1 --split right --cwd /my repo --focus=false --json" "b2" \
-  '{"anchor_id":"b1","block_ids":["b2"]}' -- pane-split b1 "/my repo"
-
-operation "pane-split --focus" "rex split -b b1 --split right --cwd /r --focus=true --json" "b2" \
-  '{"anchor_id":"b1","block_ids":["b2"]}' -- pane-split b1 /r --focus
-
-operation "tab-split is pane-split" "rex split -b b1 --split right --cwd /r --focus=true --json" \
+operation "tab-split" "rex split -b b1 --split right --cwd /r --focus=true --json" \
   "b2" '{"anchor_id":"b1","block_ids":["b2"]}' -- tab-split b1 /r --focus
 
 operation "tab-split --run runs the command in the shell of the new pane" \
@@ -70,22 +64,9 @@ rex send-key -b b1 enter" "" '{"pwd":"file://host/repo"}' -- pane-run b1 "echo '
 
 operation pane-read "rex capture -b b1 --trim --unwrap" $'c\nd' $'a\nb\nc\nd' -- pane-read b1 2
 
-operation pane-rename "rex block rename b1 notes" "" '{}' -- pane-rename b1 "notes"
-
 operation "pane-zoom on" "rex zoom -b b1 --on" "" '{}' -- pane-zoom b1 on
 
 operation "pane-zoom off" "rex zoom -b b1 --off" "" '{}' -- pane-zoom b1 off
-
-labeled_mock='{"session_id":"s2","blocks":[{"block_id":"b1","label":"shell"},{"block_id":"b2","label":"notes"}]}'
-: >"$MOCK_LOG"
-MOCK_OUT=$labeled_mock "$script" pane-labeled b1 "notes"; code=$?
-check "pane-labeled with the label: exit 0" 0 "$code"
-check "pane-labeled with the label: rex calls" \
-  "rex block inspect b1 --json
-rex block ls -s s2 --json" "$(cat "$MOCK_LOG")"
-
-MOCK_OUT=$labeled_mock "$script" pane-labeled b1 "other"; code=$?
-check "pane-labeled with no such label: exit 1" 1 "$code"
 
 operation workspace-first-pane "rex session inspect s2 --json" "b5" \
   '{"windows":[{"layers":[{"blocks":[{"block_id":"b5"},{"block_id":"b6"}]}]},{"layers":[{"blocks":[{"block_id":"b7"}]}]}]}' \
@@ -116,10 +97,6 @@ done
 err=$(MOCK_FAIL=1 "$script" workspace-label s2 2>&1 >/dev/null); code=$?
 check "a failed rex call: exit 1" 1 "$code"
 check "a failed rex call: rex stderr" 'Error: block target "b9" not found' "$err"
-
-err=$(MOCK_FAIL=1 "$script" pane-labeled b1 x 2>&1 >/dev/null); code=$?
-check "a failed rex call in pane-labeled: exit 1" 1 "$code"
-check "a failed rex call in pane-labeled: rex stderr" 'Error: block target "b9" not found' "$err"
 
 
 # Agent operations. A second fake rex answers from files in $MOCK_DIR:
@@ -165,7 +142,7 @@ reset_mock() { rm -f "$mock"/*; : >"$MOCK_LOG"; }
 # With REX_SESSION, the rex CLI finds only the blocks of that session. A new worktree session is
 # another session.
 reset_mock
-err=$(MOCK_SESSION_SCOPE=1 "$script" pane-rename b9 x 2>&1); code=$?
+err=$(MOCK_SESSION_SCOPE=1 "$script" pane-zoom b9 on 2>&1); code=$?
 check "an operation reaches a block of another session than REX_SESSION" "0 " "$code $err"
 
 reset_mock
