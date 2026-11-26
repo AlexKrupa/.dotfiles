@@ -13,6 +13,12 @@ const LABEL_GAP = 3
 const FRAME_COLUMNS = 4
 /** A bullet and its space. */
 const BULLET_COLUMNS = 2
+/** A row that waits for the user has the warning color. The other rows are information. */
+const SECTION_COLORS: Record<ViewRow['section'], string> = {
+  NeedsYou: 'warning',
+  Agent: 'permission',
+  Info: 'permission',
+}
 
 /**
  * The view of the folder: the view with the longest path that contains it. At the same path,
@@ -249,16 +255,18 @@ export const register: Register = on => {
         isBeside,
       )
     }
-    const rowLine = (key: string, row: ViewRow) =>
-      line(
+    const rowLine = (key: string, row: ViewRow) => {
+      const color = SECTION_COLORS[row.section]
+      return line(
         key,
-        row.section === 'NeedsYou' ? <Text color="permission">●</Text> : <Text color="subtle">·</Text>,
+        <Text color={color}>{row.section === 'NeedsYou' ? '●' : '·'}</Text>,
         row.kind,
         <Text wrap="wrap">
           {row.what}
-          {row.result === null ? '' : <Text color="warning"> → {row.result}</Text>}
+          {row.result === null ? '' : <Text color={color}> → {row.result}</Text>}
         </Text>,
       )
+    }
     const branchBlock = (branch: Branch, index: number) => {
       const meta = [...(branch.iid === null ? [] : [`!${branch.iid}`]), ...branch.status]
       return (
