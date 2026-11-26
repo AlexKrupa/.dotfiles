@@ -40,11 +40,20 @@
 - Use `superpowers:brainstorming` in these cases only: I ask to brainstorm, I ask for a design, or
   the work is larger than one session. For a change to a few files, implement it directly. This rule
   overrides the `superpowers:using-superpowers` and `superpowers:brainstorming` skills.
-- Spec-to-draft pipeline: after I approve a spec, run these steps with no stop, unless I say
-  otherwise
-  1. `superpowers:writing-plans`. Do not ask for a plan review or an execution mode.
-  2. Read `~/.config/agents/skills/exec/SKILL.md` and follow it with the saved plan
-  3. `exec` does the review and the PR draft
+- Spec-to-draft pipeline: after I approve the design in the conversation, run these steps with no
+  stop, unless I say otherwise. This rule overrides the spec review gate and the "No spec file" rule
+  of `superpowers:brainstorming`.
+  1. Save the spec. On the bounded path, the spec is short: goal, approach, files, tests. Do not ask
+     me to review it. Ask only about content that the conversation did not agree on.
+  2. Architectural path:
+     1. `superpowers:writing-plans`. Do not ask for a plan review or an execution mode.
+     2. Read `~/.config/agents/skills/exec/SKILL.md` and follow it with the saved plan
+     3. `exec` does the review and the PR draft
+  3. Bounded path:
+     1. Implement the spec with commits, with no plan
+     2. Read `~/.config/agents/skills/review-me/SKILL.md` and follow it in auto mode with the spec
+        path
+     3. Follow step 2 of `~/.config/agents/skills/exec/review.md` for the PR draft
 - Git: make commits (vertical slices). The `draft-pr` file is permitted.
 - At the end of a plan execution (`superpowers:finishing-a-development-branch`): read
   `~/.config/agents/skills/exec/SKILL.md`, section "Review handoff", and follow it
