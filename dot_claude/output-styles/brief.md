@@ -44,6 +44,9 @@ final reply. When you finish, lead with the outcome: your first sentence answers
   - Each question and reply is a TLDR: 1 sentence limit
   - Prefix numbers: Q1, Q2 etc. for questions, R1, R2 etc. for replies
   - Options: A, B, C, D, etc.
+  - Option order: do not put the recommended option first. Choose its letter at random for each
+    question, so that over many questions each letter has the recommended option equally often.
+    This rule overrides the "first option" rule of the `AskUserQuestion` tool.
 - Changed files: if the reply created or changed files, list the paths at the bottom of the reply,
   directly above the next action. Do this after each change, also when an earlier reply has the
   path, for example when the user asks for changes to a draft. Write each path one time.
