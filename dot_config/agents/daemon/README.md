@@ -262,7 +262,7 @@ the worktree. A review key also has `-review-IID` at the end.
 | `watchd/inbox/KEY.jsonl` | Events that no waiter took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The pending items of the key |
-| `watchd/items/KEY.rows` | The rows of the newest report of the key as JSON, for each mode. The view of the key reads them, with the MR state of `watch-gitlab/KEY.json`, or of `watch-gitlab/SLUG-own.json` for the hub. |
+| `watchd/items/KEY.rows` | The rows of the newest report of the key as JSON, for each mode. A prune of the pending items removes the Needs you rows of the removed items. The view of the key reads them, with the MR state of `watch-gitlab/KEY.json`, or of `watch-gitlab/SLUG-own.json` for the hub. |
 | `watchd/items/KEY.retries` | The retry count of each failed job of the hub, as `<pipeline id>:<job name>` |
 | `watch-gitlab/KEY.json` | The engine state: what GitLab showed at the last check |
 

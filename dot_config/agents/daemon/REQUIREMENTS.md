@@ -509,6 +509,8 @@ from a design spec that the user approved.
 - W12.18 (spec) `watchd rows` prints the view of the watch as text: the heading, then each branch
   with its rows and artifacts. A row has its id, kind, text, result, and URL. With no view, it
   prints nothing. The agent reads it to find a row that the user names in a prompt.
+- W12.19 When the daemon removes a pending item, for example after the user reacts to the last
+  comment of a thread or resolves the thread, the view drops its Needs you row with no new report.
 
 ## W13 Band
 

@@ -22,7 +22,7 @@ use crate::paths::{StateDirs, session_id};
 use crate::persist::{FORMAT_FILE, FORMAT_VERSION, Load, LoadError, load, save, write_atomic, write_json};
 use crate::platform::{local_time, now_seconds, process_alive, utc_timestamp};
 use crate::protocol::{DebugState, SubStatus, WatchRequest};
-use crate::report::{ReportInput, Row, build_report, render};
+use crate::report::{ReportInput, Row, RowSection, build_report, render};
 use crate::view::{ArtifactBranch, StoredArtifact, View, compose, compose_hub};
 
 pub const ALL_ENDED: &str = "all MRs merged or closed";
@@ -946,16 +946,43 @@ impl Store {
                     .engine_value(&target.slug)
                     .and_then(|engine| strings(&engine["present"])),
             };
+            let before = items.clone();
             prune_items(&mut items, &present, hub.as_deref(), target.mode);
             self.save_items(&path, &items);
+            self.remove_rows(&target.key, &before, &items);
         }
         if target.mode == Mode::Hub {
             return;
         }
         let hub_path = self.dirs.items(&target.slug);
         if let Ok(Some(mut hub_items)) = self.read_json::<Items>(&hub_path) {
+            let before = hub_items.clone();
             prune_moved(&mut hub_items, &target.mrs, &present);
             self.save_items(&hub_path, &hub_items);
+            self.remove_rows(&target.slug, &before, &hub_items);
+        }
+    }
+
+    /// The rows file changes only at a report, thus a removed item keeps its Needs you row until
+    /// the next report without this.
+    fn remove_rows(&self, key: &str, before: &Items, after: &Items) {
+        let removed: Vec<u64> = before
+            .items
+            .iter()
+            .map(|item| item.n)
+            .filter(|n| !after.items.iter().any(|item| item.n == *n))
+            .collect();
+        if removed.is_empty() {
+            return;
+        }
+        let mut rows = self.rows(key);
+        let count = rows.len();
+        rows.retain(|row| row.section != RowSection::NeedsYou || !removed.contains(&row.n));
+        if rows.len() == count {
+            return;
+        }
+        if let Err(error) = write_json(&self.dirs.rows(key), &rows) {
+            self.log("", key, &format!("rows not written: {error}"));
         }
     }
 
@@ -1416,7 +1443,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::report::{Add, AddSection, Row};
+    use crate::report::{Add, AddSection};
     use crate::view::StoredArtifact;
 
     #[test]
@@ -1659,6 +1686,67 @@ mod tests {
             store.dirs.rows("app-r-review-7").exists(),
             "no rows file of app-r-review-7"
         );
+    }
+
+    #[test]
+    fn prune_removes_the_needs_you_rows_of_the_removed_items() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-prune-rows", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs::from_base(&base));
+        store.ensure_dirs().unwrap();
+        let key = "app-r-review-7";
+        let item = |n: u64, item: &str| Item {
+            n,
+            item: item.to_string(),
+            owner: Owner::Daemon,
+            iid: Some(7),
+            title: None,
+            url: None,
+            what: None,
+            result: Some("pending".to_string()),
+            since: None,
+            event: None,
+        };
+        let items = Items {
+            next: 3,
+            items: vec![item(1, "thread:d1"), item(2, "thread:d2")],
+        };
+        save(&store.dirs.items(key), &items).unwrap();
+        let row = |n: u64, section: RowSection| Row {
+            n,
+            section,
+            iid: Some(7),
+            title: None,
+            url: None,
+            event: None,
+            what: None,
+            result: "pending".to_string(),
+            since: None,
+        };
+        let rows = [
+            row(1, RowSection::NeedsYou),
+            row(2, RowSection::NeedsYou),
+            row(1, RowSection::Info),
+        ];
+        write_json(&store.dirs.rows(key), &rows).unwrap();
+        std::fs::create_dir_all(&store.dirs.engine).unwrap();
+        save(
+            &store.dirs.engine_state(key),
+            &serde_json::json!({"present": ["thread:d2"]}),
+        )
+        .unwrap();
+        let target = Target {
+            key: key.to_string(),
+            slug: "app".to_string(),
+            mode: Mode::Review,
+            repo: base.clone(),
+            mrs: vec![7],
+        };
+
+        store.prune_items(&target);
+
+        let left: Vec<(u64, RowSection)> = store.rows(key).iter().map(|row| (row.n, row.section)).collect();
+        assert_eq!(left, [(2, RowSection::NeedsYou), (1, RowSection::Info)]);
     }
 
     fn artifact_store(name: &str) -> (Store, PathBuf) {
