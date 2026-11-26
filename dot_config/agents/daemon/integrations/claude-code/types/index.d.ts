@@ -30,6 +30,7 @@ export type Artifact = { kind: string; target: string }
 
 declare module 'claude-code' {
   interface PluginState {
-    watchd: { view: Shaped<View | null> }
+    /** `null` until the module shows a view in this `$.state`. */
+    watchd: { view: Shaped<{ view: View | null } | null> }
   }
 }

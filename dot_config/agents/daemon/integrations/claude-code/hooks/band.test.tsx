@@ -190,6 +190,51 @@ test('picks_the_view_of_the_session_folder', async ($, on) => {
   await inRoot.unmount()
 })
 
+/** A guard above the mod, or `/clear`, `/resume` and `/branch`, skip `session.start`. */
+function cwd(on: On, folder: string) {
+  on('session.cwd', () => ({ value: folder }))
+}
+
+test('starts_follow_at_the_first_draw_without_a_session_start', async ($, on) => {
+  const clock = mock.clock(on)
+  const calls = follow(on, [line(stack())])
+  cwd(on, '/r-wt')
+
+  const first = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  await first.unmount()
+  await clock.advance(1)
+
+  expect(calls.starts).toBe(1)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await texts(ui)).join('\n')).toContain('Extract repo')
+  await ui.unmount()
+})
+
+test('shows_the_view_again_after_a_state_reset', async ($, on) => {
+  const clock = mock.clock(on)
+  const calls = follow(on, [line(stack())])
+  cwd(on, '/r-wt')
+  // A reset `$.state` reads as never written, until the next write.
+  let isReset = false
+  on('state.get', (_, e, next) => (isReset ? { value: { value: undefined, version: 0 } } : next(e)))
+  on('state.set', (_, e, next) => {
+    isReset = false
+    return next(e)
+  })
+  await start($, '/r-wt')
+  await clock.settle()
+
+  isReset = true
+  const reset = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  await reset.unmount()
+  await clock.advance(1)
+
+  expect(calls.starts).toBe(1)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await texts(ui)).join('\n')).toContain('Extract repo')
+  await ui.unmount()
+})
+
 const HOME = '/home/u'
 
 /** The argument vectors of `$.process.run`. With `fails`, each call rejects. */

@@ -191,7 +191,7 @@
     "superpowers@local-pins": true,
     "swift-lsp@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
-    "watchd@local-pins": true
+    "watchd@agents": true
   },
   "extraKnownMarketplaces": {
     "simple-english": {
@@ -216,6 +216,12 @@
       "source": {
         "source": "github",
         "repo": "android/android-cli-plugin"
+      }
+    },
+    "agents": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/alexkrupa/.config/agents/daemon/integrations"
       }
     }
   },

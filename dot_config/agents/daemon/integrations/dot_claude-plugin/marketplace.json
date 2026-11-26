@@ -1,0 +1,11 @@
+{
+  "name": "agents",
+  "owner": { "name": "Alex Krupa" },
+  "plugins": [
+    {
+      "name": "watchd",
+      "description": "Wakes Claude Code with the events of the watchd watch of the session",
+      "source": "./claude-code"
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Artifact, Branch, View, ViewRow } from '../types'
 
-const shownView = atom({ plugin: 'watchd', key: 'view' } as const, null, { shape: 'view-1' })
+const shownView = atom({ plugin: 'watchd', key: 'view' } as const, null, { shape: 'view-2' })
 
 const RESTART_MS = 2000
 /** A slow daemon start must not hold the tool call. */
@@ -37,6 +37,7 @@ const views = new Map<string, View>()
 let folder = ''
 let home = ''
 let following = false
+let isWaking = false
 
 /** A file under `HOME` as `~/...`: shorter, and herdr-pluck opens it. */
 function shown(target: string): string {
@@ -45,7 +46,43 @@ function shown(target: string): string {
 
 function show($: EngineInterface) {
   const view = pick(views, folder)
-  return update($, shownView, () => view)
+  return update($, shownView, () => ({ view }))
+}
+
+/** Shows the view of `folder`, and starts the follow loop once for the life of the module. */
+async function begin($: EngineInterface) {
+  home = (await $.env.get('HOME')) ?? ''
+  await show($)
+  if (following) {
+    return
+  }
+  following = true
+  // The loop ends only when the module unloads, and its last wait then rejects.
+  follow($).catch(() => undefined)
+}
+
+/**
+ * Begins from a draw, where `session.start` did not run in this `$.state`: a Team or Enterprise
+ * guard keeps it from user-tier mods, and `/clear`, `/resume` and `/branch` skip it. A draw
+ * never writes state, so a timer begins.
+ */
+function wake($: EngineInterface) {
+  if (isWaking) {
+    return
+  }
+  isWaking = true
+  $.clock.after(1, () => {
+    $.session
+      .cwd()
+      .then(cwd => {
+        folder = cwd
+        return begin($)
+      })
+      .catch(error => $.ui.log(`watchd band: ${String(error)}`, { to: 'debug' }))
+      .finally(() => {
+        isWaking = false
+      })
+  })
 }
 
 /** The first lines of a new stream have all views: the views of the stream before go. */
@@ -152,13 +189,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     folder = e.cwd
-    home = (await $.env.get('HOME')) ?? ''
-    await show($)
-    if (!following) {
-      following = true
-      // The loop ends only when the module unloads, and its last wait then rejects.
-      follow($).catch(() => undefined)
-    }
+    await begin($)
     return started
   })
 
@@ -179,7 +210,12 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const view = await read($, shownView)
+    const state = await read($, shownView)
+    if (state === null) {
+      wake($)
+      return next(e)
+    }
+    const view = state.view
     if (e.props.hasSurvey || view === null || isEmpty(view)) {
       return next(e)
     }

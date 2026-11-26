@@ -288,14 +288,15 @@ The folder `integrations/claude-code/` is a Claude Code plugin. It has all Claud
 | `wait.test.sh` | The test of `wait.sh`, with a fake `watchd` in `WATCHD` |
 | `context.sh` | Runs `watchd watches` with `CLAUDE_CODE_SESSION_ID`. If the session has watches, it prints the `SessionStart` JSON with `additionalContext`: the watches, the path of `watch-runner.md`, and the rule for `watchd error:`. Else it prints nothing. |
 | `context.test.sh` | The test of `context.sh`, with a fake `watchd` in `WATCHD` |
-| `hooks/band.tsx` | The hooks module. At session start, it runs `watchd follow` and keeps the view of the session folder, and starts the stream again 2 seconds after an end. After a failure, it draws nothing until a new stream sends lines. It draws the view in the band above the prompt. After a `Write` under `~/.ai/<repo>/<folder>/`, or a `Read` of a handoff, it runs `watchd artifact`. |
+| `hooks/band.tsx` | The hooks module. At session start, or at the first draw of the band when no view is in `$.state`, it runs `watchd follow` one time and keeps the view of the session folder, and starts the stream again 2 seconds after an end. After a failure, it draws nothing until a new stream sends lines. It draws the view in the band above the prompt. After a `Write` under `~/.ai/<repo>/<folder>/`, or a `Read` of a handoff, it runs `watchd artifact`. |
 | `hooks/band.test.tsx` | The tests of `band.tsx`, for `claude plugin test` |
-| `types/index.d.ts`, `tsconfig.json` | The `View` type of the view lines and the `$.state` contract, and the type check config. The engine writes `.claude-plugin/types/` when it loads the plugin. |
+| `types/index.d.ts`, `tsconfig.json` | The `View` type of the view lines and the `$.state` contract, and the type check configuration. When the engine loads the plugin, it writes `.claude-plugin/types/`. |
 | `watch-runner.md` | The runner file: how the agent starts the watch and reads the results |
 
-Claude Code installs this local plugin from its folder, through the symlink
-`~/.claude/local-marketplace/watchd` of the marketplace `local-pins`. The installed plugin can be a
-copy in the plugin cache, for example `~/.claude/plugins/cache/local-pins/watchd/unknown/`. The copy
+Claude Code installs this local plugin from the marketplace `agents` in `integrations/`
+(`integrations/.claude-plugin/marketplace.json`). A symlink to the plugin folder does not work: Claude
+Code does not load a hooks module whose real path is outside the marketplace folder. The installed
+plugin can be a copy in the plugin cache, for example `~/.claude/plugins/cache/agents/watchd/unknown/`. The copy
 keeps the old version of a changed file. The hooks run the live `wait.sh` and `context.sh`. A
 change of these scripts needs no step. After a change of `hooks.json` or of a different plugin
 file, run `~/.config/agents/integrations/claude-code/install.sh`. It installs a copy that differs from the
