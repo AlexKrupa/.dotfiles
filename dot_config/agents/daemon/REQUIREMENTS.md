@@ -186,6 +186,9 @@ from a design spec that the user approved.
   finished default-branch pipeline, or null if there is none.
 - W5.24 (spec) The daemon reports `default-failed` only for a pipeline id above the saved id, and a
   job retry does not report an older failed pipeline again.
+- W5.25 The first check of an open MR in author mode reports a failed head pipeline and a merge
+  conflict, and it reports no other change. A pipeline that failed before the watch started wakes
+  the author.
 
 ## W6 Watches
 

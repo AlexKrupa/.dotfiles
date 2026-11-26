@@ -838,7 +838,23 @@ fn mr_events(mr: &NormMr, old: &MrState, new: &MrState, me: &str) -> Vec<Event> 
     events
 }
 
-pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str) -> (MrsState, Vec<Event>) {
+/// The state before the first check of an MR: the same as now, except a failed pipeline and a
+/// conflict, so that the first check reports only these two.
+fn before_first_check(new: &MrState) -> MrState {
+    let failed = new
+        .pipeline
+        .as_ref()
+        .is_some_and(|pipeline| pipeline.status == "failed");
+    MrState {
+        pipeline: if failed { None } else { new.pipeline.clone() },
+        conflicts: None,
+        ..new.clone()
+    }
+}
+
+/// `author`: the first check of an open MR reports a failed pipeline and a conflict. The author
+/// can start a watch after the problem began, and no later change would wake the agent.
+pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str, author: bool) -> (MrsState, Vec<Event>) {
     let fallback = MrState::default();
     let mut mrs = BTreeMap::new();
     let mut events = Vec::new();
@@ -846,8 +862,12 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str) -> (MrsStat
         let key = mr.iid.to_string();
         let old_mr = old.and_then(|old| old.mrs.get(&key));
         let new = new_state(mr, old_mr.unwrap_or(&fallback), me);
-        if let Some(old_mr) = old_mr {
-            events.extend(mr_events(mr, old_mr, &new, me));
+        match old_mr {
+            Some(old_mr) => events.extend(mr_events(mr, old_mr, &new, me)),
+            None if author && mr.state == "opened" => {
+                events.extend(mr_events(mr, &before_first_check(&new), &new, me));
+            }
+            None => {}
         }
         mrs.insert(key, new);
     }
@@ -938,7 +958,7 @@ pub async fn check_mrs(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         .map(|data| data.current_user.username.clone())
         .unwrap_or_default();
     let now: Vec<NormMr> = data.iter().map(|data| normalize(data, &me)).collect();
-    let (new_state, events) = mrs_compare(&now, old.as_ref(), &me);
+    let (new_state, events) = mrs_compare(&now, old.as_ref(), &me, !ctx.args.review);
     let events = add_jobs(ctx, &ctx.project_ref, events).await?;
     state::save(&ctx.state, &new_state)?;
     Ok(events)
@@ -983,7 +1003,7 @@ mod tests {
     }
 
     fn compare(data: &MrData, old: Option<&MrsState>) -> (MrsState, Vec<Event>) {
-        mrs_compare(&[normalize(data, "me")], old, "me")
+        mrs_compare(&[normalize(data, "me")], old, "me", true)
     }
 
     fn lines(events: &[Event]) -> Vec<String> {
@@ -998,6 +1018,43 @@ mod tests {
         let (state, _) = compare(&mr(|_| {}), None);
 
         assert_eq!(state.mrs["5"].url.as_deref(), Some("u"));
+    }
+
+    fn broken(state: &str, pipeline: &str) -> MrData {
+        mr(|m| {
+            m["state"] = json!(state);
+            m["headPipeline"] = json!({"id": "gid://gitlab/Ci::Pipeline/7", "status": pipeline});
+            m["conflicts"] = json!(true);
+            m["detailedMergeStatus"] = json!("CONFLICT");
+            m["awardEmoji"]["nodes"] = json!([{"name": "eyes", "user": {"username": "anna"}}]);
+            m["discussions"]["nodes"] = json!([thread("d1", None, vec![note(1, "anna", "Nit", Value::Null)])]);
+        })
+    }
+
+    #[test]
+    fn first_author_check_reports_a_failed_pipeline_and_a_conflict() {
+        let (_, events) = compare(&broken("opened", "FAILED"), None);
+
+        assert_eq!(
+            lines(&events),
+            vec![
+                r#"{"kind":"pipeline","iid":5,"title":"T","url":"u","actor":"","detail":"pipeline 7 failed","branch":"b","item":"pipeline:5"}"#,
+                r#"{"kind":"conflict","iid":5,"title":"T","url":"u","actor":"","detail":"merge conflict","branch":"b","item":"conflict:5"}"#,
+                r#"{"kind":"unaddressed","iid":5,"title":"T","url":"u#note_1","actor":"anna","detail":"Nit","branch":"b","item":"thread:d1","you_commented":false}"#,
+            ]
+        );
+    }
+
+    #[test]
+    fn first_check_reports_no_passed_pipeline_ended_mr_or_review() {
+        let (_, passed) = compare(&broken("opened", "SUCCESS"), None);
+        let (_, merged) = compare(&broken("merged", "FAILED"), None);
+        let (_, review) = mrs_compare(&[normalize(&broken("opened", "FAILED"), "me")], None, "me", false);
+
+        assert_eq!(lines(&passed).len(), 2, "{passed:?}");
+        assert_eq!(passed[0].kind, EventKind::Conflict);
+        assert!(merged.is_empty(), "{merged:?}");
+        assert!(review.is_empty(), "{review:?}");
     }
 
     #[test]

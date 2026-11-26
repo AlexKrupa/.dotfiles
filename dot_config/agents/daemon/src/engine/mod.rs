@@ -3,7 +3,8 @@
 //!        watchd engine --lookup BRANCH [--repo PATH]
 //! One check of the watch daemon. It prints one JSON line for each new event: kind, iid, title,
 //! url, actor, detail, branch. With no state file, the check only saves the state. A value that the
-//! saved state does not have gives no event at its first check.
+//! saved state does not have gives no event at its first check. Exception: in author mode, the
+//! first check of an open MR reports a failed pipeline and a conflict.
 //! --fresh: delete the state file before the check.
 //! --skip-mr: hub mode, an MR with a review watch.
 //! --item-mr: hub mode, an MR with a pending item of the hub. The state saves the end time of a
