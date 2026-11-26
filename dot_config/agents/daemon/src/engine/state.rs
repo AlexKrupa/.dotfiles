@@ -52,7 +52,13 @@ pub struct HubState {
     /// The to-do ids of the review requests that wait for their release event.
     #[serde(default)]
     pub waiting: Vec<u64>,
+    /// The end time of each merged or closed MR of the check, as Unix time.
+    #[serde(default)]
+    pub ended: BTreeMap<u64, i64>,
 }
+
+/// The pending items of a merged or closed MR stay for this time after the end of the MR.
+pub const ENDED_KEEP_SECONDS: i64 = 24 * 3600;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OwnMr {

@@ -243,7 +243,14 @@ impl Daemon {
     /// Returns true for a network error. A permanent error, or 5 other errors in a row, ends the agent
     /// record of the key, if any.
     async fn check(self: &Arc<Self>, target: Target, skip: Vec<u64>, cache: Arc<MrCache>) -> bool {
-        self.lock().await.pokes.remove(&target.key);
+        let item_mrs = {
+            let mut memory = self.lock().await;
+            memory.pokes.remove(&target.key);
+            match target.mode {
+                Mode::Hub => memory.store.item_mrs(&target.key),
+                Mode::Author | Mode::Review => Vec::new(),
+            }
+        };
         let args = EngineArgs {
             repo: Some(target.repo.clone()),
             fresh: false,
@@ -256,6 +263,7 @@ impl Daemon {
                 Mode::Hub => skip,
                 Mode::Author | Mode::Review => Vec::new(),
             },
+            item_mrs,
             key: Some(target.key.clone()),
             lookup: None,
         };

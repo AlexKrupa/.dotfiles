@@ -10,7 +10,9 @@ use serde::de::DeserializeOwned;
 
 use crate::core::eventlog::{LogLine, event_line, id_of, next_id, prune_lines, stopped_line};
 use crate::core::filter::needs;
-use crate::core::items::{Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_items, prune_moved};
+use crate::core::items::{
+    Item, Items, Owner, RoutedEvent, assign_rows, move_items, prune_ended, prune_items, prune_moved,
+};
 use crate::core::subs::{Agent, Mode, Session, SessionKey, add_ended};
 use crate::core::worktrees::{Kind, Repos, ReviewLink, Reviews, Stage, Target, WorktreeState, stack_ended};
 use crate::engine::event::{Event, EventKind};
@@ -946,44 +948,63 @@ impl Store {
                     .engine_value(&target.slug)
                     .and_then(|engine| strings(&engine["present"])),
             };
-            let before = items.clone();
             prune_items(&mut items, &present, hub.as_deref(), target.mode);
+            if target.mode == Mode::Hub {
+                prune_ended(&mut items, &self.ended(&target.key), now_seconds());
+            }
             self.save_items(&path, &items);
-            self.remove_rows(&target.key, &before, &items);
+            self.remove_rows(&target.key, &items);
         }
         if target.mode == Mode::Hub {
             return;
         }
         let hub_path = self.dirs.items(&target.slug);
         if let Ok(Some(mut hub_items)) = self.read_json::<Items>(&hub_path) {
-            let before = hub_items.clone();
             prune_moved(&mut hub_items, &target.mrs, &present);
             self.save_items(&hub_path, &hub_items);
-            self.remove_rows(&target.slug, &before, &hub_items);
+            self.remove_rows(&target.slug, &hub_items);
         }
     }
 
-    /// The rows file changes only at a report, thus a removed item keeps its Needs you row until
-    /// the next report without this.
-    fn remove_rows(&self, key: &str, before: &Items, after: &Items) {
-        let removed: Vec<u64> = before
-            .items
-            .iter()
-            .map(|item| item.n)
-            .filter(|n| !after.items.iter().any(|item| item.n == *n))
-            .collect();
-        if removed.is_empty() {
-            return;
-        }
+    /// The rows file changes only at a report. Without this, a removed item keeps its Needs you
+    /// row, and an ended MR with no items keeps its rows, until the next report.
+    fn remove_rows(&self, key: &str, items: &Items) {
+        let ended = self.ended(key);
         let mut rows = self.rows(key);
         let count = rows.len();
-        rows.retain(|row| row.section != RowSection::NeedsYou || !removed.contains(&row.n));
+        rows.retain(|row| match row.section {
+            RowSection::NeedsYou => items.items.iter().any(|item| item.n == row.n),
+            RowSection::Agent | RowSection::Info => row
+                .iid
+                .is_none_or(|iid| !ended.contains_key(&iid) || items.items.iter().any(|item| item.iid == Some(iid))),
+        });
         if rows.len() == count {
             return;
         }
         if let Err(error) = write_json(&self.dirs.rows(key), &rows) {
             self.log("", key, &format!("rows not written: {error}"));
         }
+    }
+
+    /// The end time of each merged or closed MR in the hub state of the key, else nothing.
+    fn ended(&self, key: &str) -> BTreeMap<u64, i64> {
+        self.engine_value(key)
+            .and_then(|engine| serde_json::from_value(engine["ended"].clone()).ok())
+            .unwrap_or_default()
+    }
+
+    /// The MRs of the daemon items of the key.
+    pub fn item_mrs(&self, key: &str) -> Vec<u64> {
+        let items = self.read::<Items>(&self.dirs.items(key)).unwrap_or_default();
+        let mut iids: Vec<u64> = items
+            .items
+            .iter()
+            .filter(|item| item.owner == Owner::Daemon)
+            .filter_map(|item| item.iid)
+            .collect();
+        iids.sort_unstable();
+        iids.dedup();
+        iids
     }
 
     pub fn live_agent(&self, key: &str) -> bool {
@@ -1747,6 +1768,71 @@ mod tests {
 
         let left: Vec<(u64, RowSection)> = store.rows(key).iter().map(|row| (row.n, row.section)).collect();
         assert_eq!(left, [(2, RowSection::NeedsYou), (1, RowSection::Info)]);
+    }
+
+    #[test]
+    fn hub_prune_removes_the_items_and_rows_of_an_mr_a_day_after_its_end() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-prune-ended", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs::from_base(&base));
+        store.ensure_dirs().unwrap();
+        let now = now_seconds();
+        let item = |n: u64, item: &str, iid: u64| Item {
+            n,
+            item: item.to_string(),
+            owner: Owner::Daemon,
+            iid: Some(iid),
+            title: None,
+            url: None,
+            what: None,
+            result: None,
+            since: None,
+            event: None,
+        };
+        let items = Items {
+            next: 10,
+            items: vec![item(1, "thread:d1", 9), item(2, "pipeline:13", 13)],
+        };
+        save(&store.dirs.items("app"), &items).unwrap();
+        let row = |n: u64, section: RowSection, iid: u64| Row {
+            n,
+            section,
+            iid: Some(iid),
+            title: None,
+            url: None,
+            event: None,
+            what: None,
+            result: String::new(),
+            since: None,
+        };
+        let rows = [
+            row(1, RowSection::NeedsYou, 9),
+            row(2, RowSection::NeedsYou, 13),
+            row(5, RowSection::NeedsYou, 12),
+            row(7, RowSection::Info, 9),
+            row(8, RowSection::Info, 10),
+            row(9, RowSection::Info, 13),
+        ];
+        write_json(&store.dirs.rows("app"), &rows).unwrap();
+        std::fs::create_dir_all(&store.dirs.engine).unwrap();
+        let engine = serde_json::json!({"present": [], "ended": {"9": now - 2 * 86400, "13": now - 3600}});
+        save(&store.dirs.engine_state("app"), &engine).unwrap();
+        let target = Target {
+            key: "app".to_string(),
+            slug: "app".to_string(),
+            mode: Mode::Hub,
+            repo: base.clone(),
+            mrs: Vec::new(),
+        };
+
+        store.prune_items(&target);
+
+        let items: Items = store.read_json(&store.dirs.items("app")).unwrap().unwrap();
+        let keys: Vec<&str> = items.items.iter().map(|item| item.item.as_str()).collect();
+        assert_eq!(keys, ["pipeline:13"]);
+        let left: Vec<u64> = store.rows("app").iter().map(|row| row.n).collect();
+        assert_eq!(left, [2, 8, 9]);
+        assert_eq!(store.item_mrs("app"), [13]);
     }
 
     fn artifact_store(name: &str) -> (Store, PathBuf) {

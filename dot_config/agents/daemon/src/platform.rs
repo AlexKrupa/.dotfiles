@@ -107,6 +107,44 @@ pub fn utc_date(seconds: i64) -> String {
     format!("{year:04}-{month:02}-{day:02}")
 }
 
+/// The days-from-civil algorithm of Howard Hinnant.
+fn days_of(year: i64, month: i64, day: i64) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let year_of_era = year.rem_euclid(400);
+    let month_index = if month > 2 { month - 3 } else { month + 9 };
+    let day_of_year = (153 * month_index + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
+/// The Unix time of an ISO 8601 time stamp such as `2026-10-26T07:33:20.123Z` or one with a
+/// `+02:00` offset.
+pub fn utc_seconds(text: &str) -> Option<i64> {
+    let number = |range: std::ops::Range<usize>| text.get(range)?.parse::<i64>().ok();
+    let separators = [(4, b'-'), (7, b'-'), (10, b'T'), (13, b':'), (16, b':')];
+    if !separators
+        .iter()
+        .all(|(index, byte)| text.as_bytes().get(*index) == Some(byte))
+    {
+        return None;
+    }
+    let (year, month, day) = (number(0..4)?, number(5..7)?, number(8..10)?);
+    let (hour, minute, second) = (number(11..13)?, number(14..16)?, number(17..19)?);
+    let zone = text[19..].trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
+    let offset = match zone.as_bytes().first() {
+        Some(b'Z') => 0,
+        Some(sign @ (b'+' | b'-')) => {
+            let hours: i64 = zone.get(1..3)?.parse().ok()?;
+            let minutes: i64 = zone.get(4..6)?.parse().ok()?;
+            let size = hours * 3600 + minutes * 60;
+            if *sign == b'+' { size } else { -size }
+        }
+        _ => return None,
+    };
+    Some(days_of(year, month, day) * 86400 + hour * 3600 + minute * 60 + second - offset)
+}
+
 pub fn utc_timestamp(seconds: i64) -> String {
     let second_of_day = seconds.rem_euclid(86400);
     format!(
@@ -135,6 +173,15 @@ mod tests {
         assert_eq!(utc_date(0), "1970-01-01");
         assert_eq!(utc_date(951_782_400), "2000-02-29");
         assert_eq!(utc_timestamp(1_793_000_000), "2026-10-26T07:33:20Z");
+    }
+
+    #[test]
+    fn utc_seconds_reads_gitlab_time_stamps() {
+        assert_eq!(utc_seconds("2026-10-26T07:33:20Z"), Some(1_793_000_000));
+        assert_eq!(utc_seconds("2026-10-26T07:33:20.123Z"), Some(1_793_000_000));
+        assert_eq!(utc_seconds("2026-10-26T09:33:20.123+02:00"), Some(1_793_000_000));
+        assert_eq!(utc_seconds("2000-02-29T00:00:00Z"), Some(951_782_400));
+        assert_eq!(utc_seconds("yesterday"), None);
     }
 
     #[test]

@@ -47,6 +47,9 @@ fn arguments(args: &EngineArgs) -> Vec<String> {
     for mr in &args.skip_mrs {
         flags.extend(["--skip-mr".to_string(), mr.to_string()]);
     }
+    for mr in &args.item_mrs {
+        flags.extend(["--item-mr".to_string(), mr.to_string()]);
+    }
     flags
 }
 

@@ -511,6 +511,9 @@ from a design spec that the user approved.
   prints nothing. The agent reads it to find a row that the user names in a prompt.
 - W12.19 When the daemon removes a pending item, for example after the user reacts to the last
   comment of a thread or resolves the thread, the view drops its Needs you row with no new report.
+- W12.20 The pending items of a merged or closed MR stay for 24 hours after the merge or close
+  time from GitLab, then the daemon removes them. A merged or closed MR with no pending items goes
+  away from the hub view at the next check.
 
 ## W13 Band
 

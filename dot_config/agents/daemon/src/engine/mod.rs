@@ -1,10 +1,13 @@
 //! Usage: watchd engine [--repo PATH] [--fresh] [--review] [--mr IID]... [--skip-mr IID]...
+//!                     [--item-mr IID]...
 //!        watchd engine --lookup BRANCH [--repo PATH]
 //! One check of the watch daemon. It prints one JSON line for each new event: kind, iid, title,
 //! url, actor, detail, branch. With no state file, the check only saves the state. A value that the
 //! saved state does not have gives no event at its first check.
 //! --fresh: delete the state file before the check.
 //! --skip-mr: hub mode, an MR with a review watch.
+//! --item-mr: hub mode, an MR with a pending item of the hub. The state saves the end time of a
+//! merged or closed MR.
 //! --lookup: print the open MR of BRANCH, with no check.
 //! WATCH_MR_CACHE=DIR: a fetched MR goes to DIR/<project>-<iid>.json, and a later fetch of the MR
 //! reads it. Two clones with the same directory name share one DIR.
@@ -101,6 +104,7 @@ pub struct EngineArgs {
     pub review: bool,
     pub mrs: Vec<u64>,
     pub skip_mrs: Vec<u64>,
+    pub item_mrs: Vec<u64>,
     /// With no key, the repo and the mode give the key of the engine state.
     pub key: Option<String>,
     pub lookup: Option<String>,
@@ -122,6 +126,9 @@ impl EngineArgs {
                 "--skip-mr" => parsed
                     .skip_mrs
                     .push(mr_number(args.next()).ok_or("--skip-mr needs an MR number")?),
+                "--item-mr" => parsed
+                    .item_mrs
+                    .push(mr_number(args.next()).ok_or("--item-mr needs an MR number")?),
                 "--review" => parsed.review = true,
                 "--lookup" => parsed.lookup = Some(args.next().ok_or("--lookup needs a branch")?),
                 "--fresh" => parsed.fresh = true,

@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 pub use super::subs::Mode;
+use std::collections::BTreeMap;
+
 use crate::engine::event::{Event, EventKind};
+use crate::engine::state::ENDED_KEEP_SECONDS;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Items {
@@ -115,6 +118,17 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
             }
             Owner::Daemon => present.contains(&item.item),
         }
+    });
+}
+
+/// Removes the daemon items of the MRs that ended `ENDED_KEEP_SECONDS` ago or earlier.
+pub fn prune_ended(items: &mut Items, ended: &BTreeMap<u64, i64>, now: i64) {
+    items.items.retain(|item| {
+        let expired = item
+            .iid
+            .and_then(|iid| ended.get(&iid))
+            .is_some_and(|at| now - at >= ENDED_KEEP_SECONDS);
+        !expired || item.owner == Owner::Model || is_pull_item(&item.item)
     });
 }
 
@@ -307,6 +321,39 @@ mod tests {
         };
         prune_items(&mut hub_mode, &[], None, Mode::Hub);
         assert!(hub_mode.items.is_empty());
+    }
+
+    #[test]
+    fn prune_ended_removes_the_daemon_items_of_an_mr_a_day_after_its_end() {
+        let now = 1_000_000;
+        let item = |n: u64, key: &str, owner: Owner, iid: u64| Item {
+            n,
+            item: key.to_string(),
+            owner,
+            iid: Some(iid),
+            title: None,
+            url: None,
+            what: None,
+            result: None,
+            since: None,
+            event: None,
+        };
+        let mut items = Items {
+            next: 6,
+            items: vec![
+                item(1, "thread:d1", Owner::Daemon, 9),
+                item(2, "pipeline:10", Owner::Daemon, 10),
+                item(3, "model:3", Owner::Model, 9),
+                item(4, "conflict:11", Owner::Daemon, 11),
+                item(5, "pull:b", Owner::Daemon, 9),
+            ],
+        };
+        let ended = BTreeMap::from([(9, now - ENDED_KEEP_SECONDS), (10, now - 3600)]);
+
+        prune_ended(&mut items, &ended, now);
+
+        let left: Vec<u64> = items.items.iter().map(|item| item.n).collect();
+        assert_eq!(left, vec![2, 3, 4, 5]);
     }
 
     #[test]

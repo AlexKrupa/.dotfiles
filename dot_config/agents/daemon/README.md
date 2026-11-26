@@ -200,6 +200,10 @@ flowchart TB
     example, `glab auth status` fails with no network text during an outage.
 - Events: the events of a key with an agent record go to its inbox, also while its session is
   away. The events of a key with no agent record go to the hub as pending items.
+- Ended MRs: the hub check gets the MRs of the daemon items of the hub (`--item-mr`), and it saves
+  the merge or close time of each ended MR from GitLab. The items of an ended MR stay for 24 hours
+  after the end, then the hub prune removes them. An ended MR with no items loses its rows at the
+  next hub check.
 - Errors: the error text of an ended agent record is `watchd: MODE watch KEY: TEXT`, because a
   session can have more than one watch. The next `wait` of the session gets it.
 - Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
@@ -262,7 +266,7 @@ the worktree. A review key also has `-review-IID` at the end.
 | `watchd/inbox/KEY.jsonl` | Events that no waiter took yet |
 | `watchd/inbox/KEY.routing` | The report fields of the handled rows in the inbox, for the next hub report |
 | `watchd/items/KEY.json` | The pending items of the key |
-| `watchd/items/KEY.rows` | The rows of the newest report of the key as JSON, for each mode. A prune of the pending items removes the Needs you rows of the removed items. The view of the key reads them, with the MR state of `watch-gitlab/KEY.json`, or of `watch-gitlab/SLUG-own.json` for the hub. |
+| `watchd/items/KEY.rows` | The rows of the newest report of the key as JSON, for each mode. After each check, the daemon removes the Needs you rows with no pending item, and the rows of an ended MR with no pending item. The view of the key reads them, with the MR state of `watch-gitlab/KEY.json`, or of `watch-gitlab/SLUG-own.json` for the hub. |
 | `watchd/items/KEY.retries` | The retry count of each failed job of the hub, as `<pipeline id>:<job name>` |
 | `watch-gitlab/KEY.json` | The engine state: what GitLab showed at the last check |
 

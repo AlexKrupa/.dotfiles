@@ -4,10 +4,10 @@ use serde::Deserialize;
 
 use super::event::{Event, EventKind, short};
 use super::mrs::{GqlEmoji, Username};
-use super::state::{self, HubMrState, HubState, Need, OwnMr, PipelineState};
+use super::state::{self, ENDED_KEEP_SECONDS, HubMrState, HubState, Need, OwnMr, PipelineState};
 use super::{CheckContext, EngineError, add_jobs, all_ok, api_json, api_pages, uri_encode};
 use crate::glab::{self, Task};
-use crate::platform::{now_seconds, utc_date};
+use crate::platform::{now_seconds, utc_date, utc_seconds};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Todo {
@@ -37,6 +37,19 @@ pub struct RestMr {
     pub source_branch: String,
     pub web_url: String,
     pub author: Username,
+    pub merged_at: Option<String>,
+    pub closed_at: Option<String>,
+}
+
+impl RestMr {
+    fn ended_at(&self) -> Option<i64> {
+        let time = match self.state.as_str() {
+            "merged" => self.merged_at.as_deref(),
+            "closed" => self.closed_at.as_deref(),
+            _ => None,
+        };
+        time.and_then(utc_seconds)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -79,6 +92,9 @@ pub struct HubInput {
     pub default: Option<RestPipeline>,
     /// The open MRs of the user.
     pub own: Vec<RestMr>,
+    /// The MRs of the pending items of the hub, for the end time of the merged or closed MRs.
+    pub item_mrs: Vec<RestMr>,
+    pub now: i64,
 }
 
 struct Reaction {
@@ -174,11 +190,12 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
     );
     let (todos, opened, events, own) = (todos?, opened?, events?, own?);
 
-    let mut iids: Vec<u64> = events
+    let commented: Vec<u64> = events
         .iter()
         .filter_map(|event| event.mr_note(pid))
         .map(|(iid, _)| iid)
         .collect();
+    let mut iids: Vec<u64> = commented.iter().chain(&ctx.args.item_mrs).copied().collect();
     iids.sort_unstable();
     iids.dedup();
     // 100 MRs is the size of one page.
@@ -193,7 +210,9 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
             Box::pin(api_pages::<RestMr>(call)) as Task<_>
         })
         .collect();
-    let watched: Vec<RestMr> = all_ok(glab::parallel(pages).await)?.into_iter().flatten().collect();
+    let fetched: Vec<RestMr> = all_ok(glab::parallel(pages).await)?.into_iter().flatten().collect();
+    let of = |iids: &[u64]| -> Vec<RestMr> { fetched.iter().filter(|mr| iids.contains(&mr.iid)).cloned().collect() };
+    let (watched, item_mrs) = (of(&commented), of(&ctx.args.item_mrs));
 
     // A new note changes `updated_at`.
     let changed: Vec<u64> = watched
@@ -270,6 +289,8 @@ pub async fn check_hub(ctx: &CheckContext) -> Result<Vec<Event>, EngineError> {
         open_reactions,
         default: default?.into_iter().next(),
         own,
+        item_mrs,
+        now: now_seconds(),
     };
     let (new_state, events) = hub_compare(&input, old.as_ref(), &ctx.args.skip_mrs);
     let events = add_jobs(ctx, &pid.to_string(), events).await?;
@@ -382,8 +403,18 @@ pub fn hub_compare(input: &HubInput, old: Option<&HubState>, reviewed: &[u64]) -
     if default_failed {
         needs.push(Need::MainFailed);
     }
+    let ended: BTreeMap<u64, i64> = by
+        .iter()
+        .copied()
+        .chain(&input.item_mrs)
+        .filter_map(|mr| Some((mr.iid, mr.ended_at()?)))
+        .collect();
     let mut present: Vec<String> = others_todos.iter().map(|todo| format!("todo:{}", todo.id)).collect();
-    for mr in by.iter().filter(|mr| mr.state == "opened") {
+    let kept = |mr: &RestMr| match ended.get(&mr.iid) {
+        Some(at) => input.now - at < ENDED_KEEP_SECONDS,
+        None => mr.state == "opened",
+    };
+    for mr in by.iter().filter(|mr| kept(mr)) {
         let open_notes = &mrs[&mr.iid.to_string()].open_notes;
         present.extend(open_notes.iter().map(|id| format!("note:{id}")));
     }
@@ -410,6 +441,7 @@ pub fn hub_compare(input: &HubInput, old: Option<&HubState>, reviewed: &[u64]) -
         present,
         own_mrs: input.own.iter().map(|mr| OwnMr { iid: mr.iid }).collect(),
         waiting,
+        ended,
     };
     let events = match old {
         Some(old) => hub_events(input, old, &by, &notes_by, &reactions_by, &opened)
@@ -543,6 +575,7 @@ fn todo_event(todo: &Todo) -> Event {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platform::utc_timestamp;
     use serde_json::json;
 
     const URL: &str = "https://gitlab.example.com/group/sub/app/-/merge_requests";
@@ -732,6 +765,48 @@ mod tests {
 
         assert!(events.is_empty());
         assert_eq!(state.present, vec!["note:302"]);
+    }
+
+    fn ended_mr(iid: u64, state: &str, at: i64) -> serde_json::Value {
+        json!({"iid": iid, "title": "T", "state": state, "updated_at": "t1",
+               "merged_at": (state == "merged").then(|| utc_timestamp(at)),
+               "closed_at": (state == "closed").then(|| utc_timestamp(at)),
+               "source_branch": "b", "web_url": format!("{URL}/{iid}"),
+               "author": {"username": "bob"}})
+    }
+
+    #[test]
+    fn hub_saves_the_end_time_of_merged_and_closed_mrs() {
+        let now = 1_793_000_000;
+        let mut input = input(json!([]));
+        input.now = now;
+        input.watched = serde_json::from_value(json!([ended_mr(9, "merged", now - 60)])).unwrap();
+        input.item_mrs =
+            serde_json::from_value(json!([ended_mr(12, "closed", now - 120), ended_mr(13, "opened", now),])).unwrap();
+
+        let (state, _) = hub_compare(&input, None, &[]);
+
+        assert_eq!(state.ended, BTreeMap::from([(9, now - 60), (12, now - 120)]));
+    }
+
+    #[test]
+    fn hub_keeps_the_open_notes_of_an_mr_for_a_day_after_its_merge() {
+        let now = 1_793_000_000;
+        let old: HubState = serde_json::from_value(json!({"todos": [], "opened": [],
+            "mrs": {"9": {"updated_at": "t1", "last_note_id": 301, "open_notes": [301]},
+                    "10": {"updated_at": "t1", "last_note_id": 401, "open_notes": [401]}}}))
+        .unwrap();
+        let mut input = input(json!([]));
+        input.now = now;
+        input.watched = serde_json::from_value(json!([
+            ended_mr(9, "merged", now - 3600),
+            ended_mr(10, "merged", now - 86400),
+        ]))
+        .unwrap();
+
+        let (state, _) = hub_compare(&input, Some(&old), &[]);
+
+        assert_eq!(state.present, vec!["note:301"]);
     }
 
     #[test]
