@@ -564,6 +564,8 @@ mod tests {
             key: key.to_string(),
             path: std::path::PathBuf::from("/r"),
             hub: false,
+            main: false,
+            session: None,
             heading: Some(heading.to_string()),
             artifacts: Vec::new(),
             branches: Vec::new(),

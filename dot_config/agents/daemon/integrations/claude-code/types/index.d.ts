@@ -3,6 +3,10 @@ export type View = {
   key: string
   path: string
   hub: boolean
+  /** The path is the main checkout of the repo. */
+  main: boolean
+  /** The session of the agent record of `key`, or `null` with no record. */
+  session: string | null
   heading: string | null
   artifacts: Artifact[]
   branches: Branch[]

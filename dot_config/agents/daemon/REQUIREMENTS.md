@@ -529,8 +529,9 @@ from a design spec that the user approved.
 - W13.2 (spec) `watchd follow` sends a view line for each worktree and for the hub after each change
   of that view, and `{"type": "view", "key": K, "removed": true}` for a removed view. Two ticks with
   no change send no line.
-- W13.3 (spec) A view has the key, the worktree path, the heading (W13.10), the common artifacts,
-  and the branches in stack order.
+- W13.3 (spec) A view has the key, the worktree path, whether the path is the main checkout, the
+  session of the agent record of the key or null, the heading (W13.10), the common artifacts, and
+  the branches in stack order.
 - W13.4 (spec) A branch has its name, its title (the MR title, else the MR draft title, else the
   branch name), the MR iid or null, the status parts, the rows with Needs you first, and the
   artifacts. A stack branch with no MR shows no MR and no pipeline artifact.
@@ -546,7 +547,8 @@ from a design spec that the user approved.
   the stream ends, the mod starts it again after 2 seconds and keeps the last view until the first
   new line. The first lines of a new stream replace all views.
 - W13.9 (spec) The band draws nothing for a folder with no view, for a view with no rows and no
-  artifacts, and while a survey holds the band.
+  artifacts, for a view of the main checkout that is not of the session, and while a survey holds
+  the band. A session in the main checkout with no `/hub` gets no band.
 - W13.10 (spec) The band has a dim rounded border and 1 column of padding. A stack heading shows the
   ticket key and `stack of N`, or `Stack of N` with no shared key. Each branch shows its title in
   bold, then dim ` · !iid · ` and the status parts, then its rows and artifacts.

@@ -5,6 +5,7 @@ import type { On } from 'claude-code'
 import type { View } from '../types'
 
 const MR = 'https://g/a/b/-/merge_requests/410'
+const SESSION = 's1'
 
 const BAND = {
   plugin: 'watchd',
@@ -25,6 +26,8 @@ function stack(): View {
     key: 'app-1',
     path: '/r-wt',
     hub: false,
+    main: false,
+    session: null,
     heading: 'APP-1 · stack of 2',
     artifacts: [{ kind: 'ticket', target: 'https://t/APP-1' }],
     branches: [
@@ -52,7 +55,8 @@ function line(view: View): string {
 
 /**
  * Each `watchd follow` writes the text of its turn, then ends. A `null` turn exits 1.
- * Returns the count of starts. Also answers the session start, the debug log, and `HOME`.
+ * Returns the count of starts. Also answers the session start, the session ID, the debug log,
+ * and `HOME`.
  */
 function follow(on: On, texts: (string | null)[]): { starts: number } {
   const calls = { starts: 0 }
@@ -71,6 +75,7 @@ function follow(on: On, texts: (string | null)[]): { starts: number } {
   })
   on('ui.log', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.id', () => ({ value: SESSION }))
   return calls
 }
 
@@ -170,10 +175,10 @@ test('starts_follow_again_after_the_end', async ($, on) => {
 
 test('picks_the_view_of_the_session_folder', async ($, on) => {
   const clock = mock.clock(on)
-  const hub: View = { ...stack(), key: 'app', path: '/r', hub: true, heading: null }
+  const hub: View = { ...stack(), key: 'app', path: '/r', hub: true, main: true, session: SESSION, heading: null }
   hub.branches = [{ ...stack().branches[0]!, title: 'Hub MR' }]
   const worktree: View = { ...stack(), key: 'app-wt', path: '/r-wt' }
-  const root: View = { ...stack(), key: 'app-root', path: '/r' }
+  const root: View = { ...stack(), key: 'app-root', path: '/r', main: true }
   root.branches = [{ ...stack().branches[0]!, title: 'Root MR' }]
   follow(on, [line(hub) + line(worktree) + line(root), line(hub) + line(worktree) + line(root)])
 
@@ -188,6 +193,20 @@ test('picks_the_view_of_the_session_folder', async ($, on) => {
   const inRoot = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect((await texts(inRoot)).join('\n')).toContain('Hub MR')
   await inRoot.unmount()
+})
+
+test('hides_a_main_checkout_view_of_a_different_session', async ($, on) => {
+  const clock = mock.clock(on)
+  const hub: View = { ...stack(), key: 'app', path: '/r', hub: true, main: true, session: 's2', heading: null }
+  const root: View = { ...stack(), key: 'app-root', path: '/r', main: true }
+  follow(on, [line(hub) + line(root)])
+  await start($, '/r/src')
+  await clock.settle()
+
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+
+  expect(await texts(ui)).toEqual([])
+  await ui.unmount()
 })
 
 /** A guard above the mod, or `/clear`, `/resume` and `/branch`, skip `session.start`. */

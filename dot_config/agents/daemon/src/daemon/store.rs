@@ -996,11 +996,7 @@ impl Store {
     /// The MRs of the items of the key.
     pub fn item_mrs(&self, key: &str) -> Vec<u64> {
         let items = self.read::<Items>(&self.dirs.items(key)).unwrap_or_default();
-        let mut iids: Vec<u64> = items
-            .items
-            .iter()
-            .filter_map(|item| item.iid)
-            .collect();
+        let mut iids: Vec<u64> = items.items.iter().filter_map(|item| item.iid).collect();
         iids.sort_unstable();
         iids.dedup();
         iids
@@ -1316,7 +1312,8 @@ impl Store {
     }
 
     /// One view for each worktree of a repo with a watch, for each review watch, and for each hub
-    /// watch. The view of a review watch takes the place of the author view of its worktree.
+    /// watch. The view of a review watch takes the place of the author view of its worktree. Each
+    /// view has the session of the agent record of its key.
     pub fn views(&self) -> BTreeMap<String, View> {
         let subs = self.subs();
         let worktrees = self.worktrees();
@@ -1364,6 +1361,11 @@ impl Store {
                 sub.key.clone(),
                 compose_hub(&sub.key, &sub.repo, &self.rows(&sub.key), &own),
             );
+        }
+        for sub in &subs {
+            if let Some(view) = views.get_mut(&sub.key) {
+                view.session = Some(sub.session.clone());
+            }
         }
         views
     }
@@ -1567,6 +1569,40 @@ mod tests {
             sidebar["engine_needs"],
             serde_json::json!({"app-1-review-5": ["reply", "commits"], "app-2": ["reply", "draft"]})
         );
+    }
+
+    #[test]
+    fn views_have_the_main_checkout_and_the_session_of_the_record() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-views", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs {
+            watchd: base.join("watchd"),
+            engine: base.join("watch-gitlab"),
+        });
+        store.ensure_dirs().unwrap();
+        let hub = Agent {
+            key: "app".to_string(),
+            slug: "app".to_string(),
+            repo: "/r".into(),
+            mode: Mode::Hub,
+            mrs: Vec::new(),
+            interval: 120,
+            session: "s1".to_string(),
+            ended_mrs: Vec::new(),
+            events: Vec::new(),
+        };
+        save(&store.dirs.sub("app"), &hub).unwrap();
+        for path in ["/r", "/r-wt"] {
+            store.write_worktree(&WorktreeState::new(path.into(), "/r".into(), None, String::new(), &[]));
+        }
+
+        let views = store.views();
+
+        let main = &views[&author_key("app", Path::new("/r"))];
+        let linked = &views[&author_key("app", Path::new("/r-wt"))];
+        assert_eq!((views["app"].main, views["app"].session.as_deref()), (true, Some("s1")));
+        assert_eq!((main.main, main.session.as_deref()), (true, None));
+        assert_eq!((linked.main, linked.session.as_deref()), (false, None));
     }
 
     #[test]

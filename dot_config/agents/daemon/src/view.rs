@@ -16,6 +16,12 @@ pub struct View {
     pub key: String,
     pub path: PathBuf,
     pub hub: bool,
+    /// The path is the main checkout of the repo.
+    #[serde(default)]
+    pub main: bool,
+    /// The session of the agent record of `key`. `None` with no record.
+    #[serde(default)]
+    pub session: Option<String>,
     pub heading: Option<String>,
     pub artifacts: Vec<Artifact>,
     pub branches: Vec<Branch>,
@@ -206,6 +212,8 @@ pub fn compose(
         key: key.to_string(),
         path: worktree.path.clone(),
         hub: false,
+        main: worktree.path == worktree.repo,
+        session: None,
         heading,
         artifacts: common,
         branches,
@@ -263,6 +271,8 @@ pub fn compose_hub(key: &str, path: &Path, rows: &[Row], own: &MrsState) -> View
         key: key.to_string(),
         path: path.to_path_buf(),
         hub: true,
+        main: true,
+        session: None,
         heading: None,
         artifacts: Vec::new(),
         branches,

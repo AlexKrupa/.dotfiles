@@ -22,14 +22,16 @@ const SECTION_COLORS: Record<ViewRow['section'], string> = {
 
 /**
  * The view of the folder: the view with the longest path that contains it. At the same path,
- * the hub view wins.
+ * the hub view wins. A view of the main checkout is only for the session of its watch: a
+ * different session there, for example a question with no `/hub`, gets no view.
  */
-function pick(views: Map<string, View>, folder: string): View | null {
+function pick(views: Map<string, View>, folder: string, session: string): View | null {
   const containing = [...views.values()].filter(
     view => folder === view.path || folder.startsWith(view.path + '/'),
   )
   containing.sort((a, b) => b.path.length - a.path.length || Number(b.hub) - Number(a.hub))
-  return containing[0] ?? null
+  const view = containing[0] ?? null
+  return view === null || !view.main || view.session === session ? view : null
 }
 
 function isEmpty(view: View): boolean {
@@ -50,8 +52,9 @@ function shown(target: string): string {
   return home !== '' && target.startsWith(home + '/') ? '~' + target.slice(home.length) : target
 }
 
-function show($: EngineInterface) {
-  const view = pick(views, folder)
+/** The session ID changes at `/clear`, so each show reads it. */
+async function show($: EngineInterface) {
+  const view = pick(views, folder, await $.session.id())
   return update($, shownView, () => ({ view }))
 }
 
