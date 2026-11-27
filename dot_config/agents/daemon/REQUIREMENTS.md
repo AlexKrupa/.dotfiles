@@ -277,7 +277,8 @@ from a design spec that the user approved.
 - W8.1 When a session watches an MR, the hub does not show the events and pending items of that MR,
   and the user gets no double report.
 - W8.2 For an MR of a work session, the hub gets only the review request and the `opened` event.
-- W8.3 The hub hides an MR from the watch start of its session on, with no earlier claim.
+- W8.3 The hub hides an MR from the watch start of its session on, with no earlier claim. After
+  the first check of the watch, the hub view has no row of the MR, also no Agent or Info row.
 - W8.4 (spec) When a review or bump watch starts, the pending hub items of its MR move to that
   watch.
 - W8.5 While no hub runs, the daemon keeps only pending items for the hub, not events, and a new hub

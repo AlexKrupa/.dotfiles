@@ -953,7 +953,7 @@ impl Store {
                 prune_ended(&mut items, &self.ended(&target.key), now_seconds());
             }
             self.save_items(&path, &items);
-            self.remove_rows(&target.key, &items);
+            self.remove_rows(&target.key, &items, &[]);
         }
         if target.mode == Mode::Hub {
             return;
@@ -962,21 +962,23 @@ impl Store {
         if let Ok(Some(mut hub_items)) = self.read_json::<Items>(&hub_path) {
             prune_moved(&mut hub_items, &target.mrs, &present);
             self.save_items(&hub_path, &hub_items);
-            self.remove_rows(&target.slug, &hub_items);
+            self.remove_rows(&target.slug, &hub_items, &target.mrs);
         }
     }
 
     /// The rows file changes only at a report. Without this, a removed item keeps its Needs you
-    /// row, and an ended MR with no items keeps its rows, until the next report.
-    fn remove_rows(&self, key: &str, items: &Items) {
+    /// row, and an ended MR with no items or an MR in `watched` keeps its rows, until the next
+    /// report. `watched` has the MRs of a worktree watch.
+    fn remove_rows(&self, key: &str, items: &Items, watched: &[u64]) {
         let ended = self.ended(key);
         let mut rows = self.rows(key);
         let count = rows.len();
         rows.retain(|row| match row.section {
             RowSection::NeedsYou => items.items.iter().any(|item| item.n == row.n),
-            RowSection::Agent | RowSection::Info => row
-                .iid
-                .is_none_or(|iid| !ended.contains_key(&iid) || items.items.iter().any(|item| item.iid == Some(iid))),
+            RowSection::Agent | RowSection::Info => row.iid.is_none_or(|iid| {
+                !watched.contains(&iid)
+                    && (!ended.contains_key(&iid) || items.items.iter().any(|item| item.iid == Some(iid)))
+            }),
         });
         if rows.len() == count {
             return;
@@ -1879,6 +1881,48 @@ mod tests {
         let left: Vec<u64> = store.rows("app").iter().map(|row| row.n).collect();
         assert_eq!(left, [2, 8, 9]);
         assert_eq!(store.item_mrs("app"), [13, 14]);
+    }
+
+    #[test]
+    fn worktree_prune_removes_the_hub_rows_of_the_mrs_of_the_watch() {
+        let base = std::env::temp_dir().join(format!("watchd-store-{}-prune-watched", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::new(StateDirs::from_base(&base));
+        store.ensure_dirs().unwrap();
+        save(&store.dirs.items("app"), &Items::default()).unwrap();
+        let row = |n: u64, section: RowSection, iid: Option<u64>| Row {
+            n,
+            section,
+            iid,
+            title: None,
+            url: None,
+            event: None,
+            what: None,
+            result: String::new(),
+            since: None,
+        };
+        let rows = [
+            row(1, RowSection::Agent, Some(7)),
+            row(2, RowSection::Info, Some(7)),
+            row(3, RowSection::Agent, Some(8)),
+            row(4, RowSection::Info, None),
+        ];
+        write_json(&store.dirs.rows("app"), &rows).unwrap();
+        let key = "app-r-review-7";
+        std::fs::create_dir_all(&store.dirs.engine).unwrap();
+        save(&store.dirs.engine_state(key), &serde_json::json!({"present": []})).unwrap();
+        let target = Target {
+            key: key.to_string(),
+            slug: "app".to_string(),
+            mode: Mode::Review,
+            repo: base.clone(),
+            mrs: vec![7],
+        };
+
+        store.prune_items(&target);
+
+        let left: Vec<u64> = store.rows("app").iter().map(|row| row.n).collect();
+        assert_eq!(left, [3, 4]);
     }
 
     fn artifact_store(name: &str) -> (Store, PathBuf) {
