@@ -993,13 +993,12 @@ impl Store {
             .unwrap_or_default()
     }
 
-    /// The MRs of the daemon items of the key.
+    /// The MRs of the items of the key.
     pub fn item_mrs(&self, key: &str) -> Vec<u64> {
         let items = self.read::<Items>(&self.dirs.items(key)).unwrap_or_default();
         let mut iids: Vec<u64> = items
             .items
             .iter()
-            .filter(|item| item.owner == Owner::Daemon)
             .filter_map(|item| item.iid)
             .collect();
         iids.sort_unstable();
@@ -1791,7 +1790,18 @@ mod tests {
         };
         let items = Items {
             next: 10,
-            items: vec![item(1, "thread:d1", 9), item(2, "pipeline:13", 13)],
+            items: vec![
+                item(1, "thread:d1", 9),
+                item(2, "pipeline:13", 13),
+                Item {
+                    owner: Owner::Model,
+                    ..item(3, "model:3", 9)
+                },
+                Item {
+                    owner: Owner::Model,
+                    ..item(4, "model:4", 14)
+                },
+            ],
         };
         save(&store.dirs.items("app"), &items).unwrap();
         let row = |n: u64, section: RowSection, iid: u64| Row {
@@ -1829,10 +1839,10 @@ mod tests {
 
         let items: Items = store.read_json(&store.dirs.items("app")).unwrap().unwrap();
         let keys: Vec<&str> = items.items.iter().map(|item| item.item.as_str()).collect();
-        assert_eq!(keys, ["pipeline:13"]);
+        assert_eq!(keys, ["pipeline:13", "model:4"]);
         let left: Vec<u64> = store.rows("app").iter().map(|row| row.n).collect();
         assert_eq!(left, [2, 8, 9]);
-        assert_eq!(store.item_mrs("app"), [13]);
+        assert_eq!(store.item_mrs("app"), [13, 14]);
     }
 
     fn artifact_store(name: &str) -> (Store, PathBuf) {

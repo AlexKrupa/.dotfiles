@@ -386,7 +386,7 @@ from a design spec that the user approved.
 - W9.3 The daemon adds and removes pending items from events and GitLab state, and the model adds
   and dismisses items that have no GitLab event.
 - W9.4 An item that the model added stays pending until the model dismisses it, also after a reply
-  or a reaction of the user.
+  or a reaction of the user. The end of its MR removes it by W12.20.
 - W9.5 A pending item goes away when GitLab shows that its cause is gone, for example after a
   pipeline passes or a thread is resolved.
 - W9.6 A comment item stays pending until the user replies after it, the user reacts to the last
@@ -514,8 +514,8 @@ from a design spec that the user approved.
   prints nothing. The agent reads it to find a row that the user names in a prompt.
 - W12.19 When the daemon removes a pending item, for example after the user reacts to the last
   comment of a thread or resolves the thread, the view drops its Needs you row with no new report.
-- W12.20 The pending items of a merged or closed MR stay for 24 hours after the merge or close
-  time from GitLab, then the daemon removes them. A merged or closed MR with no pending items goes
+- W12.20 The pending items of a merged or closed MR, also the items that the model added, stay for
+  24 hours after the merge or close time from GitLab, then the daemon removes them. A merged or closed MR with no pending items goes
   away from the hub view at the next check.
 
 ## W13 Band

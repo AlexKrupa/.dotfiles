@@ -121,14 +121,15 @@ pub fn prune_items(items: &mut Items, present: &[String], hub_present: Option<&[
     });
 }
 
-/// Removes the daemon items of the MRs that ended `ENDED_KEEP_SECONDS` ago or earlier.
+/// Removes the items of the MRs that ended `ENDED_KEEP_SECONDS` ago or earlier, also the model
+/// items: nobody dismisses an item of an ended MR.
 pub fn prune_ended(items: &mut Items, ended: &BTreeMap<u64, i64>, now: i64) {
     items.items.retain(|item| {
         let expired = item
             .iid
             .and_then(|iid| ended.get(&iid))
             .is_some_and(|at| now - at >= ENDED_KEEP_SECONDS);
-        !expired || item.owner == Owner::Model || is_pull_item(&item.item)
+        !expired || is_pull_item(&item.item)
     });
 }
 
@@ -324,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    fn prune_ended_removes_the_daemon_items_of_an_mr_a_day_after_its_end() {
+    fn prune_ended_removes_the_items_of_an_mr_a_day_after_its_end() {
         let now = 1_000_000;
         let item = |n: u64, key: &str, owner: Owner, iid: u64| Item {
             n,
@@ -353,7 +354,7 @@ mod tests {
         prune_ended(&mut items, &ended, now);
 
         let left: Vec<u64> = items.items.iter().map(|item| item.n).collect();
-        assert_eq!(left, vec![2, 3, 4, 5]);
+        assert_eq!(left, vec![2, 4, 5]);
     }
 
     #[test]

@@ -200,10 +200,10 @@ flowchart TB
     example, `glab auth status` fails with no network text during an outage.
 - Events: the events of a key with an agent record go to its inbox, also while its session is
   away. The events of a key with no agent record go to the hub as pending items.
-- Ended MRs: the hub check gets the MRs of the daemon items of the hub (`--item-mr`), and it saves
-  the merge or close time of each ended MR from GitLab. The items of an ended MR stay for 24 hours
-  after the end, then the hub prune removes them. An ended MR with no items loses its rows at the
-  next hub check.
+- Ended MRs: the hub check gets the MRs of the items of the hub (`--item-mr`), and it saves the
+  merge or close time of each ended MR from GitLab. The items of an ended MR, also the model items,
+  stay for 24 hours after the end, then the hub prune removes them. An ended MR with no items loses
+  its rows at the next hub check.
 - Errors: the error text of an ended agent record is `watchd: MODE watch KEY: TEXT`, because a
   session can have more than one watch. The next `wait` of the session gets it.
 - Router: for the events that go to a live hub, `src/engine/router/` selects an action for each
