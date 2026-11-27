@@ -296,16 +296,12 @@ fn manual_todo_action(routed: &RoutedEvent, facts: &Facts) -> Action {
     if !is_review_request(event) {
         return Action::ReportOnly { cell: None };
     }
-    let reviewed = event.iid.and_then(|iid| facts.reviewed.get(&iid));
-    match (reviewed, is_released(event)) {
-        (Some(path), _) => Action::ReportOnly {
-            cell: Some(format!("Already reviewed: {}", path.display())),
-        },
-        (None, false) => Action::ReportOnly {
-            cell: Some(REQUESTED_CELL.to_string()),
-        },
-        (None, true) => Action::ReportOnly { cell: None },
-    }
+    // A release also gives the cell, because a request held in auto mode has the wait cell.
+    let cell = match event.iid.and_then(|iid| facts.reviewed.get(&iid)) {
+        Some(path) => format!("Already reviewed: {}", path.display()),
+        None => REQUESTED_CELL.to_string(),
+    };
+    Action::ReportOnly { cell: Some(cell) }
 }
 
 fn opened_action(routed: &RoutedEvent, mr: &MrRound) -> Action {
@@ -809,10 +805,10 @@ mod tests {
     }
 
     #[test]
-    fn manual_released_request_keeps_its_row() {
+    fn manual_released_request_is_a_requested_row() {
         let events = [released(mr_event(EventKind::Todo, "review_requested", Some("anna"), 1))];
 
-        assert_eq!(actions(&events, &manual()), [(1, Action::ReportOnly { cell: None })]);
+        assert_eq!(actions(&events, &manual()), [(1, requested_cell())]);
     }
 
     #[test]

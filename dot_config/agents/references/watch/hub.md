@@ -76,7 +76,7 @@ In manual mode, the daemon starts no agent and retries no job.
 - A review request is a pending row with the cell `Review requested`, also for a bot MR. The user
   starts the review with `/work <MR URL>`.
 - A bump MR with no review request gives no row.
-- No `default-failed` event comes, so "Auto-debug" does not apply.
+- The hub model gets no `default-failed` event. Thus "Auto-debug" does not apply.
 
 ## Auto-debug
 
