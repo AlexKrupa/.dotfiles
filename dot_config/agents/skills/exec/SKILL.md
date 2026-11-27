@@ -8,6 +8,7 @@ argument-hint: "[keep] [subagent | native] [low | medium | high | xhigh | max] [
 disable-model-invocation: true
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/exec.sh *)
+  - Bash(${CLAUDE_SKILL_DIR}/open-findings.sh *)
 ---
 
 # exec
@@ -20,6 +21,8 @@ Runs a superpowers plan in two phases. Each phase has its own session in the sam
 2. Review: `review-me` and `draft-pr`. After the last task, the execution session follows "Review
    handoff". The script clears the session and submits `/exec review <plan>`. A clear gives the
    review a full context, because auto-compact is off and a full context stops the session.
+   `review-me` replaces the final review of the superpowers execution skill. Two reviews of the
+   whole branch find mostly the same issues.
 
 There are three callers:
 
@@ -79,8 +82,9 @@ The session runs in a herdr pane or a Rex pane. The script checks it.
    superpowers execution skill of the mode in this session, with the plan path:
    `superpowers:subagent-driven-development` for `subagent`, `superpowers:executing-plans` for
    `native`. Before that, tell it in one line: "No multiplexer pane: the plan runs in this session,
-   with the effort of this session." After the last task, do "Review handoff". This fallback ends
-   the steps. Do not do step 7.
+   with the effort of this session." After the last task, skip the final review and the finish of
+   that skill, and keep the plan workspace. Then do "Review handoff". This fallback ends the
+   steps. Do not do step 7.
 7. Report the result, then end the turn. The script waits until the turn ends, so the turn has no
    more tool calls after the report.
    - Exit `0`: the stdout line, then one line per decision: `Mode: <mode> - <how>.`,
@@ -95,7 +99,9 @@ command by hand. If the skill arguments have no `keep`, the user first clears th
 
 ## Review handoff
 
-The execution session does this after the last task of the plan. The input is the review effort.
+The execution session does this after the last task of the plan, in place of the final review
+and the finish of the superpowers execution skill. Do not delete the plan workspace: the review
+session reads the deferred findings and the rulings in its ledger. The input is the review effort.
 If the prompt gave no review effort, use `medium`.
 
 1. Make sure that all tasks of the plan are done and that `git status --porcelain` is empty.

@@ -143,6 +143,9 @@ A caller can give a spec path and a plan path (`review-me` does this). Read both
 "Spec alignment" checklist item. With no spec, do no drift check, and write `none` in the `Spec:`
 header line.
 
+A caller can also give an open findings file: findings and decisions that an earlier step of the
+work deferred or left open. It enables the "Open findings" checklist item.
+
 ## Run the audit
 
 ### Re-review mode
@@ -198,7 +201,7 @@ Dispatch each agent with the `effort` value in the table.
 | Agent | Effort | Extra input | Checklist items |
 |---|---|---|---|
 | runtime | high | none | Correctness, Concurrency & data races, Error handling & edge cases, Performance |
-| contract | high | the spec and plan paths, or none | Spec alignment, Tests, Security, Public API / contracts |
+| contract | high | the spec, plan, and open findings paths, or none | Spec alignment, Open findings, Tests, Security, Public API / contracts |
 | docs | medium | the `docs-index.sh` output | Conventions & docs alignment, Docs & comments, Style & consistency, Dependencies |
 | structure | medium | none | Simplicity (with its adjacent radius), Dead code, the "Existing implementations" search, and "High-impact changes" |
 
@@ -241,6 +244,15 @@ verify.
   spec does not have. Cite the spec section. Small drift from the plan is not a finding: other
   names, file layout, task order, or a different approach with the same behavior. Write at most one
   line about it under "Out of scope / mentions".
+  - The spec states what the software must do. It does not list each input or condition. If the
+    spec says nothing about an input or condition that can actually happen, the behavior that a
+    reasonable user expects is a requirement. Grade the finding by its effect on that user.
+  - If the plan lists risks, failure modes, or inputs that its tests do not cover, check each one.
+  - If the defect is in the plan or the spec, not in the code, say so in the finding.
+- **Open findings** - if the caller gave no open findings file, skip this item. Check each line
+  against the branch. If the issue still holds, or you disagree with a decision, write a finding
+  with the severity of its effect. Put each line that you reject, or that the branch already
+  fixed, under "Out of scope / mentions", with one reason.
 - **Error handling & edge cases** - only what can actually happen. Flag overcautious validation as a
   finding too.
 - **Tests** - coverage of new behavior, missing edges, brittle assertions, flaky patterns. Also

@@ -32,7 +32,7 @@ export PATH="$tmp/bin:$PATH" AFTER_TURN="$tmp/bin/after" MOCK_AFTER="$tmp/after.
 unset NONO_CAP_FILE REX_SESSION
 plan="$tmp/plans/2026-09-30-foo.md"
 echo '# Foo plan' >"$plan"
-handoff="After the last task, read $here/SKILL.md, section \"Review handoff\", and follow it with review effort"
+handoff="After the last task, skip the final review and the finish of the skill, and keep the plan workspace. Then read $here/SKILL.md, section \"Review handoff\", and follow it with review effort"
 
 # got: waits up to 5 s for the fake after-turn.sh, then prints what it got.
 got() {

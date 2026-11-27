@@ -3,8 +3,8 @@
 #        exec.sh review <effort> <plan-path>
 # Starts bin/after-turn.sh detached. After this agent turn, it sets the effort and submits a
 # command with the absolute plan path:
-# - Execution: the superpowers execution command, with a sentence that starts the review handoff
-#   after the last task. With --fresh, it first clears the session, with the plan file name as the
+# - Execution: the superpowers execution command, with a sentence that replaces the final review
+#   of the skill with the review handoff. With --fresh, it first clears the session, with the plan file name as the
 #   old title.
 # - Review: `/exec review <plan>`. It always clears the session first.
 # In a nono sandbox (NONO_CAP_FILE is set), prints the result line, then runs the helper in the
@@ -65,7 +65,7 @@ else
   label=$skill
   clear=()
   [[ -z $fresh ]] || clear=(--clear "$name")
-  prompt="/superpowers:$skill $plan After the last task, read $here/SKILL.md, section \"Review handoff\", and follow it with review effort $review_effort."
+  prompt="/superpowers:$skill $plan After the last task, skip the final review and the finish of the skill, and keep the plan workspace. Then read $here/SKILL.md, section \"Review handoff\", and follow it with review effort $review_effort."
 fi
 
 if [[ -n ${NONO_CAP_FILE:-} ]]; then

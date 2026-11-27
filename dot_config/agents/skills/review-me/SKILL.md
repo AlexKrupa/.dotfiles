@@ -4,7 +4,7 @@ description:
   Self-review of the current branch, or of a chezmoi dotfiles change. Applies the fixes in code
   that the branch added and folds them into branch commits. Asks before changes to code that
   existed before the branch, and before large drift from the spec.
-argument-hint: "[plan or spec path]"
+argument-hint: "[plan or spec path] [open findings path]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(~/.config/agents/bin/git-squash-fixups.sh *)
@@ -64,6 +64,11 @@ branch, and no history to fold fixes into. The other sections apply, with these 
 
 Give the spec and plan paths to `review-diff` in step 1 and in each re-review pass (step 8). If you
 find no path, `review-diff` does no drift check.
+
+A caller can also give an open findings file: the findings and decisions that an earlier step of
+the work deferred or left open. In standalone mode, it is the second path in the skill arguments.
+Give it to `review-diff` in step 1 only. The step 1 report turns each open item into a finding or
+a mention, and the re-review passes keep those findings.
 
 ## Fix policy
 
@@ -152,7 +157,8 @@ Only with the helper:
 0. **Precondition:** run `git status --porcelain`. If the output is not empty, stop. Show the
    changed paths and tell the user to stash or commit, then try again. Do not stash. The user's
    work and the work of this skill must stay separate.
-1. Use `review-diff` with the spec and plan paths (see "Spec and plan"). Read the report.
+1. Use `review-diff` with the spec and plan paths and the open findings path (see "Spec and
+   plan"). Read the report.
 2. Put the findings in two groups: apply with no prompt, and ask first.
 3. Apply the no-prompt fixes, file by file. If the files are independent, edit them in parallel.
 4. For the ask-first findings, show **one** grouped prompt:
