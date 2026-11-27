@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Usage: exec.sh [--fresh] <subagent|native> <effort> <review-effort> <plan-path>
-#        exec.sh review <effort> <plan-path>
+#        exec.sh review <effort> <plan-or-spec-path>
 # Starts bin/after-turn.sh detached. After this agent turn, it sets the effort and submits a
 # command with the absolute plan path:
 # - Execution: the superpowers execution command, with a sentence that replaces the final review
 #   of the skill with the review handoff. With --fresh, it first clears the session, with the plan file name as the
 #   old title.
-# - Review: `/exec review <plan>`. It always clears the session first.
+# - Review: `/exec review <plan or spec>`. It always clears the session first.
 # In a nono sandbox (NONO_CAP_FILE is set), prints the result line, then runs the helper in the
 # foreground. The agent runs the script as a background task there.
 # Exit codes: 0 ok, 1 error
@@ -18,7 +18,7 @@ AFTER_TURN=${AFTER_TURN:-$bin/after-turn.sh}
 
 die() { echo "exec: $1" >&2; exit 1; }
 usage="usage: exec.sh [--fresh] <subagent|native> <effort> <review-effort> <plan-path>
-       exec.sh review <effort> <plan-path>"
+       exec.sh review <effort> <plan-or-spec-path>"
 
 check_effort() {
   case $1 in
@@ -53,7 +53,7 @@ case $code in
   4) die "this session does not run in a multiplexer pane" ;;
   *) die "cannot find the multiplexer pane of this session: $pane" ;;
 esac
-[[ -f $plan ]] || die "no plan file at $plan"
+[[ -f $plan ]] || die "no file at $plan"
 plan="$(cd "$(dirname "$plan")" && pwd)/$(basename "$plan")"
 name=$(basename "$plan" .md)
 

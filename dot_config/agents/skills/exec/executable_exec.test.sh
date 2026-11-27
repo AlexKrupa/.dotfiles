@@ -120,6 +120,11 @@ check "no review effort: exit 1" 1 "$code"
 check "bad review effort: exit 1" 1 "$code"
 "$script" review huge "$plan" >/dev/null 2>&1; code=$?
 check "review bad effort: exit 1" 1 "$code"
+spec="$tmp/plans/2026-09-30-bar-design.md"
+echo '# Bar spec' >"$spec"
+"$script" review medium "$spec" >/dev/null 2>&1; code=$?
+check "review spec: exit 0" 0 "$code"
+check "review spec: review command" "/exec review $spec" "$(got | tail -1)"
 "$script" review medium >/dev/null 2>&1; code=$?
 check "review no plan path: exit 1" 1 "$code"
 check "errors: no after-turn.sh" "" "$(got)"

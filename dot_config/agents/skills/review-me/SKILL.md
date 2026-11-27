@@ -20,8 +20,8 @@ prompt, and reports each squash.
 
 ## Auto mode
 
-Auto mode is on when the caller tells you to use auto mode, for example the Superpowers branch
-finish in the global/user instructions. A direct `/review-me` call is standalone mode.
+Auto mode is on when the caller tells you to use auto mode, for example the review phase of
+`exec`. A direct `/review-me` call is standalone mode.
 
 ## Dotfiles mode
 

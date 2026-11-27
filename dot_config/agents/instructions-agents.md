@@ -51,9 +51,8 @@
      3. `exec` does the review and the PR draft
   3. Bounded path:
      1. Implement the spec with commits, with no plan
-     2. Read `~/.config/agents/skills/review-me/SKILL.md` and follow it in auto mode with the spec
-        path
-     3. Follow the `draft-pr` step of `~/.config/agents/skills/exec/review.md` for the PR draft
+     2. Read `~/.config/agents/skills/exec/SKILL.md`, section "Review handoff", and follow it with
+        the spec path. A fresh session does the review and the PR draft.
 - Git: make commits (vertical slices). The `draft-pr` file is permitted.
 - After the last task of a plan execution, in place of the final review and
   `superpowers:finishing-a-development-branch`: read `~/.config/agents/skills/exec/SKILL.md`,

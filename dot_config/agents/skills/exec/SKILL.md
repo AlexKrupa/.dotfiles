@@ -2,8 +2,8 @@
 name: exec
 description: >-
   Use when the user runs /exec after a `superpowers:writing-plans` handoff. Also use when the
-  Superpowers pipeline starts a saved plan, when a plan execution ends, and for
-  `/exec review <plan>`.
+  Superpowers pipeline starts a saved plan, when a plan execution or a bounded change ends, and
+  for `/exec review <plan or spec>`.
 argument-hint: "[keep] [subagent | native] [low | medium | high | xhigh | max] [review <effort>]"
 disable-model-invocation: true
 allowed-tools:
@@ -31,8 +31,8 @@ There are three callers:
 - The Superpowers pipeline in the user instructions tells the agent to follow this skill after
   `superpowers:writing-plans` saves the plan. The user approved the spec, and that is also the
   approval of the plan. There is no handoff reply from the user.
-- The prompt is `/exec review <plan>`. Read `review.md` in the skill folder and follow it with the
-  plan path. Do not do the other sections of this file.
+- The prompt is `/exec review <plan or spec>`. Read `review.md` in the skill folder and follow it
+  with the path. Do not do the other sections of this file.
 
 Input: the skill arguments can contain `keep`, a mode (`subagent` or `native`), an effort level,
 and `review <effort>`. All are optional.
@@ -99,18 +99,24 @@ command by hand. If the skill arguments have no `keep`, the user first clears th
 
 ## Review handoff
 
-The execution session does this after the last task of the plan, in place of the final review
-and the finish of the superpowers execution skill. Do not delete the plan workspace: the review
-session reads the deferred findings and the rulings in its ledger. The input is the review effort.
-If the prompt gave no review effort, use `medium`.
+Two sessions do this:
 
-1. Make sure that all tasks of the plan are done and that `git status --porcelain` is empty.
-   `review-me` stops on a dirty working tree, and after the clear no session knows the reason for
-   the changes. If the tree is not clean, stop and show the paths.
+- The execution session of a plan, after the last task. It does this in place of the final review
+  and the finish of the superpowers execution skill. Do not delete the plan workspace: the review
+  session reads the deferred findings and the rulings in its ledger.
+- The session of a bounded change, after the implementation. The path is the spec path.
+
+The review in a fresh session is independent of the session that wrote the code. The inputs are
+the plan or spec path and the review effort. If the prompt gave no review effort, use `medium`.
+
+1. With a plan, make sure that all tasks of the plan are done. Make sure that
+   `git status --porcelain` is empty. `review-me` stops on a dirty working tree, and after the
+   clear no session knows the reason for the changes. If the tree is not clean, stop and show the
+   paths.
 2. Run `printenv NONO_CAP_FILE`, then run the script with the rules of step 6:
 
    ```sh
-   <skill folder>/exec.sh review <review effort> '<plan path>'
+   <skill folder>/exec.sh review <review effort> '<plan or spec path>'
    ```
 
    If the script exits `1` with "exec: this session does not run in a multiplexer pane", read
