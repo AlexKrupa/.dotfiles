@@ -39,6 +39,7 @@ chmod +x "$tmp/script/mux.sh"
 cat >"$tmp/bin/tuicr" <<'EOF'
 #!/bin/sh
 if [ "$1" = mr ] && [ -n "${MOCK_MR_FAIL:-}" ]; then echo "$MOCK_MR_FAIL" >&2; exit 1; fi
+if [ "$1" = --file ]; then printf 'tuicr %s\n' "$*" >>"$MOCK_LOG"; exit 0; fi
 printf '%s\n' "$MOCK_COMMENTS"
 EOF
 chmod +x "$tmp/bin/tuicr"
@@ -118,5 +119,59 @@ check "a failed send: a notification with the error" \
 check "after a failed send, the next send gives the comment again" "0
 1. \`a.kt:3\` - Rename" "$code
 $(sed -n '$p' "$MOCK_PROMPT")"
+
+: >"$MOCK_LOG"
+"$script" file A /abs/a.kt 42; code=$?
+check "file opens a zoomed tuicr pane for the file next to the active pane" "0
+pane-cwd A
+tab-split A /cwd --focus --run exec '$script' file-pane 'A' '/abs/a.kt' '42'
+pane-zoom S on" "$code
+$(cat "$MOCK_LOG")"
+
+: >"$MOCK_LOG"
+MOCK_PANE=F "$script" file-pane A /abs/a.kt 42 </dev/null; code=$?
+check "file-pane opens tuicr at the line" "0
+tuicr --file /abs/a.kt --line 42" "$code
+$(grep '^tuicr' "$MOCK_LOG")"
+
+: >"$MOCK_LOG"
+MOCK_PANE=F "$script" file-pane A /abs/a.kt '' </dev/null; code=$?
+check "file-pane with no line opens tuicr at the top" "0
+tuicr --file /abs/a.kt" "$code
+$(grep '^tuicr' "$MOCK_LOG")"
+
+# Usage: file_pane PANE AGENT. A `branch` pane state dir, marked as a `file` pane.
+file_pane() {
+  branch_pane "$1" "$2"
+  printf '%s\n' /abs/a.kt >"$TMPDIR/tuicr-panes/$1/file"
+}
+
+# `send` finds the tuicr by its parent, the test shell. One tuicr at a time.
+kill $(jobs -p) 2>/dev/null; wait 2>/dev/null
+file_pane F C
+export MOCK_COMMENTS='[{"id":"c3","location":"a.kt:42","content":"Why?"}]'
+: >"$MOCK_LOG"
+"$script" send F; code=$?
+check "send from a file pane asks about the code" "0
+I have the following comments and questions about the code.
+
+1. \`a.kt:42\` - Why?" "$code
+$(cat "$MOCK_PROMPT")"
+
+: >"$MOCK_LOG"
+"$script" branch C; code=$?
+check "branch from an agent with only a file pane opens a new branch pane" "0
+pane-cwd C
+tab-split C /cwd --focus --run exec '$script' pane 'C'
+pane-zoom S on" "$code
+$(cat "$MOCK_LOG")"
+
+: >"$MOCK_LOG"
+"$script" branch F; code=$?
+check "branch from a file pane opens a branch pane for its agent" "0
+pane-cwd C
+tab-split C /cwd --focus --run exec '$script' pane 'C'
+pane-zoom S on" "$code
+$(cat "$MOCK_LOG")"
 
 exit $fail

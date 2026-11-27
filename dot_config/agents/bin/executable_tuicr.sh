@@ -6,8 +6,11 @@
 #                            zoomed pane, or refresh the open `branch` pane
 #   tuicr.sh mr <pane>       review the MR of the current branch, for
 #                            `:submit`
-#   tuicr.sh send <pane>     from a `branch` pane: send its comments to the
-#                            agent and unzoom the pane
+#   tuicr.sh file <pane> <path> [<line>]
+#                            review one file in a zoomed pane, for questions
+#                            about the code
+#   tuicr.sh send <pane>     from a `branch` or `file` pane: send its comments
+#                            to the agent and unzoom the pane
 #
 # <pane> is the active pane of the multiplexer key binding. `branch` and `mr`
 # open a full-height pane on the right edge of its tab. An `mr` pane runs
@@ -15,7 +18,10 @@
 # when the branch has no MR. A `branch` pane runs
 # `tuicr.sh pane`, which keeps the agent pane ID, the repo and its own PID in a
 # state dir named by its own pane ID. `send` finds that dir from <pane>. It
-# ignores `mr` panes and each tuicr that this script did not open.
+# ignores `mr` panes and each tuicr that this script did not open. A `file`
+# pane runs `tuicr.sh file-pane`, which keeps the same state and a `file` marker.
+# `branch` does not restart a `file` pane. From a `file` pane, it opens a
+# `branch` pane for the agent of that pane.
 #
 # tuicr resolves `-r` to commit IDs at startup, and neither `:e` nor
 # `diff_watch_interval_ms` resolves it again. So `branch` from a `branch` pane,
@@ -51,13 +57,14 @@ state_dir() { printf '%s/%s' "$state_root" "$(printf '%s' "$1" | tr : _)"; }
 branch_pane_dir() {
   # A killed pane skips its EXIT trap and leaves its dir behind.
   dir=$(state_dir "$1")
-  if [ -f "$dir/agent" ] && kill -0 "$(cat "$dir/pid")" 2>/dev/null; then
+  if [ -f "$dir/agent" ] && [ ! -f "$dir/file" ] && kill -0 "$(cat "$dir/pid")" 2>/dev/null; then
     printf '%s' "$dir"
     return
   fi
   for agent_file in "$state_root"/*/agent; do
     [ "$(cat "$agent_file" 2>/dev/null)" = "$1" ] || continue
     dir=${agent_file%/agent}
+    [ ! -f "$dir/file" ] || continue
     if kill -0 "$(cat "$dir/pid")" 2>/dev/null; then
       printf '%s' "$dir"
       return
@@ -89,10 +96,15 @@ send_comments() (
     exit 1
   [ "$new" = "[]" ] && exit 0
 
+  if [ -f "$dir/file" ]; then
+    intro="I have the following comments and questions about the code."
+  else
+    intro="I reviewed your code and have the following comments. Please address them."
+  fi
   # Same layout as the tuicr export. A review comment has location "review"
   # and no anchor.
-  text=$(printf '%s' "$new" | jq -r '
-    "I reviewed your code and have the following comments. Please address them.\n\n"
+  text=$(printf '%s' "$new" | jq -r --arg intro "$intro" '
+    $intro + "\n\n"
     + (to_entries | map("\(.key + 1). "
         + (if .value.location == "review" then "" else "`\(.value.location)` - " end)
         + .value.content) | join("\n"))')
@@ -107,6 +119,19 @@ send_comments() (
     >"$sent.tmp" && mv "$sent.tmp" "$sent"
 )
 
+# Writes the state dir of this pane for agent pane $1 and removes it on exit.
+# Sets $dir.
+register_pane() {
+  # With no pane ID, the state dir is the root, and the EXIT trap removes it.
+  pane=$("$mux" pane-current) || fail "Cannot find the pane of this tuicr"
+  dir=$(state_dir "$pane")
+  mkdir -p "$dir" || fail "Cannot create $dir"
+  trap 'rm -rf "$dir"' EXIT
+  printf '%s\n' "$1" >"$dir/agent"
+  printf '%s\n' "$PWD" >"$dir/repo"
+  printf '%s\n' "$$" >"$dir/pid"
+}
+
 # The pane closes when this script exits. Wait, so the error stays readable.
 fail() {
   printf '%s\n\nPress Enter to close.' "$1" >&2
@@ -119,6 +144,8 @@ case $1 in
     active=${2:-}
     [ -n "$active" ] || exit 0
     if [ "$1" = branch ]; then
+      active_dir=$(state_dir "$active")
+      [ ! -f "$active_dir/file" ] || active=$(cat "$active_dir/agent")
       dir=$(branch_pane_dir "$active")
       if [ -n "$dir" ]; then
         send_comments "$dir" || exit 1
@@ -136,15 +163,27 @@ case $1 in
     exec "$mux" pane-zoom "$split" on
     ;;
 
+  file)
+    active=${2:-}
+    [ -n "$active" ] && [ -n "${3:-}" ] || exit 0
+    cwd=$("$mux" pane-cwd "$active")
+    cmd="exec '$0' file-pane '$active' '$3' '${4:-}'"
+    split=$("$mux" tab-split "$active" "${cwd:-$PWD}" --focus --run "$cmd") || exit 1
+    exec "$mux" pane-zoom "$split" on
+    ;;
+
+  file-pane)
+    register_pane "$2"
+    printf '%s\n' "$3" >"$dir/file"
+    if [ -n "${4:-}" ]; then
+      tuicr --file "$3" --line "$4" 2>"$dir/stderr" || fail "$(cat "$dir/stderr")"
+    else
+      tuicr --file "$3" 2>"$dir/stderr" || fail "$(cat "$dir/stderr")"
+    fi
+    ;;
+
   pane)
-    # With no pane ID, the state dir is the root, and the EXIT trap removes it.
-    pane=$("$mux" pane-current) || fail "Cannot find the pane of this tuicr"
-    dir=$(state_dir "$pane")
-    mkdir -p "$dir" || fail "Cannot create $dir"
-    trap 'rm -rf "$dir"' EXIT
-    printf '%s\n' "$2" >"$dir/agent"
-    printf '%s\n' "$PWD" >"$dir/repo"
-    printf '%s\n' "$$" >"$dir/pid"
+    register_pane "$2"
 
     while :; do
       rm -f "$dir/refresh"
@@ -175,7 +214,7 @@ case $1 in
     ;;
 
   *)
-    echo "usage: tuicr.sh branch | mr | send <pane>" >&2
+    echo "usage: tuicr.sh branch | mr | send <pane> | file <pane> <path> [<line>]" >&2
     exit 2
     ;;
 esac

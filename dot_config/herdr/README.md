@@ -37,6 +37,11 @@ deletes a branch that is not merged, but not if a branch is above it.
 `herdr-forks-sync` rebases only the clone. Uppercase hints open the match with `bin/pluck-open`
 instead of copying it.
 
+Type `'` and then a pluck hint to review a file in tuicr. `bin/pluck-open` opens it next to the
+source pane with `tuicr.sh file`, and `alt+shift+a` sends the comments to the agent in that pane.
+The `path-line` pattern hints `src/Foo.kt:12`, so tuicr opens at line 12. A lowercase hint copies
+the line number too. `bin/tests/pluck-open-test.sh` tests the review.
+
 `~/.config/agents/bin/tuicr.sh` opens tuicr (https://tuicr.dev) in a zoomed full-height pane on
 the right edge of the tab of an agent pane and sends its comments to that agent while tuicr stays
 open. `alt+shift+a` sends the comments and unzooms the tuicr pane. It finds the stack parent with
