@@ -1154,6 +1154,7 @@ impl Store {
             session: request.session.clone(),
             ended_mrs: ended,
             events: request.events.clone(),
+            hub_mode: request.hub_mode,
         };
         self.write_sub(&sub);
         if self.session(&sub.session).is_none() {
@@ -1467,6 +1468,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::subs::HubMode;
     use crate::report::{Add, AddSection};
     use crate::view::StoredArtifact;
 
@@ -1558,6 +1560,7 @@ mod tests {
                 session: "s".to_string(),
                 ended_mrs: Vec::new(),
                 events: Vec::new(),
+                hub_mode: HubMode::Auto,
             };
             save(&store.dirs.sub(key), &sub).unwrap();
             let engine = serde_json::json!({"needs": ["draft", "reply", "reply_to_you", "commits"]});
@@ -1592,6 +1595,7 @@ mod tests {
             session: "s1".to_string(),
             ended_mrs: Vec::new(),
             events: Vec::new(),
+            hub_mode: HubMode::Auto,
         };
         save(&store.dirs.sub("app"), &hub).unwrap();
         for path in ["/r", "/r-wt"] {

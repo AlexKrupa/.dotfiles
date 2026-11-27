@@ -4,7 +4,8 @@ description: >-
   Use when the user runs /hub in a repo's main checkout to manage the worktree agents of that
   repo, watch its GitLab review requests, mentions, dependency bump MRs, and default branch
   pipelines, start review agents, bump agents, and debug agents, or asks the hub for the status of
-  its agents.
+  its agents. In manual mode, the hub shows the rows and notifications but starts no agent.
+argument-hint: "[auto (default) | manual]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(${CLAUDE_SKILL_DIR}/hub-status.sh *)
@@ -25,6 +26,15 @@ files. The user fixes the cause.
 
 At the start, run `watchd kind hub`. It sets the kind of work of the current worktree for the herdr
 sidebar. Outside a git repo, it does nothing.
+
+## Mode
+
+The first word of the argument is the mode. With no argument, the mode is `auto`.
+
+- `auto`: the daemon starts the review, bump, and debug agents, and retries failed runner jobs.
+- `manual`: the daemon starts no agent and retries no job. The user starts each agent with `/work`.
+
+If the word is a different word, tell the user the two modes and stop.
 
 ## Role
 
@@ -57,4 +67,4 @@ After the first status report, start the watch. Read
 `~/.config/agents/references/watch/common.md` and follow it, with the role file `hub.md`. The
 watch finds new MRs, review requests, comments, and failed default-branch pipelines, and starts
 the review, bump, and debug agents. The watch gives only the events that need the model. The view
-of the watch shows the others.
+of the watch shows the others. In manual mode, use the watch command of the hub manual mode.

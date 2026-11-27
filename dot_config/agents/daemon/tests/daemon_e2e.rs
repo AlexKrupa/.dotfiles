@@ -78,6 +78,33 @@ fn hub_todo() -> &'static Checks {
     })
 }
 
+/// A bot MR, because the first review request of a bot MR starts an agent in auto mode.
+fn hub_manual_todo() -> &'static Checks {
+    static CHECKS: OnceLock<Checks> = OnceLock::new();
+    CHECKS.get_or_init(|| {
+        let w = Watchd::with_gitlab_engine();
+        let mut c = Checks::default();
+        w.env.write_engine_state("app", r#"{"version": 4, "todos": []}"#);
+        w.env.fixture("todos", &json!([{"id": 11, "action_name": "review_requested", "author": {"username": "anna"},
+            "target": {"iid": 5, "title": "Bump foo", "source_branch": "renovate/foo", "author": {"username": "renovate-bot"}},
+            "target_url": format!("{URL}/5")}]).to_string());
+        assert_eq!(w.watch(&["--manual"]).code, 0);
+        wait_for(10, || w.rounds_of("app") >= 1);
+        let out = w.report("{}", &["--print", "--manual"]).out;
+        c.check("e2e manual: a review request of a bot MR is a requested row",
+            "Needs you, Bump foo, Review requested",
+            out.lines().find(|line| line.contains("Bump foo")).map(|line| {
+                let cells: Vec<&str> = line.split('|').map(str::trim).collect();
+                [cells[2], cells[3], cells[5]].join(", ")
+            }).unwrap_or_default());
+        let calls = std::fs::read_to_string(w.workspaces().join("calls")).unwrap_or_default();
+        c.check("e2e manual: no agent start",
+            "",
+            calls.lines().filter(|line| line.starts_with("start_agent")).collect::<Vec<_>>().join("\n"));
+        c
+    })
+}
+
 fn review_and_hub() -> &'static Checks {
     static CHECKS: OnceLock<Checks> = OnceLock::new();
     CHECKS.get_or_init(|| {
@@ -216,6 +243,16 @@ fn author_pipeline() -> &'static Checks {
 #[test]
 fn e2e_real_engine_and_fake_glab_give_a_todo_event() {
     hub_todo().assert("e2e: real engine and fake glab give a todo event");
+}
+
+#[test]
+fn e2e_manual_review_request_of_a_bot_mr_is_a_requested_row() {
+    hub_manual_todo().assert("e2e manual: a review request of a bot MR is a requested row");
+}
+
+#[test]
+fn e2e_manual_review_request_starts_no_agent() {
+    hub_manual_todo().assert("e2e manual: no agent start");
 }
 
 #[test]

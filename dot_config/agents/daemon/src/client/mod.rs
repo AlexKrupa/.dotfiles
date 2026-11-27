@@ -9,7 +9,7 @@ use tokio::net::UnixStream;
 
 use crate::core::eventlog::RouteAction;
 use crate::core::filter::kinds;
-use crate::core::subs::Mode;
+use crate::core::subs::{HubMode, Mode};
 use crate::core::worktrees::Kind;
 use crate::daemon::store::Store;
 use crate::engine::event::EventKind;
@@ -34,6 +34,7 @@ struct WatchArgs {
     fresh: bool,
     review: bool,
     mrs: Vec<u64>,
+    manual: bool,
     /// Unchecked, because the mode comes from the target.
     events: Vec<String>,
 }
@@ -57,6 +58,7 @@ impl WatchArgs {
                 "--session" => parsed.session = Some(session_id(args.next())?),
                 "--fresh" => parsed.fresh = true,
                 "--review" => parsed.review = true,
+                "--manual" => parsed.manual = true,
                 "--mr" => parsed
                     .mrs
                     .push(mr_number(args.next()).ok_or("--mr needs an MR number")?),
@@ -86,6 +88,16 @@ fn kind_name(kind: EventKind) -> String {
         .ok()
         .and_then(|value| value.as_str().map(str::to_string))
         .unwrap_or_default()
+}
+
+fn hub_mode_of(manual: bool, mode: Mode) -> Result<HubMode, String> {
+    match (manual, mode) {
+        (false, _) => Ok(HubMode::Auto),
+        (true, Mode::Hub) => Ok(HubMode::Manual),
+        (true, Mode::Author | Mode::Review) => {
+            Err(format!("--manual applies only to the hub mode, not {}", mode.as_str()))
+        }
+    }
 }
 
 fn chosen_kinds(names: &[String], mode: Mode) -> Result<Vec<EventKind>, String> {
@@ -233,6 +245,10 @@ pub async fn watch(args: Vec<String>) -> i32 {
         Ok(target) => target,
         Err(message) => return die(&message),
     };
+    let hub_mode = match hub_mode_of(args.manual, target.mode) {
+        Ok(hub_mode) => hub_mode,
+        Err(message) => return die(&message),
+    };
     let events = match chosen_kinds(&args.events, target.mode) {
         Ok(events) => events,
         Err(message) => return die(&message),
@@ -248,6 +264,7 @@ pub async fn watch(args: Vec<String>) -> i32 {
         session,
         fresh: args.fresh,
         events,
+        hub_mode,
     });
     ask_ok(&client, &request).await
 }
@@ -697,6 +714,34 @@ mod tests {
         let chosen = chosen_kinds(&["todo".to_string()], Mode::Hub);
 
         assert_eq!(chosen, Err("--events: a hub watch has no event kinds".to_string()));
+    }
+
+    #[test]
+    fn manual_on_an_author_watch_has_its_own_error() {
+        assert_eq!(
+            hub_mode_of(true, Mode::Author),
+            Err("--manual applies only to the hub mode, not author".to_string())
+        );
+        assert_eq!(
+            hub_mode_of(true, Mode::Review),
+            Err("--manual applies only to the hub mode, not review".to_string())
+        );
+    }
+
+    #[test]
+    fn manual_parses_for_the_report_and_rows_flags() {
+        let parse = |flags: &[&str]| WatchArgs::parse(flags.iter().map(|flag| flag.to_string()).collect()).unwrap();
+
+        let manual = parse(&["--session", "s", "--manual"]);
+        let plain = parse(&["--session", "s"]);
+
+        assert!(manual.manual);
+        assert_eq!(
+            (manual.repo, manual.review, manual.mrs, manual.session),
+            (plain.repo, plain.review, plain.mrs, plain.session)
+        );
+        assert_eq!(hub_mode_of(true, Mode::Hub), Ok(HubMode::Manual));
+        assert_eq!(hub_mode_of(false, Mode::Hub), Ok(HubMode::Auto));
     }
 
     #[test]

@@ -216,7 +216,20 @@ flowchart TB
   its own. A handled event does not go to the hub inbox. If a round has only handled events, the
   daemon writes the rows of the hub report, and the view shows them. Else all events go to the
   inbox, and the client gets only the events that the router did not handle. The next hub report
-  also shows the handled rows.
+  also shows the handled rows. In the manual mode of `/hub` (`watchd watch --manual`), the router
+  starts no agent and retries no job: see the table below.
+
+  Automatic actions of the hub:
+
+  | Event | `auto` | `manual` |
+  | --- | --- | --- |
+  | Review request from a person | Review agent, at the first check after the request, while the MR is not a draft | Pending row with the cell `Review requested`, at the first check. No agent |
+  | Bump MR that requests the review of the user | Bump agent | The same row as a review request |
+  | Bump MR with no review request | Bump agent | No row |
+  | Failed default-branch job, runner failure | Retry, 2 times at most | No row, no retry |
+  | Failed default-branch job, other failure | The hub model runs a triage, then starts a debug agent | No row, and the hub model gets no event |
+  | To-dos, mentions, comments on MRs of other people, `pull-blocked`, items of own worktrees | Rows | Rows |
+
 - Wake sets: for the events that go to a live author or review agent, `src/core/filter.rs` gives the
   wake set of the role (author, review, or bump). The rows with no waking event are handled rows,
   with the same rules as the hub: they become Info rows of the view, and the agent does not see

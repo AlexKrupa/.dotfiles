@@ -7,7 +7,8 @@ failed pipelines of the default branch. The hub has its own report, so the "MR e
 
 ## Start
 
-After the first status report of `hub`, run the hub mode watch command.
+After the first status report of `hub`, run the hub mode watch command. In manual mode, run the
+watch command of the hub manual mode.
 
 ## Events
 
@@ -67,6 +68,15 @@ in its own herdr worktree workspace. After a bump agent starts, the view shows
 workspace stays, because it can contain changes. The `opened` event of an MR of a person goes away
 with no row. If the start fails, the view shows the error text, and the row stays a pending item.
 The user fixes the cause.
+
+## Manual mode
+
+In manual mode, the daemon starts no agent and retries no job.
+
+- A review request is a pending row with the cell `Review requested`, also for a bot MR. The user
+  starts the review with `/work <MR URL>`.
+- A bump MR with no review request gives no row.
+- No `default-failed` event comes, so "Auto-debug" does not apply.
 
 ## Auto-debug
 

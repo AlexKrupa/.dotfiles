@@ -379,7 +379,7 @@ pub fn conflict_tests(branch: Option<&str>, branches: &[SpiceBranch], ended: &[S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::subs::{Agent, Mode};
+    use crate::core::subs::{Agent, HubMode, Mode};
     use crate::engine::state::OwnMr;
 
     fn worktree(path: &str, mrs: &[u64], ended: &[u64]) -> WorktreeState {
@@ -579,6 +579,7 @@ mod tests {
             session: "s".to_string(),
             ended_mrs: vec![9],
             events: Vec::new(),
+            hub_mode: HubMode::Auto,
         }
     }
 

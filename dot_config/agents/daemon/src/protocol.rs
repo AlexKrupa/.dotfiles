@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::core::eventlog::RouteAction;
 use crate::core::items::{Items, RoutedEvent};
-use crate::core::subs::{Agent, Mode, Session, SessionKey};
+use crate::core::subs::{Agent, HubMode, Mode, Session, SessionKey};
 use crate::core::worktrees::Kind;
 use crate::core::worktrees::WorktreeState;
 use crate::engine::event::EventKind;
@@ -88,6 +88,8 @@ pub struct WatchRequest {
     /// Empty means all kinds of the mode.
     #[serde(default)]
     pub events: Vec<EventKind>,
+    #[serde(default)]
+    pub hub_mode: HubMode,
 }
 
 /// An event of one watch of a session, which can have more than one watch.

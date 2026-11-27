@@ -16,7 +16,7 @@ use tokio::task::{JoinHandle, JoinSet, block_in_place};
 use self::store::{Store, first_line};
 use crate::core::filter::{filter, handled_rows, role};
 use crate::core::items::RoutedEvent;
-use crate::core::subs::{Agent, Mode};
+use crate::core::subs::{Agent, HubMode, Mode};
 use crate::core::worktrees::{ReviewLink, Target, WorktreeState, conflict_tests, lookup_branch, targets};
 use crate::engine::event::{Event, EventKind};
 use crate::engine::router::execute::{ExecuteContext, execute};
@@ -363,6 +363,7 @@ impl Daemon {
         let mut routed = memory.store.assign(target, events, now_seconds());
         let recipient = memory.store.recipient(target, &routed);
         let kind = memory.store.worktree(&target.repo).and_then(|state| state.kind);
+        let hub_mode = memory.store.sub(&target.slug).map_or(HubMode::Auto, |hub| hub.hub_mode);
         drop(memory);
         let (routing, lines) = match recipient {
             Some((key, events)) if key == target.slug => {
@@ -372,6 +373,7 @@ impl Daemon {
                         Mode::Hub => false,
                         Mode::Author | Mode::Review => true,
                     },
+                    hub_mode,
                     ..router::read_facts(&reviews, &events)
                 };
                 let spawn_retry = |retry: Retry| {

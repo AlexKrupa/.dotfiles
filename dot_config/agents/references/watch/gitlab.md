@@ -6,6 +6,7 @@ of the watch daemon, on PATH.
 | Function                              | Command                                                                                                                              |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Watch command, hub mode               | `watchd watch --session <id> --interval 120`                                                                                         |
+| Watch command, hub manual mode        | `watchd watch --session <id> --interval 120 --manual`                                                                                |
 | Watch command, author mode            | `watchd watch --session <id> --interval 120` in the worktree of the MRs                                                              |
 | Watch command, review mode            | `watchd watch --session <id> --review --fresh --mr <iid> --interval 120`                                                             |
 | Watch command, chosen kinds           | `--events <kind>,<kind>` after the flags of the watch command                                                                        |

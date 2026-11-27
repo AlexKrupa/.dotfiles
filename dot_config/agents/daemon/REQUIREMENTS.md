@@ -382,6 +382,13 @@ from a design spec that the user approved.
   agent if one of its events does. A row that wakes is not handled, also if an earlier round
   handled it. A row with a waking event in the inbox stays waking.
 - W8.57 (spec) The wake set of each role is in core, next to the router.
+- W8.58 `/hub` has two modes, `auto` and `manual`. With no argument, the mode is `auto`.
+- W8.59 In manual mode, the daemon starts no review, bump, or debug agent and retries no job.
+- W8.60 (spec) In manual mode, a review request is a pending row `Review requested`, also for a
+  bump MR.
+- W8.61 (spec) In manual mode, a bump MR with no review request and a failed default-branch
+  pipeline give no row.
+- W8.62 The mode comes only from the argument of `/hub`. No per-repo setting keeps it.
 
 ## W9 Pending items
 

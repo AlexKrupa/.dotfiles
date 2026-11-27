@@ -26,6 +26,21 @@ impl Mode {
     }
 }
 
+/// `Manual`: the daemon starts no agent and retries no job for the hub.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HubMode {
+    #[default]
+    Auto,
+    Manual,
+}
+
+impl HubMode {
+    fn is_auto(&self) -> bool {
+        *self == HubMode::Auto
+    }
+}
+
 /// The session of the last watch owns the key.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Agent {
@@ -41,6 +56,8 @@ pub struct Agent {
     /// Empty means all kinds of the mode.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<EventKind>,
+    #[serde(default, skip_serializing_if = "HubMode::is_auto")]
+    pub hub_mode: HubMode,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -98,6 +115,7 @@ mod tests {
             session: "s".to_string(),
             ended_mrs: Vec::new(),
             events: Vec::new(),
+            hub_mode: HubMode::Auto,
         }
     }
 
@@ -106,6 +124,15 @@ mod tests {
             event: Event::new(EventKind::Merged, Some(iid), Some("T"), "u", "a", "merged", "b"),
             row: 1,
         }
+    }
+
+    #[test]
+    fn a_record_with_no_hub_mode_loads_as_auto() {
+        let json = r#"{"key":"k","slug":"app","repo":"/r","mode":"hub","mrs":[],"interval":120,"session":"s"}"#;
+
+        let agent: Agent = serde_json::from_str(json).unwrap();
+
+        assert_eq!(agent.hub_mode, HubMode::Auto);
     }
 
     #[test]

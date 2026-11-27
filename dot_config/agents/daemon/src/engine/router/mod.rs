@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::core::items::RoutedEvent;
+use crate::core::subs::HubMode;
 use crate::engine::event::{Event, EventKind, FailedJob};
 use crate::report::ReportInput;
 
@@ -50,6 +51,7 @@ pub struct Facts {
     pub reviewed: BTreeMap<u64, PathBuf>,
     /// The events are items of an own worktree with no agent.
     pub worktree: bool,
+    pub hub_mode: HubMode,
 }
 
 /// The report fields of the rows that the model does not get.
@@ -153,6 +155,8 @@ fn is_bot(author: &str) -> bool {
     author.contains("renovate") || author.contains("dependabot")
 }
 
+pub const REQUESTED_CELL: &str = "Review requested";
+
 const WAIT_CELL: &str = "Review waits: starts at the next check if the MR is not a draft";
 
 fn is_review_request(event: &Event) -> bool {
@@ -216,30 +220,35 @@ fn start_of(routed: &RoutedEvent, kind: StartKind) -> Decision {
 }
 
 fn actions_of(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Vec<Action> {
-    let action = match routed.event.kind {
-        EventKind::Todo => todo_action(routed, mr, facts),
-        EventKind::Opened => opened_action(routed, mr),
-        EventKind::DefaultFailed => return default_failed_actions(&routed.event),
-        EventKind::PullBlocked => pull_blocked_action(),
-        EventKind::Note => note_action(),
-        EventKind::Reaction => reaction_action(),
-        EventKind::Pipeline
-        | EventKind::Comment
-        | EventKind::OwnComment
-        | EventKind::Approved
-        | EventKind::Unapproved
-        | EventKind::Draft
-        | EventKind::Ready
-        | EventKind::Title
-        | EventKind::Description
-        | EventKind::Labels
-        | EventKind::Conflict
-        | EventKind::Mergeable
-        | EventKind::Merged
-        | EventKind::Closed
-        | EventKind::Unaddressed
-        | EventKind::Pushed
-        | EventKind::Resolved => worktree_item_action(facts),
+    let action = match (routed.event.kind, facts.hub_mode) {
+        (EventKind::Todo, HubMode::Auto) => todo_action(routed, mr, facts),
+        (EventKind::Todo, HubMode::Manual) => manual_todo_action(routed, facts),
+        (EventKind::Opened, HubMode::Auto) => opened_action(routed, mr),
+        (EventKind::DefaultFailed, HubMode::Auto) => return default_failed_actions(&routed.event),
+        (EventKind::Opened | EventKind::DefaultFailed, HubMode::Manual) => Action::Dismiss,
+        (EventKind::PullBlocked, HubMode::Auto | HubMode::Manual) => pull_blocked_action(),
+        (EventKind::Note, HubMode::Auto | HubMode::Manual) => note_action(),
+        (EventKind::Reaction, HubMode::Auto | HubMode::Manual) => reaction_action(),
+        (
+            EventKind::Pipeline
+            | EventKind::Comment
+            | EventKind::OwnComment
+            | EventKind::Approved
+            | EventKind::Unapproved
+            | EventKind::Draft
+            | EventKind::Ready
+            | EventKind::Title
+            | EventKind::Description
+            | EventKind::Labels
+            | EventKind::Conflict
+            | EventKind::Mergeable
+            | EventKind::Merged
+            | EventKind::Closed
+            | EventKind::Unaddressed
+            | EventKind::Pushed
+            | EventKind::Resolved,
+            HubMode::Auto | HubMode::Manual,
+        ) => worktree_item_action(facts),
     };
     vec![action]
 }
@@ -276,6 +285,24 @@ fn todo_action(routed: &RoutedEvent, mr: &MrRound, facts: &Facts) -> Action {
         },
         (None, false) => Action::ReportOnly {
             cell: Some(WAIT_CELL.to_string()),
+        },
+        (None, true) => Action::ReportOnly { cell: None },
+    }
+}
+
+/// The user starts each agent: a review request is a row, also for a bot MR.
+fn manual_todo_action(routed: &RoutedEvent, facts: &Facts) -> Action {
+    let event = &routed.event;
+    if !is_review_request(event) {
+        return Action::ReportOnly { cell: None };
+    }
+    let reviewed = event.iid.and_then(|iid| facts.reviewed.get(&iid));
+    match (reviewed, is_released(event)) {
+        (Some(path), _) => Action::ReportOnly {
+            cell: Some(format!("Already reviewed: {}", path.display())),
+        },
+        (None, false) => Action::ReportOnly {
+            cell: Some(REQUESTED_CELL.to_string()),
         },
         (None, true) => Action::ReportOnly { cell: None },
     }
@@ -752,5 +779,81 @@ mod tests {
     #[test]
     fn todo_asks_the_model() {
         assert_eq!(action_of(routed(EventKind::Todo, 1)), [Action::AskModel]);
+    }
+
+    fn manual() -> Facts {
+        Facts {
+            hub_mode: HubMode::Manual,
+            ..Facts::default()
+        }
+    }
+
+    fn requested_cell() -> Action {
+        Action::ReportOnly {
+            cell: Some(REQUESTED_CELL.to_string()),
+        }
+    }
+
+    #[test]
+    fn manual_review_request_of_a_person_is_a_requested_row() {
+        let events = [mr_event(EventKind::Todo, "review_requested", Some("anna"), 1)];
+
+        assert_eq!(actions(&events, &manual()), [(1, requested_cell())]);
+    }
+
+    #[test]
+    fn manual_review_request_of_a_bot_is_a_requested_row() {
+        let events = [mr_event(EventKind::Todo, "review_requested", Some("renovate-bot"), 1)];
+
+        assert_eq!(actions(&events, &manual()), [(1, requested_cell())]);
+    }
+
+    #[test]
+    fn manual_released_request_keeps_its_row() {
+        let events = [released(mr_event(EventKind::Todo, "review_requested", Some("anna"), 1))];
+
+        assert_eq!(actions(&events, &manual()), [(1, Action::ReportOnly { cell: None })]);
+    }
+
+    #[test]
+    fn manual_review_request_with_a_report_keeps_already_reviewed() {
+        let facts = Facts {
+            reviewed: BTreeMap::from([(5, PathBuf::from("/r/2026-10-01-mr-5-x.md"))]),
+            ..manual()
+        };
+        let events = [mr_event(EventKind::Todo, "review_requested", Some("anna"), 1)];
+
+        assert_eq!(
+            actions(&events, &facts),
+            [(
+                1,
+                Action::ReportOnly {
+                    cell: Some("Already reviewed: /r/2026-10-01-mr-5-x.md".to_string())
+                }
+            )]
+        );
+    }
+
+    #[test]
+    fn manual_opened_bump_mr_is_dismissed() {
+        let events = [mr_event(EventKind::Opened, "opened", Some("renovate-bot"), 1)];
+
+        assert_eq!(actions(&events, &manual()), [(1, Action::Dismiss)]);
+    }
+
+    #[test]
+    fn manual_default_failed_is_dismissed() {
+        let runner = [default_failed(vec![failed_job(11, "build", "api_failure")])];
+        let script = [default_failed(vec![failed_job(12, "test", "script_failure")])];
+
+        assert_eq!(actions(&runner, &manual()), [(3, Action::Dismiss)]);
+        assert_eq!(actions(&script, &manual()), [(3, Action::Dismiss)]);
+    }
+
+    #[test]
+    fn manual_todo_with_no_review_request_is_a_row() {
+        let events = [mr_event(EventKind::Todo, "mentioned", Some("anna"), 1)];
+
+        assert_eq!(actions(&events, &manual()), [(1, Action::ReportOnly { cell: None })]);
     }
 }

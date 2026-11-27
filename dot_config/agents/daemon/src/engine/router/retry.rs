@@ -199,7 +199,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::core::subs::{Agent, Mode};
+    use crate::core::subs::{Agent, HubMode, Mode};
     use crate::daemon::store::Store;
     use crate::engine::fake::FakeEngine;
     use crate::paths::StateDirs;
@@ -360,6 +360,7 @@ mod tests {
             session: "s".to_string(),
             ended_mrs: Vec::new(),
             events: Vec::new(),
+            hub_mode: HubMode::Auto,
         });
         setup.job("retry-11.json", &["21 pending"]);
         setup.job("job-21.json", &["21 failed script_failure"]);
