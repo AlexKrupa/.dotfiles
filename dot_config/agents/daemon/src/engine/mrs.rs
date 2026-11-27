@@ -11,7 +11,7 @@ use crate::nap::is_network_error;
 const MR_QUERY: &str = "query($path: ID!, $iid: String!) {
   currentUser { username }
   project(fullPath: $path) { mergeRequest(iid: $iid) {
-    iid title webUrl sourceBranch state draft
+    iid title webUrl sourceBranch targetBranch state draft
     mergeUser { username }
     headPipeline { id status }
     approvedBy { nodes { username } }
@@ -63,6 +63,8 @@ pub struct GqlMrBase {
     pub title: String,
     pub web_url: String,
     pub source_branch: String,
+    #[serde(default)]
+    pub target_branch: String,
     pub state: String,
     pub draft: bool,
     pub merge_user: Option<Username>,
@@ -401,6 +403,7 @@ pub struct NormMr {
     pub title: String,
     pub url: String,
     pub branch: String,
+    pub target_branch: String,
     pub state: String,
     pub merge_user: String,
     pub draft: bool,
@@ -536,6 +539,7 @@ pub fn normalize(data: &MrData, me: &str) -> NormMr {
         title: mr.base.title.clone(),
         url: mr.base.web_url.clone(),
         branch: mr.base.source_branch.clone(),
+        target_branch: mr.base.target_branch.clone(),
         state: mr.base.state.clone(),
         merge_user: mr
             .base
@@ -858,10 +862,19 @@ pub fn mrs_compare(now: &[NormMr], old: Option<&MrsState>, me: &str, author: boo
     let fallback = MrState::default();
     let mut mrs = BTreeMap::new();
     let mut events = Vec::new();
+    let stacked = |mr: &NormMr| {
+        now.iter()
+            .any(|below| below.state == "opened" && below.branch == mr.target_branch)
+    };
     for mr in now {
         let key = mr.iid.to_string();
         let old_mr = old.and_then(|old| old.mrs.get(&key));
-        let new = new_state(mr, old_mr.unwrap_or(&fallback), me);
+        let mut new = new_state(mr, old_mr.unwrap_or(&fallback), me);
+        // GitLab checks the merge into the target branch only, but the MR below must merge first.
+        if stacked(mr) && new.merge_status.as_deref() == Some("mergeable") {
+            new.merge_status = Some("stacked".to_string());
+            new.mergeable = Some(false);
+        }
         match old_mr {
             Some(old_mr) => events.extend(mr_events(mr, old_mr, &new, me)),
             None if author && mr.state == "opened" => {
@@ -1072,6 +1085,43 @@ mod tests {
         assert_eq!(state.mrs["5"].conflicts, Some(true));
         assert_eq!(state.mrs["5"].merge_status.as_deref(), Some("conflict"));
         assert_eq!(state.needs, vec![Need::Conflict]);
+    }
+
+    #[test]
+    fn stacked_mr_is_not_ready_until_the_mr_below_is_merged() {
+        let below = |state: &str| {
+            normalize(
+                &mr(|m| {
+                    m["iid"] = json!("4");
+                    m["sourceBranch"] = json!("a");
+                    m["targetBranch"] = json!("main");
+                    m["state"] = json!(state);
+                }),
+                "me",
+            )
+        };
+        let above = |target: &str| {
+            normalize(
+                &mr(|m| {
+                    m["targetBranch"] = json!(target);
+                    m["detailedMergeStatus"] = json!("MERGEABLE");
+                    m["mergeable"] = json!(true);
+                }),
+                "me",
+            )
+        };
+        let (first, _) = mrs_compare(&[below("opened"), normalize(&mr(|_| {}), "me")], None, "me", true);
+
+        let (stacked, stacked_events) = mrs_compare(&[below("opened"), above("a")], Some(&first), "me", true);
+        let (retargeted, retargeted_events) =
+            mrs_compare(&[below("merged"), above("main")], Some(&stacked), "me", true);
+
+        assert!(stacked_events.is_empty(), "{stacked_events:?}");
+        assert!(!stacked.needs.contains(&Need::Ready), "{:?}", stacked.needs);
+        assert_ne!(stacked.mrs["5"].merge_status.as_deref(), Some("mergeable"));
+        let kinds: Vec<EventKind> = retargeted_events.iter().map(|event| event.kind).collect();
+        assert!(kinds.contains(&EventKind::Mergeable), "{kinds:?}");
+        assert_eq!(retargeted.needs, vec![Need::Ready]);
     }
 
     #[test]

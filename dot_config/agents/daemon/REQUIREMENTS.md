@@ -189,6 +189,10 @@ from a design spec that the user approved.
 - W5.25 The first check of an open MR in author mode reports a failed head pipeline and a merge
   conflict, and it reports no other change. A pipeline that failed before the watch started wakes
   the author.
+- W5.26 A stacked MR is not mergeable while the MR below it is open. An MR is stacked when its
+  target branch is the source branch of another open MR of the watch. An MR into a release branch
+  stays mergeable. The `mergeable` event, the `Ready` need, and the `ready to merge` status follow
+  this rule.
 
 ## W6 Watches
 
