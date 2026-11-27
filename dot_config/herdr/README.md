@@ -30,7 +30,9 @@ the group the pane joined or left. `bin/balance.jq` has the functions that walk 
 It also finds squash and rebase merges, from patch IDs. If git-spice tracks the branch, git-spice
 deletes it, and the branches above it get its parent as their base. `prefix+alt+shift+q` also
 deletes a branch that is not merged, but not if a branch is above it.
-`bin/tests/delete-merged-branch-test.sh` tests it.
+`bin/tests/delete-merged-branch-test.sh` tests it. If git removes the worktree but cannot delete
+its folder, for example because a Gradle daemon writes `.gradle/` again, `bin/remove-worktree.sh`
+deletes the folder and closes the workspace. `bin/tests/remove-worktree-test.sh` tests it.
 
 `herdr-pluck` runs from a fork (https://github.com/AlexKrupa/herdr-pluck). If a clone exists at
 `~/src/me/herdr-pluck`, `setup.sh` links it. If not, `setup.sh` installs the fork from GitHub.
