@@ -117,8 +117,11 @@ When my message starts with one of these phrases, do the action. Then read the r
 - Before you use a flag or subcommand of an installed CLI for the first time in a session, read
   `<tool> --help` or `man <tool>`. Exception: basic shell, coreutils, and everyday git commands.
 - Mark each claim that has no source with 🔮. If I ask, say where you looked.
-- For definitions, references, call sites, and diagnostics, use the available LSP tools. Use Grep
-  only for plain-text search, or when no LSP or IDE server is connected.
+- For definitions, references, call sites, hover types, and diagnostics, use the `LSP` tool before
+  Grep, for example in Kotlin code.
+  - `LSP` is a deferred tool. Load it with `ToolSearch` (`select:LSP`) before the first use.
+  - Grep is the fallback for three cases only: plain-text search, no `LSP` tool, or an empty LSP
+    result after indexing is done.
 - To read the source of a third-party Gradle dependency, use the `ksrc` MCP tools (`search`, `cat`,
   `deps`), not files in `~/.gradle`
 - Every changed line traces to the request. Implement only what was asked, nothing more. Mention
