@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 /// No migrations: a file of a different version is dropped. The daemon keeps the version of its
 /// state folder in `FORMAT_FILE`.
