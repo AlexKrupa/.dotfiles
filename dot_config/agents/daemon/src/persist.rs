@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// No migrations: a file of a different version is dropped. The daemon keeps the version of its
 /// state folder in `FORMAT_FILE`.
@@ -9,7 +9,9 @@ pub const FORMAT_VERSION: u32 = 4;
 
 pub const FORMAT_FILE: &str = "format";
 
-#[derive(Serialize, Deserialize)]
+/// Only for the save: `serde(flatten)` cannot read a map with integer keys, because JSON keeps the
+/// keys as strings.
+#[derive(Serialize)]
 pub struct Versioned<T> {
     pub version: u32,
     #[serde(flatten)]
@@ -46,11 +48,13 @@ pub fn load<T: DeserializeOwned>(path: &Path) -> Result<Option<Load<T>>, LoadErr
     if text.trim().is_empty() {
         return Ok(None);
     }
-    let value: serde_json::Value = serde_json::from_str(&text).map_err(LoadError::Parse)?;
+    let mut value: serde_json::Value = serde_json::from_str(&text).map_err(LoadError::Parse)?;
     let loaded = match value.get("version") {
         Some(version) if *version == FORMAT_VERSION => {
-            let versioned: Versioned<T> = serde_json::from_value(value).map_err(LoadError::Parse)?;
-            Load::Current(versioned.data)
+            if let Some(object) = value.as_object_mut() {
+                object.remove("version");
+            }
+            Load::Current(serde_json::from_value(value).map_err(LoadError::Parse)?)
         }
         Some(version) => Load::Dropped(format!("format {version} not supported")),
         None => Load::Dropped("format none not supported".to_string()),
@@ -85,7 +89,10 @@ pub fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
+
     use crate::core::subs::Agent;
+    use crate::engine::state::HubState;
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("watchd-persist-{}-{name}", std::process::id()));
@@ -117,6 +124,20 @@ mod tests {
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.starts_with("{\n  \"version\": 4,\n"), "{text}");
         assert!(matches!(load::<Agent>(&path).unwrap(), Some(Load::Current(loaded)) if loaded == sub));
+    }
+
+    #[test]
+    fn saved_record_with_integer_map_keys_loads_as_current() {
+        let path = scratch("integer-keys").join("app.json");
+        let state = HubState {
+            ended: BTreeMap::from([(6198, 1_700_000_000)]),
+            ..HubState::default()
+        };
+
+        save(&path, &state).unwrap();
+
+        let loaded = load::<HubState>(&path).unwrap();
+        assert!(matches!(loaded, Some(Load::Current(loaded)) if loaded.ended == state.ended));
     }
 
     #[test]
