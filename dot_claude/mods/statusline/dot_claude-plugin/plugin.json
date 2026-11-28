@@ -1,0 +1,6 @@
+{
+  "name": "statusline",
+  "version": "0.1.0",
+  "description": "Status line and subagent rows: path, git, session, model, context, cache, usage",
+  "types": "./types/index.d.ts"
+}
