@@ -246,7 +246,7 @@
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "theme": "dark",
-  "editorMode": "normal",
+  "editorMode": "vim",
   "preferredNotifChannel": "notifications_disabled",
   "idleCompaction": false,
   "inputNeededNotifEnabled": true,
