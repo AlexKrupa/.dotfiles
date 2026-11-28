@@ -18,3 +18,7 @@ test-support = []
 
 [dev-dependencies]
 watchd = { path = ".", features = ["test-support"] }
+
+[lints.clippy]
+# `clippy.toml` permits `unwrap` in tests.
+unwrap_used = "warn"

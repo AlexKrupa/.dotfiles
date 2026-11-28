@@ -319,6 +319,15 @@ change of these scripts needs no step. After a change of `hooks.json` or of a di
 file, run `~/.config/agents/integrations/claude-code/install.sh`. It installs a copy that differs from the
 folder again. The change takes effect at the next session start or after `/reload-plugins`.
 
+## Development
+
+Run `make check` before `build.sh`. It runs three targets, and each target also runs alone:
+
+- `make fmt`: `cargo fmt --check`
+- `make lint`: `cargo clippy` with `-D warnings`. The lint `unwrap_used` stops `unwrap` outside of
+  tests.
+- `make test`: `test.sh`, which starts all test binaries at the same time
+
 ## Migration
 
 Clients that are older than an upgrade stay in use: agent sessions keep the old skill text, and a
