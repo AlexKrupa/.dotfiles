@@ -8,7 +8,7 @@
     "CLAUDE_CODE_PROMPT_CACHE_TTL": "1h",
     "DISABLE_AUTOUPDATER": "1",
     "ENABLE_LSP_TOOL": "1",
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/unwrap-paste:~/.claude/mods/md-prompt"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/unwrap-paste:~/.claude/mods/md-prompt:~/.claude/mods/statusline"
   },
   "attribution": {
     "commit": "",
@@ -158,16 +158,6 @@
     "baseRef": "fresh"
   },
   "enableArtifact": false,
-  "statusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/statusline-command.sh",
-    "refreshInterval": 5,
-    "hideVimModeIndicator": true
-  },
-  "subagentStatusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/subagent-statusline.sh"
-  },
   "enabledPlugins": {
     "android-cli@android-cli-plugin": false,
     "cc-plugin-telemetry@builtin": false,
@@ -246,7 +236,6 @@
   "prefersReducedMotion": false,
   "showThinkingSummaries": true,
   "theme": "dark",
-  "editorMode": "vim",
   "preferredNotifChannel": "notifications_disabled",
   "idleCompaction": false,
   "inputNeededNotifEnabled": true,
